@@ -13,6 +13,10 @@ import {
   CheckCircle2,
   DollarSign,
   ChevronRight,
+  Send,
+  Eye,
+  Award,
+  Globe,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -31,6 +35,7 @@ export const RecruitmentView: React.FC = () => {
     jobOpenings,
     candidates,
     workforcePlans,
+    orgUnits,
     moveCandidateStage,
     sendJobOffer,
     language,
@@ -40,10 +45,37 @@ export const RecruitmentView: React.FC = () => {
   const [activeTab, setActiveTab] = useState('pipeline');
   const [selectedCandidate, setSelectedCandidate] = useState<any | null>(null);
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
+  const [isAddJobOpen, setIsAddJobOpen] = useState(false);
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const [isScorecardOpen, setIsScorecardOpen] = useState(false);
+
+  // New Job Opening State
+  const [newJob, setNewJob] = useState({
+    titleAr: '',
+    titleEn: '',
+    departmentId: orgUnits[0]?.id || '',
+    openingsCount: 1,
+    salaryMin: 12000,
+    salaryMax: 18000,
+    descriptionAr: '',
+  });
+
+  // Apply State
+  const [applyingJob, setApplyingJob] = useState(jobOpenings[0]);
+  const [applicantName, setApplicantName] = useState('');
+  const [applicantEmail, setApplicantEmail] = useState('');
+  const [applicantPhone, setApplicantPhone] = useState('');
+
+  // Offer State
   const [offerBasic, setOfferBasic] = useState(16000);
   const [offerHousing, setOfferHousing] = useState(4000);
   const [offerTransport, setOfferTransport] = useState(1000);
   const [offerStartDate, setOfferStartDate] = useState('2026-10-01');
+
+  // Scorecard State
+  const [techRating, setTechRating] = useState(5);
+  const [commRating, setCommRating] = useState(4);
+  const [evalNotes, setEvalNotes] = useState('');
 
   const stages: { key: CandidateStage; labelAr: string; color: string }[] = [
     { key: 'applied', labelAr: 'مقدم جديد', color: 'border-blue-300' },
@@ -53,6 +85,65 @@ export const RecruitmentView: React.FC = () => {
     { key: 'job_offer', labelAr: 'العرض الوظيفي', color: 'border-emerald-300' },
     { key: 'hired', labelAr: 'تم التعيين', color: 'border-emerald-600' },
   ];
+
+  const handleCreateJob = () => {
+    if (!newJob.titleAr) {
+      alert('يرجى كتابة المسمى الوظيفي');
+      return;
+    }
+    const dept = orgUnits.find(u => u.id === newJob.departmentId);
+    jobOpenings.push({
+      id: `job-${Date.now()}`,
+      titleAr: newJob.titleAr,
+      titleEn: newJob.titleEn || newJob.titleAr,
+      departmentId: newJob.departmentId,
+      departmentName: dept?.nameAr || 'التقنية',
+      locationName: 'المقر الرئيسي (الرياض)',
+      openingsCount: newJob.openingsCount,
+      filledCount: 0,
+      salaryMin: newJob.salaryMin,
+      salaryMax: newJob.salaryMax,
+      descriptionAr: newJob.descriptionAr || 'وظيفة جديدة معتمدة في خطة التوظيف',
+      descriptionEn: 'Job Opening',
+      status: 'published',
+      publishedAt: new Date().toISOString().split('T')[0],
+    });
+    alert('تم نشر الوظيفة الشاغرة بنجاح في بوابة التوظيف!');
+    setIsAddJobOpen(false);
+    setNewJob({ titleAr: '', titleEn: '', departmentId: orgUnits[0]?.id || '', openingsCount: 1, salaryMin: 12000, salaryMax: 18000, descriptionAr: '' });
+  };
+
+  const handleApplyForJob = () => {
+    if (!applicantName || !applicantEmail) {
+      alert('يرجى استكمال الاسم والبريد الإلكتروني');
+      return;
+    }
+    candidates.unshift({
+      id: `cand-${Date.now()}`,
+      jobOpeningId: applyingJob?.id || 'job-1',
+      jobTitle: applyingJob?.titleAr || 'مهندس برمجيات',
+      fullName: applicantName,
+      email: applicantEmail,
+      phone: applicantPhone || '0550001234',
+      stage: 'applied',
+      ratingScore: 5.0,
+      appliedDate: new Date().toISOString().split('T')[0],
+      source: 'بوابة التوظيف',
+      resumeUrl: 'https://cdn.focus-hrms.com/resumes/applicant.pdf',
+    });
+    alert(`تم استلام طلب التقديم لـ (${applicantName}) ونقله فورياً لمرحلة الفرز في الـ ATS!`);
+    setIsApplyModalOpen(false);
+    setApplicantName('');
+    setApplicantEmail('');
+  };
+
+  const handleSaveScorecard = () => {
+    if (!selectedCandidate) return;
+    const avg = Number(((techRating + commRating) / 2).toFixed(1));
+    selectedCandidate.ratingScore = avg;
+    alert(`تم حفظ بطاقة تقييم المرشح بنجاح! النتيجة: ${avg} / 5.0`);
+    setIsScorecardOpen(false);
+  };
 
   const handleSendOffer = () => {
     if (!selectedCandidate) return;
@@ -76,11 +167,29 @@ export const RecruitmentView: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <UserPlus className="h-5 w-5 text-primary" />
-            {t.recruitment.candidatesPipeline} وتخطيط القوى العاملة
+            {t.recruitment.candidatesPipeline} وتخطيط القوى العاملة (M14 & M15)
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             تتبع المتقدمين (ATS Kanban Pipeline)، الوظائف الشاغرة، العروض الوظيفية ونمذجة الميزانيات
           </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setIsAddJobOpen(true)} size="sm" className="font-bold text-xs gap-1.5 bg-primary">
+            <Plus className="h-4 w-4" />
+            نشر وظيفة شاغرة
+          </Button>
+          <Button
+            onClick={() => {
+              setApplyingJob(jobOpenings[0]);
+              setIsApplyModalOpen(true);
+            }}
+            variant="outline"
+            size="sm"
+            className="font-bold text-xs gap-1.5"
+          >
+            <Globe className="h-4 w-4 text-emerald-600" />
+            بوابة التوظيف (محاكاة تقديم مرشح)
+          </Button>
         </div>
       </div>
 
@@ -88,7 +197,7 @@ export const RecruitmentView: React.FC = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-3 max-w-md">
           <TabsTrigger value="pipeline" className="text-xs font-bold">
-            لوحة المرشحين (Kanban)
+            لوحة المرشحين (Kanban) ({candidates.length})
           </TabsTrigger>
           <TabsTrigger value="jobs" className="text-xs font-bold">
             الوظائف الشاغرة ({jobOpenings.length})
@@ -115,7 +224,7 @@ export const RecruitmentView: React.FC = () => {
                     </Badge>
                   </div>
 
-                  <div className="space-y-2.5 min-h-[300px]">
+                  <div className="space-y-2.5 min-h-[350px]">
                     {stageCandidates.map(cand => (
                       <div
                         key={cand.id}
@@ -126,10 +235,16 @@ export const RecruitmentView: React.FC = () => {
                             <h4 className="font-bold text-foreground">{cand.fullName}</h4>
                             <p className="text-[10px] text-muted-foreground">{cand.jobTitle}</p>
                           </div>
-                          <div className="flex items-center gap-0.5 text-amber-500 font-bold text-[10px]">
+                          <button
+                            onClick={() => {
+                              setSelectedCandidate(cand);
+                              setIsScorecardOpen(true);
+                            }}
+                            className="flex items-center gap-0.5 text-amber-500 font-bold text-[10px] hover:underline"
+                          >
                             <Star className="h-3 w-3 fill-current" />
                             {cand.ratingScore}
-                          </div>
+                          </button>
                         </div>
 
                         <div className="text-[10px] text-muted-foreground flex items-center justify-between pt-1 border-t">
@@ -138,11 +253,24 @@ export const RecruitmentView: React.FC = () => {
                         </div>
 
                         {/* Stage Progression Buttons */}
-                        <div className="flex items-center justify-between pt-2 border-t">
+                        <div className="flex items-center justify-between pt-2 border-t gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setSelectedCandidate(cand);
+                              setIsScorecardOpen(true);
+                            }}
+                            className="h-6 text-[10px] px-1.5"
+                          >
+                            <Award className="h-3 w-3 text-primary" />
+                            تقييم
+                          </Button>
+
                           {stage.key !== 'job_offer' && stage.key !== 'hired' ? (
                             <Button
                               size="sm"
-                              variant="ghost"
+                              variant="outline"
                               onClick={() => {
                                 const currentIndex = stages.findIndex(s => s.key === stage.key);
                                 if (currentIndex < stages.length - 1) {
@@ -151,9 +279,9 @@ export const RecruitmentView: React.FC = () => {
                               }}
                               className="h-6 text-[10px] text-primary font-bold px-2"
                             >
-                              ترقية للمرحلة التالية →
+                              ترقية →
                             </Button>
-                          ) : (
+                          ) : stage.key === 'job_offer' ? (
                             <Button
                               size="sm"
                               onClick={() => {
@@ -162,8 +290,12 @@ export const RecruitmentView: React.FC = () => {
                               }}
                               className="h-6 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2"
                             >
-                              إصدار عرض عمل
+                              إصدار عرض
                             </Button>
+                          ) : (
+                            <Badge variant="outline" className="text-[9px] text-emerald-700 bg-emerald-50">
+                              تم التعيين
+                            </Badge>
                           )}
                         </div>
                       </div>
@@ -237,6 +369,202 @@ export const RecruitmentView: React.FC = () => {
           ))}
         </TabsContent>
       </Tabs>
+
+      {/* Add Job Opening Modal */}
+      <Dialog open={isAddJobOpen} onOpenChange={setIsAddJobOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Briefcase className="h-5 w-5 text-primary" />
+              نشر وظيفة شاغرة جديدة
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              تحديد المتطلبات ونطاق الراتب لنشرها في بوابة التوظيف
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-xs py-2">
+            <div className="space-y-1">
+              <label className="font-bold">المسمى الوظيفي *</label>
+              <input
+                type="text"
+                value={newJob.titleAr}
+                onChange={e => setNewJob({ ...newJob, titleAr: e.target.value })}
+                placeholder="مثال: مطور واجهات مستخدم أول (React)"
+                className="w-full h-8 rounded border px-2.5"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold">القسم / الإدارة *</label>
+              <select
+                value={newJob.departmentId}
+                onChange={e => setNewJob({ ...newJob, departmentId: e.target.value })}
+                className="w-full h-8 rounded border px-2.5"
+              >
+                {orgUnits.map(u => (
+                  <option key={u.id} value={u.id}>{u.nameAr}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="font-bold">الحد الأدنى للراتب</label>
+                <input
+                  type="number"
+                  value={newJob.salaryMin}
+                  onChange={e => setNewJob({ ...newJob, salaryMin: Number(e.target.value) })}
+                  className="w-full h-8 rounded border px-2.5"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="font-bold">الحد الأقصى للراتب</label>
+                <input
+                  type="number"
+                  value={newJob.salaryMax}
+                  onChange={e => setNewJob({ ...newJob, salaryMax: Number(e.target.value) })}
+                  className="w-full h-8 rounded border px-2.5"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold">وصف الوظيفة والمتطلبات</label>
+              <textarea
+                rows={2}
+                value={newJob.descriptionAr}
+                onChange={e => setNewJob({ ...newJob, descriptionAr: e.target.value })}
+                placeholder="اكتب وصفاً مختصراً للمهام..."
+                className="w-full rounded border p-2 text-xs"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button size="sm" onClick={handleCreateJob} className="text-xs bg-primary font-bold">
+              نشر الوظيفة في ATS
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Candidate Evaluation Scorecard Modal */}
+      {selectedCandidate && (
+        <Dialog open={isScorecardOpen} onOpenChange={setIsScorecardOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold flex items-center gap-2">
+                <Award className="h-5 w-5 text-primary" />
+                بطاقة تقييم المرشح: {selectedCandidate.fullName}
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                {selectedCandidate.jobTitle}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 text-xs py-2">
+              <div className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <label className="font-bold">التقييم الفني والخبرات (Technical Skills)</label>
+                  <span className="font-bold text-amber-500">{techRating} / 5 نجوم</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={5}
+                  value={techRating}
+                  onChange={e => setTechRating(Number(e.target.value))}
+                  className="w-full cursor-pointer accent-primary"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <label className="font-bold">مهارات التواصل واللغة (Communication)</label>
+                  <span className="font-bold text-amber-500">{commRating} / 5 نجوم</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={5}
+                  value={commRating}
+                  onChange={e => setCommRating(Number(e.target.value))}
+                  className="w-full cursor-pointer accent-primary"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold">ملاحظات المقابلة وتوصية التعيين</label>
+                <textarea
+                  rows={2}
+                  value={evalNotes}
+                  onChange={e => setEvalNotes(e.target.value)}
+                  placeholder="مرشح متميز ولديه شغف قوي بالتقنيات الحديثة..."
+                  className="w-full rounded border p-2 text-xs"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="mt-2">
+              <Button size="sm" onClick={handleSaveScorecard} className="text-xs bg-primary font-bold">
+                حفظ التقييم وترقية المرشح
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Public Application Modal Simulator */}
+      <Dialog open={isApplyModalOpen} onOpenChange={setIsApplyModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Globe className="h-5 w-5 text-emerald-600" />
+              بوابة التوظيف الإلكترونية (نموذج التقديم)
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              الوظيفة: {applyingJob?.titleAr || 'مهندس برمجيات'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-xs py-2">
+            <div className="space-y-1">
+              <label className="font-bold">الاسم الكامل للمرشح *</label>
+              <input
+                type="text"
+                value={applicantName}
+                onChange={e => setApplicantName(e.target.value)}
+                placeholder="مثال: يوسف العتيبي"
+                className="w-full h-8 rounded border px-2.5"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold">البريد الإلكتروني *</label>
+              <input
+                type="email"
+                value={applicantEmail}
+                onChange={e => setApplicantEmail(e.target.value)}
+                placeholder="yousef@example.com"
+                className="w-full h-8 rounded border px-2.5"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold">رقم الجوال</label>
+              <input
+                type="text"
+                value={applicantPhone}
+                onChange={e => setApplicantPhone(e.target.value)}
+                placeholder="05XXXXXXXX"
+                className="w-full h-8 rounded border px-2.5"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button size="sm" onClick={handleApplyForJob} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+              إرسال طلب التقديم
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Issue Job Offer Modal */}
       {selectedCandidate && (

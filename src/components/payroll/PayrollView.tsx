@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../lib/context/AppContext';
 import { calculateEOSB, type SeparationType } from '../../lib/utils/eosb-calculator';
+import { exportToCSV, generateWPSSIFFile } from '../../lib/utils/export-helpers';
 import {
   Wallet,
   DollarSign,
@@ -15,6 +16,7 @@ import {
   ArrowDownRight,
   TrendingUp,
   Receipt,
+  Printer,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -68,7 +70,37 @@ export const PayrollView: React.FC = () => {
   };
 
   const handleExportWPS = () => {
-    alert('تم توليد وتنزيل ملف حماية الأجور المعتمد (WPS SIF File) بصيغة البنك المركزي السعودي.');
+    const wpsRecords = payrollDetails.map(d => ({
+      employeeId: d.employeeNo,
+      employeeName: d.employeeName,
+      iban: d.iban,
+      basicSalary: d.basicSalary,
+      housingAllowance: d.housingAllowance,
+      otherEarnings: d.transportAllowance + d.overtimeAmount,
+      deductions: d.totalDeductions,
+      netSalary: d.netSalary,
+    }));
+
+    generateWPSSIFFile('1010789654', 'RIBL', '202608', wpsRecords);
+    alert('تم توليد وتنزيل ملف حماية الأجور (WPS SIF File) بنجاح!');
+  };
+
+  const handleExportPayrollCSV = () => {
+    const data = payrollDetails.map(d => ({
+      'الرقم الوظيفي': d.employeeNo,
+      'اسم الموظف': d.employeeName,
+      'القسم': d.departmentName,
+      'البنك': d.bankName,
+      'الآيبان': d.iban,
+      'الراتب الأساسي': d.basicSalary,
+      'بدل السكن': d.housingAllowance,
+      'بدل النقل': d.transportAllowance,
+      'أجر الإضافي': d.overtimeAmount,
+      'تأمينات GOSI (موظف)': d.gosiEmployeeDeduction,
+      'سلف وخصومات': d.loanInstallmentDeduction + d.absenceLateDeduction,
+      'صافي الراتب': d.netSalary,
+    }));
+    exportToCSV(`Payroll_Run_${selectedRun.periodYear}_${selectedRun.periodMonth}`, data);
   };
 
   const handleCreateLoan = () => {
@@ -132,7 +164,7 @@ export const PayrollView: React.FC = () => {
             {t.payroll.payrollRuns} والعمليات المالية
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            محرك احتساب الرواتب التلقائي، ملفات حماية الأجور (WPS)، السلف، ومكافأة نهاية الخدمة (EOSB)
+            محرك احتساب الرواتب التلقائي، ملفات حماية الأجور (WPS SIF)، السلف، ومكافأة نهاية الخدمة (EOSB)
           </p>
         </div>
 
@@ -211,12 +243,21 @@ export const PayrollView: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={handleExportPayrollCSV}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs font-bold gap-1"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    تصدير المسير (Excel)
+                  </Button>
                   <Button
                     onClick={handleExportWPS}
                     variant="outline"
                     size="sm"
-                    className="text-xs font-bold gap-1 text-primary"
+                    className="text-xs font-bold gap-1 text-primary border-primary/30"
                   >
                     <Download className="h-3.5 w-3.5" />
                     {t.payroll.wpsExport}
@@ -448,10 +489,14 @@ export const PayrollView: React.FC = () => {
               </div>
             </div>
 
-            <DialogFooter>
-              <Button size="sm" onClick={() => alert('تم تنزيل قسيمة الراتب PDF')} className="w-full text-xs font-bold gap-1">
+            <DialogFooter className="flex gap-2">
+              <Button size="sm" onClick={() => window.print()} variant="outline" className="flex-1 text-xs font-bold gap-1">
+                <Printer className="h-3.5 w-3.5" />
+                طباعة
+              </Button>
+              <Button size="sm" onClick={() => alert('تم تنزيل قسيمة الراتب PDF')} className="flex-1 text-xs font-bold gap-1 bg-primary">
                 <Download className="h-3.5 w-3.5" />
-                تحميل القسيمة (PDF)
+                تحميل PDF
               </Button>
             </DialogFooter>
           </DialogContent>

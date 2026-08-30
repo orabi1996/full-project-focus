@@ -16,9 +16,27 @@ import {
   FileText,
   DollarSign,
   Briefcase,
+  Layers,
+  Activity,
+  Award,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 
 export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = ({ onNavigate }) => {
   const {
@@ -30,6 +48,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     attendanceRecords,
     requests,
     payrollRuns,
+    orgUnits,
     punchInOut,
   } = useApp();
 
@@ -44,6 +63,26 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     const res = punchInOut(type);
     alert(res.message);
   };
+
+  // Realistic 7-Day Attendance Trend Data
+  const attendanceTrendData = [
+    { day: 'الأحد', present: 116, late: 4, absent: 0 },
+    { day: 'الإثنين', present: 114, late: 5, absent: 1 },
+    { day: 'الثلاثاء', present: 117, late: 2, absent: 1 },
+    { day: 'الأربعاء', present: 115, late: 3, absent: 2 },
+    { day: 'الخميس', present: 118, late: 2, absent: 0 },
+    { day: 'الجمعة', present: 0, late: 0, absent: 0 },
+    { day: 'السبت', present: 0, late: 0, absent: 0 },
+  ];
+
+  // Department Headcount & Cost Distribution
+  const departmentDistributionData = orgUnits.map(unit => ({
+    name: language === 'ar' ? unit.nameAr.replace('قطاع ', '').replace('إدارة ', '').replace('الإدارة العامة لـ', '') : unit.nameEn,
+    count: unit.employeeCount,
+    budget: Math.round(unit.employeeCount * 18500),
+  }));
+
+  const COLORS = ['#0284c7', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 
   return (
     <div className="space-y-6">
@@ -115,7 +154,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               <ArrowUpRight className="h-3.5 w-3.5" /> +8.4%
             </span>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">100% عقود سارية وموثقة</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">100% عقود سارية وموثقة (قوى)</p>
         </div>
 
         {/* Attendance Today */}
@@ -185,7 +224,69 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
         </div>
       </div>
 
-      {/* Grid: Pending Approvals & Live Operations */}
+      {/* Visual Charts: Attendance Trends & Department Distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Attendance Area Chart */}
+        <div className="rounded-xl border bg-card p-5 shadow-sm lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between border-b pb-3">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-bold text-foreground">
+                مؤشر الالتزام بالحضور والانصراف (خلال الأسبوع)
+              </h2>
+            </div>
+            <span className="text-[11px] text-emerald-600 font-bold">96.2% متوسط الالتزام</span>
+          </div>
+
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={attendanceTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="presentGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="lateGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                <Area type="monotone" dataKey="present" name="حضور في الموعد" stroke="#10b981" fillOpacity={1} fill="url(#presentGrad)" strokeWidth={2} />
+                <Area type="monotone" dataKey="late" name="متأخرين" stroke="#f59e0b" fillOpacity={1} fill="url(#lateGrad)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Headcount Distribution Pie / Bar Chart */}
+        <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b pb-3">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-bold text-foreground">توزيع الموظفين بالأقسام</h2>
+            </div>
+          </div>
+
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={departmentDistributionData} layout="vertical" margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                <XAxis type="number" tick={{ fontSize: 10 }} />
+                <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={70} />
+                <Tooltip />
+                <Bar dataKey="count" name="عدد الموظفين" fill="#0284c7" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid: Pending Approvals & Announcements */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Pending Approvals List */}
         <div className="rounded-xl border bg-card p-4 shadow-sm lg:col-span-2 space-y-4">
@@ -264,7 +365,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           </div>
         </div>
 
-        {/* Company Announcements & Quick Links */}
+        {/* Company Announcements & Quick Shortcuts */}
         <div className="rounded-xl border bg-card p-4 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b pb-3">
             <h2 className="text-sm font-bold text-foreground">{t.dashboard.companyAnnouncements}</h2>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../lib/context/AppContext';
+import { exportToCSV } from '../../lib/utils/export-helpers';
 import type { Employee, ContractType, Gender, MaritalStatus } from '../../types';
 import {
   Users,
@@ -34,6 +35,7 @@ export const EmployeesView: React.FC = () => {
   const { employees, orgUnits, subsidiaries, workLocations, addEmployee, language, t } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isAddWizardOpen, setIsAddWizardOpen] = useState(false);
 
@@ -73,10 +75,31 @@ export const EmployeesView: React.FC = () => {
       emp.lastNameAr.includes(searchTerm) ||
       emp.firstNameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
       emp.employeeNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.nationalIdOrIqama.includes(searchTerm) ||
       emp.jobTitleAr.includes(searchTerm);
     const matchesDept = selectedDept === 'all' || emp.departmentId === selectedDept;
-    return matchesSearch && matchesDept;
+    const matchesStatus = selectedStatus === 'all' || emp.status === selectedStatus;
+    return matchesSearch && matchesDept && matchesStatus;
   });
+
+  const handleExportEmployees = () => {
+    const dataToExport = filteredEmployees.map(e => ({
+      'الرقم الوظيفي': e.employeeNo,
+      'الاسم بالعربية': `${e.firstNameAr} ${e.lastNameAr}`,
+      'الاسم بالإنجليزية': `${e.firstNameEn} ${e.lastNameEn}`,
+      'الهوية / الإقامة': e.nationalIdOrIqama,
+      'الجنسية': e.nationality,
+      'البريد الإلكتروني': e.email,
+      'الجوال': e.phone,
+      'القسم': e.departmentName,
+      'المسمى الوظيفي': e.jobTitleAr,
+      'الراتب الأساسي': e.basicSalary,
+      'إجمالي الراتب': e.totalSalary,
+      'تاريخ المباشرة': e.hireDate,
+      'الحالة': e.status === 'active' ? 'نشط' : e.status === 'probation' ? 'تحت التجربة' : 'في إجازة',
+    }));
+    exportToCSV(`Employees_List_${new Date().toISOString().split('T')[0]}`, dataToExport);
+  };
 
   const handleCreateEmployee = () => {
     if (!newEmp.firstNameAr || !newEmp.lastNameAr || !newEmp.email) {
@@ -86,7 +109,7 @@ export const EmployeesView: React.FC = () => {
     addEmployee(newEmp);
     setIsAddWizardOpen(false);
     setWizardStep(1);
-    alert('تمت إضافة الموظف بنجاح');
+    alert('تمت إضافة الموظف بنجاح في سجلات المنظومة');
   };
 
   return (
@@ -104,6 +127,15 @@ export const EmployeesView: React.FC = () => {
         </div>
         <div className="flex gap-2">
           <Button
+            onClick={handleExportEmployees}
+            variant="outline"
+            size="sm"
+            className="font-bold text-xs gap-1.5"
+          >
+            <Download className="h-4 w-4" />
+            {t.export} (Excel/CSV)
+          </Button>
+          <Button
             onClick={() => setIsAddWizardOpen(true)}
             size="sm"
             className="font-bold text-xs gap-1.5 bg-primary"
@@ -120,7 +152,7 @@ export const EmployeesView: React.FC = () => {
           <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="بحث بالاسم، الرقم الوظيفي، المسمى..."
+            placeholder="بحث بالاسم، الرقم الوظيفي، الهوية، المسمى..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             className="h-9 w-full rounded-lg border bg-card pr-9 pl-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -139,6 +171,17 @@ export const EmployeesView: React.FC = () => {
                 {language === 'ar' ? unit.nameAr : unit.nameEn}
               </option>
             ))}
+          </select>
+
+          <select
+            value={selectedStatus}
+            onChange={e => setSelectedStatus(e.target.value)}
+            className="h-9 rounded-lg border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
+            <option value="all">كافة الحالات</option>
+            <option value="active">نشط</option>
+            <option value="probation">تحت التجربة</option>
+            <option value="on_leave">في إجازة</option>
           </select>
         </div>
       </div>

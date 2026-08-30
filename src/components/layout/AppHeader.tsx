@@ -1,21 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../lib/context/AppContext';
-import type { UserRole } from '../../types';
+import type { Role } from '../../types';
 import {
   Bell,
+  Search,
   Globe,
   Sun,
   Moon,
-  Search,
-  UserCheck,
-  Shield,
-  Briefcase,
-  CheckCircle2,
-  Clock,
-  LogOut,
   ChevronDown,
+  Shield,
+  Check,
+  Clock,
+  Sparkles,
+  Command,
 } from 'lucide-react';
 import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +24,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
-import { Badge } from '../ui/badge';
 import {
   Sheet,
   SheetContent,
@@ -34,93 +33,102 @@ import {
   SheetTrigger,
 } from '../ui/sheet';
 
-export const AppHeader: React.FC<{ onMobileMenuToggle?: () => void }> = () => {
+interface AppHeaderProps {
+  onOpenCommandPalette?: () => void;
+}
+
+export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenCommandPalette }) => {
   const {
-    language,
-    direction,
-    toggleLanguage,
-    t,
-    currentRole,
-    setCurrentRole,
     currentUser,
+    currentRole,
+    setRole,
+    language,
+    setLanguage,
     notifications,
-    markNotificationRead,
+    markNotificationAsRead,
+    t,
   } = useApp();
 
-  const [isDark, setIsDark] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [liveTime, setLiveTime] = useState(new Date());
 
-  const toggleDarkMode = () => {
-    setIsDark(!isDark);
-    if (!isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
+  // Live Clock (AST / Riyadh Time)
+  useEffect(() => {
+    const timer = setInterval(() => setLiveTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const roleLabels: Record<UserRole, { ar: string; en: string; icon: any }> = {
-    super_admin: { ar: 'مشرف النظام (Super Admin)', en: 'Super Admin', icon: Shield },
-    hr_manager: { ar: 'مدير الموارد البشرية (HR Manager)', en: 'HR Manager', icon: Briefcase },
-    payroll_officer: { ar: 'مشرف الرواتب (Payroll Officer)', en: 'Payroll Officer', icon: UserCheck },
-    attendance_officer: { ar: 'مسؤول الحضور (Attendance Officer)', en: 'Attendance Officer', icon: Clock },
-    line_manager: { ar: 'مدير مباشر (Line Manager)', en: 'Line Manager', icon: Briefcase },
-    recruiter: { ar: 'مسؤول التوظيف (Recruiter)', en: 'Recruiter', icon: UserCheck },
-    finance_officer: { ar: 'مسؤول المالية (Finance Officer)', en: 'Finance Officer', icon: UserCheck },
-    performance_lead: { ar: 'مسؤول الأداء (Performance Lead)', en: 'Performance Lead', icon: UserCheck },
-    employee: { ar: 'الخدمة الذاتية (Employee ESS)', en: 'Employee (ESS)', icon: UserCheck },
-    auditor: { ar: 'مدقق (Auditor Read-only)', en: 'Auditor', icon: Shield },
+  const roleLabels: Record<Role, { ar: string; en: string }> = {
+    super_admin: { ar: 'مدير عام النظام (Super Admin)', en: 'Super Admin' },
+    hr_manager: { ar: 'مدير الموارد البشرية (HR Manager)', en: 'HR Manager' },
+    payroll_specialist: { ar: 'أخصائي الرواتب (Payroll)', en: 'Payroll Specialist' },
+    line_manager: { ar: 'مدير مباشر (Line Manager)', en: 'Line Manager' },
+    employee: { ar: 'موظف (Employee ESS)', en: 'Employee (ESS)' },
+    recruiter: { ar: 'مسؤول توظيف (Recruiter)', en: 'Recruiter' },
+    finance_auditor: { ar: 'مدقق مالي (Finance Auditor)', en: 'Finance Auditor' },
+  };
+
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+    document.documentElement.classList.toggle('dark');
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b bg-card/90 px-4 backdrop-blur-md transition-colors md:px-6">
-      {/* Search Bar */}
-      <div className="flex flex-1 items-center gap-3">
-        <div className="relative w-full max-w-md">
-          <Search
-            className={`absolute top-2.5 h-4 w-4 text-muted-foreground ${
-              direction === 'rtl' ? 'right-3' : 'left-3'
-            }`}
-          />
-          <input
-            type="text"
-            placeholder={t.searchPlaceholder}
-            className={`h-9 w-full rounded-full border bg-muted/40 text-sm transition-colors focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 ${
-              direction === 'rtl' ? 'pr-9 pl-4' : 'pl-9 pr-4'
-            }`}
-          />
-        </div>
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b bg-card/80 px-4 md:px-6 backdrop-blur-md">
+      {/* Search & Fast Command Bar */}
+      <div className="flex items-center gap-3 w-72 md:w-96">
+        <button
+          onClick={onOpenCommandPalette}
+          className="flex h-9 w-full items-center justify-between rounded-lg border bg-muted/40 px-3 text-xs text-muted-foreground hover:bg-muted/70 hover:border-primary/40 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Search className="h-3.5 w-3.5" />
+            <span>بحث سريع في المنظومة...</span>
+          </div>
+          <kbd className="hidden sm:inline-block rounded bg-background px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground border">
+            Ctrl + K
+          </kbd>
+        </button>
       </div>
 
-      {/* Action Controls & Role Switcher */}
+      {/* Right Controls & Live Time */}
       <div className="flex items-center gap-2 md:gap-3">
-        {/* Role Switcher */}
+        {/* Live Saudi Clock */}
+        <div className="hidden lg:flex items-center gap-1.5 rounded-lg border bg-muted/20 px-3 py-1.5 text-xs font-mono text-muted-foreground">
+          <Clock className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
+          <span>
+            {liveTime.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} (الرياض)
+          </span>
+        </div>
+
+        {/* Dynamic Role Switcher (Super Admin, HR, Manager, ESS) */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="hidden gap-2 sm:flex">
-              <Shield className="h-4 w-4 text-primary" />
-              <span className="text-xs font-semibold">
-                {language === 'ar' ? roleLabels[currentRole]?.ar : roleLabels[currentRole]?.en}
-              </span>
-              <ChevronDown className="h-3 w-3 opacity-60" />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5 border-primary/30 bg-primary/5 text-xs font-bold text-primary hover:bg-primary/10"
+            >
+              <Shield className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{roleLabels[currentRole][language]}</span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align={direction === 'rtl' ? 'start' : 'end'} className="w-64">
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-              {t.switchRole}
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              تبديل الدور لمحاكاة الصلاحيات:
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {(Object.keys(roleLabels) as UserRole[]).map(roleKey => (
+            {(Object.keys(roleLabels) as Role[]).map(r => (
               <DropdownMenuItem
-                key={roleKey}
-                onClick={() => setCurrentRole(roleKey)}
-                className={`flex items-center justify-between text-xs cursor-pointer ${
-                  currentRole === roleKey ? 'bg-primary/10 font-bold text-primary' : ''
-                }`}
+                key={r}
+                onClick={() => setRole(r)}
+                className="flex items-center justify-between text-xs font-medium cursor-pointer"
               >
-                <span>{language === 'ar' ? roleLabels[roleKey].ar : roleLabels[roleKey].en}</span>
-                {currentRole === roleKey && <CheckCircle2 className="h-3.5 w-3.5 text-primary" />}
+                <span>{roleLabels[r][language]}</span>
+                {currentRole === r && <Check className="h-3.5 w-3.5 text-primary" />}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -130,77 +138,68 @@ export const AppHeader: React.FC<{ onMobileMenuToggle?: () => void }> = () => {
         <Button
           variant="ghost"
           size="icon"
-          onClick={toggleLanguage}
+          onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
+          className="h-9 w-9 text-xs font-bold"
           title={language === 'ar' ? 'Switch to English' : 'التحويل للعربية'}
-          className="rounded-full"
         >
-          <Globe className="h-4 w-4 text-foreground" />
-          <span className="sr-only">Language</span>
+          <Globe className="h-4 w-4" />
         </Button>
 
-        {/* Dark Mode Toggle */}
+        {/* Theme Toggle */}
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleDarkMode}
-          title={isDark ? t.lightMode : t.darkMode}
-          className="rounded-full"
+          className="h-9 w-9 text-muted-foreground"
         >
-          {isDark ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-slate-700" />}
-          <span className="sr-only">Theme</span>
+          {isDarkMode ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4" />}
         </Button>
 
-        {/* Notifications Sheet Drawer */}
+        {/* Notifications Sheet */}
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative rounded-full">
-              <Bell className="h-4 w-4 text-foreground" />
+            <Button variant="ghost" size="icon" className="relative h-9 w-9">
+              <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
                   {unreadCount}
                 </span>
               )}
             </Button>
           </SheetTrigger>
-          <SheetContent side={direction === 'rtl' ? 'left' : 'right'} className="w-80 sm:w-96 p-4">
-            <SheetHeader className="pb-3 border-b">
-              <div className="flex items-center justify-between">
-                <SheetTitle className="text-base font-bold">{t.notifications}</SheetTitle>
+          <SheetContent side={language === 'ar' ? 'left' : 'right'} className="w-80 sm:w-96">
+            <SheetHeader>
+              <SheetTitle className="text-base font-bold flex items-center justify-between">
+                <span>{t.nav.notifications}</span>
                 {unreadCount > 0 && (
                   <Badge variant="secondary" className="text-xs">
                     {unreadCount} جديد
                   </Badge>
                 )}
-              </div>
+              </SheetTitle>
               <SheetDescription className="text-xs">
-                تحديثات فورية حول اعتماداتك ومسيرات الرواتب والحضور
+                الإشعارات والتنبيهات المباشرة لطلبات الاعتماد وحركات الموظفين
               </SheetDescription>
             </SheetHeader>
-            <div className="mt-4 flex flex-col gap-2.5 overflow-y-auto max-h-[calc(100vh-140px)]">
+
+            <div className="mt-4 space-y-3 max-h-[calc(100vh-140px)] overflow-y-auto">
               {notifications.length === 0 ? (
-                <div className="py-12 text-center text-xs text-muted-foreground">{t.noData}</div>
+                <p className="text-center text-xs text-muted-foreground py-8">لا توجد إشعارات</p>
               ) : (
-                notifications.map(notif => (
+                notifications.map(n => (
                   <div
-                    key={notif.id}
-                    onClick={() => markNotificationRead(notif.id)}
-                    className={`rounded-lg border p-3 text-xs transition-colors cursor-pointer ${
-                      notif.isRead ? 'bg-background opacity-75' : 'bg-primary/5 border-primary/20 font-medium'
+                    key={n.id}
+                    onClick={() => markNotificationAsRead(n.id)}
+                    className={`rounded-xl border p-3 text-xs transition-colors cursor-pointer ${
+                      n.isRead ? 'bg-card text-muted-foreground' : 'bg-primary/5 border-primary/20 text-foreground'
                     }`}
                   >
-                    <div className="flex items-center justify-between pb-1">
-                      <span className="font-semibold text-foreground">
-                        {language === 'ar' ? notif.titleAr : notif.titleEn}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(notif.createdAt).toLocaleTimeString(language === 'ar' ? 'ar-SA' : 'en-US', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
+                    <div className="flex items-center justify-between font-bold">
+                      <span>{language === 'ar' ? n.titleAr : n.titleEn}</span>
+                      <span className="text-[10px] text-muted-foreground">منذ قليل</span>
                     </div>
-                    <p className="text-muted-foreground mt-0.5">
-                      {language === 'ar' ? notif.messageAr : notif.messageEn}
+                    <p className="mt-1 text-[11px] leading-relaxed">
+                      {language === 'ar' ? n.messageAr : n.messageEn}
                     </p>
                   </div>
                 ))
@@ -209,52 +208,22 @@ export const AppHeader: React.FC<{ onMobileMenuToggle?: () => void }> = () => {
           </SheetContent>
         </Sheet>
 
-        {/* User Avatar Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 rounded-full p-1 hover:bg-muted">
-              <img
-                src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-                alt={currentUser.firstNameEn}
-                className="h-8 w-8 rounded-full border object-cover shadow-sm"
-              />
-              <div className="hidden text-start md:block">
-                <p className="text-xs font-bold leading-none text-foreground">
-                  {language === 'ar'
-                    ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
-                    : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{currentUser.jobTitleAr}</p>
-              </div>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align={direction === 'rtl' ? 'start' : 'end'} className="w-56">
-            <DropdownMenuLabel>
-              <div className="flex flex-col">
-                <span className="text-xs font-bold text-foreground">
-                  {language === 'ar'
-                    ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
-                    : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`}
-                </span>
-                <span className="text-[10px] text-muted-foreground">{currentUser.email}</span>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-xs cursor-pointer">
-              <UserCheck className="mr-2 h-3.5 w-3.5" />
-              {t.nav.ess}
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-xs cursor-pointer">
-              <Shield className="mr-2 h-3.5 w-3.5" />
-              {t.nav.rbac}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-xs text-destructive cursor-pointer">
-              <LogOut className="mr-2 h-3.5 w-3.5" />
-              تسجيل الخروج
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* User Profile Avatar */}
+        <div className="flex items-center gap-2 border-s ps-3">
+          <img
+            src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+            alt={currentUser.firstNameAr}
+            className="h-8 w-8 rounded-full border object-cover shadow-xs"
+          />
+          <div className="hidden xl:block text-start">
+            <span className="text-xs font-bold text-foreground block leading-none">
+              {language === 'ar'
+                ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
+                : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`}
+            </span>
+            <span className="text-[10px] text-muted-foreground">{currentUser.jobTitleAr}</span>
+          </div>
+        </div>
       </div>
     </header>
   );

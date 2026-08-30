@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../lib/context/AppContext';
 import { AppSidebar } from './AppSidebar';
 import { AppHeader } from './AppHeader';
+import { CommandPalette } from './CommandPalette';
 import { DashboardView } from '../dashboard/DashboardView';
 import { OrganizationView } from '../organization/OrganizationView';
 import { EmployeesView } from '../employees/EmployeesView';
@@ -24,6 +25,7 @@ export const AppLayout: React.FC = () => {
   const { language, direction } = useApp();
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   const renderActiveView = () => {
     switch (currentTab) {
@@ -75,6 +77,13 @@ export const AppLayout: React.FC = () => {
         direction === 'rtl' ? 'font-sans' : 'font-sans'
       }`}
     >
+      {/* Global Command Palette */}
+      <CommandPalette
+        open={isCommandPaletteOpen}
+        onOpenChange={setIsCommandPaletteOpen}
+        onNavigate={setCurrentTab}
+      />
+
       {/* Sidebar */}
       <AppSidebar
         currentTab={currentTab}
@@ -86,7 +95,7 @@ export const AppLayout: React.FC = () => {
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top Header */}
-        <AppHeader />
+        <AppHeader onOpenCommandPalette={() => setIsCommandPaletteOpen(true)} />
 
         {/* Dynamic Page Body */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-muted/15">

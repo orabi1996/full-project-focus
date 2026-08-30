@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../lib/context/AppContext';
+import { exportToCSV } from '../../lib/utils/export-helpers';
 import {
   Clock,
   MapPin,
@@ -58,6 +59,22 @@ export const AttendanceView: React.FC = () => {
     }
   };
 
+  const handleExportAttendance = () => {
+    const data = attendanceRecords.map(r => ({
+      'الرقم الوظيفي': r.employeeNo,
+      'اسم الموظف': r.employeeName,
+      'التاريخ': r.workDate,
+      'الوردية': r.scheduledShift,
+      'وقت الدخول': r.actualIn || '—',
+      'وقت الخروج': r.actualOut || '—',
+      'ساعات العمل': r.workedHours,
+      'التأخير (دقائق)': r.lateMinutes,
+      'السياج الجغرافي': r.geofenceValid ? 'داخل المقر' : 'خارج النطاق',
+      'الحالة': r.status === 'present' ? 'حاضر' : r.status === 'late' ? 'متأخر' : 'غائب',
+    }));
+    exportToCSV(`Attendance_Log_${new Date().toISOString().split('T')[0]}`, data);
+  };
+
   const handleSubmitCorrection = () => {
     if (!correctionReason) {
       alert('يرجى كتابة سبب تصحيح البصمة');
@@ -81,7 +98,7 @@ export const AttendanceView: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Clock className="h-5 w-5 text-primary" />
-            {t.attendance.liveDashboard} (اليوم)
+            {t.attendance.liveDashboard} والبصمة الذكية (M07)
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             مراقبة الحضور اللحظية، السياج الجغرافي GPS، معالجة التأخير وكشوف الحضور الشهرية
@@ -94,7 +111,7 @@ export const AttendanceView: React.FC = () => {
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-sm"
           >
             <Clock className="h-4 w-4" />
-            {t.attendance.checkIn}
+            {t.attendance.checkIn} (GPS)
           </Button>
           <Button
             onClick={() => handlePunch('out')}
@@ -151,7 +168,7 @@ export const AttendanceView: React.FC = () => {
           <h2 className="text-sm font-bold text-foreground">
             {t.attendance.dailySummary} • {new Date().toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}
           </h2>
-          <Button variant="outline" size="sm" className="h-8 text-xs font-medium gap-1">
+          <Button onClick={handleExportAttendance} variant="outline" size="sm" className="h-8 text-xs font-bold gap-1">
             <Download className="h-3.5 w-3.5" />
             {t.export} كشف الحضور (Excel)
           </Button>

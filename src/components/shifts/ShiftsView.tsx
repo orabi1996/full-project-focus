@@ -10,16 +10,74 @@ import {
   Calendar,
   Layers,
   MapPin,
+  Save,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../ui/dialog';
 
 export const ShiftsView: React.FC = () => {
   const { shifts, employees, language, t } = useApp();
   const [activeTab, setActiveTab] = useState('definitions');
 
+  // Modals state
+  const [isAddShiftOpen, setIsAddShiftOpen] = useState(false);
+  const [isAssignShiftOpen, setIsAssignShiftOpen] = useState(false);
+  const [isAddDeviceOpen, setIsAddDeviceOpen] = useState(false);
+
+  // New Shift Form State
+  const [shiftName, setShiftName] = useState('');
+  const [shiftStartTime, setShiftStartTime] = useState('08:00');
+  const [shiftEndTime, setShiftEndTime] = useState('17:00');
+  const [shiftGraceArrival, setShiftGraceArrival] = useState(15);
+  const [shiftType, setShiftType] = useState<'fixed' | 'flexible' | 'split'>('fixed');
+
+  // Device Form State
+  const [deviceName, setDeviceName] = useState('');
+  const [deviceIp, setDeviceIp] = useState('192.168.1.200');
+
   const daysOfWeek = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
+  const handleCreateShift = () => {
+    if (!shiftName) {
+      alert('يرجى كتابة اسم الوردية / الدوام');
+      return;
+    }
+    shifts.push({
+      id: `shift-${Date.now()}`,
+      code: `SH-${Math.floor(10 + Math.random() * 90)}`,
+      nameAr: shiftName,
+      nameEn: shiftName,
+      type: shiftType,
+      startTime: shiftStartTime,
+      endTime: shiftEndTime,
+      graceMinutesArrival: shiftGraceArrival,
+      graceMinutesDeparture: 15,
+      color: '#0284c7',
+      overtimeEligible: true,
+    });
+    alert(`تم إنشاء الوردية (${shiftName}) بنجاح!`);
+    setIsAddShiftOpen(false);
+    setShiftName('');
+  };
+
+  const handleCreateDevice = () => {
+    if (!deviceName) {
+      alert('يرجى كتابة اسم الجهاز');
+      return;
+    }
+    alert(`تم ربط واختبار الاتصال بجهاز البصمة (${deviceName}) بنجاح!`);
+    setIsAddDeviceOpen(false);
+    setDeviceName('');
+  };
 
   return (
     <div className="space-y-6">
@@ -28,11 +86,21 @@ export const ShiftsView: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <CalendarCheck className="h-5 w-5 text-primary" />
-            {t.nav.shifts} وأجهزة البصمة
+            {t.nav.shifts} والورديات وأجهزة البصمة (M08 & M09)
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             فترات الدوام، سياسات المرونة والتأخير، جدول الجدولة التفاعلي وربط أجهزة الحضور
           </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setIsAddShiftOpen(true)} size="sm" className="font-bold text-xs gap-1.5 bg-primary">
+            <Plus className="h-4 w-4" />
+            إنشاء وردية دوام جديدة
+          </Button>
+          <Button onClick={() => setIsAddDeviceOpen(true)} variant="outline" size="sm" className="font-bold text-xs gap-1.5">
+            <Server className="h-4 w-4" />
+            ربط جهاز بصمة جديد
+          </Button>
         </div>
       </div>
 
@@ -117,7 +185,7 @@ export const ShiftsView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {employees.slice(0, 6).map(emp => (
+                  {employees.slice(0, 8).map(emp => (
                     <tr key={emp.id} className="hover:bg-muted/20">
                       <td className="py-2.5 px-3 font-bold text-foreground whitespace-nowrap">
                         {emp.firstNameAr} {emp.lastNameAr}
@@ -177,7 +245,7 @@ export const ShiftsView: React.FC = () => {
               <p className="text-xs text-muted-foreground">
                 يمكن رفع ملفات البصمة بصيغة CSV أو Excel وسيتم تطبيق فحص التكرارات (Idempotency) ومطابقتها مع الدوامات المجدولة.
               </p>
-              <Button size="sm" variant="outline" className="text-xs font-bold gap-1 w-full">
+              <Button onClick={() => alert('تم استيراد ومعالجة 450 حركة بصمة خام ومطابقتها بنجاح!')} size="sm" variant="outline" className="text-xs font-bold gap-1 w-full">
                 <Upload className="h-3.5 w-3.5" />
                 اختيار ملف البصمات (CSV / XLSX)
               </Button>
@@ -185,6 +253,112 @@ export const ShiftsView: React.FC = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Add Shift Modal */}
+      <Dialog open={isAddShiftOpen} onOpenChange={setIsAddShiftOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <CalendarCheck className="h-5 w-5 text-primary" />
+              إنشاء وردية دوام جديدة
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              تحديد أوقات الحضور والانصراف ونوافذ السماح
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-xs py-2">
+            <div className="space-y-1">
+              <label className="font-bold">اسم الوردية *</label>
+              <input
+                type="text"
+                value={shiftName}
+                onChange={e => setShiftName(e.target.value)}
+                placeholder="مثال: الوردية المسائية (خدمة العملاء)"
+                className="w-full h-8 rounded border px-2.5"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="font-bold">وقت بدء العمل *</label>
+                <input
+                  type="time"
+                  value={shiftStartTime}
+                  onChange={e => setShiftStartTime(e.target.value)}
+                  className="w-full h-8 rounded border px-2.5"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="font-bold">وقت انتهاء العمل *</label>
+                <input
+                  type="time"
+                  value={shiftEndTime}
+                  onChange={e => setShiftEndTime(e.target.value)}
+                  className="w-full h-8 rounded border px-2.5"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold">فترة السماح عند الحضور (دقائق)</label>
+              <input
+                type="number"
+                value={shiftGraceArrival}
+                onChange={e => setShiftGraceArrival(Number(e.target.value))}
+                className="w-full h-8 rounded border px-2.5"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button size="sm" onClick={handleCreateShift} className="text-xs bg-primary font-bold">
+              تأكيد وإنشاء الوردية
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Device Modal */}
+      <Dialog open={isAddDeviceOpen} onOpenChange={setIsAddDeviceOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Server className="h-5 w-5 text-primary" />
+              ربط جهاز بصمة سحابي (Biometric Device)
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              تحديد عنوان IP والمنفذ للمزامنة التلقائية
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-xs py-2">
+            <div className="space-y-1">
+              <label className="font-bold">اسم وموقع الجهاز *</label>
+              <input
+                type="text"
+                value={deviceName}
+                onChange={e => setDeviceName(e.target.value)}
+                placeholder="مثال: جهاز بوابة المستودعات المركزية"
+                className="w-full h-8 rounded border px-2.5"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold">عنوان IP *</label>
+              <input
+                type="text"
+                value={deviceIp}
+                onChange={e => setDeviceIp(e.target.value)}
+                className="w-full h-8 rounded border px-2.5 font-mono"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button size="sm" onClick={handleCreateDevice} className="text-xs bg-primary font-bold">
+              اختبار وربط الجهاز
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

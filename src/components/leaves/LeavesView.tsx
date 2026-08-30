@@ -9,6 +9,8 @@ import {
   Calendar,
   Users,
   Info,
+  Sliders,
+  Settings,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -23,12 +25,28 @@ import {
 
 export const LeavesView: React.FC = () => {
   const { leaveBalances, leaveTypes, employees, applyLeave, language, t } = useApp();
+  
+  // Modals state
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const [isAddTypeModalOpen, setIsAddTypeModalOpen] = useState(false);
+  const [isAdjustBalanceOpen, setIsAdjustBalanceOpen] = useState(false);
+
+  // Apply Form State
   const [selectedTypeId, setSelectedTypeId] = useState(leaveTypes[0]?.id || '');
   const [startDate, setStartDate] = useState('2026-09-01');
   const [endDate, setEndDate] = useState('2026-09-05');
   const [totalDays, setTotalDays] = useState(5);
   const [reason, setReason] = useState('');
+
+  // Add Type State
+  const [newTypeName, setNewTypeName] = useState('');
+  const [newTypeDays, setNewTypeDays] = useState(5);
+  const [newTypePaid, setNewTypePaid] = useState(true);
+
+  // Adjust Balance State
+  const [adjustEmpId, setAdjustEmpId] = useState(employees[0]?.id || '');
+  const [adjustDays, setAdjustDays] = useState(2);
+  const [adjustReason, setAdjustReason] = useState('');
 
   const selectedBalance = leaveBalances.find(b => b.leaveTypeId === selectedTypeId);
 
@@ -53,6 +71,40 @@ export const LeavesView: React.FC = () => {
     }
   };
 
+  const handleCreateLeaveType = () => {
+    if (!newTypeName) {
+      alert('يرجى كتابة اسم نوع الإجازة');
+      return;
+    }
+    leaveTypes.push({
+      id: `lt-${Date.now()}`,
+      code: `LT-${Math.floor(10 + Math.random() * 90)}`,
+      nameAr: newTypeName,
+      nameEn: newTypeName,
+      color: '#8b5cf6',
+      isPaid: newTypePaid,
+      deductWorkingDaysOnly: true,
+      maxDaysPerYear: newTypeDays,
+      allowHalfDay: true,
+      accrualMethod: 'yearly_frontloaded',
+      status: 'active',
+    });
+    alert(`تمت إضافة نوع الإجازة (${newTypeName}) بنجاح!`);
+    setIsAddTypeModalOpen(false);
+    setNewTypeName('');
+  };
+
+  const handleAdjustBalance = () => {
+    if (!adjustReason) {
+      alert('يرجى كتابة سبب تعديل الرصيد');
+      return;
+    }
+    const emp = employees.find(e => e.id === adjustEmpId);
+    alert(`تم تعديل الرصيد لـ (${emp?.firstNameAr} ${emp?.lastNameAr}) بمقدار ${adjustDays} يوم وتوثيقه في سجل التدقيق.`);
+    setIsAdjustBalanceOpen(false);
+    setAdjustReason('');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -60,20 +112,24 @@ export const LeavesView: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <CalendarDays className="h-5 w-5 text-primary" />
-            {t.leaves.balance} وإدارة العطلات
+            {t.leaves.balance} وإدارة العطلات (M06)
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             متابعة أرصدة الإجازات السنوية والمرضية، التقديم، وحجز الرصيد وتقويم إجازات الفريق
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={() => setIsApplyModalOpen(true)}
-            size="sm"
-            className="font-bold text-xs gap-1.5 bg-primary"
-          >
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setIsApplyModalOpen(true)} size="sm" className="font-bold text-xs gap-1.5 bg-primary">
             <Plus className="h-4 w-4" />
             {t.leaves.applyLeave}
+          </Button>
+          <Button onClick={() => setIsAddTypeModalOpen(true)} variant="outline" size="sm" className="font-bold text-xs gap-1.5">
+            <Settings className="h-4 w-4" />
+            إضافة نوع إجازة جديد
+          </Button>
+          <Button onClick={() => setIsAdjustBalanceOpen(true)} variant="secondary" size="sm" className="font-bold text-xs gap-1.5">
+            <Sliders className="h-4 w-4" />
+            تعديل رصيد يدوي
           </Button>
         </div>
       </div>
@@ -266,6 +322,114 @@ export const LeavesView: React.FC = () => {
           <DialogFooter className="mt-2">
             <Button size="sm" onClick={handleApply} className="text-xs bg-primary font-bold">
               تأكيد وإرسال الطلب
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Leave Type Modal */}
+      <Dialog open={isAddTypeModalOpen} onOpenChange={setIsAddTypeModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Settings className="h-5 w-5 text-primary" />
+              إضافة نوع إجازة وسياسة جديدة
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              تحديد الاستحقاق السنوي وطريقة الاحتساب
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-xs py-2">
+            <div className="space-y-1">
+              <label className="font-bold">اسم نوع الإجازة *</label>
+              <input
+                type="text"
+                value={newTypeName}
+                onChange={e => setNewTypeName(e.target.value)}
+                placeholder="مثال: إجازة أداء الامتحانات الدراسية"
+                className="w-full h-8 rounded border px-2.5"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold">الحد الأقصى للأيام سنوياً *</label>
+              <input
+                type="number"
+                value={newTypeDays}
+                onChange={e => setNewTypeDays(Number(e.target.value))}
+                className="w-full h-8 rounded border px-2.5"
+              />
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="paidCheck"
+                checked={newTypePaid}
+                onChange={e => setNewTypePaid(e.target.checked)}
+                className="rounded text-primary h-4 w-4"
+              />
+              <label htmlFor="paidCheck" className="text-xs font-semibold">إجازة مدفوعة الأجر بالكامل (Paid Leave)</label>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button size="sm" onClick={handleCreateLeaveType} className="text-xs bg-primary font-bold">
+              حفظ نوع الإجازة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Adjust Balance Modal */}
+      <Dialog open={isAdjustBalanceOpen} onOpenChange={setIsAdjustBalanceOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Sliders className="h-5 w-5 text-primary" />
+              تعديل رصيد إجازة استثنائي (Balance Adjustment)
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              إضافة أو خصم أيام رصيد مع توثيق الأسباب في سجل التدقيق
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-xs py-2">
+            <div className="space-y-1">
+              <label className="font-bold">الموظف المعني *</label>
+              <select
+                value={adjustEmpId}
+                onChange={e => setAdjustEmpId(e.target.value)}
+                className="w-full h-8 rounded border px-2.5"
+              >
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.firstNameAr} {emp.lastNameAr}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold">عدد الأيام للتعديل (+ إضافة / - خصم) *</label>
+              <input
+                type="number"
+                value={adjustDays}
+                onChange={e => setAdjustDays(Number(e.target.value))}
+                className="w-full h-8 rounded border px-2.5"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold">سبب التعديل الاستثنائي *</label>
+              <textarea
+                rows={2}
+                value={adjustReason}
+                onChange={e => setAdjustReason(e.target.value)}
+                placeholder="مثال: رصيد تعويضي عن ساعات عمل في عطلة رسمية..."
+                className="w-full rounded border p-2 text-xs"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button size="sm" onClick={handleAdjustBalance} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+              تأكيد وتوثيق تعديل الرصيد
             </Button>
           </DialogFooter>
         </DialogContent>

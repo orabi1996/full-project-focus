@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../lib/context/AppContext';
+import { exportToCSV } from '../../lib/utils/export-helpers';
 import {
   Receipt,
   Plus,
@@ -10,6 +11,8 @@ import {
   CreditCard,
   Building,
   DollarSign,
+  Download,
+  Settings,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -25,10 +28,18 @@ import {
 export const ExpensesView: React.FC = () => {
   const { expenseCategories, expenseClaims, addExpenseClaim, currentUser, language, t } = useApp();
   const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
+  const [isAddCatModalOpen, setIsAddCatModalOpen] = useState(false);
+
+  // Claim Form State
   const [selectedCatId, setSelectedCatId] = useState(expenseCategories[0]?.id || '');
   const [amount, setAmount] = useState(500);
   const [merchant, setMerchant] = useState('');
   const [description, setDescription] = useState('');
+
+  // Category Form State
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatWarning, setNewCatWarning] = useState(1500);
+  const [newCatBlock, setNewCatBlock] = useState(6000);
 
   const selectedCat = expenseCategories.find(c => c.id === selectedCatId);
   const isOverWarning = selectedCat ? amount > selectedCat.maxLimitWarning : false;
@@ -62,6 +73,37 @@ export const ExpensesView: React.FC = () => {
     setDescription('');
   };
 
+  const handleCreateCategory = () => {
+    if (!newCatName) {
+      alert('يرجى كتابة اسم فئة المصروف');
+      return;
+    }
+    expenseCategories.push({
+      id: `cat-${Date.now()}`,
+      nameAr: newCatName,
+      nameEn: newCatName,
+      maxLimitWarning: newCatWarning,
+      maxLimitBlock: newCatBlock,
+      requiresReceipt: true,
+    });
+    alert(`تمت إضافة سياسة وفئة المصروفات (${newCatName}) بنجاح!`);
+    setIsAddCatModalOpen(false);
+    setNewCatName('');
+  };
+
+  const handleExportExpenses = () => {
+    const data = expenseClaims.map(c => ({
+      'التصنيف': c.categoryNameAr,
+      'المورد / الجهة': c.merchantName,
+      'الوصف': c.description,
+      'التاريخ': c.spentAt,
+      'المبلغ': c.amount,
+      'العملة': c.currency,
+      'الحالة': c.status === 'approved' ? 'معتمد' : 'قيد المراجعة',
+    }));
+    exportToCSV(`Expenses_Claims_${new Date().toISOString().split('T')[0]}`, data);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -69,21 +111,25 @@ export const ExpensesView: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Receipt className="h-5 w-5 text-primary" />
-            {t.expenses.claims} وتقارير النفقات
+            {t.expenses.claims} وإدارة النفقات والمصروفات (M12)
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             إدارة فواتير ومصروفات الأعمال، حدود السياسات والتحقق، والاعتماد والترحيل المالي
           </p>
         </div>
 
-        <div className="flex gap-2">
-          <Button
-            onClick={() => setIsClaimModalOpen(true)}
-            size="sm"
-            className="font-bold text-xs gap-1.5 bg-primary"
-          >
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setIsClaimModalOpen(true)} size="sm" className="font-bold text-xs gap-1.5 bg-primary">
             <Plus className="h-4 w-4" />
             {t.expenses.newClaim}
+          </Button>
+          <Button onClick={() => setIsAddCatModalOpen(true)} variant="outline" size="sm" className="font-bold text-xs gap-1.5">
+            <Settings className="h-4 w-4" />
+            إضافة فئة وسياسة مصروفات
+          </Button>
+          <Button onClick={handleExportExpenses} variant="secondary" size="sm" className="font-bold text-xs gap-1.5">
+            <Download className="h-4 w-4" />
+            {t.export} (Excel/CSV)
           </Button>
         </div>
       </div>
@@ -115,7 +161,7 @@ export const ExpensesView: React.FC = () => {
 
       {/* Claims List Table */}
       <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
-        <div className="p-4 border-b">
+        <div className="p-4 border-b flex justify-between items-center">
           <h2 className="text-sm font-bold text-foreground">سجل المطالبات المقدمة</h2>
         </div>
 
@@ -248,6 +294,60 @@ export const ExpensesView: React.FC = () => {
               className="text-xs bg-primary font-bold"
             >
               إرسال المطالبة للاعتماد
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Category Modal */}
+      <Dialog open={isAddCatModalOpen} onOpenChange={setIsAddCatModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Settings className="h-5 w-5 text-primary" />
+              إضافة فئة وسياسة مصروفات جديدة
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              تحديد سقف التحذير والحد المانع للصرف
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-xs py-2">
+            <div className="space-y-1">
+              <label className="font-bold">اسم فئة المصروف *</label>
+              <input
+                type="text"
+                value={newCatName}
+                onChange={e => setNewCatName(e.target.value)}
+                placeholder="مثال: رسوم تجديد التراخيص الحكومية"
+                className="w-full h-8 rounded border px-2.5"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="font-bold">سقف التحذير (ر.س)</label>
+                <input
+                  type="number"
+                  value={newCatWarning}
+                  onChange={e => setNewCatWarning(Number(e.target.value))}
+                  className="w-full h-8 rounded border px-2.5"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="font-bold">الحد المانع (ر.س)</label>
+                <input
+                  type="number"
+                  value={newCatBlock}
+                  onChange={e => setNewCatBlock(Number(e.target.value))}
+                  className="w-full h-8 rounded border px-2.5"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button size="sm" onClick={handleCreateCategory} className="text-xs bg-primary font-bold">
+              حفظ وتطبيق السياسة
             </Button>
           </DialogFooter>
         </DialogContent>

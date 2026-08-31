@@ -86,6 +86,9 @@ export const LeavesView: React.FC = () => {
       deductFromWorkingDaysOnly: true,
       maxDaysPerYear: newTypeDays,
       allowHalfDay: true,
+      allowNegativeBalance: false,
+      requiresAttachment: false,
+      carryoverLimitDays: 0,
       accrualMethod: 'yearly_frontloaded',
       status: 'active',
     });

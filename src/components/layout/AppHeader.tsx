@@ -63,11 +63,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenCommandPalette }) =>
   const roleLabels: Record<UserRole, { ar: string; en: string }> = {
     super_admin: { ar: 'مدير عام النظام (Super Admin)', en: 'Super Admin' },
     hr_manager: { ar: 'مدير الموارد البشرية (HR Manager)', en: 'HR Manager' },
-    payroll_specialist: { ar: 'أخصائي الرواتب (Payroll)', en: 'Payroll Specialist' },
+    payroll_officer: { ar: 'أخصائي الرواتب (Payroll)', en: 'Payroll Specialist' },
+    attendance_officer: { ar: 'مسؤول الحضور (Attendance)', en: 'Attendance Officer' },
+    performance_lead: { ar: 'مسؤول الأداء (Performance)', en: 'Performance Lead' },
+    auditor: { ar: 'مدقق (Auditor)', en: 'Auditor' },
     line_manager: { ar: 'مدير مباشر (Line Manager)', en: 'Line Manager' },
     employee: { ar: 'موظف (Employee ESS)', en: 'Employee (ESS)' },
     recruiter: { ar: 'مسؤول توظيف (Recruiter)', en: 'Recruiter' },
-    finance_auditor: { ar: 'مدقق مالي (Finance Auditor)', en: 'Finance Auditor' },
+    finance_officer: { ar: 'مسؤول المالية (Finance)', en: 'Finance Officer' },
   };
 
   const toggleDarkMode = () => {

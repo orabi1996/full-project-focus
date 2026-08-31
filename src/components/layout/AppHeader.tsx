@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../lib/context/AppContext';
-import type { Role } from '../../types';
+import type { UserRole } from '../../types';
 import {
   Bell,
   Search,
@@ -41,11 +41,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenCommandPalette }) =>
   const {
     currentUser,
     currentRole,
-    setRole,
+    setCurrentRole,
     language,
     setLanguage,
     notifications,
-    markNotificationAsRead,
+    markNotificationRead,
     t,
   } = useApp();
 
@@ -60,14 +60,17 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenCommandPalette }) =>
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const roleLabels: Record<Role, { ar: string; en: string }> = {
+  const roleLabels: Record<UserRole, { ar: string; en: string }> = {
     super_admin: { ar: 'مدير عام النظام (Super Admin)', en: 'Super Admin' },
     hr_manager: { ar: 'مدير الموارد البشرية (HR Manager)', en: 'HR Manager' },
-    payroll_specialist: { ar: 'أخصائي الرواتب (Payroll)', en: 'Payroll Specialist' },
+    payroll_officer: { ar: 'أخصائي الرواتب (Payroll)', en: 'Payroll Specialist' },
+    attendance_officer: { ar: 'مسؤول الحضور (Attendance)', en: 'Attendance Officer' },
+    performance_lead: { ar: 'مسؤول الأداء (Performance)', en: 'Performance Lead' },
+    auditor: { ar: 'مدقق (Auditor)', en: 'Auditor' },
     line_manager: { ar: 'مدير مباشر (Line Manager)', en: 'Line Manager' },
     employee: { ar: 'موظف (Employee ESS)', en: 'Employee (ESS)' },
     recruiter: { ar: 'مسؤول توظيف (Recruiter)', en: 'Recruiter' },
-    finance_auditor: { ar: 'مدقق مالي (Finance Auditor)', en: 'Finance Auditor' },
+    finance_officer: { ar: 'مسؤول المالية (Finance)', en: 'Finance Officer' },
   };
 
   const toggleDarkMode = () => {
@@ -121,10 +124,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenCommandPalette }) =>
               تبديل الدور لمحاكاة الصلاحيات:
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {(Object.keys(roleLabels) as Role[]).map(r => (
+            {(Object.keys(roleLabels) as UserRole[]).map(r => (
               <DropdownMenuItem
                 key={r}
-                onClick={() => setRole(r)}
+                onClick={() => setCurrentRole(r)}
                 className="flex items-center justify-between text-xs font-medium cursor-pointer"
               >
                 <span>{roleLabels[r][language]}</span>
@@ -170,7 +173,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenCommandPalette }) =>
           <SheetContent side={language === 'ar' ? 'left' : 'right'} className="w-80 sm:w-96">
             <SheetHeader>
               <SheetTitle className="text-base font-bold flex items-center justify-between">
-                <span>{t.nav.notifications}</span>
+                <span>{language === 'ar' ? 'التنبيهات' : 'Notifications'}</span>
                 {unreadCount > 0 && (
                   <Badge variant="secondary" className="text-xs">
                     {unreadCount} جديد
@@ -189,7 +192,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenCommandPalette }) =>
                 notifications.map(n => (
                   <div
                     key={n.id}
-                    onClick={() => markNotificationAsRead(n.id)}
+                    onClick={() => markNotificationRead(n.id)}
                     className={`rounded-xl border p-3 text-xs transition-colors cursor-pointer ${
                       n.isRead ? 'bg-card text-muted-foreground' : 'bg-primary/5 border-primary/20 text-foreground'
                     }`}

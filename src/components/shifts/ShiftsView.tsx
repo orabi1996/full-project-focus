@@ -63,6 +63,7 @@ export const ShiftsView: React.FC = () => {
       graceMinutesDeparture: 15,
       color: '#0284c7',
       overtimeEligible: true,
+      allowSinglePunch: false,
     });
     alert(`تم إنشاء الوردية (${shiftName}) بنجاح!`);
     setIsAddShiftOpen(false);

@@ -20,6 +20,7 @@ import {
   Dialog,
   DialogContent,
 } from '../ui/dialog';
+import { Badge } from '../ui/badge';
 
 interface CommandPaletteProps {
   open: boolean;

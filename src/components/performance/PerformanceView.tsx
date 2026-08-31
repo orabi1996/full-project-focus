@@ -83,6 +83,7 @@ export const PerformanceView: React.FC = () => {
       startDate: cycleStartDate,
       endDate: cycleEndDate,
       status: 'active',
+      periodType: 'annual',
       participantsCount: employees.length,
       completionRate: 0,
     });

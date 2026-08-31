@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../lib/context/AppContext';
-import type { Role, DataScope } from '../../types';
+import type { UserRole, DataScope } from '../../types';
 import {
   ShieldCheck,
   Users,
@@ -29,7 +29,7 @@ import {
 
 export const RbacView: React.FC = () => {
   const { roles, language, t } = useApp();
-  const [selectedRole, setSelectedRole] = useState(roles[0]);
+  const [selectedRole, setSelectedRole] = useState<any>(roles[0]);
   const [isAddRoleOpen, setIsAddRoleOpen] = useState(false);
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDesc, setNewRoleDesc] = useState('');
@@ -135,7 +135,7 @@ export const RbacView: React.FC = () => {
                 <div className="pt-1 flex items-center justify-between text-[10px]">
                   <span className="font-mono text-primary font-bold uppercase">{role.code}</span>
                   <Badge variant="secondary" className="text-[9px]">
-                    نطاق: {role.dataScope === 'all' ? 'كامل المنشأة' : role.dataScope === 'department' ? 'القسم' : 'الفريق المباشر'}
+                    نطاق: {(role as any).dataScope === 'all' ? 'كامل المنشأة' : (role as any).dataScope === 'department' ? 'القسم' : 'الفريق المباشر'}
                   </Badge>
                 </div>
               </div>

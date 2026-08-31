@@ -83,9 +83,12 @@ export const LeavesView: React.FC = () => {
       nameEn: newTypeName,
       color: '#8b5cf6',
       isPaid: newTypePaid,
-      deductWorkingDaysOnly: true,
+      deductFromWorkingDaysOnly: true,
       maxDaysPerYear: newTypeDays,
       allowHalfDay: true,
+      allowNegativeBalance: false,
+      requiresAttachment: false,
+      carryoverLimitDays: 0,
       accrualMethod: 'yearly_frontloaded',
       status: 'active',
     });

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../lib/context/AppContext';
-import type { Role, DataScope } from '../../types';
+import type { UserRole, DataScope } from '../../types';
 import {
   ShieldCheck,
   Users,
@@ -29,7 +29,7 @@ import {
 
 export const RbacView: React.FC = () => {
   const { roles, language, t } = useApp();
-  const [selectedRole, setSelectedRole] = useState(roles[0]);
+  const [selectedRole, setSelectedRole] = useState<any>(roles[0]);
   const [isAddRoleOpen, setIsAddRoleOpen] = useState(false);
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDesc, setNewRoleDesc] = useState('');

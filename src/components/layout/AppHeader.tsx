@@ -60,7 +60,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenCommandPalette }) =>
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const roleLabels: Record<Role, { ar: string; en: string }> = {
+  const roleLabels: Record<UserRole, { ar: string; en: string }> = {
     super_admin: { ar: 'مدير عام النظام (Super Admin)', en: 'Super Admin' },
     hr_manager: { ar: 'مدير الموارد البشرية (HR Manager)', en: 'HR Manager' },
     payroll_specialist: { ar: 'أخصائي الرواتب (Payroll)', en: 'Payroll Specialist' },
@@ -121,10 +121,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenCommandPalette }) =>
               تبديل الدور لمحاكاة الصلاحيات:
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {(Object.keys(roleLabels) as Role[]).map(r => (
+            {(Object.keys(roleLabels) as UserRole[]).map(r => (
               <DropdownMenuItem
                 key={r}
-                onClick={() => setRole(r)}
+                onClick={() => setCurrentRole(r)}
                 className="flex items-center justify-between text-xs font-medium cursor-pointer"
               >
                 <span>{roleLabels[r][language]}</span>
@@ -189,7 +189,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenCommandPalette }) =>
                 notifications.map(n => (
                   <div
                     key={n.id}
-                    onClick={() => markNotificationAsRead(n.id)}
+                    onClick={() => markNotificationRead(n.id)}
                     className={`rounded-xl border p-3 text-xs transition-colors cursor-pointer ${
                       n.isRead ? 'bg-card text-muted-foreground' : 'bg-primary/5 border-primary/20 text-foreground'
                     }`}

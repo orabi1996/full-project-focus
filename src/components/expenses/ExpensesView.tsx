@@ -85,6 +85,7 @@ export const ExpensesView: React.FC = () => {
       maxLimitWarning: newCatWarning,
       maxLimitBlock: newCatBlock,
       requiresReceipt: true,
+      icon: 'Receipt',
     });
     alert(`تمت إضافة سياسة وفئة المصروفات (${newCatName}) بنجاح!`);
     setIsAddCatModalOpen(false);

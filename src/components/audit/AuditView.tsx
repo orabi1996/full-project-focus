@@ -23,7 +23,7 @@ export const AuditView: React.FC = () => {
     const matchesSearch =
       log.actorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.changesSummary.toLowerCase().includes(searchTerm.toLowerCase());
+      (log.changesSummary || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesEntity = selectedEntity === 'all' || log.entityType === selectedEntity;
     return matchesSearch && matchesEntity;
   });

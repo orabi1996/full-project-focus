@@ -98,14 +98,18 @@ export const RecruitmentView: React.FC = () => {
       titleEn: newJob.titleEn || newJob.titleAr,
       departmentId: newJob.departmentId,
       departmentName: dept?.nameAr || 'التقنية',
+      locationId: 'loc-1',
       locationName: 'المقر الرئيسي (الرياض)',
+      employmentType: 'full_time',
+      requirementsAr: 'حسب متطلبات الوظيفة',
+      requirementsEn: 'As per job requirements',
       openingsCount: newJob.openingsCount,
       filledCount: 0,
       salaryMin: newJob.salaryMin,
       salaryMax: newJob.salaryMax,
       descriptionAr: newJob.descriptionAr || 'وظيفة جديدة معتمدة في خطة التوظيف',
       descriptionEn: 'Job Opening',
-      status: 'published',
+      publishedStatus: 'published',
       publishedAt: new Date().toISOString().split('T')[0],
     });
     alert('تم نشر الوظيفة الشاغرة بنجاح في بوابة التوظيف!');
@@ -120,7 +124,7 @@ export const RecruitmentView: React.FC = () => {
     }
     candidates.unshift({
       id: `cand-${Date.now()}`,
-      jobOpeningId: applyingJob?.id || 'job-1',
+      jobId: applyingJob?.id || 'job-1',
       jobTitle: applyingJob?.titleAr || 'مهندس برمجيات',
       fullName: applicantName,
       email: applicantEmail,
@@ -128,8 +132,9 @@ export const RecruitmentView: React.FC = () => {
       stage: 'applied',
       ratingScore: 5.0,
       appliedDate: new Date().toISOString().split('T')[0],
-      source: 'بوابة التوظيف',
-      resumeUrl: 'https://cdn.focus-hrms.com/resumes/applicant.pdf',
+      source: 'website',
+      notesCount: 0,
+      cvUrl: 'https://cdn.focus-hrms.com/resumes/applicant.pdf',
     });
     alert(`تم استلام طلب التقديم لـ (${applicantName}) ونقله فورياً لمرحلة الفرز في الـ ATS!`);
     setIsApplyModalOpen(false);

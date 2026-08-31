@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../lib/context/AppContext';
+import type { HardwareAsset, CompanyDocument } from '../../types';
 import {
   Package,
   FileText,
@@ -52,7 +53,7 @@ export const AssetsView: React.FC = () => {
       assetTag: `TAG-${Math.floor(1000 + Math.random() * 9000)}`,
       nameAr: assetName,
       nameEn: assetName,
-      category: assetCategory,
+      category: assetCategory as HardwareAsset['category'],
       serialNumber: assetSerial,
       assignedToEmployeeId: emp?.id,
       assignedToEmployeeName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : undefined,
@@ -73,10 +74,11 @@ export const AssetsView: React.FC = () => {
       id: `doc-${Date.now()}`,
       titleAr: docTitle,
       titleEn: docTitle,
-      category: docCategory,
+      category: docCategory as CompanyDocument['category'],
       version: 'v1.0 (2026)',
       fileUrl: 'https://cdn.focus-hrms.com/docs/policy.pdf',
       requiresAcknowledgment: true,
+      visibilityScope: 'all',
       acknowledgedCount: 0,
     });
     alert(`تم نشر الوثيقة (${docTitle}) وإتاحتها لجميع الموظفين لتأكيد القراءة!`);

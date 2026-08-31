@@ -89,19 +89,20 @@ export const WorkflowView: React.FC = () => {
       requesterId: currentUser.id,
       requesterName: `${currentUser.firstNameAr} ${currentUser.lastNameAr}`,
       requesterAvatar: currentUser.avatarUrl,
-      departmentId: currentUser.departmentId,
       departmentName: currentUser.departmentName,
       currentStepIndex: 1,
       totalSteps: 2,
       currentApproverRole: 'Direct Manager',
       status: 'pending_approval',
       submittedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       payload: {
         reason: reqReason,
       },
       timeline: [
         {
           id: `t-${Date.now()}`,
+          stepNumber: 1,
           actorId: currentUser.id,
           actorName: `${currentUser.firstNameAr} ${currentUser.lastNameAr}`,
           actorRole: 'Employee',
@@ -126,11 +127,13 @@ export const WorkflowView: React.FC = () => {
       id: `chain-${Date.now()}`,
       nameAr: chainName,
       nameEn: chainName,
-      requestCategory: chainCategory,
+      requestType: chainCategory as any,
+      scopeType: 'all_employees',
+      status: 'active',
       isDefault: false,
       steps: [
-        { sequence: 1, stepNameAr: 'موافقة المدير المباشر', resolverType: 'direct_manager' },
-        { sequence: 2, stepNameAr: 'موافقة مدير إدارة الموارد البشرية', resolverType: 'hr_manager' },
+        { sequence: 1, stepNameAr: 'موافقة المدير المباشر', stepNameEn: 'Direct Manager Approval', resolverType: 'direct_manager' },
+        { sequence: 2, stepNameAr: 'موافقة مدير إدارة الموارد البشرية', stepNameEn: 'HR Manager Approval', resolverType: 'hr_manager' },
       ],
     });
     alert('تم إنشاء وتوثيق سلسلة الموافقات الجديدة بنجاح!');
@@ -273,7 +276,7 @@ export const WorkflowView: React.FC = () => {
                   <tr key={req.id} className="hover:bg-muted/20">
                     <td className="py-3 px-4 font-mono font-bold">{req.referenceNo}</td>
                     <td className="py-3 px-4 font-semibold">
-                      {req.type === 'leave' ? 'إجازة' : req.type === 'expense_claim' ? 'مصروفات' : req.type === 'loan' ? 'سلفة' : 'خدمة عامة'}
+                      {req.type === 'leave' ? 'إجازة' : req.type === 'expense_claim' ? 'مصروفات' : req.type === 'loan_advance' ? 'سلفة' : 'خدمة عامة'}
                     </td>
                     <td className="py-3 px-4 text-muted-foreground">
                       {req.payload.leaveTypeNameAr || req.payload.categoryNameAr || req.payload.reason}

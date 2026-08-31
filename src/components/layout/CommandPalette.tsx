@@ -20,6 +20,7 @@ import {
   Dialog,
   DialogContent,
 } from '../ui/dialog';
+import { Badge as CommandBadge } from '../ui/badge';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -116,9 +117,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       <Icon className="h-4 w-4 text-muted-foreground" />
                       <span className="font-semibold text-foreground">{item.labelAr}</span>
                     </div>
-                    <Badge variant="outline" className="text-[10px] opacity-70">
+                    <CommandBadge variant="outline" className="text-[10px] opacity-70">
                       {item.cat}
-                    </Badge>
+                    </CommandBadge>
                   </button>
                 );
               })}

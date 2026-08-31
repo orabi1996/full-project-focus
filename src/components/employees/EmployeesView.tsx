@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../lib/context/AppContext';
 import { exportToCSV } from '../../lib/utils/export-helpers';
 import type { Employee, ContractType, Gender, MaritalStatus } from '../../types';
+import { OfficialDocumentModal, type DocType } from '../documents/OfficialDocumentModal';
 import {
   Users,
   UserPlus,
@@ -18,6 +19,8 @@ import {
   Briefcase,
   Sparkles,
   Award,
+  Printer,
+  QrCode,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -38,6 +41,10 @@ export const EmployeesView: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isAddWizardOpen, setIsAddWizardOpen] = useState(false);
+
+  // Document Print Modal State
+  const [docModalEmployee, setDocModalEmployee] = useState<Employee | null>(null);
+  const [docModalType, setDocModalType] = useState<DocType>('salary_certificate');
 
   // Wizard form state
   const [wizardStep, setWizardStep] = useState(1);
@@ -110,6 +117,11 @@ export const EmployeesView: React.FC = () => {
     setIsAddWizardOpen(false);
     setWizardStep(1);
     alert('تمت إضافة الموظف بنجاح في سجلات المنظومة');
+  };
+
+  const openDocumentModal = (emp: Employee, type: DocType) => {
+    setDocModalEmployee(emp);
+    setDocModalType(type);
   };
 
   return (
@@ -254,15 +266,26 @@ export const EmployeesView: React.FC = () => {
                     </div>
                   </td>
                   <td className="py-3 px-4 text-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedEmployee(emp)}
-                      className="h-7 text-xs font-bold text-primary gap-1"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      عرض 360°
-                    </Button>
+                    <div className="flex items-center justify-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedEmployee(emp)}
+                        className="h-7 text-xs font-bold text-primary gap-1"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        عرض 360°
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openDocumentModal(emp, 'salary_certificate')}
+                        className="h-7 text-xs font-bold gap-1 text-slate-700 dark:text-slate-200"
+                      >
+                        <Printer className="h-3 w-3 text-primary" />
+                        شهادة راتب
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -276,31 +299,52 @@ export const EmployeesView: React.FC = () => {
         <Dialog open={!!selectedEmployee} onOpenChange={() => setSelectedEmployee(null)}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <div className="flex items-center gap-4">
-                <img
-                  src={selectedEmployee.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-                  alt={selectedEmployee.firstNameAr}
-                  className="h-16 w-16 rounded-full border-2 border-primary object-cover shadow-sm"
-                />
-                <div>
-                  <DialogTitle className="text-lg font-bold">
-                    {language === 'ar'
-                      ? `${selectedEmployee.firstNameAr} ${selectedEmployee.lastNameAr}`
-                      : `${selectedEmployee.firstNameEn} ${selectedEmployee.lastNameEn}`}
-                  </DialogTitle>
-                  <DialogDescription className="text-xs">
-                    {selectedEmployee.jobTitleAr} • {selectedEmployee.departmentName} • {selectedEmployee.employeeNo}
-                  </DialogDescription>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <img
+                    src={selectedEmployee.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+                    alt={selectedEmployee.firstNameAr}
+                    className="h-16 w-16 rounded-full border-2 border-primary object-cover shadow-sm"
+                  />
+                  <div>
+                    <DialogTitle className="text-lg font-bold">
+                      {language === 'ar'
+                        ? `${selectedEmployee.firstNameAr} ${selectedEmployee.lastNameAr}`
+                        : `${selectedEmployee.firstNameEn} ${selectedEmployee.lastNameEn}`}
+                    </DialogTitle>
+                    <DialogDescription className="text-xs">
+                      {selectedEmployee.jobTitleAr} • {selectedEmployee.departmentName} • {selectedEmployee.employeeNo}
+                    </DialogDescription>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => openDocumentModal(selectedEmployee, 'salary_certificate')}
+                    className="text-xs font-bold gap-1 bg-primary"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    شهادة تعريف بالراتب
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openDocumentModal(selectedEmployee, 'employment_contract')}
+                    className="text-xs font-bold gap-1"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    عقد العمل (قوى)
+                  </Button>
                 </div>
               </div>
             </DialogHeader>
 
             <Tabs defaultValue="overview" className="mt-4">
               <TabsList className="grid grid-cols-4 w-full">
-                <TabsTrigger value="overview" className="text-xs">عام وهوية</TabsTrigger>
-                <TabsTrigger value="contract" className="text-xs">العقد والوظيفة</TabsTrigger>
-                <TabsTrigger value="salary" className="text-xs">الراتب والبنك</TabsTrigger>
-                <TabsTrigger value="documents" className="text-xs">المستندات</TabsTrigger>
+                <TabsTrigger value="overview" className="text-xs font-bold">عام وهوية</TabsTrigger>
+                <TabsTrigger value="contract" className="text-xs font-bold">العقد والوظيفة</TabsTrigger>
+                <TabsTrigger value="salary" className="text-xs font-bold">الراتب والبنك</TabsTrigger>
+                <TabsTrigger value="documents" className="text-xs font-bold">المستندات الرسمية</TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="space-y-3 pt-3 text-xs">
@@ -345,7 +389,14 @@ export const EmployeesView: React.FC = () => {
                     <FileText className="h-4 w-4 text-primary" />
                     <span>عقد العمل الإلكتروني الموثق (قوى)</span>
                   </div>
-                  <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px]">موثق</Badge>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => openDocumentModal(selectedEmployee, 'employment_contract')}
+                    className="h-6 text-xs font-bold text-primary"
+                  >
+                    معاينة العقد
+                  </Button>
                 </div>
               </TabsContent>
             </Tabs>
@@ -514,6 +565,16 @@ export const EmployeesView: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Official Printable PDF Document Modal */}
+      {docModalEmployee && (
+        <OfficialDocumentModal
+          isOpen={!!docModalEmployee}
+          onClose={() => setDocModalEmployee(null)}
+          employee={docModalEmployee}
+          documentType={docModalType}
+        />
+      )}
     </div>
   );
 };

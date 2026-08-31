@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../lib/context/AppContext';
-import type { Role } from '../../types';
+import type { UserRole } from '../../types';
 import {
   Bell,
   Search,
@@ -41,11 +41,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenCommandPalette }) =>
   const {
     currentUser,
     currentRole,
-    setRole,
+    setCurrentRole,
     language,
     setLanguage,
     notifications,
-    markNotificationAsRead,
+    markNotificationRead,
     t,
   } = useApp();
 
@@ -170,7 +170,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onOpenCommandPalette }) =>
           <SheetContent side={language === 'ar' ? 'left' : 'right'} className="w-80 sm:w-96">
             <SheetHeader>
               <SheetTitle className="text-base font-bold flex items-center justify-between">
-                <span>{t.nav.notifications}</span>
+                <span>{language === 'ar' ? 'التنبيهات' : 'Notifications'}</span>
                 {unreadCount > 0 && (
                   <Badge variant="secondary" className="text-xs">
                     {unreadCount} جديد

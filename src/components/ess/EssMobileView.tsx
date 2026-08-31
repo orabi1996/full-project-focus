@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../lib/context/AppContext';
 import {
   Smartphone,
@@ -13,9 +13,20 @@ import {
   ChevronRight,
   Shield,
   Sparkles,
+  QrCode,
+  Download,
+  Send,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../ui/dialog';
 
 export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = ({ onNavigate }) => {
   const {
@@ -23,9 +34,14 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     leaveBalances,
     punchInOut,
     requests,
+    payrollDetails,
     language,
     t,
   } = useApp();
+
+  const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
+  const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
+  const [certificateDestination, setCertificateDestination] = useState('سفارة / جهة حكومية');
 
   const handlePunch = (type: 'in' | 'out') => {
     if (navigator.geolocation) {
@@ -45,7 +61,13 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     }
   };
 
+  const handleRequestCertificate = () => {
+    alert(`تم إصدار شهادة التعريف بالراتب الإلكترونية الموجهة إلى (${certificateDestination}) مع الختم الرقمي ورمز الاستجابة QR بنجاح!`);
+    setIsCertificateModalOpen(false);
+  };
+
   const myPendingRequests = requests.filter(r => r.requesterId === currentUser.id);
+  const myPayroll = payrollDetails[0];
 
   return (
     <div className="space-y-6">
@@ -54,7 +76,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Smartphone className="h-5 w-5 text-primary" />
-            {t.nav.ess} وتطبيق الجوال الذكي
+            {t.nav.ess} وتطبيق الجوال الذكي (M20)
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             تجربة الخدمة الذاتية الموحدة للموظف والمدير: تسجيل الحضور بالـ GPS، متابعة الطلبات وقسائم الراتب
@@ -141,7 +163,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               </button>
 
               <button
-                onClick={() => onNavigate('payroll')}
+                onClick={() => setIsPayslipModalOpen(true)}
                 className="rounded-xl border bg-muted/10 p-3 text-start hover:border-primary/50 transition-colors"
               >
                 <FileText className="h-5 w-5 text-purple-500 mb-1.5" />
@@ -150,12 +172,12 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               </button>
 
               <button
-                onClick={() => onNavigate('payroll')}
+                onClick={() => setIsCertificateModalOpen(true)}
                 className="rounded-xl border bg-muted/10 p-3 text-start hover:border-primary/50 transition-colors"
               >
-                <DollarSign className="h-5 w-5 text-emerald-500 mb-1.5" />
-                <p className="text-xs font-bold text-foreground">طلب سلفة</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">سداد ميسر</p>
+                <QrCode className="h-5 w-5 text-emerald-500 mb-1.5" />
+                <p className="text-xs font-bold text-foreground">شهادة تعريف</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">مصدقة رقمياً</p>
               </button>
             </div>
           </div>
@@ -183,6 +205,86 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           </div>
         </div>
       </div>
+
+      {/* Salary Certificate Modal */}
+      <Dialog open={isCertificateModalOpen} onOpenChange={setIsCertificateModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <QrCode className="h-5 w-5 text-primary" />
+              إصدار شهادة تعريف بالراتب فورية
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              شهادة رسمية موثقة برمز الاستجابة السريع QR والختم المعتمد
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-xs py-2">
+            <div className="space-y-1">
+              <label className="font-bold">الجهة الموجه إليها الخطاب *</label>
+              <input
+                type="text"
+                value={certificateDestination}
+                onChange={e => setCertificateDestination(e.target.value)}
+                className="w-full h-8 rounded border px-2.5"
+              />
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3 space-y-1">
+              <p className="font-bold">بيانات الشهادة:</p>
+              <p className="text-muted-foreground">الموظف: {currentUser.firstNameAr} {currentUser.lastNameAr}</p>
+              <p className="text-muted-foreground">الراتب الأساسي: 12,000 ر.س • إجمالي الراتب: 16,000 ر.س</p>
+              <p className="text-muted-foreground">تاريخ المباشرة: {currentUser.hireDate}</p>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button size="sm" onClick={handleRequestCertificate} className="text-xs bg-primary font-bold">
+              توليد وتحميل الشهادة PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mobile Payslip Modal */}
+      {myPayroll && (
+        <Dialog open={isPayslipModalOpen} onOpenChange={setIsPayslipModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                قسيمة الراتب الرقمية (أغسطس 2026)
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-3 text-xs py-2 font-mono">
+              <div className="rounded-lg border bg-muted/20 p-3 space-y-1.5">
+                <div className="flex justify-between">
+                  <span>الراتب الأساسي:</span>
+                  <span>{myPayroll.basicSalary.toLocaleString()} ر.س</span>
+                </div>
+                <div className="flex justify-between text-emerald-600">
+                  <span>بدل السكن + النقل:</span>
+                  <span>+{(myPayroll.housingAllowance + myPayroll.transportAllowance).toLocaleString()} ر.س</span>
+                </div>
+                <div className="flex justify-between text-destructive">
+                  <span>التأمينات GOSI:</span>
+                  <span>-{myPayroll.gosiEmployeeDeduction.toLocaleString()} ر.س</span>
+                </div>
+                <div className="border-t pt-2 flex justify-between font-black text-sm text-primary">
+                  <span>صافي الراتب:</span>
+                  <span>{myPayroll.netSalary.toLocaleString()} ر.س</span>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="mt-2">
+              <Button size="sm" onClick={() => setIsPayslipModalOpen(false)} className="text-xs bg-primary font-bold">
+                إغلاق
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

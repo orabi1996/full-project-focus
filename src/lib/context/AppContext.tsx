@@ -1057,6 +1057,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const processAttendance = (fromDate: string, toDate: string) => {
+    persistLiveChange(async () => {
+      await processAttendanceServer({ data: { fromDate, toDate } });
+    });
+    logAuditEvent(
+      "معالجة البصمات",
+      "Attendance",
+      `${fromDate}..${toDate}`,
+      "احتساب الحضور",
+      "تم تحويل البصمات إلى سجلات حضور وساعات عمل وتأخير وإضافي",
+    );
+  };
+
+  const accrueLeaveBalances = (year: number) => {
+    persistLiveChange(async () => {
+      await accrueLeaveBalancesServer({ data: { year } });
+    });
+    logAuditEvent(
+      "ترحيل استحقاق الإجازات",
+      "LeaveBalance",
+      String(year),
+      `سنة ${year}`,
+      "تم إضافة الاستحقاق الشهري لأرصدة الإجازات",
+    );
+  };
+
   const createLoan = (payload: {
     principalAmount: number;
     monthlyInstallment: number;
@@ -1396,6 +1422,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         processPayrollRun,
         lockAndConfirmPayrollRun,
         markPayrollAsPaid,
+        processAttendance,
+        accrueLeaveBalances,
         createLoan,
         createSettlement,
         addExpenseClaim,

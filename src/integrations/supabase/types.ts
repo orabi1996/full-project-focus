@@ -1384,7 +1384,18 @@ export type Database = {
       is_hr: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "org_admin" | "hr_manager" | "line_manager" | "employee"
+      app_role:
+        | "org_admin"
+        | "hr_manager"
+        | "line_manager"
+        | "employee"
+        | "super_admin"
+        | "payroll_officer"
+        | "attendance_officer"
+        | "recruiter"
+        | "finance_officer"
+        | "performance_lead"
+        | "auditor"
       attendance_status: "present" | "late" | "absent" | "leave" | "remote"
       employee_status: "active" | "on_leave" | "suspended" | "terminated"
       request_status: "draft" | "pending" | "approved" | "rejected" | "returned"
@@ -1516,7 +1527,19 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["org_admin", "hr_manager", "line_manager", "employee"],
+      app_role: [
+        "org_admin",
+        "hr_manager",
+        "line_manager",
+        "employee",
+        "super_admin",
+        "payroll_officer",
+        "attendance_officer",
+        "recruiter",
+        "finance_officer",
+        "performance_lead",
+        "auditor",
+      ],
       attendance_status: ["present", "late", "absent", "leave", "remote"],
       employee_status: ["active", "on_leave", "suspended", "terminated"],
       request_status: ["draft", "pending", "approved", "rejected", "returned"],

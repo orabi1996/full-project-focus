@@ -19,6 +19,7 @@ import {
   Edit,
   Save,
   X,
+  Eye,
   CheckCircle2,
   AlertCircle,
   QrCode,

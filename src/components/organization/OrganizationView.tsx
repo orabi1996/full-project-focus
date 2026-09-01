@@ -543,16 +543,63 @@ export const OrganizationView: React.FC = () => {
                 className="w-full h-8 rounded border px-2.5 font-mono"
               />
             </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="font-bold">المستوى التنظيمي</label>
+                <select
+                  value={newDept.type}
+                  onChange={(e) =>
+                    setNewDept({ ...newDept, type: e.target.value as OrgUnitType })
+                  }
+                  className="h-8 w-full rounded border bg-background px-2"
+                >
+                  <option value="division">قطاع تنفيذي</option>
+                  <option value="department">إدارة عامة</option>
+                  <option value="section">قسم</option>
+                  <option value="unit">وحدة</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="font-bold">الوحدة الأعلى (Parent)</label>
+                <select
+                  value={newDept.parentId}
+                  onChange={(e) => setNewDept({ ...newDept, parentId: e.target.value })}
+                  className="h-8 w-full rounded border bg-background px-2"
+                >
+                  <option value="">مباشرة تحت المنشأة</option>
+                  {orgUnits.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.nameAr}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div className="space-y-1">
               <label className="font-bold">المدير المسؤول</label>
-              <input
-                type="text"
-                value={newDept.managerName}
-                onChange={(e) => setNewDept({ ...newDept, managerName: e.target.value })}
-                placeholder="اسم المدير..."
-                className="w-full h-8 rounded border px-2.5"
-              />
+              <select
+                value={newDept.managerEmployeeId}
+                onChange={(e) => {
+                  const employee = employees.find((item) => item.id === e.target.value);
+                  setNewDept({
+                    ...newDept,
+                    managerEmployeeId: e.target.value,
+                    managerName: employee
+                      ? `${employee.firstNameAr} ${employee.lastNameAr}`
+                      : "",
+                  });
+                }}
+                className="h-8 w-full rounded border bg-background px-2"
+              >
+                <option value="">غير معين</option>
+                {employees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.firstNameAr} {employee.lastNameAr} — {employee.jobTitleAr}
+                  </option>
+                ))}
+              </select>
             </div>
+
           </div>
 
           <DialogFooter className="mt-2">

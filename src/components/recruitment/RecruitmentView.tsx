@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import type { Candidate, CandidateStage } from "../../types";
+import { IconSymbol } from "../ui/IconSymbol";
 import {
   UserPlus,
   Briefcase,
@@ -17,6 +18,7 @@ import {
   Eye,
   Award,
   Globe,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -188,27 +190,27 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+      {/* Header (Google M3 Style) */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
         <div>
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <UserPlus className="h-5 w-5 text-primary" />
+          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
+            <IconSymbol name="person_search" source="material" filled size={24} className="text-primary" />
             {section === "ats"
-              ? `${t.recruitment.candidatesPipeline} والتوظيف`
-              : "تخطيط القوى العاملة والميزانيات"}
+              ? `${t.recruitment.candidatesPipeline} والتوظيف (M08)`
+              : "تخطيط القوى العاملة والميزانيات (M10)"}
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground font-medium mt-1">
             {section === "ats"
-              ? "تتبع المتقدمين، الوظائف الشاغرة، بطاقات التقييم والعروض الوظيفية"
+              ? "تتبع المتقدمين، الوظائف الشاغرة، بطاقات التقييم والعروض الوظيفية الرقمية"
               : "مقارنة العدد الحالي بالمستهدف ونمذجة تكلفة خطط التعيين والإحلال"}
           </p>
         </div>
         {section === "ats" && canManageRecruitment && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2.5">
             <Button
               onClick={() => setIsAddJobOpen(true)}
               size="sm"
-              className="font-bold text-xs gap-1.5 bg-primary"
+              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-4"
             >
               <Plus className="h-4 w-4" />
               نشر وظيفة شاغرة
@@ -220,7 +222,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
               }}
               variant="outline"
               size="sm"
-              className="font-bold text-xs gap-1.5"
+              className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
             >
               <Globe className="h-4 w-4 text-emerald-600" />
               بوابة التوظيف (محاكاة تقديم مرشح)
@@ -231,18 +233,18 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className={`grid max-w-md ${section === "ats" ? "grid-cols-2" : "grid-cols-1"}`}>
+        <TabsList className={`grid max-w-md bg-muted/60 p-1 rounded-full border border-border/60 ${section === "ats" ? "grid-cols-2" : "grid-cols-1"}`}>
           {section === "ats" ? (
             <>
-              <TabsTrigger value="pipeline" className="text-xs font-bold">
+              <TabsTrigger value="pipeline" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
                 لوحة المرشحين (Kanban) ({candidates.length})
               </TabsTrigger>
-              <TabsTrigger value="jobs" className="text-xs font-bold">
+              <TabsTrigger value="jobs" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
                 الوظائف الشاغرة ({jobOpenings.length})
               </TabsTrigger>
             </>
           ) : (
-            <TabsTrigger value="workforce" className="text-xs font-bold">
+            <TabsTrigger value="workforce" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
               تخطيط الميزانيات ({workforcePlans.length})
             </TabsTrigger>
           )}
@@ -250,31 +252,31 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
         {/* Tab 1: Interactive ATS Kanban Pipeline */}
         <TabsContent value="pipeline" className="pt-4">
-          <div className="flex gap-3 overflow-x-auto pb-4">
+          <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
             {stages.map((stage) => {
               const stageCandidates = candidates.filter((c) => c.stage === stage.key);
               return (
                 <div
                   key={stage.key}
-                  className="w-72 shrink-0 rounded-xl border bg-card p-3 shadow-xs space-y-3"
+                  className="w-72 shrink-0 rounded-3xl border border-border/80 bg-card p-4 shadow-xs space-y-3"
                 >
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <span className="font-bold text-xs text-foreground">{stage.labelAr}</span>
-                    <Badge variant="secondary" className="text-[10px] font-bold">
+                  <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                    <span className="font-black text-xs text-foreground">{stage.labelAr}</span>
+                    <Badge variant="secondary" className="text-[10px] rounded-full px-2.5 font-black">
                       {stageCandidates.length}
                     </Badge>
                   </div>
 
-                  <div className="space-y-2.5 min-h-[350px]">
+                  <div className="space-y-3 min-h-[360px]">
                     {stageCandidates.map((cand) => (
                       <div
                         key={cand.id}
-                        className="rounded-lg border bg-muted/20 p-3 text-xs space-y-2 shadow-xs hover:border-primary/50 transition-colors"
+                        className="rounded-2xl border border-border/70 bg-muted/20 p-3.5 text-xs space-y-2.5 shadow-xs hover:border-primary/50 transition-all hover:bg-card"
                       >
                         <div className="flex items-start justify-between">
                           <div>
-                            <h4 className="font-bold text-foreground">{cand.fullName}</h4>
-                            <p className="text-[10px] text-muted-foreground">{cand.jobTitle}</p>
+                            <h4 className="font-bold text-foreground block">{cand.fullName}</h4>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{cand.jobTitle}</p>
                           </div>
                           <button
                             onClick={() => {
@@ -282,21 +284,21 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                               setIsScorecardOpen(true);
                             }}
                             disabled={!canManageRecruitment}
-                            className="flex items-center gap-0.5 text-amber-500 font-bold text-[10px] hover:underline disabled:cursor-default disabled:no-underline"
+                            className="flex items-center gap-0.5 text-amber-500 font-black text-[10px] hover:underline disabled:cursor-default disabled:no-underline bg-amber-500/10 px-2 py-0.5 rounded-full"
                           >
                             <Star className="h-3 w-3 fill-current" />
                             {cand.ratingScore}
                           </button>
                         </div>
 
-                        <div className="text-[10px] text-muted-foreground flex items-center justify-between pt-1 border-t">
+                        <div className="text-[10px] text-muted-foreground flex items-center justify-between pt-2 border-t border-border/60 font-mono">
                           <span>المصدر: {cand.source}</span>
                           <span>{cand.appliedDate}</span>
                         </div>
 
                         {/* Stage Progression Buttons */}
                         {canManageRecruitment && (
-                          <div className="flex items-center justify-between pt-2 border-t gap-1">
+                          <div className="flex items-center justify-between pt-2 border-t border-border/60 gap-1.5">
                             <Button
                               size="sm"
                               variant="ghost"
@@ -304,9 +306,9 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                                 setSelectedCandidate(cand);
                                 setIsScorecardOpen(true);
                               }}
-                              className="h-6 text-[10px] px-1.5"
+                              className="h-7 text-[10px] px-2 rounded-full font-bold text-primary hover:bg-secondary"
                             >
-                              <Award className="h-3 w-3 text-primary" />
+                              <Award className="h-3 w-3" />
                               تقييم
                             </Button>
 
@@ -320,7 +322,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                                     moveCandidateStage(cand.id, stages[currentIndex + 1].key);
                                   }
                                 }}
-                                className="h-6 text-[10px] text-primary font-bold px-2"
+                                className="h-7 text-[10px] text-primary font-bold px-3 rounded-full border-border/80 hover:bg-secondary"
                               >
                                 ترقية →
                               </Button>
@@ -331,14 +333,14 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                                   setSelectedCandidate(cand);
                                   setIsOfferModalOpen(true);
                                 }}
-                                className="h-6 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2"
+                                className="h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 rounded-full shadow-xs"
                               >
                                 إصدار عرض
                               </Button>
                             ) : (
                               <Badge
                                 variant="outline"
-                                className="text-[9px] text-emerald-700 bg-emerald-50"
+                                className="text-[9px] text-emerald-700 bg-emerald-50 rounded-full font-bold border-emerald-200"
                               >
                                 تم التعيين
                               </Badge>
@@ -358,24 +360,23 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
         <TabsContent value="jobs" className="space-y-4 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {jobOpenings.map((job) => (
-              <div key={job.id} className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
+              <div key={job.id} className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-3.5 hover:border-primary/40 transition-all">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-bold text-sm text-foreground">{job.titleAr}</h3>
-                    <p className="text-xs text-muted-foreground">
+                    <h3 className="font-black text-sm text-foreground">{job.titleAr}</h3>
+                    <p className="text-xs text-muted-foreground font-medium mt-0.5">
                       {job.departmentName} • {job.locationName}
                     </p>
                   </div>
-                  <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px]">
+                  <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px] rounded-full px-2.5 font-bold border-emerald-200">
                     منشورة للتقديم
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground">{job.descriptionAr}</p>
-                <div className="border-t pt-2 flex justify-between text-xs font-semibold text-muted-foreground">
-                  <span>الشواغر المطلوبة: {job.openingsCount}</span>
-                  <span className="text-primary">
-                    الراتب: {job.salaryMin?.toLocaleString()} - {job.salaryMax?.toLocaleString()}{" "}
-                    ر.س
+                <p className="text-xs text-muted-foreground font-medium leading-relaxed">{job.descriptionAr}</p>
+                <div className="border-t border-border/60 pt-3 flex justify-between text-xs font-semibold text-muted-foreground">
+                  <span>الشواغر المطلوبة: <strong className="text-foreground">{job.openingsCount}</strong></span>
+                  <span className="text-primary font-mono font-bold">
+                    الراتب: {job.salaryMin?.toLocaleString()} - {job.salaryMax?.toLocaleString()} ر.س
                   </span>
                 </div>
               </div>
@@ -386,39 +387,39 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
         {/* Tab 3: Workforce Planning */}
         <TabsContent value="workforce" className="space-y-4 pt-4">
           {workforcePlans.map((wp) => (
-            <div key={wp.id} className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b pb-3">
+            <div key={wp.id} className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-border/60 pb-3">
                 <div>
-                  <h3 className="font-bold text-sm text-foreground">{wp.titleAr}</h3>
-                  <p className="text-xs text-muted-foreground">
+                  <h3 className="font-black text-sm text-foreground">{wp.titleAr}</h3>
+                  <p className="text-xs text-muted-foreground font-medium mt-0.5">
                     لعام {wp.year} • {wp.departmentName}
                   </p>
                 </div>
-                <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px]">
+                <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px] rounded-full px-2.5 font-bold border-emerald-200">
                   خطة معتمدة
                 </Badge>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                <div className="rounded-lg border p-3 bg-muted/20">
-                  <span className="text-muted-foreground">العدد الحالي</span>
-                  <p className="text-lg font-bold text-foreground mt-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                <div className="rounded-2xl border border-border/60 p-4 bg-muted/20">
+                  <span className="text-muted-foreground font-bold">العدد الحالي</span>
+                  <p className="text-xl font-black text-foreground mt-1">
                     {wp.currentHeadcount} موظف
                   </p>
                 </div>
-                <div className="rounded-lg border p-3 bg-muted/20">
-                  <span className="text-muted-foreground">التعيينات المخططة</span>
-                  <p className="text-lg font-bold text-emerald-600 mt-1">
+                <div className="rounded-2xl border border-border/60 p-4 bg-muted/20">
+                  <span className="text-muted-foreground font-bold">التعيينات المخططة</span>
+                  <p className="text-xl font-black text-emerald-600 mt-1">
                     +{wp.plannedHires} وظيفة
                   </p>
                 </div>
-                <div className="rounded-lg border p-3 bg-muted/20">
-                  <span className="text-muted-foreground">العدد المستهدف</span>
-                  <p className="text-lg font-bold text-primary mt-1">{wp.targetHeadcount} موظف</p>
+                <div className="rounded-2xl border border-primary/20 p-4 bg-secondary/30">
+                  <span className="text-primary font-bold">العدد المستهدف</span>
+                  <p className="text-xl font-black text-primary mt-1">{wp.targetHeadcount} موظف</p>
                 </div>
-                <div className="rounded-lg border p-3 bg-muted/20">
-                  <span className="text-muted-foreground">التكلفة السنوية التقديرية</span>
-                  <p className="text-lg font-bold text-foreground mt-1">
+                <div className="rounded-2xl border border-border/60 p-4 bg-muted/20">
+                  <span className="text-muted-foreground font-bold">التكلفة السنوية التقديرية</span>
+                  <p className="text-xl font-black text-foreground mt-1 font-mono">
                     {(wp.projectedCost / 1000000).toFixed(1)}M ر.س
                   </p>
                 </div>
@@ -430,34 +431,34 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
       {/* Add Job Opening Modal */}
       <Dialog open={isAddJobOpen} onOpenChange={setIsAddJobOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
+            <DialogTitle className="text-base font-black flex items-center gap-2">
               <Briefcase className="h-5 w-5 text-primary" />
               نشر وظيفة شاغرة جديدة
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs font-medium">
               تحديد المتطلبات ونطاق الراتب لنشرها في بوابة التوظيف
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 text-xs py-2">
-            <div className="space-y-1">
+          <div className="space-y-3.5 text-xs py-2">
+            <div className="space-y-1.5">
               <label className="font-bold">المسمى الوظيفي *</label>
               <input
                 type="text"
                 value={newJob.titleAr}
                 onChange={(e) => setNewJob({ ...newJob, titleAr: e.target.value })}
                 placeholder="مثال: مطور واجهات مستخدم أول (React)"
-                className="w-full h-8 rounded border px-2.5"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="font-bold">القسم / الإدارة *</label>
               <select
                 value={newJob.departmentId}
                 onChange={(e) => setNewJob({ ...newJob, departmentId: e.target.value })}
-                className="w-full h-8 rounded border px-2.5"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-bold"
               >
                 {orgUnits.map((u) => (
                   <option key={u.id} value={u.id}>
@@ -467,39 +468,39 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
               </select>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">الحد الأدنى للراتب</label>
                 <input
                   type="number"
                   value={newJob.salaryMin}
                   onChange={(e) => setNewJob({ ...newJob, salaryMin: Number(e.target.value) })}
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">الحد الأقصى للراتب</label>
                 <input
                   type="number"
                   value={newJob.salaryMax}
                   onChange={(e) => setNewJob({ ...newJob, salaryMax: Number(e.target.value) })}
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="font-bold">وصف الوظيفة والمتطلبات</label>
               <textarea
                 rows={2}
                 value={newJob.descriptionAr}
                 onChange={(e) => setNewJob({ ...newJob, descriptionAr: e.target.value })}
                 placeholder="اكتب وصفاً مختصراً للمهام..."
-                className="w-full rounded border p-2 text-xs"
+                className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
           </div>
 
-          <DialogFooter className="mt-2">
-            <Button size="sm" onClick={handleCreateJob} className="text-xs bg-primary font-bold">
+          <DialogFooter className="mt-3">
+            <Button size="sm" onClick={handleCreateJob} className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9">
               نشر الوظيفة في ATS
             </Button>
           </DialogFooter>
@@ -509,22 +510,22 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
       {/* Candidate Evaluation Scorecard Modal */}
       {selectedCandidate && (
         <Dialog open={isScorecardOpen} onOpenChange={setIsScorecardOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md rounded-3xl p-6">
             <DialogHeader>
-              <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <DialogTitle className="text-base font-black flex items-center gap-2">
                 <Award className="h-5 w-5 text-primary" />
                 بطاقة تقييم المرشح: {selectedCandidate.fullName}
               </DialogTitle>
-              <DialogDescription className="text-xs">
+              <DialogDescription className="text-xs font-medium">
                 {selectedCandidate.jobTitle}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-3 text-xs py-2">
-              <div className="space-y-1">
+            <div className="space-y-3.5 text-xs py-2">
+              <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <label className="font-bold">التقييم الفني والخبرات (Technical Skills)</label>
-                  <span className="font-bold text-amber-500">{techRating} / 5 نجوم</span>
+                  <span className="font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">{techRating} / 5 نجوم</span>
                 </div>
                 <input
                   type="range"
@@ -536,10 +537,10 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                 />
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <label className="font-bold">مهارات التواصل واللغة (Communication)</label>
-                  <span className="font-bold text-amber-500">{commRating} / 5 نجوم</span>
+                  <span className="font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">{commRating} / 5 نجوم</span>
                 </div>
                 <input
                   type="range"
@@ -551,23 +552,23 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                 />
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">ملاحظات المقابلة وتوصية التعيين</label>
                 <textarea
                   rows={2}
                   value={evalNotes}
                   onChange={(e) => setEvalNotes(e.target.value)}
                   placeholder="مرشح متميز ولديه شغف قوي بالتقنيات الحديثة..."
-                  className="w-full rounded border p-2 text-xs"
+                  className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
             </div>
 
-            <DialogFooter className="mt-2">
+            <DialogFooter className="mt-3">
               <Button
                 size="sm"
                 onClick={handleSaveScorecard}
-                className="text-xs bg-primary font-bold"
+                className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
               >
                 حفظ التقييم وترقية المرشح
               </Button>
@@ -578,55 +579,55 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
       {/* Public Application Modal Simulator */}
       <Dialog open={isApplyModalOpen} onOpenChange={setIsApplyModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
+            <DialogTitle className="text-base font-black flex items-center gap-2">
               <Globe className="h-5 w-5 text-emerald-600" />
               بوابة التوظيف الإلكترونية (نموذج التقديم)
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs font-medium">
               الوظيفة: {applyingJob?.titleAr || "مهندس برمجيات"}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 text-xs py-2">
-            <div className="space-y-1">
+          <div className="space-y-3.5 text-xs py-2">
+            <div className="space-y-1.5">
               <label className="font-bold">الاسم الكامل للمرشح *</label>
               <input
                 type="text"
                 value={applicantName}
                 onChange={(e) => setApplicantName(e.target.value)}
                 placeholder="مثال: يوسف العتيبي"
-                className="w-full h-8 rounded border px-2.5"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="font-bold">البريد الإلكتروني *</label>
               <input
                 type="email"
                 value={applicantEmail}
                 onChange={(e) => setApplicantEmail(e.target.value)}
                 placeholder="yousef@example.com"
-                className="w-full h-8 rounded border px-2.5"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="font-bold">رقم الجوال</label>
               <input
                 type="text"
                 value={applicantPhone}
                 onChange={(e) => setApplicantPhone(e.target.value)}
                 placeholder="05XXXXXXXX"
-                className="w-full h-8 rounded border px-2.5"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
           </div>
 
-          <DialogFooter className="mt-2">
+          <DialogFooter className="mt-3">
             <Button
               size="sm"
               onClick={handleApplyForJob}
-              className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+              className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 h-9"
             >
               إرسال طلب التقديم
             </Button>
@@ -637,70 +638,70 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
       {/* Issue Job Offer Modal */}
       {selectedCandidate && (
         <Dialog open={isOfferModalOpen} onOpenChange={setIsOfferModalOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md rounded-3xl p-6">
             <DialogHeader>
-              <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <DialogTitle className="text-base font-black flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-primary" />
                 إصدار عرض عمل رسمي ({selectedCandidate.fullName})
               </DialogTitle>
-              <DialogDescription className="text-xs">
+              <DialogDescription className="text-xs font-medium">
                 المسمى: {selectedCandidate.jobTitle}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-3 text-xs py-2">
-              <div className="space-y-1">
+            <div className="space-y-3.5 text-xs py-2">
+              <div className="space-y-1.5">
                 <label className="font-bold">الراتب الأساسي (ر.س) *</label>
                 <input
                   type="number"
                   value={offerBasic}
                   onChange={(e) => setOfferBasic(Number(e.target.value))}
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="font-bold">بدل السكن</label>
                   <input
                     type="number"
                     value={offerHousing}
                     onChange={(e) => setOfferHousing(Number(e.target.value))}
-                    className="w-full h-8 rounded border px-2.5"
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="font-bold">بدل النقل</label>
                   <input
                     type="number"
                     value={offerTransport}
                     onChange={(e) => setOfferTransport(Number(e.target.value))}
-                    className="w-full h-8 rounded border px-2.5"
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
               </div>
 
-              <div className="rounded-lg border bg-muted/20 p-2.5 flex justify-between font-bold text-primary">
+              <div className="rounded-2xl border border-primary/20 bg-secondary/30 p-3.5 flex justify-between font-black text-primary text-sm">
                 <span>إجمالي العرض الشهري:</span>
-                <span>{(offerBasic + offerHousing + offerTransport).toLocaleString()} ر.س</span>
+                <span className="font-mono">{(offerBasic + offerHousing + offerTransport).toLocaleString()} ر.س</span>
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">تاريخ المباشرة المقترح *</label>
                 <input
                   type="date"
                   value={offerStartDate}
                   onChange={(e) => setOfferStartDate(e.target.value)}
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
             </div>
 
-            <DialogFooter className="mt-2">
+            <DialogFooter className="mt-3">
               <Button
                 size="sm"
                 onClick={handleSendOffer}
-                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 h-9"
               >
                 تأكيد وإرسال العرض للمرشح
               </Button>

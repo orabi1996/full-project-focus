@@ -1,28 +1,7 @@
 import React from "react";
 import { useApp } from "../../lib/context/AppContext";
-import {
-  LayoutDashboard,
-  Building2,
-  Users,
-  ShieldCheck,
-  GitPullRequest,
-  CalendarDays,
-  Clock,
-  CalendarCheck,
-  Wallet,
-  Receipt,
-  Award,
-  TrendingUp,
-  UserPlus,
-  Package,
-  FileBarChart,
-  Network,
-  History,
-  Smartphone,
-  ChevronLeft,
-  ChevronRight,
-  Sparkles,
-} from "lucide-react";
+import { IconSymbol, type IconSource } from "../ui/IconSymbol";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { canAccessModule } from "../../lib/auth/permissions";
 
@@ -33,6 +12,15 @@ interface AppSidebarProps {
   onToggleCollapse: () => void;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+}
+
+interface NavItemConfig {
+  id: string;
+  label: string;
+  iconName: string;
+  iconSource: IconSource;
+  badge?: string | number;
+  badgeVariant?: "default" | "secondary" | "destructive" | "outline";
 }
 
 export const AppSidebar: React.FC<AppSidebarProps> = ({
@@ -48,17 +36,39 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   const pendingRequestsCount = requests.filter((r) => r.status === "pending_approval").length;
   const lateAttendanceCount = attendanceRecords.filter((a) => a.status === "late").length;
 
-  const navGroups = [
+  const navGroups: { groupTitle: string; items: NavItemConfig[] }[] = [
     {
       groupTitle: language === "ar" ? "الرئيسية" : "General",
-      items: [{ id: "dashboard", label: t.nav.dashboard, icon: LayoutDashboard, badge: undefined }],
+      items: [
+        {
+          id: "dashboard",
+          label: t.nav.dashboard,
+          iconName: "dashboard",
+          iconSource: "material",
+        },
+      ],
     },
     {
       groupTitle: language === "ar" ? "شؤون الموظفين والهيكل" : "Workforce & Org",
       items: [
-        { id: "organization", label: t.nav.organization, icon: Building2, badge: undefined },
-        { id: "employees", label: t.nav.employees, icon: Users, badge: undefined },
-        { id: "rbac", label: t.nav.rbac, icon: ShieldCheck, badge: undefined },
+        {
+          id: "organization",
+          label: t.nav.organization,
+          iconName: "corporate_fare",
+          iconSource: "material",
+        },
+        {
+          id: "employees",
+          label: t.nav.employees,
+          iconName: "badge",
+          iconSource: "material",
+        },
+        {
+          id: "rbac",
+          label: t.nav.rbac,
+          iconName: "admin_panel_settings",
+          iconSource: "material",
+        },
       ],
     },
     {
@@ -67,44 +77,106 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         {
           id: "workflow",
           label: t.nav.workflow,
-          icon: GitPullRequest,
+          iconName: "approval_delegation",
+          iconSource: "material",
           badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
-          badgeVariant: "destructive" as const,
+          badgeVariant: "destructive",
         },
-        { id: "leaves", label: t.nav.leaves, icon: CalendarDays, badge: undefined },
+        {
+          id: "leaves",
+          label: t.nav.leaves,
+          iconName: "event_available",
+          iconSource: "material",
+        },
         {
           id: "attendance",
           label: t.nav.attendance,
-          icon: Clock,
+          iconName: "schedule",
+          iconSource: "material",
           badge: lateAttendanceCount > 0 ? lateAttendanceCount : undefined,
-          badgeVariant: "secondary" as const,
+          badgeVariant: "secondary",
         },
-        { id: "shifts", label: t.nav.shifts, icon: CalendarCheck, badge: undefined },
+        {
+          id: "shifts",
+          label: t.nav.shifts,
+          iconName: "calendar_month",
+          iconSource: "material",
+        },
       ],
     },
     {
       groupTitle: language === "ar" ? "الرواتب والمالية" : "Payroll & Finance",
       items: [
-        { id: "payroll", label: t.nav.payroll, icon: Wallet, badge: undefined },
-        { id: "loans", label: t.nav.loans, icon: Wallet, badge: undefined },
-        { id: "expenses", label: t.nav.expenses, icon: Receipt, badge: undefined },
+        {
+          id: "payroll",
+          label: t.nav.payroll,
+          iconName: "account_balance_wallet",
+          iconSource: "material",
+        },
+        {
+          id: "loans",
+          label: t.nav.loans,
+          iconName: "credit_card",
+          iconSource: "material",
+        },
+        {
+          id: "expenses",
+          label: t.nav.expenses,
+          iconName: "receipt_long",
+          iconSource: "material",
+        },
       ],
     },
     {
       groupTitle: language === "ar" ? "المواهب وتطوير الأداء" : "Talent & Growth",
       items: [
-        { id: "ats", label: t.nav.ats, icon: UserPlus, badge: undefined },
-        { id: "performance", label: t.nav.performance, icon: Award, badge: undefined },
-        { id: "workforce", label: t.nav.workforce, icon: TrendingUp, badge: undefined },
+        {
+          id: "ats",
+          label: t.nav.ats,
+          iconName: "person_search",
+          iconSource: "material",
+        },
+        {
+          id: "performance",
+          label: t.nav.performance,
+          iconName: "stars",
+          iconSource: "material",
+        },
+        {
+          id: "workforce",
+          label: t.nav.workforce,
+          iconName: "monitoring",
+          iconSource: "material",
+        },
       ],
     },
     {
       groupTitle: language === "ar" ? "البيئة المؤسسية والتكامل" : "Ecosystem & Governance",
       items: [
-        { id: "assets", label: t.nav.assets, icon: Package, badge: undefined },
-        { id: "reports", label: t.nav.reports, icon: FileBarChart, badge: undefined },
-        { id: "integrations", label: t.nav.integrations, icon: Network, badge: undefined },
-        { id: "audit", label: t.nav.audit, icon: History, badge: undefined },
+        {
+          id: "assets",
+          label: t.nav.assets,
+          iconName: "devices",
+          iconSource: "material",
+        },
+        {
+          id: "reports",
+          label: t.nav.reports,
+          iconName: "analytics",
+          iconSource: "material",
+        },
+        {
+          id: "integrations",
+          label: t.nav.integrations,
+          iconName: "hub",
+          iconSource: "material",
+        },
+        {
+          id: "audit",
+          label: t.nav.audit,
+          iconName: "verified_user",
+          iconSource: "material",
+        },
       ],
     },
     {
@@ -113,9 +185,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         {
           id: "ess",
           label: t.nav.ess,
-          icon: Smartphone,
-          badge: "ESS" as const,
-          badgeVariant: "default" as const,
+          iconName: "smartphone",
+          iconSource: "material",
+          badge: "ESS",
+          badgeVariant: "default",
         },
       ],
     },
@@ -167,7 +240,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         </button>
       </div>
 
-      {/* Navigation List with M3 Pill Indicators */}
+      {/* Navigation List with M3 Pill Indicators & Material Symbols */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 custom-scrollbar">
         {navGroups.map((group, gIdx) => (
           <div key={gIdx} className="space-y-1">
@@ -179,7 +252,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             {group.items
               .filter((item) => canAccessModule(currentRole, item.id))
               .map((item) => {
-                const Icon = item.icon;
                 const isActive = currentTab === item.id;
                 return (
                   <button
@@ -189,15 +261,19 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                       onMobileClose?.();
                     }}
                     title={collapsed ? item.label : undefined}
-                    className={`group relative flex w-full items-center gap-3.5 rounded-full px-4 py-2.5 text-xs font-bold transition-all duration-200 ${
+                    className={`group relative flex w-full items-center gap-3 rounded-full px-4 py-2 text-xs font-bold transition-all duration-200 ${
                       isActive
                         ? "bg-secondary text-secondary-foreground shadow-xs"
                         : "text-foreground/75 hover:bg-muted hover:text-foreground"
                     } ${collapsed ? "justify-center px-0 h-11 w-11 mx-auto" : ""}`}
                   >
-                    <Icon
-                      className={`h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110 ${
-                        isActive ? "text-primary" : "text-muted-foreground"
+                    <IconSymbol
+                      name={item.iconName}
+                      source={item.iconSource}
+                      filled={isActive}
+                      size={20}
+                      className={`shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                        isActive ? "text-primary font-black" : "text-muted-foreground"
                       }`}
                     />
                     {!collapsed && <span className="flex-1 text-start truncate">{item.label}</span>}

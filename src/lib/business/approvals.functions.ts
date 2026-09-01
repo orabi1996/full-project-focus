@@ -118,7 +118,10 @@ export const submitRequestServer = createServerFn({ method: "POST" })
       })),
     );
 
-    await supabase.from("request_timeline").insert({
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+
+    await admin.from("request_timeline").insert({
       request_id: request.id,
       step_number: 1,
       actor_id: context.userId,
@@ -135,7 +138,7 @@ export const submitRequestServer = createServerFn({ method: "POST" })
         .eq("id", employee.manager_id)
         .maybeSingle();
       await notify(
-        supabase,
+        admin,
         manager?.user_id ?? null,
         "طلب بانتظار اعتمادك",
         `طلب ${reference} من ${employee.full_name}`,
@@ -218,7 +221,10 @@ export const actOnRequestServer = createServerFn({ method: "POST" })
       })
       .eq("id", request.id);
 
-    await supabase.from("request_timeline").insert({
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+
+    await admin.from("request_timeline").insert({
       request_id: request.id,
       step_number: currentStep,
       actor_id: context.userId,
@@ -237,7 +243,7 @@ export const actOnRequestServer = createServerFn({ method: "POST" })
       const label =
         finalStatus === "approved" ? "تمت الموافقة" : finalStatus === "rejected" ? "تم الرفض" : "أُعيد للتصحيح";
       await notify(
-        supabase,
+        admin,
         requester?.user_id ?? null,
         `${label}: ${request.reference}`,
         data.note ?? label,

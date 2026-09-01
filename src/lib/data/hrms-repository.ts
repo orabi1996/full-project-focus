@@ -268,7 +268,10 @@ export async function fetchCoreSnapshot(): Promise<CoreSnapshot> {
 
   for (const unit of orgUnits) {
     unit.employeeCount = employees.filter((employee) => employee.departmentId === unit.id).length;
+    const manager = unit.managerEmployeeId ? employeeMap.get(unit.managerEmployeeId) : undefined;
+    unit.managerName = manager ? `${manager.firstNameAr} ${manager.lastNameAr}` : unit.managerName;
   }
+
 
   return {
     employees,

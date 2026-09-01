@@ -1,27 +1,15 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import { OrgChartSvg, type OrgChartNodeData } from "./OrgChartSvg";
+
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
-import {
-  Building2,
-  MapPin,
-  Users,
-  Plus,
-  Network,
-  ShieldCheck,
-  CheckCircle2,
-  ChevronRight,
-  ChevronDown,
-  Layers,
-  Map,
-  Compass,
-  Search,
-  Sliders,
-  ZoomIn,
-  ZoomOut,
-  Sparkles,
-} from "lucide-react";
+import { Building2, MapPin, Plus, Network } from "lucide-react";
+import type { OrgUnit } from "../../types";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+
+type OrgUnitType = OrgUnit["type"];
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   Dialog,
@@ -59,9 +47,12 @@ export const OrganizationView: React.FC = () => {
     nameAr: "",
     nameEn: "",
     code: `DEP-${Math.floor(100 + Math.random() * 900)}`,
-    type: "department" as const,
+    type: "department" as OrgUnitType,
     managerName: "",
+    managerEmployeeId: "",
+    parentId: "",
   });
+
 
   const [newSub, setNewSub] = useState({
     nameAr: "",
@@ -81,8 +72,55 @@ export const OrganizationView: React.FC = () => {
     radiusMeters: 150,
   });
 
-  const [orgChartZoom, setOrgChartZoom] = useState(1);
-  const [orgChartSearch, setOrgChartSearch] = useState("");
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  const unitTypeLabel: Record<OrgUnitType, string> = {
+    division: "قطاع تنفيذي",
+    department: "إدارة عامة",
+    section: "قسم",
+    unit: "وحدة",
+  };
+
+  const selectedUnit = useMemo(
+    () => orgUnits.find((unit) => unit.id === selectedNodeId) ?? null,
+    [orgUnits, selectedNodeId],
+  );
+
+  const chartRoot = useMemo<OrgChartNodeData>(() => {
+    const byParent = new Map<string, typeof orgUnits>();
+    const ids = new Set(orgUnits.map((unit) => unit.id));
+    orgUnits.forEach((unit) => {
+      const key = unit.parentId && ids.has(unit.parentId) ? unit.parentId : "__root__";
+      const bucket = byParent.get(key) ?? [];
+      bucket.push(unit);
+      byParent.set(key, bucket);
+    });
+
+    const build = (parentKey: string, depth: number): OrgChartNodeData[] => {
+      if (depth > 8) return [];
+      return (byParent.get(parentKey) ?? []).map((unit) => ({
+        id: unit.id,
+        titleAr: unit.nameAr,
+        titleEn: unit.nameEn,
+        subtitle: unit.managerName || "بدون مدير معين",
+        code: unit.code,
+        kind: unit.type,
+        employeeCount: unit.employeeCount,
+        children: build(unit.id, depth + 1),
+      }));
+    };
+
+    return {
+      id: "__company__",
+      titleAr: company.legalNameAr,
+      titleEn: company.legalNameEn,
+      subtitle: `سجل تجاري ${company.crNumber}`,
+      code: company.id,
+      kind: "company",
+      employeeCount: employees.length,
+      children: build("__root__", 1),
+    };
+  }, [orgUnits, company, employees.length]);
 
   const handleCreateDept = () => {
     if (!newDept.nameAr) {
@@ -91,10 +129,12 @@ export const OrganizationView: React.FC = () => {
     }
     addOrgUnit({
       companyId: company.id,
+      parentId: newDept.parentId || null,
       nameAr: newDept.nameAr,
       nameEn: newDept.nameEn || newDept.nameAr,
       code: newDept.code,
       type: newDept.type,
+      managerEmployeeId: newDept.managerEmployeeId || undefined,
       managerName: newDept.managerName || "غير معين",
       status: "active",
     });
@@ -106,8 +146,11 @@ export const OrganizationView: React.FC = () => {
       code: `DEP-${Math.floor(100 + Math.random() * 900)}`,
       type: "department",
       managerName: "",
+      managerEmployeeId: "",
+      parentId: "",
     });
   };
+
 
   const handleCreateSub = () => {
     if (!newSub.nameAr) {
@@ -356,95 +399,115 @@ export const OrganizationView: React.FC = () => {
           </div>
         </TabsContent>
 
-        {/* Tab 4: Interactive Org Chart */}
+        {/* Tab 4: Interactive SVG Org Chart */}
         <TabsContent value="orgchart" className="pt-4">
-          <div className="rounded-xl border bg-card p-6 shadow-sm space-y-6">
-            {/* Chart Toolbar */}
-            <div className="flex items-center justify-between border-b pb-3">
-              <div className="flex items-center gap-2">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="بحث في شجرة الهيكل التنظيمي..."
-                  value={orgChartSearch}
-                  onChange={(e) => setOrgChartSearch(e.target.value)}
-                  className="h-8 rounded-md border px-2.5 text-xs w-64"
-                />
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setOrgChartZoom((prev) => Math.max(0.7, prev - 0.1))}
-                  className="h-7 w-7"
-                >
-                  <ZoomOut className="h-3.5 w-3.5" />
-                </Button>
-                <span className="text-[10px] font-mono px-1">
-                  {Math.round(orgChartZoom * 100)}%
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setOrgChartZoom((prev) => Math.min(1.3, prev + 0.1))}
-                  className="h-7 w-7"
-                >
-                  <ZoomIn className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_300px]">
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
+              <OrgChartSvg
+                root={chartRoot}
+                language={language}
+                selectedId={selectedNodeId}
+                onSelect={setSelectedNodeId}
+              />
             </div>
 
-            {/* Tree Nodes Visual Canvas */}
-            <div
-              className="flex flex-col items-center space-y-6 transition-transform duration-200"
-              style={{ transform: `scale(${orgChartZoom})`, transformOrigin: "top center" }}
-            >
-              {/* Top Node: Company HQ */}
-              <div className="rounded-xl border-2 border-primary bg-primary/10 p-4 text-center max-w-sm w-full shadow-md">
-                <span className="text-[10px] font-bold text-primary uppercase">
-                  مجلس الإدارة والمنشأة الرئيسية
-                </span>
-                <h3 className="text-sm font-black text-foreground mt-0.5">{company.legalNameAr}</h3>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  الرئيس التنفيذي: م. عبد العزيز الفهد
-                </p>
-                <Badge
-                  variant="outline"
-                  className="mt-2 text-[10px] bg-primary/20 text-primary border-primary/30"
-                >
-                  {employees.length} موظف في المنظومة
-                </Badge>
-              </div>
+            <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
+              <h3 className="flex items-center gap-2 border-b pb-2 text-xs font-black">
+                <Network className="h-4 w-4 text-primary" />
+                تفاصيل العقدة المحددة
+              </h3>
 
-              {/* Tree Branch Line */}
-              <div className="w-0.5 h-6 bg-border" />
+              {!selectedUnit ? (
+                <div className="space-y-2 text-xs text-muted-foreground">
+                  <p className="font-bold text-foreground">{company.legalNameAr}</p>
+                  <p>السجل التجاري: {company.crNumber}</p>
+                  <p>الرقم الضريبي: {company.taxNumber}</p>
+                  <p>{company.headquartersAddress}</p>
+                  <Badge variant="outline" className="text-[10px]">
+                    {employees.length} موظف • {orgUnits.length} وحدة تنظيمية
+                  </Badge>
+                  <p className="pt-2 text-[11px]">اضغط على أي وحدة في الشجرة لعرض تفاصيلها.</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5 text-xs">
+                  <div>
+                    <h4 className="text-sm font-black text-foreground">
+                      {language === "ar" ? selectedUnit.nameAr : selectedUnit.nameEn}
+                    </h4>
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {selectedUnit.code}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="text-muted-foreground">المستوى:</span>
+                    <span className="font-bold">{unitTypeLabel[selectedUnit.type]}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">الوحدة الأعلى:</span>
+                    <span className="font-bold">
+                      {orgUnits.find((u) => u.id === selectedUnit.parentId)?.nameAr ??
+                        company.legalNameAr}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">المدير:</span>
+                    <span className="font-bold">{selectedUnit.managerName || "غير معين"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">عدد الموظفين:</span>
+                    <span className="font-bold">{selectedUnit.employeeCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">وحدات فرعية:</span>
+                    <span className="font-bold">
+                      {orgUnits.filter((u) => u.parentId === selectedUnit.id).length}
+                    </span>
+                  </div>
 
-              {/* Level 2: Divisions & Departments */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-                {orgUnits
-                  .filter((u) => !orgChartSearch || u.nameAr.includes(orgChartSearch))
-                  .map((unit) => (
-                    <div
-                      key={unit.id}
-                      className="rounded-xl border bg-muted/30 p-4 text-center shadow-sm space-y-1.5 hover:border-primary/40 transition-colors"
-                    >
-                      <Badge variant="outline" className="text-[10px]">
-                        {unit.type === "division" ? "قطاع تنفيذي" : "إدارة عامة"}
-                      </Badge>
-                      <h4 className="font-bold text-xs text-foreground">
-                        {language === "ar" ? unit.nameAr : unit.nameEn}
-                      </h4>
-                      <p className="text-[11px] text-primary font-bold">{unit.managerName}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono">
-                        {unit.employeeCount} موظف مسجل
-                      </p>
+                  <div className="border-t pt-2">
+                    <p className="mb-1.5 font-bold">أعضاء الوحدة</p>
+                    <div className="max-h-52 space-y-1 overflow-y-auto">
+                      {employees
+                        .filter((employee) => employee.departmentId === selectedUnit.id)
+                        .slice(0, 20)
+                        .map((employee) => (
+                          <div
+                            key={employee.id}
+                            className="flex items-center justify-between rounded-md bg-muted/40 px-2 py-1 text-[11px]"
+                          >
+                            <span className="font-semibold">
+                              {employee.firstNameAr} {employee.lastNameAr}
+                            </span>
+                            <span className="text-muted-foreground">{employee.jobTitleAr}</span>
+                          </div>
+                        ))}
+                      {employees.filter((employee) => employee.departmentId === selectedUnit.id)
+                        .length === 0 && (
+                        <p className="text-[11px] text-muted-foreground">لا يوجد موظفون مسكنون.</p>
+                      )}
                     </div>
-                  ))}
-              </div>
+                  </div>
+
+                  {canManage && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full text-[11px]"
+                      onClick={() => {
+                        setNewDept((prev) => ({ ...prev, parentId: selectedUnit.id }));
+                        setIsAddDeptOpen(true);
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      إضافة وحدة فرعية تحت هذه الوحدة
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </TabsContent>
+
       </Tabs>
 
       {/* Add Department Modal */}
@@ -480,16 +543,63 @@ export const OrganizationView: React.FC = () => {
                 className="w-full h-8 rounded border px-2.5 font-mono"
               />
             </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="font-bold">المستوى التنظيمي</label>
+                <select
+                  value={newDept.type}
+                  onChange={(e) =>
+                    setNewDept({ ...newDept, type: e.target.value as OrgUnitType })
+                  }
+                  className="h-8 w-full rounded border bg-background px-2"
+                >
+                  <option value="division">قطاع تنفيذي</option>
+                  <option value="department">إدارة عامة</option>
+                  <option value="section">قسم</option>
+                  <option value="unit">وحدة</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="font-bold">الوحدة الأعلى (Parent)</label>
+                <select
+                  value={newDept.parentId}
+                  onChange={(e) => setNewDept({ ...newDept, parentId: e.target.value })}
+                  className="h-8 w-full rounded border bg-background px-2"
+                >
+                  <option value="">مباشرة تحت المنشأة</option>
+                  {orgUnits.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.nameAr}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div className="space-y-1">
               <label className="font-bold">المدير المسؤول</label>
-              <input
-                type="text"
-                value={newDept.managerName}
-                onChange={(e) => setNewDept({ ...newDept, managerName: e.target.value })}
-                placeholder="اسم المدير..."
-                className="w-full h-8 rounded border px-2.5"
-              />
+              <select
+                value={newDept.managerEmployeeId}
+                onChange={(e) => {
+                  const employee = employees.find((item) => item.id === e.target.value);
+                  setNewDept({
+                    ...newDept,
+                    managerEmployeeId: e.target.value,
+                    managerName: employee
+                      ? `${employee.firstNameAr} ${employee.lastNameAr}`
+                      : "",
+                  });
+                }}
+                className="h-8 w-full rounded border bg-background px-2"
+              >
+                <option value="">غير معين</option>
+                {employees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.firstNameAr} {employee.lastNameAr} — {employee.jobTitleAr}
+                  </option>
+                ))}
+              </select>
             </div>
+
           </div>
 
           <DialogFooter className="mt-2">

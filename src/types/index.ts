@@ -170,6 +170,67 @@ export interface Employee {
   // Financial Summary
   basicSalary: number;
   totalSalary: number;
+  housingAllowance?: number;
+  transportAllowance?: number;
+  otherAllowances?: number;
+  bankName?: string;
+  iban?: string;
+  gosiNumber?: string;
+  gosiEmployeeDeduction?: number;
+  gosiEmployerContribution?: number;
+
+  // Identity & Civil
+  passportNo?: string;
+  passportExpiry?: string;
+  nationalIdExpiry?: string;
+  bloodType?: string;
+  dependentsCount?: number;
+
+  // National Address & Emergency
+  nationalAddress?: {
+    buildingNo: string;
+    street: string;
+    district: string;
+    city: string;
+    postalCode: string;
+    additionalNo: string;
+  };
+  emergencyContact?: {
+    name: string;
+    relation: string;
+    phone: string;
+  };
+
+  // Job Structure & Career
+  jobGrade?: string;
+  costCenter?: string;
+  contractStartDate?: string;
+  contractEndDate?: string;
+  qiwaContractNo?: string;
+  yearsOfService?: number;
+  workType?: "on_site" | "hybrid" | "remote";
+
+  // Education & Skills
+  educationDegree?: string;
+  university?: string;
+  graduationYear?: number;
+  certifications?: string[];
+  languages?: string[];
+
+  // Assigned Assets & Digital Documents
+  assignedAssets?: {
+    name: string;
+    type: string;
+    serialNo: string;
+    assignedDate: string;
+  }[];
+  documentsList?: {
+    type: string;
+    title: string;
+    docNo: string;
+    expiryDate: string;
+    status: "valid" | "expiring" | "expired";
+  }[];
 
   // Custom Fields
   customFields?: Record<string, unknown>;

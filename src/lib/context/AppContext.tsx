@@ -215,6 +215,8 @@ interface AppContextType {
   processPayrollRun: (groupId: string, year: number, month: number) => void;
   lockAndConfirmPayrollRun: (runId: string) => void;
   markPayrollAsPaid: (runId: string) => void;
+  processAttendance: (fromDate: string, toDate: string) => void;
+  accrueLeaveBalances: (year: number) => void;
   createLoan: (payload: {
     principalAmount: number;
     monthlyInstallment: number;

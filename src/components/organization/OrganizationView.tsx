@@ -61,9 +61,12 @@ export const OrganizationView: React.FC = () => {
     nameAr: "",
     nameEn: "",
     code: `DEP-${Math.floor(100 + Math.random() * 900)}`,
-    type: "department" as const,
+    type: "department" as OrgUnitType,
     managerName: "",
+    managerEmployeeId: "",
+    parentId: "",
   });
+
 
   const [newSub, setNewSub] = useState({
     nameAr: "",

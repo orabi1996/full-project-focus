@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
 import { canManageModule } from "../../lib/auth/permissions";
+import { IconSymbol } from "../ui/IconSymbol";
 import {
   Receipt,
   Plus,
@@ -14,6 +15,7 @@ import {
   DollarSign,
   Download,
   Settings,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -115,24 +117,24 @@ export const ExpensesView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+      {/* Header (Google M3 Style) */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
         <div>
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <Receipt className="h-5 w-5 text-primary" />
+          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
+            <IconSymbol name="receipt_long" source="material" filled size={24} className="text-primary" />
             {t.expenses.claims} وإدارة النفقات والمصروفات (M12)
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground font-medium mt-1">
             إدارة فواتير ومصروفات الأعمال، حدود السياسات والتحقق، والاعتماد والترحيل المالي
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2.5">
           {canSubmitClaim && (
             <Button
               onClick={() => setIsClaimModalOpen(true)}
               size="sm"
-              className="font-bold text-xs gap-1.5 bg-primary"
+              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-4"
             >
               <Plus className="h-4 w-4" />
               {t.expenses.newClaim}
@@ -143,42 +145,42 @@ export const ExpensesView: React.FC = () => {
               onClick={() => setIsAddCatModalOpen(true)}
               variant="outline"
               size="sm"
-              className="font-bold text-xs gap-1.5"
+              className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
             >
-              <Settings className="h-4 w-4" />
-              إضافة فئة وسياسة مصروفات
+              <Settings className="h-4 w-4 text-primary" />
+              إضافة فئة وسياسة
             </Button>
           )}
           <Button
             onClick={handleExportExpenses}
             variant="secondary"
             size="sm"
-            className="font-bold text-xs gap-1.5"
+            className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs"
           >
-            <Download className="h-4 w-4" />
+            <Download className="h-4 w-4 text-primary" />
             {t.export} (Excel/CSV)
           </Button>
         </div>
       </div>
 
       {/* Expense Policy Categories */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {expenseCategories.map((cat) => (
-          <div key={cat.id} className="rounded-xl border bg-card p-4 shadow-sm space-y-2">
+          <div key={cat.id} className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-3 hover:border-primary/40 transition-all">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-xs text-foreground">{cat.nameAr}</span>
+              <span className="font-black text-xs text-foreground">{cat.nameAr}</span>
               <Receipt className="h-4 w-4 text-primary" />
             </div>
-            <div className="space-y-1 text-xs text-muted-foreground pt-1 border-t">
+            <div className="space-y-1.5 text-xs text-muted-foreground pt-2 border-t border-border/60 font-medium">
               <div className="flex justify-between">
                 <span>حد التحذير:</span>
-                <span className="font-bold text-amber-600">
+                <span className="font-bold text-amber-600 font-mono">
                   {cat.maxLimitWarning.toLocaleString()} ر.س
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>الحد المانع:</span>
-                <span className="font-bold text-destructive">
+                <span className="font-bold text-destructive font-mono">
                   {cat.maxLimitBlock.toLocaleString()} ر.س
                 </span>
               </div>
@@ -191,14 +193,14 @@ export const ExpensesView: React.FC = () => {
       </div>
 
       {/* Claims List Table */}
-      <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
-        <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="text-sm font-bold text-foreground">سجل المطالبات المقدمة</h2>
+      <div className="rounded-3xl border border-border/80 bg-card overflow-hidden shadow-xs space-y-3 p-5">
+        <div className="flex justify-between items-center border-b border-border/60 pb-3">
+          <h2 className="text-sm font-black text-foreground">سجل المطالبات المقدمة</h2>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-2xl border border-border/60">
           <table className="w-full text-xs">
-            <thead className="border-b bg-muted/40 font-bold text-muted-foreground">
+            <thead className="border-b border-border/60 bg-muted/40 font-bold text-muted-foreground">
               <tr>
                 <th className="py-3 px-4 text-start">التصنيف</th>
                 <th className="py-3 px-4 text-start">المورد / الجهة</th>
@@ -208,20 +210,20 @@ export const ExpensesView: React.FC = () => {
                 <th className="py-3 px-4 text-start">الحالة</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-border/60">
               {expenseClaims.map((c) => (
-                <tr key={c.id} className="hover:bg-muted/20">
+                <tr key={c.id} className="hover:bg-muted/20 transition-colors">
                   <td className="py-3 px-4 font-bold text-foreground">{c.categoryNameAr}</td>
-                  <td className="py-3 px-4 font-medium">{c.merchantName}</td>
-                  <td className="py-3 px-4 text-muted-foreground">{c.description}</td>
-                  <td className="py-3 px-4 text-muted-foreground">{c.spentAt}</td>
-                  <td className="py-3 px-4 font-bold text-primary">
+                  <td className="py-3 px-4 font-semibold">{c.merchantName}</td>
+                  <td className="py-3 px-4 text-muted-foreground font-medium">{c.description}</td>
+                  <td className="py-3 px-4 text-muted-foreground font-mono">{c.spentAt}</td>
+                  <td className="py-3 px-4 font-black text-primary font-mono">
                     {c.amount.toLocaleString()} {c.currency}
                   </td>
                   <td className="py-3 px-4">
                     <Badge
                       variant="outline"
-                      className={`text-[10px] ${
+                      className={`text-[10px] rounded-full px-2.5 font-bold ${
                         c.status === "approved"
                           ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
                           : "bg-amber-500/10 text-amber-700 border-amber-200"
@@ -239,24 +241,24 @@ export const ExpensesView: React.FC = () => {
 
       {/* New Expense Claim Modal */}
       <Dialog open={isClaimModalOpen} onOpenChange={setIsClaimModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
+            <DialogTitle className="text-base font-black flex items-center gap-2">
               <Receipt className="h-5 w-5 text-primary" />
               {t.expenses.newClaim}
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs font-medium">
               رفع الفواتير وإثباتات الصرف لمطابقتها مع سياسة الشركة
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 text-xs py-2">
-            <div className="space-y-1">
+          <div className="space-y-3.5 text-xs py-2">
+            <div className="space-y-1.5">
               <label className="font-bold">تصنيف المصروف *</label>
               <select
                 value={selectedCatId}
                 onChange={(e) => setSelectedCatId(e.target.value)}
-                className="w-full h-8 rounded border px-2.5"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
               >
                 {expenseCategories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
@@ -266,65 +268,66 @@ export const ExpensesView: React.FC = () => {
               </select>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="font-bold">المبلغ المدفوع (ر.س) *</label>
               <input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(Number(e.target.value))}
-                className="w-full h-8 rounded border px-2.5"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
               {isOverWarning && !isOverBlock && (
-                <p className="text-[11px] text-amber-600 font-semibold flex items-center gap-1">
+                <p className="text-[11px] text-amber-600 font-bold flex items-center gap-1">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   تنبيه: المبلغ يتجاوز حد التحذير ويتطلب تصعيداً إدارياً.
                 </p>
               )}
               {isOverBlock && (
-                <p className="text-[11px] text-destructive font-semibold flex items-center gap-1">
+                <p className="text-[11px] text-destructive font-bold flex items-center gap-1">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   تجاوز للحد المانع! لا يمكن تقديم هذا المبلغ.
                 </p>
               )}
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="font-bold">اسم المورد / الجهة المستلمة *</label>
               <input
                 type="text"
                 value={merchant}
                 onChange={(e) => setMerchant(e.target.value)}
                 placeholder="مثال: فندق الفورسيزونز الرياض"
-                className="w-full h-8 rounded border px-2.5"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-medium"
               />
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="font-bold">وصف المصروف والغرض العملي *</label>
               <textarea
                 rows={2}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="اكتب الغرض من المصروف..."
-                className="w-full rounded border p-2 text-xs"
+                className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="font-bold">إرفاق صورة الفاتورة / الإيصال</label>
-              <div className="border border-dashed rounded-lg p-3 text-center text-muted-foreground hover:bg-muted/20 cursor-pointer">
-                <Upload className="mx-auto h-5 w-5 mb-1 text-primary" />
-                <span className="text-[11px]">اضغط هنا لرفع الإيصال (PNG, JPG, PDF)</span>
+              <div className="border-2 border-dashed border-primary/30 rounded-2xl p-4 text-center text-muted-foreground hover:bg-secondary/30 cursor-pointer transition-colors">
+                <Upload className="mx-auto h-6 w-6 mb-1 text-primary" />
+                <span className="text-[11px] font-bold text-foreground block">اضغط هنا لرفع الإيصال</span>
+                <span className="text-[10px] text-muted-foreground font-mono">يدعم PNG, JPG, PDF بحد أقصى 10MB</span>
               </div>
             </div>
           </div>
 
-          <DialogFooter className="mt-2">
+          <DialogFooter className="mt-3">
             <Button
               size="sm"
               disabled={isOverBlock}
               onClick={handleAddClaim}
-              className="text-xs bg-primary font-bold"
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
             >
               إرسال المطالبة للاعتماد
             </Button>
@@ -334,55 +337,55 @@ export const ExpensesView: React.FC = () => {
 
       {/* Add Category Modal */}
       <Dialog open={isAddCatModalOpen} onOpenChange={setIsAddCatModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
+            <DialogTitle className="text-base font-black flex items-center gap-2">
               <Settings className="h-5 w-5 text-primary" />
               إضافة فئة وسياسة مصروفات جديدة
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs font-medium">
               تحديد سقف التحذير والحد المانع للصرف
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 text-xs py-2">
-            <div className="space-y-1">
+          <div className="space-y-3.5 text-xs py-2">
+            <div className="space-y-1.5">
               <label className="font-bold">اسم فئة المصروف *</label>
               <input
                 type="text"
                 value={newCatName}
                 onChange={(e) => setNewCatName(e.target.value)}
                 placeholder="مثال: رسوم تجديد التراخيص الحكومية"
-                className="w-full h-8 rounded border px-2.5"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">سقف التحذير (ر.س)</label>
                 <input
                   type="number"
                   value={newCatWarning}
                   onChange={(e) => setNewCatWarning(Number(e.target.value))}
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">الحد المانع (ر.س)</label>
                 <input
                   type="number"
                   value={newCatBlock}
                   onChange={(e) => setNewCatBlock(Number(e.target.value))}
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
             </div>
           </div>
 
-          <DialogFooter className="mt-2">
+          <DialogFooter className="mt-3">
             <Button
               size="sm"
               onClick={handleCreateCategory}
-              className="text-xs bg-primary font-bold"
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
             >
               حفظ وتطبيق السياسة
             </Button>

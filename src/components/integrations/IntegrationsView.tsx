@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
+import { IconSymbol } from "../ui/IconSymbol";
 import {
   Network,
   BookOpen,
@@ -13,6 +14,7 @@ import {
   RotateCw,
   Send,
   Sliders,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -38,6 +40,33 @@ export const IntegrationsView: React.FC = () => {
   // Webhook Form State
   const [webhookUrl, setWebhookUrl] = useState("https://api.my-erp.com/hrms/events");
   const [webhookEvent, setWebhookEvent] = useState("payroll.confirmed");
+
+  const saudiGovIntegrations = [
+    {
+      id: "qiwa",
+      name: "منصة قوى (Qiwa MHRSD)",
+      status: "connected",
+      desc: "توثيق العقود الوظيفية الموحدة ومطابقة نسب التوطين نطاقات",
+    },
+    {
+      id: "muqeem",
+      name: "منصة مقيم (Muqeem / Elm)",
+      status: "connected",
+      desc: "مزامنة بيانات الإقامات وتأشيرات الخروج والعودة وتجديد الجوازات",
+    },
+    {
+      id: "gosi",
+      name: "التأمينات الاجتماعية (GOSI)",
+      status: "connected",
+      desc: "المزامنة اللحظية لبيانات الأجر الخاضع للاشتراك وحساب نسب الاستقطاع",
+    },
+    {
+      id: "mudad",
+      name: "منصة مدد (Mudad Compliance)",
+      status: "connected",
+      desc: "التحقق المباشر من مطابقة ملف حماية الأجور WPS والالتزام بنسبة 100%",
+    },
+  ];
 
   const erpPlatforms = [
     {
@@ -74,23 +103,23 @@ export const IntegrationsView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+      {/* Header (Google M3 Style) */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
         <div>
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <Network className="h-5 w-5 text-primary" />
-            {t.system.integrations} ومركز القيود المحاسبية ERP (M18)
+          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
+            <IconSymbol name="hub" source="material" filled size={24} className="text-primary" />
+            {t.system.integrations} والربط الحكومي والمحاسبي (M18)
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            توليد قيود اليومية المحاسبية للرواتب والمصروفات، الربط بأنظمة ERP، ومفاتيح API وWebhooks
+          <p className="text-xs text-muted-foreground font-medium mt-1">
+            ربط منصات قوى، مقيم، التأمينات (GOSI)، مدد، وتوليد قيود اليومية التلقائية لأنظمة ERP
           </p>
         </div>
         {canManage && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2.5">
             <Button
               onClick={() => setIsSyncJournalOpen(true)}
               size="sm"
-              className="font-bold text-xs gap-1.5 bg-primary"
+              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-4"
             >
               <RotateCw className="h-4 w-4" />
               ترحيل القيود إلى ERP الآن
@@ -99,72 +128,87 @@ export const IntegrationsView: React.FC = () => {
               onClick={() => setIsAddWebhookOpen(true)}
               variant="outline"
               size="sm"
-              className="font-bold text-xs gap-1.5"
+              className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4 text-primary" />
               إضافة Webhook جديد
             </Button>
           </div>
         )}
       </div>
 
+      {/* Saudi Government Integrations Radar */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        {saudiGovIntegrations.map((gov) => (
+          <div key={gov.id} className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-2.5 hover:border-primary/40 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="font-black text-xs text-foreground">{gov.name}</span>
+              <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[9px] rounded-full px-2 font-bold border-emerald-200">
+                مربوط ونشط
+              </Badge>
+            </div>
+            <p className="text-[11px] text-muted-foreground font-medium leading-relaxed">{gov.desc}</p>
+          </div>
+        ))}
+      </div>
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-3 max-w-md">
-          <TabsTrigger value="journals" className="text-xs font-bold">
-            مركز القيود المحاسبية ({accountingJournals.length})
+        <TabsList className="grid grid-cols-3 max-w-md bg-muted/60 p-1 rounded-full border border-border/60">
+          <TabsTrigger value="journals" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+            القيود المحاسبية ({accountingJournals.length})
           </TabsTrigger>
-          <TabsTrigger value="erp" className="text-xs font-bold">
-            أنظمة ERP المتكاملة
+          <TabsTrigger value="erp" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+            أنظمة ERP
           </TabsTrigger>
-          <TabsTrigger value="webhooks" className="text-xs font-bold">
+          <TabsTrigger value="webhooks" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
             Webhooks & API
           </TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Accounting Journals */}
         <TabsContent value="journals" className="space-y-4 pt-4">
-          <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
-            <div className="p-4 border-b flex justify-between items-center">
-              <h3 className="text-xs font-bold text-foreground">
-                قيود اليومية الآلية (Journal Entries)
+          <div className="rounded-3xl border border-border/80 bg-card overflow-hidden shadow-xs space-y-4 p-6">
+            <div className="flex justify-between items-center border-b border-border/60 pb-3">
+              <h3 className="text-sm font-black text-foreground">
+                قيود اليومية الآلية (Automated Journal Entries)
               </h3>
-              <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px]">
+              <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px] rounded-full px-2.5 font-bold border-emerald-200">
                 مرحلة ومطابقة (100% Balanced)
               </Badge>
             </div>
 
-            <div className="p-4 space-y-3">
+            <div className="space-y-3">
               {accountingJournals.map((j) => (
                 <div
                   key={j.id}
-                  className="rounded-lg border bg-muted/20 p-4 text-xs space-y-2 font-mono"
+                  className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-xs space-y-2.5 font-mono hover:bg-card transition-all"
                 >
-                  <div className="flex items-center justify-between font-bold">
-                    <span className="text-primary">{j.journalNo}</span>
+                  <div className="flex items-center justify-between font-black">
+                    <span className="text-primary text-sm">{j.journalNo}</span>
                     <span className="text-muted-foreground">{j.date}</span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-muted-foreground border-t pt-2">
+                  <div className="grid grid-cols-2 gap-3 text-muted-foreground border-t border-border/60 pt-2.5 font-sans text-xs">
                     <div>
                       المصدر:{" "}
-                      <span className="font-semibold text-foreground">
+                      <span className="font-bold text-foreground">
                         {j.sourceReference} (مسير رواتب)
                       </span>
                     </div>
                     <div>
                       الحالة:{" "}
-                      <span className="font-semibold text-emerald-600">مرحل لنظام Odoo ERP</span>
+                      <span className="font-bold text-emerald-600">مرحل لنظام Odoo ERP</span>
                     </div>
-                    <div>
+                    <div className="font-mono">
                       إجمالي المدين (Debit):{" "}
-                      <span className="font-bold text-foreground">
+                      <span className="font-black text-foreground">
                         {j.totalDebit.toLocaleString()} ر.س
                       </span>
                     </div>
-                    <div>
+                    <div className="font-mono">
                       إجمالي الدائن (Credit):{" "}
-                      <span className="font-bold text-foreground">
+                      <span className="font-black text-foreground">
                         {j.totalCredit.toLocaleString()} ر.س
                       </span>
                     </div>
@@ -179,12 +223,12 @@ export const IntegrationsView: React.FC = () => {
         <TabsContent value="erp" className="space-y-4 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {erpPlatforms.map((erp) => (
-              <div key={erp.id} className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
+              <div key={erp.id} className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-3 hover:border-primary/40 transition-all">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-sm text-foreground">{erp.name}</h3>
+                  <h3 className="font-black text-sm text-foreground">{erp.name}</h3>
                   <Badge
                     variant="outline"
-                    className={`text-[10px] ${
+                    className={`text-[10px] rounded-full px-2.5 font-bold ${
                       erp.status === "connected"
                         ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
                         : "bg-muted text-muted-foreground"
@@ -193,9 +237,9 @@ export const IntegrationsView: React.FC = () => {
                     {erp.status === "connected" ? "متصل ونشط" : "جاهز للربط"}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground">{erp.desc}</p>
-                <div className="border-t pt-2 flex justify-between items-center">
-                  <Button size="sm" variant="outline" className="text-xs font-bold text-primary">
+                <p className="text-xs text-muted-foreground font-medium leading-relaxed">{erp.desc}</p>
+                <div className="border-t border-border/60 pt-3 flex justify-between items-center">
+                  <Button size="sm" variant="outline" className="rounded-full text-xs font-bold text-primary border-border/80 hover:bg-secondary px-3.5">
                     إعدادات الربط ومراكز التكلفة
                   </Button>
                 </div>
@@ -206,12 +250,12 @@ export const IntegrationsView: React.FC = () => {
 
         {/* Tab 3: Webhooks */}
         <TabsContent value="webhooks" className="space-y-4 pt-4">
-          <div className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
-            <h3 className="font-bold text-xs text-foreground">اشتراكات الـ Webhook الفورية</h3>
-            <p className="text-xs text-muted-foreground">
+          <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-3.5">
+            <h3 className="font-black text-xs text-foreground">اشتراكات الـ Webhook الفورية</h3>
+            <p className="text-xs text-muted-foreground font-medium">
               استقبال إشعارات فورية عند اعتماد الإجازات، قفل مسير الرواتب، أو تعيين مرشح جديد.
             </p>
-            <div className="rounded-lg border bg-muted/30 p-3 text-xs font-mono text-muted-foreground">
+            <div className="rounded-2xl border border-border/60 bg-muted/30 p-3.5 text-xs font-mono text-muted-foreground">
               POST https://api.your-company.com/webhooks/hrms-events
             </div>
           </div>
@@ -220,24 +264,24 @@ export const IntegrationsView: React.FC = () => {
 
       {/* Sync Journal Modal */}
       <Dialog open={isSyncJournalOpen} onOpenChange={setIsSyncJournalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
+            <DialogTitle className="text-base font-black flex items-center gap-2">
               <RotateCw className="h-5 w-5 text-primary" />
               ترحيل قيود الرواتب والمصروفات لـ ERP
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs font-medium">
               سيتم إرسال قيود الدائن والمدين ومراكز التكلفة تلقائياً
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 text-xs py-2 font-mono">
-            <div className="rounded-lg border bg-muted/20 p-3 space-y-1">
-              <p className="font-bold text-foreground">ملخص القيد المحاسبي الموجه لـ Odoo:</p>
-              <p className="text-muted-foreground">
+          <div className="space-y-3.5 text-xs py-2 font-mono">
+            <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-1.5 font-sans">
+              <p className="font-black text-foreground">ملخص القيد المحاسبي الموجه لـ Odoo:</p>
+              <p className="text-muted-foreground font-mono">
                 المدين (Debit): 448,500 ر.س (مصروفات رواتب وبدلات)
               </p>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground font-mono">
                 الدائن (Credit): 448,500 ر.س (مستحقات بنك + تأمينات + سلف)
               </p>
               <span className="text-emerald-600 font-bold block pt-1">
@@ -246,8 +290,8 @@ export const IntegrationsView: React.FC = () => {
             </div>
           </div>
 
-          <DialogFooter className="mt-2">
-            <Button size="sm" onClick={handleSyncJournals} className="text-xs bg-primary font-bold">
+          <DialogFooter className="mt-3">
+            <Button size="sm" onClick={handleSyncJournals} className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9">
               تأكيد الترحيل المالي
             </Button>
           </DialogFooter>
@@ -256,33 +300,33 @@ export const IntegrationsView: React.FC = () => {
 
       {/* Add Webhook Modal */}
       <Dialog open={isAddWebhookOpen} onOpenChange={setIsAddWebhookOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
+            <DialogTitle className="text-base font-black flex items-center gap-2">
               <Webhook className="h-5 w-5 text-primary" />
               إضافة اشتراك Webhook جديد
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs font-medium">
               إرسال حمولة JSON فور وقوع الحدث في النظام
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 text-xs py-2">
-            <div className="space-y-1">
+          <div className="space-y-3.5 text-xs py-2">
+            <div className="space-y-1.5">
               <label className="font-bold">رابط الاستقبال (Target Endpoint URL) *</label>
               <input
                 type="text"
                 value={webhookUrl}
                 onChange={(e) => setWebhookUrl(e.target.value)}
-                className="w-full h-8 rounded border px-2.5 font-mono"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="font-bold">الحدث المستهدف (Trigger Event) *</label>
               <select
                 value={webhookEvent}
                 onChange={(e) => setWebhookEvent(e.target.value)}
-                className="w-full h-8 rounded border px-2.5"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
                 <option value="payroll.confirmed">
                   اعتماد وقفل مسير الرواتب (payroll.confirmed)
@@ -293,11 +337,11 @@ export const IntegrationsView: React.FC = () => {
             </div>
           </div>
 
-          <DialogFooter className="mt-2">
+          <DialogFooter className="mt-3">
             <Button
               size="sm"
               onClick={handleCreateWebhook}
-              className="text-xs bg-primary font-bold"
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
             >
               حفظ وتفعيل Webhook
             </Button>

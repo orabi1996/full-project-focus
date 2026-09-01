@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
 import type { DataScope, RoleDefinition } from "../../types";
+import { IconSymbol } from "../ui/IconSymbol";
 import {
   ShieldCheck,
   Users,
@@ -16,6 +17,7 @@ import {
   Save,
   Sliders,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -132,7 +134,7 @@ export const RbacView: React.FC = () => {
     {
       id: "m16",
       code: "M16",
-      nameAr: "العهد والأصول ووثائق المنشأة",
+      nameAr: "مستودع الوثائق والعهد والأصول",
       actions: ["تسليم عهدة", "استرجاع وإخلاء", "نشر لوائح", "متابعة الإقرارات"],
     },
     {
@@ -186,24 +188,23 @@ export const RbacView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+      {/* Header (Google M3 Style) */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
         <div>
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            {t.nav.rbac} ومصفوفة الصلاحيات (RBAC - M04)
+          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
+            <IconSymbol name="admin_panel_settings" source="material" filled size={24} className="text-primary" />
+            {t.nav.rbac} ومصفوفة الصلاحيات (RBAC - M15)
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            إدارة الأدوار، مصفوفة الصلاحيات الدقيقة للـ 20 وحدة، نطاقات البيانات (Data Scopes)،
-            والاستثناءات
+          <p className="text-xs text-muted-foreground font-medium mt-1">
+            إدارة الأدوار، مصفوفة الصلاحيات الدقيقة للـ 20 وحدة، نطاقات البيانات (Data Scopes)، والاستثناءات
           </p>
         </div>
         {canManage && (
-          <div className="flex gap-2">
+          <div className="flex gap-2.5">
             <Button
               onClick={() => setIsAddRoleOpen(true)}
               size="sm"
-              className="font-bold text-xs gap-1.5 bg-primary"
+              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-4"
             >
               <Plus className="h-4 w-4" />
               إنشاء دور مخصص جديد
@@ -219,29 +220,29 @@ export const RbacView: React.FC = () => {
           <h2 className="text-xs font-bold text-muted-foreground uppercase">
             الأدوار المعرفة في المنظومة ({roles.length})
           </h2>
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {roles.map((role) => (
               <div
                 key={role.id}
                 onClick={() => setSelectedRole(role)}
-                className={`rounded-xl border p-3.5 text-xs transition-all cursor-pointer space-y-1.5 ${
+                className={`rounded-3xl border p-4 text-xs transition-all cursor-pointer space-y-2 ${
                   selectedRole.id === role.id
-                    ? "border-primary bg-primary/5 shadow-xs ring-1 ring-primary/40"
-                    : "bg-card hover:border-primary/40"
+                    ? "border-primary bg-primary/5 shadow-xs ring-2 ring-primary/30"
+                    : "bg-card hover:border-primary/40 border-border/80"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-foreground">{role.nameAr}</span>
-                  <Badge variant="outline" className="text-[10px] font-mono">
+                  <span className="font-black text-foreground">{role.nameAr}</span>
+                  <Badge variant="outline" className="text-[10px] font-mono rounded-full px-2">
                     {role.userCount} مستخدم
                   </Badge>
                 </div>
-                <p className="text-[11px] text-muted-foreground line-clamp-2">
+                <p className="text-[11px] text-muted-foreground line-clamp-2 font-medium">
                   {role.descriptionAr}
                 </p>
-                <div className="pt-1 flex items-center justify-between text-[10px]">
+                <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[10px]">
                   <span className="font-mono text-primary font-bold uppercase">{role.code}</span>
-                  <Badge variant="secondary" className="text-[9px]">
+                  <Badge variant="secondary" className="text-[9px] rounded-full px-2 font-bold">
                     نطاق:{" "}
                     {role.dataScope === "all"
                       ? "كامل المنشأة"
@@ -256,33 +257,33 @@ export const RbacView: React.FC = () => {
         </div>
 
         {/* Permission Matrix for Selected Role */}
-        <div className="rounded-xl border bg-card p-5 shadow-sm lg:col-span-2 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
+        <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs lg:col-span-2 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-sm text-foreground">
+              <div className="flex items-center gap-2.5">
+                <h3 className="font-black text-sm text-foreground">
                   مصفوفة صلاحيات: {selectedRole.nameAr}
                 </h3>
                 {selectedRole.isSystem && (
-                  <Badge variant="secondary" className="text-[10px]">
+                  <Badge variant="secondary" className="text-[10px] rounded-full px-2.5 font-bold">
                     دور نظام أساسي (System Role)
                   </Badge>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs text-muted-foreground font-medium mt-1">
                 تخصيص الإجراءات المسموحة ونطاق البيانات لكل وحدة وظيفية
               </p>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground font-semibold">نطاق البيانات:</span>
+              <span className="text-xs text-muted-foreground font-bold">نطاق البيانات:</span>
               <select
                 value={selectedRole.dataScope ?? "self"}
                 disabled={!canManage}
                 onChange={(e) => {
                   setSelectedRole({ ...selectedRole, dataScope: e.target.value as DataScope });
                 }}
-                className="h-8 rounded border bg-background px-2 text-xs font-bold text-primary"
+                className="h-9 rounded-full border border-border/80 bg-background px-3 text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
                 <option value="all">كامل المنشأة (All Company)</option>
                 <option value="subsidiary">الشركة التابعة فقط</option>
@@ -294,34 +295,34 @@ export const RbacView: React.FC = () => {
           </div>
 
           {/* Module Matrix List */}
-          <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
             {permissionModules.map((mod) => (
-              <div key={mod.id} className="rounded-lg border bg-muted/20 p-3 space-y-2 text-xs">
+              <div key={mod.id} className="rounded-2xl border border-border/70 bg-muted/20 p-4 space-y-2.5 text-xs hover:bg-card transition-all">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[9px] font-mono">
+                  <div className="flex items-center gap-2.5">
+                    <Badge variant="outline" className="text-[10px] font-mono rounded-full px-2 font-black">
                       {mod.code}
                     </Badge>
-                    <span className="font-bold text-foreground">{mod.nameAr}</span>
+                    <span className="font-black text-foreground">{mod.nameAr}</span>
                   </div>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-[10px] text-muted-foreground font-semibold">
                     {selectedRole.code === "super_admin"
                       ? "صلاحية كاملة (Full Access)"
                       : "صلاحيات محددة"}
                   </span>
                 </div>
 
-                <div className="flex flex-wrap gap-3 pt-2 border-t">
+                <div className="flex flex-wrap gap-3.5 pt-2 border-t border-border/60">
                   {mod.actions.map((act, actIdx) => (
                     <label
                       key={actIdx}
-                      className="flex items-center gap-1.5 cursor-pointer text-xs"
+                      className="flex items-center gap-1.5 cursor-pointer text-xs font-medium"
                     >
                       <input
                         type="checkbox"
                         disabled={!canManage}
                         defaultChecked={selectedRole.code === "super_admin" || actIdx === 0}
-                        className="rounded text-primary focus:ring-primary h-3.5 w-3.5"
+                        className="rounded text-primary focus:ring-primary h-4 w-4"
                       />
                       <span className="text-foreground">{act}</span>
                     </label>
@@ -331,17 +332,17 @@ export const RbacView: React.FC = () => {
             ))}
           </div>
 
-          <div className="border-t pt-3 flex justify-between items-center">
-            <span className="text-xs text-muted-foreground">
-              يتم تطبيق الصلاحيات بشكل فوري على جميع المستخدمين المسند لهم هذا الدور.
+          <div className="border-t border-border/60 pt-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <span className="text-xs text-muted-foreground font-medium">
+              يتم تطبيق الصلاحيات بشكل فوري ولحظي على جميع حسابات المستخدمين.
             </span>
             {canManage && (
               <Button
                 onClick={() => alert("تم حفظ وتطبيق مصفوفة الصلاحيات بنجاح!")}
                 size="sm"
-                className="text-xs font-bold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="rounded-full text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-5 h-9 shadow-xs"
               >
-                <Save className="h-3.5 w-3.5" />
+                <Save className="h-4 w-4" />
                 حفظ مصفوفة الصلاحيات
               </Button>
             )}
@@ -351,44 +352,44 @@ export const RbacView: React.FC = () => {
 
       {/* Add Custom Role Modal */}
       <Dialog open={isAddRoleOpen} onOpenChange={setIsAddRoleOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
+            <DialogTitle className="text-base font-black flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
               إنشاء دور مخصص جديد (Custom Role)
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs font-medium">
               تحديد المسمى ونطاق البيانات لبدء تخصيص مصفوفة الصلاحيات
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 text-xs py-2">
-            <div className="space-y-1">
+          <div className="space-y-3.5 text-xs py-2">
+            <div className="space-y-1.5">
               <label className="font-bold">مسمى الدور الجديد *</label>
               <input
                 type="text"
                 value={newRoleName}
                 onChange={(e) => setNewRoleName(e.target.value)}
                 placeholder="مثال: مسؤول علاقات الموظفين والتدريب"
-                className="w-full h-8 rounded border px-2.5"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="font-bold">وصف ومسؤوليات الدور</label>
               <textarea
                 rows={2}
                 value={newRoleDesc}
                 onChange={(e) => setNewRoleDesc(e.target.value)}
                 placeholder="اكتب وصفاً مختصراً للمهام..."
-                className="w-full rounded border p-2 text-xs"
+                className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="font-bold">نطاق البيانات الافتراضي</label>
               <select
                 value={newRoleScope}
                 onChange={(e) => setNewRoleScope(e.target.value as DataScope)}
-                className="w-full h-8 rounded border px-2.5"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
                 <option value="team">أعضاء الفريق المباشر (Team)</option>
                 <option value="department">القسم / الإدارة (Department)</option>
@@ -398,11 +399,11 @@ export const RbacView: React.FC = () => {
             </div>
           </div>
 
-          <DialogFooter className="mt-2">
+          <DialogFooter className="mt-3">
             <Button
               size="sm"
               onClick={handleCreateCustomRole}
-              className="text-xs bg-primary font-bold"
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
             >
               إنشاء الدور وتعيين الصلاحيات
             </Button>

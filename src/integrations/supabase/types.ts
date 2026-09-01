@@ -589,42 +589,6 @@ export type Database = {
           },
         ]
       }
-      document_acknowledgments: {
-        Row: {
-          acknowledged_at: string
-          document_id: string
-          employee_id: string
-          id: string
-        }
-        Insert: {
-          acknowledged_at?: string
-          document_id: string
-          employee_id: string
-          id?: string
-        }
-        Update: {
-          acknowledged_at?: string
-          document_id?: string
-          employee_id?: string
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "document_acknowledgments_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: false
-            referencedRelation: "company_documents"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "document_acknowledgments_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       employee_documents: {
         Row: {
           created_at: string
@@ -2549,8 +2513,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      current_employee_id: { Args: never; Returns: string }
-      current_user_is_hr: { Args: never; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

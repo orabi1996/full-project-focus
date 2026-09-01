@@ -444,7 +444,34 @@ export interface AccountingJournalRow extends Record<string, unknown> {
 
 type EnterpriseDatabase = Omit<Database, "public"> & {
   public: Omit<Database["public"], "Tables"> & {
-    Tables: Omit<Database["public"]["Tables"], "departments" | "employees" | "requests"> & {
+    Tables: Omit<
+      Database["public"]["Tables"],
+      | "departments"
+      | "employees"
+      | "requests"
+      | "companies"
+      | "subsidiaries"
+      | "work_locations"
+      | "role_definitions"
+      | "leave_types"
+      | "leave_balances"
+      | "shifts"
+      | "payroll_groups"
+      | "payroll_runs"
+      | "payroll_details"
+      | "loans"
+      | "settlements"
+      | "expense_categories"
+      | "expense_claims"
+      | "performance_cycles"
+      | "job_openings"
+      | "candidates"
+      | "job_offers"
+      | "hardware_assets"
+      | "company_documents"
+      | "audit_events"
+      | "notifications_inbox"
+    > & {
       departments: EnterpriseTable<DepartmentRow>;
       employees: EnterpriseTable<EmployeeExtendedRow>;
       requests: EnterpriseTable<RequestExtendedRow>;

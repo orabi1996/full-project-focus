@@ -25,7 +25,8 @@ export const runPayrollServer = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const supabase = context.supabase as any;
+    const userId = context.userId;
     await assertRole(supabase, userId, [
       "super_admin",
       "org_admin",
@@ -215,7 +216,7 @@ export const runPayrollServer = createServerFn({ method: "POST" })
     });
     if (runError) throw new Error(`تعذر إنشاء المسيّر: ${runError.message}`);
 
-    const { error: detailError } = await supabase.from("payroll_details").insert(details as never);
+    const { error: detailError } = await supabase.from("payroll_details").insert(details);
     if (detailError) {
       await supabase.from("payroll_runs").delete().eq("id", runId);
       throw new Error(`تعذر حفظ تفاصيل الرواتب: ${detailError.message}`);
@@ -241,7 +242,8 @@ export const updatePayrollRunStatusServer = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const supabase = context.supabase as any;
+    const userId = context.userId;
     await assertRole(supabase, userId, [
       "super_admin",
       "org_admin",

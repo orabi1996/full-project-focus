@@ -613,15 +613,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }),
     );
-    persistLiveChange(() =>
-      updateRequestDecision(
-        requestId,
-        "approved",
-        note,
-        isComplete ? request?.totalSteps : nextStep,
-        isComplete,
-      ),
-    );
+    persistLiveChange(async () => {
+      await actOnRequestServer({ data: { requestId, decision: "approved", note } });
+    });
     logAuditEvent("اعتماد طلب", "ServiceRequest", requestId, requestId, note || "موافقة");
   };
 
@@ -649,7 +643,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }),
     );
-    persistLiveChange(() => updateRequestDecision(requestId, "rejected", note));
+    persistLiveChange(async () => {
+      await actOnRequestServer({ data: { requestId, decision: "rejected", note } });
+    });
     logAuditEvent("رفض طلب", "ServiceRequest", requestId, requestId, note || "تم الرفض");
   };
 
@@ -677,7 +673,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }),
     );
-    persistLiveChange(() => updateRequestDecision(requestId, "returned", note));
+    persistLiveChange(async () => {
+      await actOnRequestServer({ data: { requestId, decision: "returned", note } });
+    });
     logAuditEvent("إعادة طلب للتصحيح", "ServiceRequest", requestId, requestId, note || "إعادة");
   };
 
@@ -1007,7 +1005,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...detailRows,
       ...prev.filter((detail) => detail.payrollRunId !== runId),
     ]);
-    persistLiveChange(() => createPayrollRunWithDetailsRecord(newRun, detailRows));
+    persistLiveChange(async () => {
+      await runPayrollServer({ data: { year, month, payrollGroupId: groupId } });
+    });
     logAuditEvent(
       "تشغيل مسير الرواتب",
       "PayrollRun",
@@ -1025,7 +1025,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : r,
       ),
     );
-    persistLiveChange(() => updatePayrollRunStatusRecord(runId, "confirmed_locked"));
+    persistLiveChange(async () => {
+      await updatePayrollRunStatusServer({ data: { runId, status: "locked" } });
+    });
     logAuditEvent(
       "قفل وتأكيد مسير الرواتب",
       "PayrollRun",
@@ -1041,7 +1043,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         r.id === runId ? { ...r, status: "paid", paidAt: new Date().toISOString() } : r,
       ),
     );
-    persistLiveChange(() => updatePayrollRunStatusRecord(runId, "paid"));
+    persistLiveChange(async () => {
+      await updatePayrollRunStatusServer({ data: { runId, status: "paid" } });
+    });
     logAuditEvent(
       "صرف الرواتب وتصدير WPS",
       "PayrollRun",
@@ -1083,7 +1087,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `set-${Date.now()}`,
     };
     setSettlements((prev) => [newSettlement, ...prev]);
-    persistLiveChange(() => createSettlementRecord(settlementData));
+    persistLiveChange(async () => {
+      await createSettlementServer({
+        data: {
+          employeeId: settlementData.employeeId,
+          terminationDate: settlementData.terminationDate,
+          separationType: "termination_by_employer",
+        },
+      });
+    });
     logAuditEvent(
       "إنشاء مخالصة نهاية خدمة",
       "FinalSettlement",

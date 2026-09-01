@@ -110,6 +110,11 @@ import {
   updateRequestDecision,
 } from "../data/hrms-repository";
 import { calculateEmployeePayroll } from "../utils/payroll-calculator";
+import { runPayrollServer, updatePayrollRunStatusServer } from "../business/payroll.functions";
+import { createSettlementServer } from "../business/settlement.functions";
+import { actOnRequestServer } from "../business/approvals.functions";
+import { processAttendanceServer } from "../business/attendance.functions";
+import { accrueLeaveBalancesServer } from "../business/leave.functions";
 
 interface AppContextType {
   // Localization
@@ -210,6 +215,8 @@ interface AppContextType {
   processPayrollRun: (groupId: string, year: number, month: number) => void;
   lockAndConfirmPayrollRun: (runId: string) => void;
   markPayrollAsPaid: (runId: string) => void;
+  processAttendance: (fromDate: string, toDate: string) => void;
+  accrueLeaveBalances: (year: number) => void;
   createLoan: (payload: {
     principalAmount: number;
     monthlyInstallment: number;
@@ -608,15 +615,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }),
     );
-    persistLiveChange(() =>
-      updateRequestDecision(
-        requestId,
-        "approved",
-        note,
-        isComplete ? request?.totalSteps : nextStep,
-        isComplete,
-      ),
-    );
+    persistLiveChange(async () => {
+      await actOnRequestServer({ data: { requestId, decision: "approved", note } });
+    });
     logAuditEvent("اعتماد طلب", "ServiceRequest", requestId, requestId, note || "موافقة");
   };
 
@@ -644,7 +645,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }),
     );
-    persistLiveChange(() => updateRequestDecision(requestId, "rejected", note));
+    persistLiveChange(async () => {
+      await actOnRequestServer({ data: { requestId, decision: "rejected", note } });
+    });
     logAuditEvent("رفض طلب", "ServiceRequest", requestId, requestId, note || "تم الرفض");
   };
 
@@ -672,7 +675,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }),
     );
-    persistLiveChange(() => updateRequestDecision(requestId, "returned", note));
+    persistLiveChange(async () => {
+      await actOnRequestServer({ data: { requestId, decision: "returned", note } });
+    });
     logAuditEvent("إعادة طلب للتصحيح", "ServiceRequest", requestId, requestId, note || "إعادة");
   };
 
@@ -1002,7 +1007,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...detailRows,
       ...prev.filter((detail) => detail.payrollRunId !== runId),
     ]);
-    persistLiveChange(() => createPayrollRunWithDetailsRecord(newRun, detailRows));
+    persistLiveChange(async () => {
+      await runPayrollServer({ data: { year, month, payrollGroupId: groupId } });
+    });
     logAuditEvent(
       "تشغيل مسير الرواتب",
       "PayrollRun",
@@ -1020,7 +1027,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : r,
       ),
     );
-    persistLiveChange(() => updatePayrollRunStatusRecord(runId, "confirmed_locked"));
+    persistLiveChange(async () => {
+      await updatePayrollRunStatusServer({ data: { runId, status: "locked" } });
+    });
     logAuditEvent(
       "قفل وتأكيد مسير الرواتب",
       "PayrollRun",
@@ -1036,13 +1045,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         r.id === runId ? { ...r, status: "paid", paidAt: new Date().toISOString() } : r,
       ),
     );
-    persistLiveChange(() => updatePayrollRunStatusRecord(runId, "paid"));
+    persistLiveChange(async () => {
+      await updatePayrollRunStatusServer({ data: { runId, status: "paid" } });
+    });
     logAuditEvent(
       "صرف الرواتب وتصدير WPS",
       "PayrollRun",
       runId,
       runId,
       "تم تأكيد تحويل الرواتب لحسابات الموظفين البنكية",
+    );
+  };
+
+  const processAttendance = (fromDate: string, toDate: string) => {
+    persistLiveChange(async () => {
+      await processAttendanceServer({ data: { fromDate, toDate } });
+    });
+    logAuditEvent(
+      "معالجة البصمات",
+      "Attendance",
+      `${fromDate}..${toDate}`,
+      "احتساب الحضور",
+      "تم تحويل البصمات إلى سجلات حضور وساعات عمل وتأخير وإضافي",
+    );
+  };
+
+  const accrueLeaveBalances = (year: number) => {
+    persistLiveChange(async () => {
+      await accrueLeaveBalancesServer({ data: { year } });
+    });
+    logAuditEvent(
+      "ترحيل استحقاق الإجازات",
+      "LeaveBalance",
+      String(year),
+      `سنة ${year}`,
+      "تم إضافة الاستحقاق الشهري لأرصدة الإجازات",
     );
   };
 
@@ -1078,7 +1115,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `set-${Date.now()}`,
     };
     setSettlements((prev) => [newSettlement, ...prev]);
-    persistLiveChange(() => createSettlementRecord(settlementData));
+    persistLiveChange(async () => {
+      await createSettlementServer({
+        data: {
+          employeeId: settlementData.employeeId,
+          terminationDate: settlementData.terminationDate,
+          separationType: "termination_by_employer",
+        },
+      });
+    });
     logAuditEvent(
       "إنشاء مخالصة نهاية خدمة",
       "FinalSettlement",
@@ -1377,6 +1422,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         processPayrollRun,
         lockAndConfirmPayrollRun,
         markPayrollAsPaid,
+        processAttendance,
+        accrueLeaveBalances,
         createLoan,
         createSettlement,
         addExpenseClaim,

@@ -32,6 +32,7 @@ export const LeavesView: React.FC = () => {
     applyLeave,
     addLeaveType,
     adjustLeaveBalance,
+    accrueLeaveBalances,
     currentRole,
     language,
     t,
@@ -132,6 +133,14 @@ export const LeavesView: React.FC = () => {
           </Button>
           {canManage && (
             <>
+              <Button
+                onClick={() => accrueLeaveBalances(new Date().getFullYear())}
+                size="sm"
+                variant="secondary"
+                className="font-bold text-xs gap-1.5"
+              >
+                ترحيل الاستحقاق الشهري
+              </Button>
               <Button
                 onClick={() => setIsAddTypeModalOpen(true)}
                 variant="outline"

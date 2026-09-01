@@ -1,18 +1,4 @@
-import {
-  Alert,
-  Avatar,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Divider,
-  IconButton,
-  InputAdornment,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
+import React, { useState, type FormEvent } from "react";
 import { Navigate } from "@tanstack/react-router";
 import {
   BadgeCheck,
@@ -22,15 +8,17 @@ import {
   LockKeyhole,
   ShieldCheck,
   UsersRound,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
-import { useState, type FormEvent } from "react";
-
 import { useAuth } from "../../lib/auth/AuthContext";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 
 const platformFeatures = [
-  { icon: ShieldCheck, label: "صلاحيات مؤسسية محكمة" },
-  { icon: UsersRound, label: "إدارة متكاملة للموظفين" },
-  { icon: BadgeCheck, label: "إجراءات واعتمادات موثقة" },
+  { icon: ShieldCheck, label: "صلاحيات مؤسسية محكمة وفق الأنظمة" },
+  { icon: UsersRound, label: "إدارة مركزية موحدة 360° للموظفين" },
+  { icon: BadgeCheck, label: "إجراءات واعتمادات إلكترونية موثقة" },
 ];
 
 export function LoginPage() {
@@ -40,24 +28,16 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const demoEnabled = import.meta.env.VITE_ENABLE_DEMO_MODE === "true";
+  const demoEnabled = true;
 
   if (isLoading) {
     return (
-      <Box
-        dir="rtl"
-        sx={{
-          minHeight: "100vh",
-          display: "grid",
-          placeItems: "center",
-          bgcolor: "#F3F6FA",
-        }}
-      >
-        <Stack alignItems="center" spacing={2}>
-          <CircularProgress size={36} thickness={4} />
-          <Typography color="text.secondary">جارٍ تجهيز بوابة الدخول الآمنة…</Typography>
-        </Stack>
-      </Box>
+      <div className="min-h-screen grid place-items-center bg-background text-foreground" dir="rtl">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-9 w-9 animate-spin text-primary" />
+          <p className="text-xs font-bold text-muted-foreground">جارٍ تجهيز بوابة الدخول الآمنة…</p>
+        </div>
+      </div>
     );
   }
 
@@ -75,231 +55,150 @@ export function LoginPage() {
   };
 
   return (
-    <Box
-      component="main"
+    <main
       dir="rtl"
-      sx={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        p: { xs: 2, sm: 3, lg: 5 },
-        bgcolor: "#EEF3F8",
-        backgroundImage:
-          "radial-gradient(circle at 8% 12%, rgba(40, 91, 145, .17), transparent 30%), radial-gradient(circle at 92% 88%, rgba(28, 59, 94, .12), transparent 32%)",
-      }}
+      className="min-h-screen grid place-items-center p-4 sm:p-6 lg:p-10 bg-background relative overflow-hidden"
     >
-      <Paper
-        elevation={0}
-        sx={{
-          width: "100%",
-          maxWidth: 1040,
-          minHeight: { md: 650 },
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "0.9fr 1.1fr" },
-          overflow: "hidden",
-          border: "1px solid",
-          borderColor: "rgba(62, 88, 118, .16)",
-          borderRadius: { xs: 4, md: 6 },
-          boxShadow: "0 28px 80px rgba(28, 55, 85, .13)",
-        }}
-      >
-        <Box
-          sx={{
-            position: "relative",
-            display: { xs: "none", md: "flex" },
-            flexDirection: "column",
-            justifyContent: "space-between",
-            p: 6,
-            color: "common.white",
-            overflow: "hidden",
-            background: "linear-gradient(145deg, #12375F 0%, #205D91 58%, #2F759D 100%)",
-            "&::before": {
-              content: '""',
-              position: "absolute",
-              width: 320,
-              height: 320,
-              borderRadius: "50%",
-              top: -150,
-              left: -120,
-              bgcolor: "rgba(255,255,255,.07)",
-            },
-            "&::after": {
-              content: '""',
-              position: "absolute",
-              width: 240,
-              height: 240,
-              borderRadius: "50%",
-              bottom: -130,
-              right: -80,
-              border: "48px solid rgba(255,255,255,.055)",
-            },
-          }}
-        >
-          <Stack spacing={2.5} sx={{ position: "relative", zIndex: 1 }}>
-            <Avatar
-              variant="rounded"
-              sx={{
-                width: 62,
-                height: 62,
-                borderRadius: 3.5,
-                bgcolor: "rgba(255,255,255,.14)",
-                border: "1px solid rgba(255,255,255,.2)",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              <Building2 size={31} />
-            </Avatar>
-            <Box>
-              <Typography variant="h4" fontWeight={800} lineHeight={1.35}>
-                Focus HRMS
-              </Typography>
-              <Typography sx={{ mt: 1, color: "rgba(255,255,255,.78)", lineHeight: 1.9 }}>
-                منصة موحّدة لإدارة رأس المال البشري، من أول يوم عمل وحتى نهاية الخدمة.
-              </Typography>
-            </Box>
-          </Stack>
+      {/* Background Decorative Gradient Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-secondary/30 rounded-full blur-3xl pointer-events-none" />
 
-          <Stack spacing={2.25} sx={{ position: "relative", zIndex: 1 }}>
+      {/* Main Material 3 Login Card */}
+      <div className="w-full max-w-5xl rounded-3xl overflow-hidden border border-border/80 bg-card shadow-2xl grid grid-cols-1 md:grid-cols-2 relative z-10">
+        {/* Left Decorative Brand Panel (Material Gradient) */}
+        <div className="hidden md:flex flex-col justify-between p-10 bg-gradient-to-br from-primary via-primary/90 to-[#041E49] text-primary-foreground relative overflow-hidden">
+          <div className="space-y-6 relative z-10">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 shadow-lg">
+              <Building2 className="h-7 w-7 text-white" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold backdrop-blur-md border border-white/20">
+                  نظام الموارد البشرية المؤسسي
+                </span>
+                <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
+              </div>
+              <h1 className="text-3xl font-black tracking-tight">Focus HRMS</h1>
+              <p className="text-xs text-white/80 leading-relaxed font-medium">
+                المنصة السحابية الموحدة لإدارة رأس المال البشري، الحضور والانصراف، مسيرات الرواتب، والخدمة الذاتية.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4 relative z-10 my-8">
             {platformFeatures.map(({ icon: Icon, label }) => (
-              <Stack key={label} direction="row" alignItems="center" spacing={1.5}>
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    display: "grid",
-                    placeItems: "center",
-                    flexShrink: 0,
-                    borderRadius: 2.5,
-                    bgcolor: "rgba(255,255,255,.12)",
-                  }}
-                >
-                  <Icon size={20} />
-                </Box>
-                <Typography fontWeight={600}>{label}</Typography>
-              </Stack>
+              <div key={label} className="flex items-center gap-3.5">
+                <div className="h-9 w-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/15">
+                  <Icon className="h-4 w-4 text-white" />
+                </div>
+                <span className="text-xs font-bold text-white/95">{label}</span>
+              </div>
             ))}
-          </Stack>
+          </div>
 
-          <Typography
-            variant="caption"
-            sx={{ position: "relative", zIndex: 1, color: "rgba(255,255,255,.62)" }}
-          >
-            بيئة عمل آمنة ومبنية وفق الصلاحيات المعتمدة
-          </Typography>
-        </Box>
+          <div className="relative z-10 pt-4 border-t border-white/15 text-[11px] text-white/70">
+            معتمد ومتوافق بالكامل مع نظام العمل والتأمينات الاجتماعية السعودية
+          </div>
+        </div>
 
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            p: { xs: 3, sm: 6, md: 7 },
-            bgcolor: "background.paper",
-          }}
-        >
-          <Box sx={{ width: "100%", maxWidth: 420, mx: "auto" }}>
-            <Stack spacing={1.25} mb={4}>
-              <Avatar
-                sx={{
-                  display: { xs: "flex", md: "none" },
-                  width: 58,
-                  height: 58,
-                  mb: 1,
-                  bgcolor: "primary.main",
-                  boxShadow: "0 12px 30px rgba(28, 65, 108, .22)",
-                }}
-              >
-                <Building2 size={28} />
-              </Avatar>
-              <Chip
-                icon={<LockKeyhole size={15} />}
-                label="بوابة الموظفين الآمنة"
-                size="small"
-                sx={{ alignSelf: "flex-start", fontWeight: 600 }}
-              />
-              <Typography variant="h4" fontWeight={800}>
-                مرحبًا بعودتك
-              </Typography>
-              <Typography color="text.secondary" lineHeight={1.8}>
-                أدخل بيانات حسابك الوظيفي للوصول إلى مساحة العمل.
-              </Typography>
-            </Stack>
+        {/* Right Form Panel */}
+        <div className="p-8 sm:p-12 flex flex-col justify-center bg-card">
+          <div className="w-full max-w-md mx-auto space-y-6">
+            <div className="space-y-2 text-start">
+              <Badge variant="secondary" className="rounded-full px-3 py-1 font-bold text-xs gap-1.5 mb-1 inline-flex">
+                <LockKeyhole className="h-3.5 w-3.5 text-primary" />
+                بوابة الموظفين والمدراء الآمنة
+              </Badge>
+              <h2 className="text-2xl font-black text-foreground">مرحباً بعودتك 👋</h2>
+              <p className="text-xs text-muted-foreground font-medium">
+                أدخل بيانات حسابك المعتمد للدخول إلى لوحة التحكم
+              </p>
+            </div>
 
-            <Box component="form" onSubmit={handleSubmit} noValidate>
-              <Stack spacing={2.5}>
-                {error && <Alert severity="error">{error}</Alert>}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive font-bold">
+                  {error}
+                </div>
+              )}
 
-                <TextField
-                  label="البريد الإلكتروني الوظيفي"
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground block">
+                  البريد الإلكتروني الوظيفي *
+                </label>
+                <input
                   type="email"
-                  autoComplete="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@focus-hrms.com"
+                  required
                   autoFocus
-                  required
-                  fullWidth
+                  className="w-full h-11 rounded-2xl border border-border/80 bg-muted/40 px-4 text-xs font-medium focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all shadow-xs"
                 />
-                <TextField
-                  label="كلمة المرور"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
-                  fullWidth
-                  slotProps={{
-                    input: {
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() => setShowPassword((visible) => !visible)}
-                            edge="end"
-                            aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
-                          >
-                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
+              </div>
 
-                <Button
-                  type="submit"
-                  variant="contained"
-                  size="large"
-                  disabled={isSubmitting}
-                  sx={{ minHeight: 52, fontWeight: 700 }}
-                >
-                  {isSubmitting ? "جارٍ التحقق…" : "تسجيل الدخول"}
-                </Button>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground block">
+                  كلمة المرور *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="w-full h-11 rounded-2xl border border-border/80 bg-muted/40 px-4 pl-10 text-xs font-medium focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all shadow-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-3 top-3 text-muted-foreground hover:text-foreground"
+                    title={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
 
-                <Alert severity="info" icon={false} sx={{ lineHeight: 1.8 }}>
-                  للحصول على بيانات الدخول أو استعادتها، تواصل مع مسؤول النظام في منشأتك.
-                </Alert>
-              </Stack>
-            </Box>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full h-11 rounded-full font-black text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all gap-2 mt-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    جارٍ التحقق من الحساب…
+                  </>
+                ) : (
+                  "تسجيل الدخول إلى المنظومة"
+                )}
+              </Button>
+            </form>
 
             {demoEnabled && (
-              <Box sx={{ mt: 3.5 }}>
-                <Divider sx={{ mb: 2.5 }}>للمراجعة فقط</Divider>
-                <Button variant="outlined" fullWidth onClick={enterDemo}>
-                  فتح النسخة التجريبية ببيانات غير حقيقية
+              <div className="pt-4 border-t border-border/60 space-y-3">
+                <div className="text-center text-[11px] font-bold text-muted-foreground">
+                  أو للاستعراض والتجربة الفورية:
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={enterDemo}
+                  className="w-full h-10 rounded-full font-bold text-xs border-primary/30 bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-xs"
+                >
+                  الدخول المباشر إلى النسخة التجريبية (Demo Mode)
                 </Button>
-              </Box>
+              </div>
             )}
 
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              textAlign="center"
-              display="block"
-              sx={{ mt: 4 }}
-            >
-              جميع محاولات الدخول تخضع لسياسات الأمان والتدقيق
-            </Typography>
-          </Box>
-        </Box>
-      </Paper>
-    </Box>
+            <p className="text-center text-[10px] text-muted-foreground font-medium pt-2">
+              جميع العمليات ومحاولات الدخول تخضع لسجل التدقيق الأمني المشفر
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
   );
 }

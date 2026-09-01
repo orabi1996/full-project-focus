@@ -322,11 +322,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [notifications, setNotifications] = useState<AppNotification[]>(mockNotifications);
   const [accountingJournals, setAccountingJournals] =
     useState<AccountingJournalEntry[]>(mockAccountingJournals);
-  const [activeEmployeeModalId, setActiveEmployeeModalId] = useState<string | null>(null);
-
   const openEmployeeProfile = useCallback((employeeOrId: string | Employee) => {
     const id = typeof employeeOrId === "string" ? employeeOrId : employeeOrId.id;
     setActiveEmployeeModalId(id);
+    if (typeof window !== "undefined" && window.location.hash !== "#employees") {
+      window.location.hash = "#employees";
+    }
   }, []);
 
   const closeEmployeeProfile = useCallback(() => {

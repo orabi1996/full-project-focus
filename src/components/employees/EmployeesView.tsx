@@ -44,10 +44,14 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 
+import { EmployeeFullProfileView } from "./EmployeeFullProfileView";
+
 type QuickPreset = "all" | "saudi" | "expat" | "probation" | "expiring_docs" | "remote_hybrid" | "complete_profile";
 
 export const EmployeesView: React.FC = () => {
   const {
+    activeEmployeeModalId,
+    closeEmployeeProfile,
     employees,
     orgUnits,
     subsidiaries,
@@ -59,6 +63,16 @@ export const EmployeesView: React.FC = () => {
     t,
   } = useApp();
   const canManage = canManageModule(currentRole, "employees");
+
+  // Render Full Page Profile View when an employee is selected
+  if (activeEmployeeModalId) {
+    return (
+      <EmployeeFullProfileView
+        employeeId={activeEmployeeModalId}
+        onBack={closeEmployeeProfile}
+      />
+    );
+  }
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState("");

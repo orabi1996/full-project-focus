@@ -21,11 +21,6 @@ interface AuthContextValue {
   isLoading: boolean;
   isDemo: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  signUp: (
-    fullName: string,
-    email: string,
-    password: string,
-  ) => Promise<{ error?: string; requiresEmailConfirmation?: boolean }>;
   signOut: () => Promise<void>;
   enterDemo: () => void;
   leaveDemo: () => void;
@@ -81,20 +76,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return error ? { error: "تعذر تسجيل الدخول. راجع البريد وكلمة المرور." } : {};
   }, []);
 
-  const signUp = useCallback(async (fullName: string, email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-        emailRedirectTo: typeof window === "undefined" ? undefined : `${window.location.origin}/`,
-      },
-    });
-
-    if (error) return { error: "تعذر إنشاء الحساب. تأكد من البريد وكلمة المرور وحاول مجددًا." };
-    return { requiresEmailConfirmation: !data.session };
-  }, []);
-
   const signOut = useCallback(async () => {
     setIsDemo(false);
     await supabase.auth.signOut();
@@ -108,12 +89,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       isDemo,
       signIn,
-      signUp,
       signOut,
       enterDemo: () => setIsDemo(true),
       leaveDemo: () => setIsDemo(false),
     }),
-    [session, role, isLoading, isDemo, signIn, signUp, signOut],
+    [session, role, isLoading, isDemo, signIn, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

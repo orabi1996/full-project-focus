@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
@@ -5,27 +6,22 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design system definition.
- *
- * The @theme inline block maps CSS custom properties to Tailwind utility
- * classes (e.g. --color-primary -> bg-primary, text-primary).
- *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
- *
- * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ * Google Material Design 3 (Material You / M3) Design Tokens
  */
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  --font-sans: 'Plus Jakarta Sans', 'Cairo', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 1.75rem;
+  --radius-full: 9999px;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -62,74 +58,94 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
+  --radius: 1rem;
+  
+  /* Material 3 Light Theme Palette */
+  --background: oklch(0.975 0.008 250);        /* M3 Surface Container Low (#F7F9FC) */
+  --foreground: oklch(0.18 0.03 260);          /* M3 On-Surface (#1A1C1E) */
+  --card: oklch(1 0 0);                        /* M3 Surface White (#FFFFFF) */
+  --card-foreground: oklch(0.18 0.03 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
+  --popover-foreground: oklch(0.18 0.03 260);
+  
+  /* Google Signature Material Blue */
+  --primary: oklch(0.48 0.22 260);             /* M3 Primary (#0B57D0 / #1A73E8) */
+  --primary-foreground: oklch(0.99 0.005 260); /* M3 On-Primary */
+  
+  --secondary: oklch(0.92 0.04 255);           /* M3 Primary Container (#D3E3FD) */
+  --secondary-foreground: oklch(0.22 0.12 260);/* M3 On-Primary Container (#041E49) */
+  
+  --muted: oklch(0.945 0.012 250);             /* M3 Surface Container (#F0F4F9) */
+  --muted-foreground: oklch(0.45 0.04 255);    /* M3 On-Surface Variant (#444746) */
+  
+  --accent: oklch(0.93 0.03 250);              /* M3 Tonal Surface Hover */
+  --accent-foreground: oklch(0.22 0.12 260);
+  
+  --destructive: oklch(0.55 0.22 25);          /* M3 Error Red (#BA1A1A) */
+  --destructive-foreground: oklch(0.99 0.005 25);
+  
+  --border: oklch(0.89 0.015 250);             /* M3 Outline Variant (#E0E2EC) */
+  --input: oklch(0.89 0.015 250);
+  --ring: oklch(0.48 0.22 260);
+  
+  --chart-1: oklch(0.48 0.22 260);
+  --chart-2: oklch(0.65 0.18 155);
+  --chart-3: oklch(0.70 0.19 75);
+  --chart-4: oklch(0.60 0.22 300);
+  --chart-5: oklch(0.62 0.21 25);
+  
+  --sidebar: oklch(0.985 0.005 250);           /* M3 Navigation Rail Surface */
+  --sidebar-foreground: oklch(0.18 0.03 260);
+  --sidebar-primary: oklch(0.48 0.22 260);
+  --sidebar-primary-foreground: oklch(0.99 0.005 260);
+  --sidebar-accent: oklch(0.92 0.04 255);      /* M3 Pill Active Container */
+  --sidebar-accent-foreground: oklch(0.22 0.12 260);
+  --sidebar-border: oklch(0.90 0.01 250);
+  --sidebar-ring: oklch(0.48 0.22 260);
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  /* Material 3 Dark Theme Palette */
+  --background: oklch(0.14 0.015 260);         /* M3 Dark Surface (#111318) */
+  --foreground: oklch(0.93 0.01 250);          /* M3 Dark On-Surface (#E2E2E9) */
+  --card: oklch(0.18 0.02 260);                /* M3 Dark Surface Container (#1D2026) */
+  --card-foreground: oklch(0.93 0.01 250);
+  --popover: oklch(0.18 0.02 260);
+  --popover-foreground: oklch(0.93 0.01 250);
+  
+  --primary: oklch(0.75 0.14 255);             /* M3 Dark Primary (#A8C7FA) */
+  --primary-foreground: oklch(0.18 0.12 260);  /* M3 Dark On-Primary (#062E6F) */
+  
+  --secondary: oklch(0.28 0.06 260);           /* M3 Dark Primary Container (#0842A0) */
+  --secondary-foreground: oklch(0.92 0.04 255);
+  
+  --muted: oklch(0.22 0.02 260);               /* M3 Dark Surface Container High */
+  --muted-foreground: oklch(0.72 0.03 255);    /* M3 Dark On-Surface Variant */
+  
+  --accent: oklch(0.24 0.03 260);
+  --accent-foreground: oklch(0.93 0.01 250);
+  
+  --destructive: oklch(0.72 0.18 25);
+  --destructive-foreground: oklch(0.15 0.05 25);
+  
+  --border: oklch(0.28 0.02 260);              /* M3 Dark Outline Variant */
+  --input: oklch(0.28 0.02 260);
+  --ring: oklch(0.75 0.14 255);
+  
+  --chart-1: oklch(0.75 0.14 255);
+  --chart-2: oklch(0.72 0.16 155);
+  --chart-3: oklch(0.78 0.17 75);
+  --chart-4: oklch(0.72 0.18 300);
+  --chart-5: oklch(0.75 0.18 25);
+  
+  --sidebar: oklch(0.16 0.018 260);
+  --sidebar-foreground: oklch(0.93 0.01 250);
+  --sidebar-primary: oklch(0.75 0.14 255);
+  --sidebar-primary-foreground: oklch(0.18 0.12 260);
+  --sidebar-accent: oklch(0.28 0.06 260);
+  --sidebar-accent-foreground: oklch(0.92 0.04 255);
+  --sidebar-border: oklch(0.24 0.02 260);
+  --sidebar-ring: oklch(0.75 0.14 255);
 }
 
 @layer base {
@@ -140,5 +156,25 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
   }
+}
+
+/* Material 3 Card & Elevation Utilities */
+.m3-card {
+  background-color: var(--color-card);
+  border-radius: 1.25rem;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.m3-card:hover {
+  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.08);
+}
+
+.m3-pill {
+  border-radius: 9999px;
+  transition: all 0.15s ease-in-out;
 }

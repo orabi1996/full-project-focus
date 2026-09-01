@@ -471,6 +471,13 @@ type EnterpriseDatabase = Omit<Database, "public"> & {
       | "company_documents"
       | "audit_events"
       | "notifications_inbox"
+      | "approval_chains"
+      | "request_timeline"
+      | "evaluation_records"
+      | "workforce_plans"
+      | "asset_assignments"
+      | "document_acknowledgements"
+      | "accounting_journals"
     > & {
       departments: EnterpriseTable<DepartmentRow>;
       employees: EnterpriseTable<EmployeeExtendedRow>;

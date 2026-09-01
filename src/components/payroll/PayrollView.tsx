@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { useApp } from '../../lib/context/AppContext';
-import { calculateEOSB, type SeparationType } from '../../lib/utils/eosb-calculator';
-import { exportToCSV, generateWPSSIFFile } from '../../lib/utils/export-helpers';
+import React, { useEffect, useState } from "react";
+import { useApp } from "../../lib/context/AppContext";
+import { calculateEOSB, type SeparationType } from "../../lib/utils/eosb-calculator";
+import { exportToCSV, generateWPSSIFFile } from "../../lib/utils/export-helpers";
+import type { EmployeePayrollDetail } from "../../types";
 import {
   Wallet,
   DollarSign,
@@ -17,10 +18,10 @@ import {
   TrendingUp,
   Receipt,
   Printer,
-} from 'lucide-react';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+} from "lucide-react";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -28,15 +29,22 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '../ui/dialog';
+} from "../ui/dialog";
 
-export const PayrollView: React.FC = () => {
+interface PayrollViewProps {
+  section?: "payroll" | "loans";
+}
+
+export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" }) => {
   const {
     payrollRuns,
     payrollDetails,
     loans,
     settlements,
     employees,
+    payrollGroups,
+    company,
+    currentRole,
     processPayrollRun,
     lockAndConfirmPayrollRun,
     markPayrollAsPaid,
@@ -46,31 +54,83 @@ export const PayrollView: React.FC = () => {
     t,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState('runs');
-  const [selectedRunId, setSelectedRunId] = useState(payrollRuns[0]?.id || '');
-  const [selectedPayslipEmployee, setSelectedPayslipEmployee] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState(section === "payroll" ? "runs" : "loans");
+  const [selectedRunId, setSelectedRunId] = useState(payrollRuns[0]?.id || "");
+  const [selectedPayslipEmployee, setSelectedPayslipEmployee] =
+    useState<EmployeePayrollDetail | null>(null);
+
+  const today = new Date();
+  const [isRunModalOpen, setIsRunModalOpen] = useState(false);
+  const [runGroupId, setRunGroupId] = useState(payrollGroups[0]?.id || "");
+  const [runYear, setRunYear] = useState(today.getFullYear());
+  const [runMonth, setRunMonth] = useState(today.getMonth() + 1);
 
   // Loan Modal State
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
   const [loanAmount, setLoanAmount] = useState(5000);
   const [installmentsCount, setInstallmentsCount] = useState(5);
-  const [loanReason, setLoanReason] = useState('');
+  const [loanReason, setLoanReason] = useState("");
 
   // EOSB Settlement Wizard State
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
-  const [settlementEmpId, setSettlementEmpId] = useState(employees[0]?.id || '');
-  const [terminationDate, setTerminationDate] = useState('2026-08-31');
-  const [separationType, setSeparationType] = useState<SeparationType>('contract_expiration');
+  const [settlementEmpId, setSettlementEmpId] = useState(employees[0]?.id || "");
+  const [terminationDate, setTerminationDate] = useState("2026-08-31");
+  const [separationType, setSeparationType] = useState<SeparationType>("contract_expiration");
 
-  const selectedRun = payrollRuns.find(r => r.id === selectedRunId) || payrollRuns[0];
+  const selectedRun = payrollRuns.find((r) => r.id === selectedRunId) || payrollRuns[0];
+  const selectedRunDetails = selectedRun
+    ? payrollDetails.filter((detail) => detail.payrollRunId === selectedRun.id)
+    : [];
+
+  const canManagePayroll = ["super_admin", "hr_manager", "payroll_officer"].includes(currentRole);
+  const canManageSettlements = [
+    "super_admin",
+    "hr_manager",
+    "payroll_officer",
+    "finance_officer",
+  ].includes(currentRole);
+  const canRequestLoan = currentRole !== "auditor";
+
+  useEffect(() => {
+    setActiveTab(section === "payroll" ? "runs" : "loans");
+  }, [section]);
+
+  useEffect(() => {
+    if (selectedRun && selectedRun.id !== selectedRunId) setSelectedRunId(selectedRun.id);
+  }, [selectedRun, selectedRunId]);
 
   const handleRunNewPayroll = () => {
-    processPayrollRun('pg-monthly', 2026, 9);
-    alert('تم بدء احتساب مسير رواتب شهر سبتمبر 2026 بنجاح');
+    const groupId = payrollGroups.some((group) => group.id === runGroupId)
+      ? runGroupId
+      : payrollGroups[0]?.id;
+    if (!groupId) {
+      alert("يجب إنشاء مجموعة رواتب أولاً قبل تشغيل المسير");
+      return;
+    }
+    processPayrollRun(groupId, runYear, runMonth);
+    setSelectedRunId(`pr-${groupId}-${runYear}-${String(runMonth).padStart(2, "0")}`);
+    setIsRunModalOpen(false);
+    alert(`تم بدء احتساب مسير رواتب ${runMonth}/${runYear} بنجاح`);
   };
 
   const handleExportWPS = () => {
-    const wpsRecords = payrollDetails.map(d => ({
+    if (!selectedRun) return;
+    const establishmentId = company.crNumber || company.taxNumber;
+    const employerBankCode = import.meta.env.VITE_WPS_EMPLOYER_BANK_CODE?.trim();
+    if (!establishmentId || !employerBankCode) {
+      alert("أكمل رقم المنشأة ورمز بنك المنشأة في إعدادات النظام قبل تصدير ملف حماية الأجور");
+      return;
+    }
+    if (selectedRunDetails.length === 0) {
+      alert("لا توجد تفاصيل موظفين في المسير المختار");
+      return;
+    }
+    const employeesMissingIban = selectedRunDetails.filter((detail) => !detail.iban.trim());
+    if (employeesMissingIban.length > 0) {
+      alert(`تعذر التصدير: يوجد ${employeesMissingIban.length} موظف بدون رقم آيبان مسجل`);
+      return;
+    }
+    const wpsRecords = selectedRunDetails.map((d) => ({
       employeeId: d.employeeNo,
       employeeName: d.employeeName,
       iban: d.iban,
@@ -81,31 +141,33 @@ export const PayrollView: React.FC = () => {
       netSalary: d.netSalary,
     }));
 
-    generateWPSSIFFile('1010789654', 'RIBL', '202608', wpsRecords);
-    alert('تم توليد وتنزيل ملف حماية الأجور (WPS SIF File) بنجاح!');
+    const payrollPeriod = `${selectedRun.periodYear}${String(selectedRun.periodMonth).padStart(2, "0")}`;
+    generateWPSSIFFile(establishmentId, employerBankCode, payrollPeriod, wpsRecords);
+    alert("تم توليد وتنزيل ملف حماية الأجور (WPS SIF File) بنجاح!");
   };
 
   const handleExportPayrollCSV = () => {
-    const data = payrollDetails.map(d => ({
-      'الرقم الوظيفي': d.employeeNo,
-      'اسم الموظف': d.employeeName,
-      'القسم': d.departmentName,
-      'البنك': d.bankName,
-      'الآيبان': d.iban,
-      'الراتب الأساسي': d.basicSalary,
-      'بدل السكن': d.housingAllowance,
-      'بدل النقل': d.transportAllowance,
-      'أجر الإضافي': d.overtimeAmount,
-      'تأمينات GOSI (موظف)': d.gosiEmployeeDeduction,
-      'سلف وخصومات': d.loanInstallmentDeduction + d.absenceLateDeduction,
-      'صافي الراتب': d.netSalary,
+    if (!selectedRun) return;
+    const data = selectedRunDetails.map((d) => ({
+      "الرقم الوظيفي": d.employeeNo,
+      "اسم الموظف": d.employeeName,
+      القسم: d.departmentName,
+      البنك: d.bankName,
+      الآيبان: d.iban,
+      "الراتب الأساسي": d.basicSalary,
+      "بدل السكن": d.housingAllowance,
+      "بدل النقل": d.transportAllowance,
+      "أجر الإضافي": d.overtimeAmount,
+      "تأمينات GOSI (موظف)": d.gosiEmployeeDeduction,
+      "سلف وخصومات": d.loanInstallmentDeduction + d.absenceLateDeduction,
+      "صافي الراتب": d.netSalary,
     }));
     exportToCSV(`Payroll_Run_${selectedRun.periodYear}_${selectedRun.periodMonth}`, data);
   };
 
   const handleCreateLoan = () => {
     if (!loanReason) {
-      alert('يرجى كتابة سبب طلب السلفة');
+      alert("يرجى كتابة سبب طلب السلفة");
       return;
     }
     createLoan({
@@ -114,13 +176,13 @@ export const PayrollView: React.FC = () => {
       totalInstallments: installmentsCount,
       reason: loanReason,
     });
-    alert('تم إرسال طلب السلفة للاعتماد');
+    alert("تم إرسال طلب السلفة للاعتماد");
     setIsLoanModalOpen(false);
-    setLoanReason('');
+    setLoanReason("");
   };
 
   const handleCalculateAndSaveSettlement = () => {
-    const emp = employees.find(e => e.id === settlementEmpId);
+    const emp = employees.find((e) => e.id === settlementEmpId);
     if (!emp) return;
 
     const eosbRes = calculateEOSB({
@@ -147,7 +209,7 @@ export const PayrollView: React.FC = () => {
       loanDeductionAmount: 0,
       assetClearanceComplete: true,
       netSettlementAmount: netTotal,
-      status: 'pending_approval',
+      status: "pending_approval",
     });
 
     alert(`تم احتساب مخالصة نهاية الخدمة بنجاح! إجمالي المستحق: ${netTotal.toLocaleString()} ر.س`);
@@ -161,53 +223,73 @@ export const PayrollView: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Wallet className="h-5 w-5 text-primary" />
-            {t.payroll.payrollRuns} والعمليات المالية
+            {section === "payroll"
+              ? `${t.payroll.payrollRuns} والعمليات المالية`
+              : `${t.payroll.loansAndAdvances} و${t.payroll.finalSettlement}`}
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            محرك احتساب الرواتب التلقائي، ملفات حماية الأجور (WPS SIF)، السلف، ومكافأة نهاية الخدمة (EOSB)
+            {section === "payroll"
+              ? "محرك احتساب الرواتب، المراجعة والاعتماد، وقسائم الراتب وملفات حماية الأجور"
+              : "طلبات السلف وجدولة الأقساط ومخالصة ومكافأة نهاية الخدمة"}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={handleRunNewPayroll}
-            size="sm"
-            className="font-bold text-xs gap-1.5 bg-primary"
-          >
-            <Plus className="h-4 w-4" />
-            {t.payroll.runNewPayroll}
-          </Button>
-          <Button
-            onClick={() => setIsSettlementModalOpen(true)}
-            variant="outline"
-            size="sm"
-            className="font-bold text-xs gap-1.5"
-          >
-            {t.payroll.finalSettlement}
-          </Button>
-          <Button
-            onClick={() => setIsLoanModalOpen(true)}
-            variant="secondary"
-            size="sm"
-            className="font-bold text-xs gap-1.5"
-          >
-            {t.payroll.newLoan}
-          </Button>
+          {section === "payroll" && canManagePayroll && (
+            <Button
+              onClick={() => {
+                setRunGroupId(payrollGroups[0]?.id || "");
+                setIsRunModalOpen(true);
+              }}
+              size="sm"
+              className="font-bold text-xs gap-1.5 bg-primary"
+            >
+              <Plus className="h-4 w-4" />
+              {t.payroll.runNewPayroll}
+            </Button>
+          )}
+          {section === "loans" && canManageSettlements && (
+            <Button
+              onClick={() => setIsSettlementModalOpen(true)}
+              variant="outline"
+              size="sm"
+              className="font-bold text-xs gap-1.5"
+            >
+              {t.payroll.finalSettlement}
+            </Button>
+          )}
+          {section === "loans" && canRequestLoan && (
+            <Button
+              onClick={() => setIsLoanModalOpen(true)}
+              variant="secondary"
+              size="sm"
+              className="font-bold text-xs gap-1.5"
+            >
+              {t.payroll.newLoan}
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-3 max-w-md">
-          <TabsTrigger value="runs" className="text-xs font-bold">
-            {t.payroll.payrollRuns} ({payrollRuns.length})
-          </TabsTrigger>
-          <TabsTrigger value="loans" className="text-xs font-bold">
-            {t.payroll.loansAndAdvances} ({loans.length})
-          </TabsTrigger>
-          <TabsTrigger value="settlements" className="text-xs font-bold">
-            {t.payroll.finalSettlement} ({settlements.length})
-          </TabsTrigger>
+        <TabsList
+          className={`grid max-w-md ${section === "payroll" ? "grid-cols-1" : "grid-cols-2"}`}
+        >
+          {section === "payroll" ? (
+            <TabsTrigger value="runs" className="text-xs font-bold">
+              {t.payroll.payrollRuns} ({payrollRuns.length})
+            </TabsTrigger>
+          ) : (
+            <>
+              <TabsTrigger value="loans" className="text-xs font-bold">
+                {t.payroll.loansAndAdvances} ({loans.length})
+              </TabsTrigger>
+              <TabsTrigger value="settlements" className="text-xs font-bold">
+                {t.payroll.finalSettlement} ({settlements.length})
+              </TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         {/* Tab 1: Payroll Runs */}
@@ -219,23 +301,24 @@ export const PayrollView: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-base font-black text-foreground">
-                      مسير رواتب {selectedRun.periodMonth} / {selectedRun.periodYear} ({selectedRun.payrollGroupName})
+                      مسير رواتب {selectedRun.periodMonth} / {selectedRun.periodYear} (
+                      {selectedRun.payrollGroupName})
                     </h2>
                     <Badge
                       variant="outline"
                       className={`text-xs ${
-                        selectedRun.status === 'confirmed_locked'
-                          ? 'bg-emerald-500/10 text-emerald-700 border-emerald-200'
-                          : selectedRun.status === 'paid'
-                          ? 'bg-purple-500/10 text-purple-700 border-purple-200'
-                          : 'bg-amber-500/10 text-amber-700 border-amber-200'
+                        selectedRun.status === "confirmed_locked"
+                          ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
+                          : selectedRun.status === "paid"
+                            ? "bg-purple-500/10 text-purple-700 border-purple-200"
+                            : "bg-amber-500/10 text-amber-700 border-amber-200"
                       }`}
                     >
-                      {selectedRun.status === 'confirmed_locked'
-                        ? 'مغلق ومؤكد'
-                        : selectedRun.status === 'paid'
-                        ? 'تم الصرف بنجاح'
-                        : 'جاهز للمراجعة والاعتماد'}
+                      {selectedRun.status === "confirmed_locked"
+                        ? "مغلق ومؤكد"
+                        : selectedRun.status === "paid"
+                          ? "تم الصرف بنجاح"
+                          : "جاهز للمراجعة والاعتماد"}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -244,6 +327,20 @@ export const PayrollView: React.FC = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  {payrollRuns.length > 1 && (
+                    <select
+                      aria-label="اختيار مسير الرواتب"
+                      value={selectedRun.id}
+                      onChange={(event) => setSelectedRunId(event.target.value)}
+                      className="h-8 rounded-md border bg-background px-2 text-xs font-semibold"
+                    >
+                      {payrollRuns.map((run) => (
+                        <option key={run.id} value={run.id}>
+                          {run.periodMonth}/{run.periodYear} — {run.payrollGroupName}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <Button
                     onClick={handleExportPayrollCSV}
                     variant="outline"
@@ -262,7 +359,7 @@ export const PayrollView: React.FC = () => {
                     <Download className="h-3.5 w-3.5" />
                     {t.payroll.wpsExport}
                   </Button>
-                  {selectedRun.status === 'ready_for_review' && (
+                  {canManagePayroll && selectedRun.status === "ready_for_review" && (
                     <Button
                       onClick={() => lockAndConfirmPayrollRun(selectedRun.id)}
                       size="sm"
@@ -272,7 +369,7 @@ export const PayrollView: React.FC = () => {
                       اعتماد وقفل المسير
                     </Button>
                   )}
-                  {selectedRun.status === 'confirmed_locked' && (
+                  {canManagePayroll && selectedRun.status === "confirmed_locked" && (
                     <Button
                       onClick={() => markPayrollAsPaid(selectedRun.id)}
                       size="sm"
@@ -296,7 +393,11 @@ export const PayrollView: React.FC = () => {
                 <div className="rounded-lg border bg-muted/20 p-3">
                   <span className="text-muted-foreground">البدلات والإضافي</span>
                   <p className="text-base font-bold text-emerald-600 mt-1">
-                    +{(selectedRun.totalAllowances + selectedRun.totalOvertimeAmount).toLocaleString()} {t.currency}
+                    +
+                    {(
+                      selectedRun.totalAllowances + selectedRun.totalOvertimeAmount
+                    ).toLocaleString()}{" "}
+                    {t.currency}
                   </p>
                 </div>
                 <div className="rounded-lg border bg-muted/20 p-3">
@@ -329,26 +430,32 @@ export const PayrollView: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {payrollDetails.map(item => (
+                    {selectedRunDetails.map((item) => (
                       <tr key={item.id} className="hover:bg-muted/20">
                         <td className="py-2.5 px-3 font-bold text-foreground">
                           {item.employeeName}
-                          <span className="block text-[10px] font-normal text-muted-foreground">{item.departmentName}</span>
+                          <span className="block text-[10px] font-normal text-muted-foreground">
+                            {item.departmentName}
+                          </span>
                         </td>
-                        <td className="py-2.5 px-3 font-mono">{item.basicSalary.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 font-mono">
+                          {item.basicSalary.toLocaleString()}
+                        </td>
                         <td className="py-2.5 px-3 font-mono text-emerald-600">
                           +{(item.housingAllowance + item.transportAllowance).toLocaleString()}
                         </td>
                         <td className="py-2.5 px-3 font-mono text-emerald-600">
-                          {item.overtimeAmount > 0 ? `+${item.overtimeAmount.toLocaleString()}` : '0'}
+                          {item.overtimeAmount > 0
+                            ? `+${item.overtimeAmount.toLocaleString()}`
+                            : "0"}
                         </td>
                         <td className="py-2.5 px-3 font-mono text-destructive">
                           -{item.gosiEmployeeDeduction.toLocaleString()}
                         </td>
                         <td className="py-2.5 px-3 font-mono text-destructive">
-                          {(item.loanInstallmentDeduction + item.absenceLateDeduction) > 0
+                          {item.loanInstallmentDeduction + item.absenceLateDeduction > 0
                             ? `-${(item.loanInstallmentDeduction + item.absenceLateDeduction).toLocaleString()}`
-                            : '0'}
+                            : "0"}
                         </td>
                         <td className="py-2.5 px-3 font-mono font-black text-foreground">
                           {item.netSalary.toLocaleString()} {t.currency}
@@ -376,7 +483,7 @@ export const PayrollView: React.FC = () => {
         {/* Tab 2: Loans */}
         <TabsContent value="loans" className="space-y-4 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {loans.map(l => (
+            {loans.map((l) => (
               <div key={l.id} className="rounded-xl border bg-card p-4 shadow-sm space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-sm text-foreground">{l.employeeName}</span>
@@ -385,10 +492,30 @@ export const PayrollView: React.FC = () => {
                   </Badge>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs border-t pt-2 text-muted-foreground">
-                  <div>مبلغ السلفة: <span className="font-bold text-foreground">{l.principalAmount.toLocaleString()} ر.س</span></div>
-                  <div>القسط الشهري: <span className="font-bold text-foreground">{l.monthlyInstallment.toLocaleString()} ر.س</span></div>
-                  <div>الأقساط المسددة: <span className="font-bold">{l.paidInstallments} من {l.totalInstallments}</span></div>
-                  <div>الرصيد المتبقي: <span className="font-bold text-destructive">{l.remainingBalance.toLocaleString()} ر.س</span></div>
+                  <div>
+                    مبلغ السلفة:{" "}
+                    <span className="font-bold text-foreground">
+                      {l.principalAmount.toLocaleString()} ر.س
+                    </span>
+                  </div>
+                  <div>
+                    القسط الشهري:{" "}
+                    <span className="font-bold text-foreground">
+                      {l.monthlyInstallment.toLocaleString()} ر.س
+                    </span>
+                  </div>
+                  <div>
+                    الأقساط المسددة:{" "}
+                    <span className="font-bold">
+                      {l.paidInstallments} من {l.totalInstallments}
+                    </span>
+                  </div>
+                  <div>
+                    الرصيد المتبقي:{" "}
+                    <span className="font-bold text-destructive">
+                      {l.remainingBalance.toLocaleString()} ر.س
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -398,7 +525,7 @@ export const PayrollView: React.FC = () => {
         {/* Tab 3: Final Settlements */}
         <TabsContent value="settlements" className="space-y-4 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {settlements.map(s => (
+            {settlements.map((s) => (
               <div key={s.id} className="rounded-xl border bg-card p-4 shadow-sm space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-sm text-foreground">{s.employeeName}</span>
@@ -409,15 +536,22 @@ export const PayrollView: React.FC = () => {
                 <div className="space-y-1.5 text-xs text-muted-foreground border-t pt-2">
                   <div className="flex justify-between">
                     <span>مدة الخدمة:</span>
-                    <span className="font-bold text-foreground">{s.serviceYears} سنوات و {s.serviceMonths} أشهر</span>
+                    <span className="font-bold text-foreground">
+                      {s.serviceYears} سنوات و {s.serviceMonths} أشهر
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>مكافأة نهاية الخدمة (EOSB):</span>
-                    <span className="font-bold text-emerald-600">{s.eosbAmount.toLocaleString()} ر.س</span>
+                    <span className="font-bold text-emerald-600">
+                      {s.eosbAmount.toLocaleString()} ر.س
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>تصفية رصيد الإجازات:</span>
-                    <span className="font-bold text-foreground">{s.leaveBalancePayoutAmount.toLocaleString()} ر.س ({s.leaveBalancePayoutDays} يوم)</span>
+                    <span className="font-bold text-foreground">
+                      {s.leaveBalancePayoutAmount.toLocaleString()} ر.س ({s.leaveBalancePayoutDays}{" "}
+                      يوم)
+                    </span>
                   </div>
                   <div className="flex justify-between font-bold text-primary border-t pt-1.5 text-sm">
                     <span>صافي الشيك النهائي:</span>
@@ -430,9 +564,96 @@ export const PayrollView: React.FC = () => {
         </TabsContent>
       </Tabs>
 
+      {/* Payroll Run Setup Modal */}
+      <Dialog open={isRunModalOpen} onOpenChange={setIsRunModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5 text-primary" />
+              تشغيل مسير رواتب جديد
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              اختر مجموعة الرواتب والفترة المطلوب تجميع الحضور والسلف والاستحقاقات لها
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs">
+            <div className="space-y-1">
+              <label className="font-bold" htmlFor="payroll-group">
+                مجموعة الرواتب *
+              </label>
+              <select
+                id="payroll-group"
+                value={runGroupId}
+                onChange={(event) => setRunGroupId(event.target.value)}
+                className="h-9 w-full rounded border bg-background px-2.5"
+              >
+                {payrollGroups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.nameAr}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="font-bold" htmlFor="payroll-month">
+                  الشهر *
+                </label>
+                <select
+                  id="payroll-month"
+                  value={runMonth}
+                  onChange={(event) => setRunMonth(Number(event.target.value))}
+                  className="h-9 w-full rounded border bg-background px-2.5"
+                >
+                  {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
+                    <option key={month} value={month}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="font-bold" htmlFor="payroll-year">
+                  السنة *
+                </label>
+                <select
+                  id="payroll-year"
+                  value={runYear}
+                  onChange={(event) => setRunYear(Number(event.target.value))}
+                  className="h-9 w-full rounded border bg-background px-2.5"
+                >
+                  {[today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1].map(
+                    (year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              size="sm"
+              onClick={handleRunNewPayroll}
+              disabled={payrollGroups.length === 0}
+              className="text-xs font-bold"
+            >
+              بدء الاحتساب
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Digital Payslip Modal */}
       {selectedPayslipEmployee && (
-        <Dialog open={!!selectedPayslipEmployee} onOpenChange={() => setSelectedPayslipEmployee(null)}>
+        <Dialog
+          open={!!selectedPayslipEmployee}
+          onOpenChange={() => setSelectedPayslipEmployee(null)}
+        >
           <DialogContent className="max-w-md p-6">
             <div className="border-b pb-4 text-center space-y-1">
               <div className="flex justify-center">
@@ -440,14 +661,21 @@ export const PayrollView: React.FC = () => {
                   HR
                 </div>
               </div>
-              <h2 className="text-base font-black text-foreground">قسيمة الراتب الإلكترونية المعتمدة</h2>
-              <p className="text-xs text-muted-foreground">شهر أغسطس 2026 • شركة فوكس القابضة</p>
+              <h2 className="text-base font-black text-foreground">
+                قسيمة الراتب الإلكترونية المعتمدة
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                شهر {selectedRun?.periodMonth ?? "—"} / {selectedRun?.periodYear ?? "—"} •{" "}
+                {company.legalNameAr}
+              </p>
             </div>
 
             <div className="space-y-3 text-xs py-2">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">اسم الموظف:</span>
-                <span className="font-bold text-foreground">{selectedPayslipEmployee.employeeName}</span>
+                <span className="font-bold text-foreground">
+                  {selectedPayslipEmployee.employeeName}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">الرقم الوظيفي:</span>
@@ -479,7 +707,9 @@ export const PayrollView: React.FC = () => {
                 {selectedPayslipEmployee.loanInstallmentDeduction > 0 && (
                   <div className="flex justify-between text-destructive">
                     <span>استقطاع السلفة الشهرية:</span>
-                    <span>-{selectedPayslipEmployee.loanInstallmentDeduction.toLocaleString()} ر.س</span>
+                    <span>
+                      -{selectedPayslipEmployee.loanInstallmentDeduction.toLocaleString()} ر.س
+                    </span>
                   </div>
                 )}
                 <div className="border-t pt-2 flex justify-between font-black text-sm text-primary">
@@ -490,13 +720,22 @@ export const PayrollView: React.FC = () => {
             </div>
 
             <DialogFooter className="flex gap-2">
-              <Button size="sm" onClick={() => window.print()} variant="outline" className="flex-1 text-xs font-bold gap-1">
+              <Button
+                size="sm"
+                onClick={() => window.print()}
+                variant="outline"
+                className="flex-1 text-xs font-bold gap-1"
+              >
                 <Printer className="h-3.5 w-3.5" />
                 طباعة
               </Button>
-              <Button size="sm" onClick={() => alert('تم تنزيل قسيمة الراتب PDF')} className="flex-1 text-xs font-bold gap-1 bg-primary">
+              <Button
+                size="sm"
+                onClick={() => window.print()}
+                className="flex-1 text-xs font-bold gap-1 bg-primary"
+              >
                 <Download className="h-3.5 w-3.5" />
-                تحميل PDF
+                حفظ بصيغة PDF
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -522,7 +761,7 @@ export const PayrollView: React.FC = () => {
               <input
                 type="number"
                 value={loanAmount}
-                onChange={e => setLoanAmount(Number(e.target.value))}
+                onChange={(e) => setLoanAmount(Number(e.target.value))}
                 className="w-full h-8 rounded border px-2.5"
               />
             </div>
@@ -530,7 +769,7 @@ export const PayrollView: React.FC = () => {
               <label className="font-bold">عدد أشهر السداد (الأقساط) *</label>
               <select
                 value={installmentsCount}
-                onChange={e => setInstallmentsCount(Number(e.target.value))}
+                onChange={(e) => setInstallmentsCount(Number(e.target.value))}
                 className="w-full h-8 rounded border px-2.5"
               >
                 <option value={3}>3 أشهر ({Math.round(loanAmount / 3)} ر.س / شهر)</option>
@@ -543,7 +782,7 @@ export const PayrollView: React.FC = () => {
               <textarea
                 rows={2}
                 value={loanReason}
-                onChange={e => setLoanReason(e.target.value)}
+                onChange={(e) => setLoanReason(e.target.value)}
                 placeholder="اكتب سبب طلب السلفة..."
                 className="w-full rounded border p-2 text-xs"
               />
@@ -576,10 +815,10 @@ export const PayrollView: React.FC = () => {
               <label className="font-bold">الموظف المعني *</label>
               <select
                 value={settlementEmpId}
-                onChange={e => setSettlementEmpId(e.target.value)}
+                onChange={(e) => setSettlementEmpId(e.target.value)}
                 className="w-full h-8 rounded border px-2.5"
               >
-                {employees.map(emp => (
+                {employees.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.firstNameAr} {emp.lastNameAr} ({emp.jobTitleAr})
                   </option>
@@ -591,11 +830,15 @@ export const PayrollView: React.FC = () => {
               <label className="font-bold">سبب انتهاء العلاقة العقدية *</label>
               <select
                 value={separationType}
-                onChange={e => setSeparationType(e.target.value as SeparationType)}
+                onChange={(e) => setSeparationType(e.target.value as SeparationType)}
                 className="w-full h-8 rounded border px-2.5"
               >
-                <option value="contract_expiration">انتهاء مدة العقد أو فسخه بالتراضي (100% مكافأة)</option>
-                <option value="termination_by_employer">إنهاء من قبل صاحب العمل (100% مكافأة)</option>
+                <option value="contract_expiration">
+                  انتهاء مدة العقد أو فسخه بالتراضي (100% مكافأة)
+                </option>
+                <option value="termination_by_employer">
+                  إنهاء من قبل صاحب العمل (100% مكافأة)
+                </option>
                 <option value="resignation">استقالة الموظف (تخضع لشرائح المادة 85)</option>
               </select>
             </div>
@@ -605,14 +848,18 @@ export const PayrollView: React.FC = () => {
               <input
                 type="date"
                 value={terminationDate}
-                onChange={e => setTerminationDate(e.target.value)}
+                onChange={(e) => setTerminationDate(e.target.value)}
                 className="w-full h-8 rounded border px-2.5"
               />
             </div>
           </div>
 
           <DialogFooter className="mt-2">
-            <Button size="sm" onClick={handleCalculateAndSaveSettlement} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+            <Button
+              size="sm"
+              onClick={handleCalculateAndSaveSettlement}
+              className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+            >
               احتساب وتوليد مسودة المخالصة
             </Button>
           </DialogFooter>

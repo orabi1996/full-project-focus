@@ -305,7 +305,7 @@ export async function fetchOperationalSnapshot(
       nameEn: row.name_en,
       scopeType: row.scope_type as ApprovalChain["scopeType"],
       scopeValues: Array.isArray(row.scope_values) ? row.scope_values.map(String) : [],
-      steps: Array.isArray(row.steps) ? (row.steps as ApprovalChain["steps"]) : [],
+      steps: Array.isArray(row.steps) ? (row.steps as unknown as ApprovalChain["steps"]) : [],
       isDefault: row.is_default,
       status: row.status === "inactive" ? "inactive" : "active",
     })),
@@ -775,7 +775,7 @@ export async function createRoleDefinitionRecord(
     description_en: role.descriptionEn,
     is_system: role.isSystem,
     data_scope: role.dataScope,
-  });
+  } as unknown as never);
   if (error) throw new Error(error.message);
 }
 
@@ -789,7 +789,7 @@ export async function createApprovalChainRecord(chain: Omit<ApprovalChain, "id">
     steps: chain.steps,
     is_default: chain.isDefault,
     status: chain.status,
-  });
+  } as unknown as never);
   if (error) throw new Error(error.message);
 }
 
@@ -911,7 +911,7 @@ export async function createPerformanceCycleRecord(cycle: Omit<PerformanceCycle,
     status: cycle.status,
     participants_count: cycle.participantsCount,
     completion_rate: cycle.completionRate,
-  });
+  } as unknown as never);
   if (error) throw new Error(error.message);
 }
 

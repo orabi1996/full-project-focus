@@ -25,8 +25,24 @@ import {
 } from "../ui/dialog";
 
 export const AttendanceView: React.FC = () => {
-  const { attendanceRecords, currentUser, punchInOut, submitAttendanceCorrection, language, t } =
-    useApp();
+  const {
+    attendanceRecords,
+    currentUser,
+    punchInOut,
+    submitAttendanceCorrection,
+    processAttendance,
+    language,
+    t,
+  } = useApp();
+
+  const handleProcessAttendance = () => {
+    const today = new Date();
+    const from = new Date(today.getFullYear(), today.getMonth(), 1)
+      .toISOString()
+      .slice(0, 10);
+    const to = today.toISOString().slice(0, 10);
+    processAttendance(from, to);
+  };
 
   const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
   const [correctionDate, setCorrectionDate] = useState("2026-08-30");

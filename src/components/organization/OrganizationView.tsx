@@ -3,27 +3,13 @@ import { OrgChartSvg, type OrgChartNodeData } from "./OrgChartSvg";
 
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
-import {
-  Building2,
-  MapPin,
-  Users,
-  Plus,
-  Network,
-  ShieldCheck,
-  CheckCircle2,
-  ChevronRight,
-  ChevronDown,
-  Layers,
-  Map,
-  Compass,
-  Search,
-  Sliders,
-  ZoomIn,
-  ZoomOut,
-  Sparkles,
-} from "lucide-react";
+import { Building2, MapPin, Plus, Network } from "lucide-react";
+import type { OrgUnit } from "../../types";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+
+type OrgUnitType = OrgUnit["type"];
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   Dialog,

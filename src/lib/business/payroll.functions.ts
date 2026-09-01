@@ -61,7 +61,7 @@ export const runPayrollServer = createServerFn({ method: "POST" })
     if (employeesError) throw new Error(`تعذر قراءة الموظفين: ${employeesError.message}`);
     if (!employees?.length) throw new Error("لا يوجد موظفون مؤهلون لهذا المسيّر");
 
-    const employeeIds = employees.map((e) => e.id);
+    const employeeIds = employees.map((e: any) => e.id);
 
     const [salaryRes, attendanceRes, loanRes] = await Promise.all([
       supabase

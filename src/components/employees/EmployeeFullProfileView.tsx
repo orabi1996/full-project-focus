@@ -92,7 +92,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
     t,
   } = useApp();
 
-  const employee = employees.find((e) => e.id === employeeId) || employees[0];
+  const employee = employees.find((e) => e.id === employeeId) || employees[0] || null;
 
   // Edit Mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -109,6 +109,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
   // Sync formData when employee changes
   useEffect(() => {
     if (employee) {
+      const hireYear = employee.hireDate ? employee.hireDate.split("-")[0] : "2024";
       setFormData({
         avatarUrl: employee.avatarUrl,
         firstNameAr: employee.firstNameAr,
@@ -142,7 +143,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
         hireDate: employee.hireDate,
         contractStartDate: employee.contractStartDate || employee.hireDate,
         contractEndDate: employee.contractEndDate || "2027-03-01",
-        qiwaContractNo: employee.qiwaContractNo || `QIWA-${employee.hireDate.split("-")[0]}-9981`,
+        qiwaContractNo: employee.qiwaContractNo || `QIWA-${hireYear}-9981`,
         yearsOfService: employee.yearsOfService || 3,
         contractType: employee.contractType,
         status: employee.status,
@@ -183,14 +184,14 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
 
   const canEdit = ["super_admin", "hr_manager", "payroll_officer"].includes(currentRole);
 
-  const empLeaveBalance = leaveBalances.find((b) => b.employeeId === employee.id) || {
+  const empLeaveBalance = (employee && leaveBalances.find((b) => b.employeeId === employee.id)) || {
     availableBalance: 21,
     allocatedAnnualDays: 21,
     usedDays: 5,
     reservedDays: 0,
   };
 
-  const empRequests = requests.filter((r) => r.requesterId === employee.id);
+  const empRequests = employee ? requests.filter((r) => r.requesterId === employee.id) : [];
 
   // File Upload for Avatar
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

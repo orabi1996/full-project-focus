@@ -64,16 +64,6 @@ export const EmployeesView: React.FC = () => {
   } = useApp();
   const canManage = canManageModule(currentRole, "employees");
 
-  // Render Full Page Profile View when an employee is selected
-  if (activeEmployeeModalId) {
-    return (
-      <EmployeeFullProfileView
-        employeeId={activeEmployeeModalId}
-        onBack={closeEmployeeProfile}
-      />
-    );
-  }
-
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState("");
   const [quickPreset, setQuickPreset] = useState<QuickPreset>("all");
@@ -285,6 +275,16 @@ export const EmployeesView: React.FC = () => {
     setDocModalEmployee(emp);
     setDocModalType(type);
   };
+
+  // Render Full Page Profile View when an employee is selected
+  if (activeEmployeeModalId) {
+    return (
+      <EmployeeFullProfileView
+        employeeId={activeEmployeeModalId}
+        onBack={closeEmployeeProfile}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

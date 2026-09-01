@@ -1,308 +1,406 @@
-import React, { useState, useRef } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from "react";
+import type { OrgUnit } from "../../types";
 import {
-  ZoomIn,
-  ZoomOut,
+  Download,
+  Image as ImageIcon,
   Maximize2,
   Minimize2,
+  Minus,
+  Plus,
   RotateCcw,
   Search,
-  Download,
   Users,
+  Building,
   ChevronDown,
   ChevronUp,
-  Building,
-  Briefcase,
-  ShieldCheck,
-  Sparkles,
-  Info,
-} from 'lucide-react';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
+} from "lucide-react";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../ui/dialog';
+} from "../ui/dialog";
 
-export interface OrgNode {
+export interface OrgChartNodeData {
   id: string;
-  nameAr: string;
-  nameEn: string;
   titleAr: string;
   titleEn: string;
-  managerName: string;
-  avatarUrl: string;
-  type: 'board' | 'executive' | 'division' | 'department' | 'unit';
-  employeeCount: number;
-  openPositions: number;
-  budgetMonthly: number;
-  color: string;
-  children?: OrgNode[];
+  subtitle?: string;
+  code?: string;
+  kind: "company" | OrgUnit["type"];
+  employeeCount?: number;
+  openPositions?: number;
+  budgetMonthly?: number;
+  managerName?: string;
+  avatarUrl?: string;
+  children: OrgChartNodeData[];
 }
 
-export const defaultOrgTree: OrgNode = {
-  id: 'root-1',
-  nameAr: 'شركة فوكس للتقنية وحلول الأعمال',
-  nameEn: 'Focus Tech & Business Solutions Co.',
-  titleAr: 'مجلس الإدارة والرئيس التنفيذي (CEO)',
-  titleEn: 'Board of Directors & CEO',
-  managerName: 'م. عبد العزيز الفهد',
-  avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-  type: 'board',
+interface LaidOutNode extends OrgChartNodeData {
+  x: number;
+  y: number;
+  laidOutChildren: LaidOutNode[];
+}
+
+const NODE_W = 240;
+const NODE_H = 100;
+const H_GAP = 32;
+const V_GAP = 70;
+
+const KIND_LABEL: Record<string, string> = {
+  company: "المنشأة الرئيسية",
+  division: "قطاع تنفيذي",
+  department: "إدارة عامة",
+  section: "قسم",
+  unit: "وحدة",
+};
+
+/** Tidy-tree layout: children laid out side by side, parent centered above them. */
+function layout(node: OrgChartNodeData, depth: number, cursor: { x: number }): LaidOutNode {
+  const y = depth * (NODE_H + V_GAP);
+  if (!node.children || !node.children.length) {
+    const x = cursor.x;
+    cursor.x += NODE_W + H_GAP;
+    return { ...node, x, y, laidOutChildren: [] };
+  }
+  const laidOutChildren = node.children.map((child) => layout(child, depth + 1, cursor));
+  const first = laidOutChildren[0]!;
+  const last = laidOutChildren[laidOutChildren.length - 1]!;
+  const x = (first.x + last.x) / 2;
+  return { ...node, x, y, laidOutChildren };
+}
+
+function flatten(node: LaidOutNode, acc: LaidOutNode[] = []): LaidOutNode[] {
+  acc.push(node);
+  node.laidOutChildren.forEach((child) => flatten(child, acc));
+  return acc;
+}
+
+export const defaultCompanyTree: OrgChartNodeData = {
+  id: "comp-root",
+  titleAr: "شركة فوكس للحلول التقنية والبرمجيات",
+  titleEn: "Focus Tech & Business Solutions Co.",
+  subtitle: "م. عبد العزيز الفهد • الرئيس التنفيذي",
+  managerName: "م. عبد العزيز الفهد",
+  code: "HQ-01",
+  kind: "company",
   employeeCount: 120,
   openPositions: 8,
   budgetMonthly: 1250000,
-  color: '#0B57D0',
+  avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
   children: [
     {
-      id: 'exec-1',
-      nameAr: 'قطاع هندسة وتطوير البرمجيات',
-      nameEn: 'Software Engineering & Cloud Division',
-      titleAr: 'نائب الرئيس التنفيذي للتقنية (CTO)',
-      titleEn: 'Chief Technology Officer',
-      managerName: 'د. طارق المنصور',
-      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-      type: 'division',
+      id: "div-tech",
+      titleAr: "قطاع هندسة وتطوير البرمجيات",
+      titleEn: "Software Engineering & Cloud Division",
+      subtitle: "د. طارق المنصور • CTO",
+      managerName: "د. طارق المنصور",
+      code: "ENG-01",
+      kind: "division",
       employeeCount: 48,
       openPositions: 4,
       budgetMonthly: 550000,
-      color: '#0284C7',
+      avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
       children: [
         {
-          id: 'dept-101',
-          nameAr: 'إدارة هندسة الواجهات والمنصات السحابية',
-          nameEn: 'Frontend & Cloud Platforms Dept.',
-          titleAr: 'مدير هندسة البرمجيات',
-          titleEn: 'Lead Software Architect',
-          managerName: 'م. ريان القحطاني',
-          avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
-          type: 'department',
+          id: "dept-fe",
+          titleAr: "إدارة الواجهات والمنصات السحابية",
+          titleEn: "Frontend & Cloud Platforms Dept.",
+          subtitle: "م. ريان القحطاني • مدير الإدارة",
+          managerName: "م. ريان القحطاني",
+          code: "DEP-101",
+          kind: "department",
           employeeCount: 22,
           openPositions: 2,
           budgetMonthly: 260000,
-          color: '#0369A1',
+          children: [],
         },
         {
-          id: 'dept-102',
-          nameAr: 'إدارة الأمن السيبراني والبنية التحتية',
-          nameEn: 'Cybersecurity & DevOps Dept.',
-          titleAr: 'رئيس أمن المعلومات (CISO)',
-          titleEn: 'Chief Information Security Officer',
-          managerName: 'أ. هيفاء الشهري',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-          type: 'department',
+          id: "dept-sec",
+          titleAr: "إدارة الأمن السيبراني والعمليات",
+          titleEn: "Cybersecurity & DevOps Dept.",
+          subtitle: "أ. هيفاء الشهري • CISO",
+          managerName: "أ. هيفاء الشهري",
+          code: "DEP-102",
+          kind: "department",
           employeeCount: 16,
           openPositions: 1,
           budgetMonthly: 210000,
-          color: '#0D9488',
+          children: [],
         },
         {
-          id: 'dept-103',
-          nameAr: 'إدارة الذكاء الاصطناعي وعلوم البيانات',
-          nameEn: 'AI & Data Science Lab',
-          titleAr: 'كبير علماء البيانات',
-          titleEn: 'Principal AI Scientist',
-          managerName: 'د. سامي الغامدي',
-          avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150',
-          type: 'department',
+          id: "dept-ai",
+          titleAr: "مختبر الذكاء الاصطناعي والبيانات",
+          titleEn: "AI & Data Science Lab",
+          subtitle: "د. سامي الغامدي • كبير العلماء",
+          managerName: "د. سامي الغامدي",
+          code: "DEP-103",
+          kind: "department",
           employeeCount: 10,
           openPositions: 1,
           budgetMonthly: 180000,
-          color: '#6366F1',
+          children: [],
         },
       ],
     },
     {
-      id: 'exec-2',
-      nameAr: 'قطاع رأس المال البشري والعمليات',
-      nameEn: 'Human Capital & Corporate Operations',
-      titleAr: 'رئيس الموارد البشرية والامتثال (CHRO)',
-      titleEn: 'Chief Human Resources Officer',
-      managerName: 'أ. نورة التميمي',
-      avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
-      type: 'division',
+      id: "div-hr",
+      titleAr: "قطاع رأس المال البشري والعمليات",
+      titleEn: "Human Capital & Operations Division",
+      subtitle: "أ. نورة التميمي • CHRO",
+      managerName: "أ. نورة التميمي",
+      code: "HR-01",
+      kind: "division",
       employeeCount: 36,
       openPositions: 2,
       budgetMonthly: 340000,
-      color: '#10B981',
+      avatarUrl: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150",
       children: [
         {
-          id: 'dept-201',
-          nameAr: 'إدارة استقطاب المواهب والتوظيف (ATS)',
-          nameEn: 'Talent Acquisition & Sourcing',
-          titleAr: 'مدير التوظيف واستقطاب الكفاءات',
-          titleEn: 'Head of Recruitment',
-          managerName: 'أ. خالد السديري',
-          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-          type: 'department',
+          id: "dept-rec",
+          titleAr: "إدارة استقطاب المواهب والتوظيف (ATS)",
+          titleEn: "Talent Acquisition Dept.",
+          subtitle: "أ. خالد السديري • مدير التوظيف",
+          managerName: "أ. خالد السديري",
+          code: "DEP-201",
+          kind: "department",
           employeeCount: 12,
           openPositions: 1,
           budgetMonthly: 120000,
-          color: '#059669',
+          children: [],
         },
         {
-          id: 'dept-202',
-          nameAr: 'إدارة العمليات والرواتب وحماية الأجور (WPS)',
-          nameEn: 'Payroll & Workforce Operations',
-          titleAr: 'مدير الرواتب والمزايا المؤسسية',
-          titleEn: 'Compensation & Benefits Lead',
-          managerName: 'أ. فيصل الدوسري',
-          avatarUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150',
-          type: 'department',
+          id: "dept-pay",
+          titleAr: "إدارة مسيرات الرواتب وحماية الأجور (WPS)",
+          titleEn: "Payroll & Operations Dept.",
+          subtitle: "أ. فيصل الدوسري • مدير الرواتب",
+          managerName: "أ. فيصل الدوسري",
+          code: "DEP-202",
+          kind: "department",
           employeeCount: 14,
           openPositions: 1,
           budgetMonthly: 140000,
-          color: '#16A34A',
+          children: [],
         },
         {
-          id: 'dept-203',
-          nameAr: 'إدارة تطوير وتدريب الكوادر',
-          nameEn: 'Learning & Organizational Development',
-          titleAr: 'أخصائي التطوير المؤسسي',
-          titleEn: 'Organizational Development Lead',
-          managerName: 'أ. سارة الحربي',
-          avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
-          type: 'department',
+          id: "dept-ld",
+          titleAr: "إدارة التدريب والتطوير المؤسسي",
+          titleEn: "L&D and Org Development",
+          subtitle: "أ. سارة الحربي • أخصائي التطوير",
+          managerName: "أ. سارة الحربي",
+          code: "DEP-203",
+          kind: "department",
           employeeCount: 10,
           openPositions: 0,
           budgetMonthly: 80000,
-          color: '#84CC16',
+          children: [],
         },
       ],
     },
     {
-      id: 'exec-3',
-      nameAr: 'قطاع الشؤون المالية والاستثمار',
-      nameEn: 'Finance & Corporate Strategy',
-      titleAr: 'المدير المالي التنفيذي (CFO)',
-      titleEn: 'Chief Financial Officer',
-      managerName: 'أ. ماجد العتيبي',
-      avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150',
-      type: 'division',
+      id: "div-fin",
+      titleAr: "قطاع الشؤون المالية والاستثمار",
+      titleEn: "Finance & Investment Division",
+      subtitle: "أ. ماجد العتيبي • CFO",
+      managerName: "أ. ماجد العتيبي",
+      code: "FIN-01",
+      kind: "division",
       employeeCount: 24,
       openPositions: 1,
       budgetMonthly: 260000,
-      color: '#8B5CF6',
+      avatarUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150",
       children: [
         {
-          id: 'dept-301',
-          nameAr: 'إدارة الحسابات العامة وموازنة الرواتب',
-          nameEn: 'General Accounting & Budgets',
-          titleAr: 'رئيس قسم المحاسبة المالية',
-          titleEn: 'Chief Accountant',
-          managerName: 'أ. عمر العمودي',
-          avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-          type: 'department',
+          id: "dept-acc",
+          titleAr: "إدارة الحسابات العامة والميزانيات",
+          titleEn: "General Accounting Dept.",
+          subtitle: "أ. عمر العمودي • كبير المحاسبين",
+          managerName: "أ. عمر العمودي",
+          code: "DEP-301",
+          kind: "department",
           employeeCount: 14,
           openPositions: 1,
           budgetMonthly: 150000,
-          color: '#7C3AED',
+          children: [],
         },
         {
-          id: 'dept-302',
-          nameAr: 'إدارة المشتريات وسلاسل الإمداد',
-          nameEn: 'Procurement & Vendor Relations',
-          titleAr: 'مدير العقود والمشتريات',
-          titleEn: 'Procurement Manager',
-          managerName: 'أ. ليلى الشمري',
-          avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150',
-          type: 'department',
+          id: "dept-proc",
+          titleAr: "إدارة المشتريات وسلاسل الإمداد",
+          titleEn: "Procurement & Supply Chain",
+          subtitle: "أ. ليلى الشمري • مدير المشتريات",
+          managerName: "أ. ليلى الشمري",
+          code: "DEP-302",
+          kind: "department",
           employeeCount: 10,
           openPositions: 0,
           budgetMonthly: 110000,
-          color: '#9333EA',
+          children: [],
         },
       ],
     },
     {
-      id: 'exec-4',
-      nameAr: 'قطاع النمو وتطوير الأعمال والمبيعات',
-      nameEn: 'Growth & Business Development',
-      titleAr: 'رئيس النمو التجاري (CGO)',
-      titleEn: 'Chief Growth Officer',
-      managerName: 'م. حسام الصالح',
-      avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
-      type: 'division',
+      id: "div-sales",
+      titleAr: "قطاع النمو وتطوير الأعمال والمبيعات",
+      titleEn: "Growth & Business Development",
+      subtitle: "م. حسام الصالح • CGO",
+      managerName: "م. حسام الصالح",
+      code: "SALES-01",
+      kind: "division",
       employeeCount: 12,
       openPositions: 1,
       budgetMonthly: 180000,
-      color: '#EC4899',
+      avatarUrl: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150",
       children: [
         {
-          id: 'dept-401',
-          nameAr: 'إدارة علاقات كبار العملاء والمؤسسات',
-          nameEn: 'Enterprise Accounts & Key Clients',
-          titleAr: 'مدير مبيعات الشركات الكبرى',
-          titleEn: 'Enterprise Sales Lead',
-          managerName: 'أ. ريم الزهراني',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-          type: 'department',
+          id: "dept-ent",
+          titleAr: "إدارة حسابات الشركات الكبرى",
+          titleEn: "Enterprise Accounts Dept.",
+          subtitle: "أ. ريم الزهراني • مدير المبيعات",
+          managerName: "أ. ريم الزهراني",
+          code: "DEP-401",
+          kind: "department",
           employeeCount: 8,
           openPositions: 1,
           budgetMonthly: 120000,
-          color: '#DB2777',
+          children: [],
         },
       ],
     },
   ],
 };
 
-export const OrgChartSvg: React.FC = () => {
-  const [zoom, setZoom] = useState(1);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedNode, setSelectedNode] = useState<OrgNode | null>(null);
-  const [collapsedNodes, setCollapsedNodes] = useState<Record<string, boolean>>({});
+interface OrgChartSvgProps {
+  root?: OrgChartNodeData;
+  language?: "ar" | "en";
+  onSelect?: (id: string) => void;
+  selectedId?: string | null;
+}
+
+export const OrgChartSvg: React.FC<OrgChartSvgProps> = ({
+  root = defaultCompanyTree,
+  language = "ar",
+  onSelect,
+  selectedId,
+}) => {
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [zoom, setZoom] = useState(0.9);
+  const [search, setSearch] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [selectedNode, setSelectedNode] = useState<LaidOutNode | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
 
-  const toggleCollapse = (nodeId: string, e: React.MouseEvent) => {
+  const visibleRoot = useMemo(() => {
+    const prune = (node: OrgChartNodeData): OrgChartNodeData => ({
+      ...node,
+      children: collapsed.has(node.id) ? [] : (node.children || []).map(prune),
+    });
+    return prune(root);
+  }, [root, collapsed]);
+
+  const { laidOut, nodes, width, height } = useMemo(() => {
+    const cursor = { x: 40 };
+    const tree = layout(visibleRoot, 0, cursor);
+    const all = flatten(tree);
+    const maxX = Math.max(...all.map((n) => n.x)) + NODE_W;
+    const maxY = Math.max(...all.map((n) => n.y)) + NODE_H;
+    return { laidOut: tree, nodes: all, width: maxX + 60, height: maxY + 60 };
+  }, [visibleRoot]);
+
+  const matches = useCallback(
+    (node: LaidOutNode) => {
+      const term = search.trim().toLowerCase();
+      if (!term) return false;
+      return (
+        node.titleAr.toLowerCase().includes(term) ||
+        node.titleEn.toLowerCase().includes(term) ||
+        (node.code ?? "").toLowerCase().includes(term) ||
+        (node.subtitle ?? "").toLowerCase().includes(term) ||
+        (node.managerName ?? "").toLowerCase().includes(term)
+      );
+    },
+    [search],
+  );
+
+  const edges = useMemo(() => {
+    const list: { from: LaidOutNode; to: LaidOutNode }[] = [];
+    const walk = (node: LaidOutNode) => {
+      node.laidOutChildren.forEach((child) => {
+        list.push({ from: node, to: child });
+        walk(child);
+      });
+    };
+    walk(laidOut);
+    return list;
+  }, [laidOut]);
+
+  const toggleCollapse = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setCollapsedNodes(prev => ({ ...prev, [nodeId]: !prev[nodeId] }));
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
-  const handleZoomIn = () => setZoom(prev => Math.min(1.8, Number((prev + 0.15).toFixed(2))));
-  const handleZoomOut = () => setZoom(prev => Math.max(0.4, Number((prev - 0.15).toFixed(2))));
-  const handleResetZoom = () => setZoom(1);
-
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
+  const serializeSvg = () => {
+    if (!svgRef.current) return null;
+    const clone = svgRef.current.cloneNode(true) as SVGSVGElement;
+    clone.setAttribute("width", String(width));
+    clone.setAttribute("height", String(height));
+    clone.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    const styles = document.createElement("style");
+    styles.textContent = `text{font-family:'Cairo','Plus Jakarta Sans','Roboto',sans-serif}`;
+    clone.insertBefore(styles as unknown as Node, clone.firstChild);
+    return new XMLSerializer().serializeToString(clone);
   };
 
-  const handleExportSvg = () => {
-    const svgElement = document.getElementById('hrms-org-chart-svg');
-    if (!svgElement) return;
-    const svgData = new XMLSerializer().serializeToString(svgElement);
-    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+  const downloadSvg = () => {
+    const source = serializeSvg();
+    if (!source) return;
+    const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `Focus_HRMS_Org_Chart_${new Date().toISOString().split('T')[0]}.svg`;
+    link.download = `Focus_HRMS_OrgChart_${new Date().toISOString().split("T")[0]}.svg`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const isMatched = (node: OrgNode): boolean => {
-    if (!searchTerm) return false;
-    const term = searchTerm.toLowerCase();
-    return (
-      node.nameAr.toLowerCase().includes(term) ||
-      node.nameEn.toLowerCase().includes(term) ||
-      node.managerName.toLowerCase().includes(term) ||
-      node.titleAr.toLowerCase().includes(term)
-    );
+  const downloadPng = () => {
+    const source = serializeSvg();
+    if (!source) return;
+    const img = new Image();
+    const url = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(source)))}`;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width * 2;
+      canvas.height = height * 2;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.fillStyle = "#F8FAFD";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.scale(2, 2);
+      ctx.drawImage(img, 0, 0);
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png");
+      link.download = `Focus_HRMS_OrgChart_${new Date().toISOString().split("T")[0]}.png`;
+      link.click();
+    };
+    img.src = url;
   };
 
   return (
     <div
-      ref={containerRef}
       className={`relative rounded-3xl border border-border/80 bg-card shadow-sm overflow-hidden flex flex-col transition-all duration-300 ${
-        isFullscreen ? 'fixed inset-4 z-50 shadow-2xl bg-card' : 'w-full min-h-[640px]'
+        isFullscreen ? "fixed inset-4 z-50 shadow-2xl bg-card" : "w-full min-h-[640px]"
       }`}
     >
-      {/* Top Toolbar (Google M3 Style) */}
+      {/* Top Controls Toolbar (Google M3 Style) */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-4 md:p-5 border-b border-border/60 bg-muted/20 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -328,8 +426,8 @@ export const OrgChartSvg: React.FC = () => {
             <Search className="absolute right-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="text"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="بحث بالقسم، المدير، المسمى..."
               className="w-full h-9 rounded-full border border-border/80 bg-background pr-9 pl-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all shadow-xs"
             />
@@ -340,11 +438,11 @@ export const OrgChartSvg: React.FC = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleZoomOut}
+              onClick={() => setZoom((z) => Math.max(0.4, Number((z - 0.15).toFixed(2))))}
               className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground"
               title="تصغير Zoom Out"
             >
-              <ZoomOut className="h-3.5 w-3.5" />
+              <Minus className="h-3.5 w-3.5" />
             </Button>
             <span className="text-[10px] font-mono font-bold px-1.5 min-w-9 text-center text-foreground">
               {Math.round(zoom * 100)}%
@@ -352,41 +450,51 @@ export const OrgChartSvg: React.FC = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleZoomIn}
+              onClick={() => setZoom((z) => Math.min(1.8, Number((z + 0.15).toFixed(2))))}
               className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground"
               title="تكبير Zoom In"
             >
-              <ZoomIn className="h-3.5 w-3.5" />
+              <Plus className="h-3.5 w-3.5" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleResetZoom}
+              onClick={() => setZoom(0.9)}
               className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground"
-              title="إعادة تعيين 100%"
+              title="إعادة تعيين"
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
           </div>
 
-          {/* Export Vector SVG */}
+          {/* Export SVG & PNG */}
           <Button
             variant="outline"
             size="sm"
-            onClick={handleExportSvg}
+            onClick={downloadSvg}
             className="rounded-full text-xs font-bold gap-1.5 h-9 border-border/80 hover:bg-secondary shadow-xs"
           >
             <Download className="h-3.5 w-3.5 text-primary" />
-            تصدير SVG
+            SVG
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={downloadPng}
+            className="rounded-full text-xs font-bold gap-1.5 h-9 border-border/80 hover:bg-secondary shadow-xs"
+          >
+            <ImageIcon className="h-3.5 w-3.5 text-emerald-600" />
+            PNG
           </Button>
 
           {/* Fullscreen Button */}
           <Button
             variant="ghost"
             size="icon"
-            onClick={toggleFullscreen}
+            onClick={() => setIsFullscreen(!isFullscreen)}
             className="h-9 w-9 rounded-full hover:bg-muted text-muted-foreground"
-            title={isFullscreen ? 'تصغير الشاشة' : 'ملء الشاشة Fullscreen'}
+            title={isFullscreen ? "تصغير الشاشة" : "ملء الشاشة Fullscreen"}
           >
             {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
@@ -395,197 +503,204 @@ export const OrgChartSvg: React.FC = () => {
 
       {/* SVG Canvas Workspace */}
       <div className="flex-1 overflow-auto p-8 relative flex justify-center items-start bg-[#F8FAFD] dark:bg-[#121316] select-none min-h-[520px]">
-        {/* Decorative Grid Pattern */}
+        {/* Decorative Grid */}
         <div
           className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
           style={{
             backgroundImage: `radial-gradient(#0B57D0 1.5px, transparent 1.5px)`,
-            backgroundSize: '24px 24px',
+            backgroundSize: "24px 24px",
           }}
         />
 
-        {/* Scalable Container */}
         <div
           style={{
             transform: `scale(${zoom})`,
-            transformOrigin: 'top center',
-            transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            transformOrigin: "top center",
+            transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
-          className="py-4 px-6 flex flex-col items-center"
+          className="py-4 px-6 relative"
         >
-          {/* Level 1: Root Node (Company HQ / CEO) */}
-          <div className="flex flex-col items-center">
-            <div
-              onClick={() => setSelectedNode(defaultOrgTree)}
-              className={`group relative rounded-3xl border-2 p-5 bg-card text-card-foreground shadow-lg hover:shadow-2xl transition-all duration-200 cursor-pointer w-96 text-center ${
-                isMatched(defaultOrgTree)
-                  ? 'ring-4 ring-amber-400 border-amber-500 scale-105'
-                  : 'border-primary/80 hover:border-primary'
-              }`}
-            >
-              <div className="flex items-center gap-4">
-                <img
-                  src={defaultOrgTree.avatarUrl}
-                  alt={defaultOrgTree.managerName}
-                  className="h-14 w-14 rounded-2xl border-2 border-primary object-cover shadow-md"
-                />
-                <div className="text-start flex-1 truncate">
-                  <Badge className="text-[10px] font-bold bg-primary text-primary-foreground rounded-full px-2.5 mb-1">
-                    مجلس الإدارة • الرئاسة التنفيذية
-                  </Badge>
-                  <h3 className="text-sm font-black text-foreground truncate">{defaultOrgTree.nameAr}</h3>
-                  <p className="text-xs font-bold text-primary truncate mt-0.5">{defaultOrgTree.managerName}</p>
-                  <p className="text-[10px] text-muted-foreground truncate">{defaultOrgTree.titleAr}</p>
-                </div>
-              </div>
+          <svg
+            ref={svgRef}
+            id="hrms-org-chart-svg"
+            width={width}
+            height={height}
+            viewBox={`0 0 ${width} ${height}`}
+            className="overflow-visible"
+          >
+            <defs>
+              <linearGradient id="primaryGradient" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#0B57D0" />
+                <stop offset="100%" stopColor="#041E49" />
+              </linearGradient>
+              <linearGradient id="divisionGradient" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#EBF2FA" />
+                <stop offset="100%" stopColor="#D3E3FD" />
+              </linearGradient>
+              <filter id="cardShadow" x="-10%" y="-10%" width="130%" height="130%">
+                <feDropShadow dx="0" dy="4" stdDeviation="6" floodOpacity="0.08" />
+              </filter>
+            </defs>
 
-              {/* Node Stats Pill */}
-              <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                <span className="flex items-center gap-1">
-                  <Users className="h-3.5 w-3.5 text-primary" />
-                  <strong>{defaultOrgTree.employeeCount}</strong> موظف
-                </span>
-                <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200">
-                  {defaultOrgTree.openPositions} شواغر متاحة
-                </Badge>
-              </div>
+            {/* Connecting Orthogonal SVG Lines */}
+            <g id="org-chart-edges">
+              {edges.map(({ from, to }) => {
+                const startX = from.x + NODE_W / 2;
+                const startY = from.y + NODE_H;
+                const endX = to.x + NODE_W / 2;
+                const endY = to.y;
+                const midY = (startY + endY) / 2;
 
-              {/* Collapse/Expand Toggle Button */}
-              {defaultOrgTree.children && (
-                <button
-                  onClick={e => toggleCollapse(defaultOrgTree.id, e)}
-                  className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:scale-110 transition-transform"
-                >
-                  {collapsedNodes[defaultOrgTree.id] ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronUp className="h-4 w-4" />
-                  )}
-                </button>
-              )}
-            </div>
+                return (
+                  <path
+                    key={`${from.id}->${to.id}`}
+                    d={`M ${startX} ${startY} V ${midY} H ${endX} V ${endY}`}
+                    fill="none"
+                    stroke="#0B57D0"
+                    strokeWidth="2.5"
+                    strokeOpacity="0.45"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                );
+              })}
+            </g>
 
-            {/* Level 1 Connecting SVG Vector Line */}
-            {!collapsedNodes[defaultOrgTree.id] && defaultOrgTree.children && (
-              <>
-                <svg
-                  id="hrms-org-chart-svg"
-                  className="w-full h-12 overflow-visible"
-                  style={{ width: '1000px', height: '48px' }}
-                >
-                  <line x1="500" y1="0" x2="500" y2="24" stroke="#0B57D0" strokeWidth="2.5" />
-                  <line x1="125" y1="24" x2="875" y2="24" stroke="#0B57D0" strokeWidth="2.5" />
-                  <line x1="125" y1="24" x2="125" y2="48" stroke="#0B57D0" strokeWidth="2.5" />
-                  <line x1="375" y1="24" x2="375" y2="48" stroke="#0B57D0" strokeWidth="2.5" />
-                  <line x1="625" y1="24" x2="625" y2="48" stroke="#0B57D0" strokeWidth="2.5" />
-                  <line x1="875" y1="24" x2="875" y2="48" stroke="#0B57D0" strokeWidth="2.5" />
-                </svg>
+            {/* SVG Tree Nodes */}
+            <g id="org-chart-nodes">
+              {nodes.map((node) => {
+                const isMatched = matches(node);
+                const isSelected = selectedId === node.id || selectedNode?.id === node.id;
+                const isParent = node.children && node.children.length > 0;
+                const isNodeCollapsed = collapsed.has(node.id);
 
-                {/* Level 2: Executive Divisions Grid */}
-                <div className="grid grid-cols-4 gap-6 w-[1000px]">
-                  {defaultOrgTree.children.map(division => {
-                    const isDivMatched = isMatched(division);
-                    const isDivCollapsed = collapsedNodes[division.id];
+                return (
+                  <g
+                    key={node.id}
+                    transform={`translate(${node.x}, ${node.y})`}
+                    onClick={() => {
+                      setSelectedNode(node);
+                      onSelect?.(node.id);
+                    }}
+                    className="cursor-pointer group"
+                  >
+                    {/* Card Outer Box */}
+                    <rect
+                      width={NODE_W}
+                      height={NODE_H}
+                      rx={18}
+                      fill={
+                        node.kind === "company"
+                          ? "url(#primaryGradient)"
+                          : node.kind === "division"
+                          ? "#FFFFFF"
+                          : "#FFFFFF"
+                      }
+                      stroke={
+                        isMatched
+                          ? "#F59E0B"
+                          : isSelected
+                          ? "#0B57D0"
+                          : node.kind === "company"
+                          ? "#0B57D0"
+                          : "#E0E2EC"
+                      }
+                      strokeWidth={isMatched ? 3 : isSelected ? 2.5 : 1.5}
+                      filter="url(#cardShadow)"
+                      className="transition-all duration-200"
+                    />
 
-                    return (
-                      <div key={division.id} className="flex flex-col items-center">
-                        {/* Division Card */}
-                        <div
-                          onClick={() => setSelectedNode(division)}
-                          className={`group relative rounded-2xl border p-4 bg-card text-card-foreground shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer w-full text-start ${
-                            isDivMatched
-                              ? 'ring-3 ring-amber-400 border-amber-500 scale-105'
-                              : 'border-border hover:border-primary/60'
-                          }`}
+                    {/* Top Pill / Badge */}
+                    <rect
+                      x={14}
+                      y={10}
+                      width={NODE_W - 28}
+                      height={18}
+                      rx={9}
+                      fill={
+                        node.kind === "company"
+                          ? "rgba(255,255,255,0.18)"
+                          : node.kind === "division"
+                          ? "#D3E3FD"
+                          : "#F0F4F9"
+                      }
+                    />
+                    <text
+                      x={NODE_W / 2}
+                      y={22}
+                      textAnchor="middle"
+                      fill={
+                        node.kind === "company"
+                          ? "#FFFFFF"
+                          : node.kind === "division"
+                          ? "#0B57D0"
+                          : "#52606D"
+                      }
+                      fontSize="9"
+                      fontWeight="bold"
+                    >
+                      {KIND_LABEL[node.kind] || "إدارة"} {node.code ? `• ${node.code}` : ""}
+                    </text>
+
+                    {/* Node Title */}
+                    <text
+                      x={NODE_W / 2}
+                      y={46}
+                      textAnchor="middle"
+                      fill={node.kind === "company" ? "#FFFFFF" : "#1A1C1E"}
+                      fontSize="11"
+                      fontWeight="900"
+                    >
+                      {node.titleAr.length > 28 ? `${node.titleAr.slice(0, 26)}…` : node.titleAr}
+                    </text>
+
+                    {/* Node Subtitle / Manager */}
+                    <text
+                      x={NODE_W / 2}
+                      y={64}
+                      textAnchor="middle"
+                      fill={node.kind === "company" ? "rgba(255,255,255,0.8)" : "#0B57D0"}
+                      fontSize="10"
+                      fontWeight="bold"
+                    >
+                      {node.subtitle ? (node.subtitle.length > 30 ? `${node.subtitle.slice(0, 28)}…` : node.subtitle) : node.titleEn}
+                    </text>
+
+                    {/* Headcount Footer */}
+                    <text
+                      x={NODE_W / 2}
+                      y={84}
+                      textAnchor="middle"
+                      fill={node.kind === "company" ? "rgba(255,255,255,0.7)" : "#73777F"}
+                      fontSize="9.5"
+                      fontWeight="500"
+                    >
+                      {node.employeeCount ? `${node.employeeCount} موظف مسجل` : "هيكل معتمد"}
+                    </text>
+
+                    {/* Collapse Button Circle Indicator */}
+                    {isParent && (
+                      <g
+                        transform={`translate(${NODE_W / 2}, ${NODE_H})`}
+                        onClick={(e) => toggleCollapse(node.id, e as unknown as React.MouseEvent)}
+                      >
+                        <circle r={10} fill="#0B57D0" stroke="#FFFFFF" strokeWidth={2} />
+                        <text
+                          y={3.5}
+                          textAnchor="middle"
+                          fill="#FFFFFF"
+                          fontSize="11"
+                          fontWeight="bold"
                         >
-                          <div className="flex items-start gap-3">
-                            <img
-                              src={division.avatarUrl}
-                              alt={division.managerName}
-                              className="h-10 w-10 rounded-xl border border-border object-cover shrink-0 shadow-xs"
-                            />
-                            <div className="truncate flex-1">
-                              <span
-                                className="text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mb-1"
-                                style={{ backgroundColor: `${division.color}15`, color: division.color }}
-                              >
-                                قطاع تنفيذي
-                              </span>
-                              <h4 className="text-xs font-black text-foreground truncate">{division.nameAr}</h4>
-                              <p className="text-[11px] font-bold text-primary truncate mt-0.5">{division.managerName}</p>
-                              <p className="text-[10px] text-muted-foreground truncate">{division.titleAr}</p>
-                            </div>
-                          </div>
-
-                          <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-between text-[10px] text-muted-foreground">
-                            <span>{division.employeeCount} موظف</span>
-                            <span className="font-mono font-bold text-foreground">
-                              {(division.budgetMonthly / 1000).toFixed(0)}K ر.س/شهر
-                            </span>
-                          </div>
-
-                          {/* Collapse Button */}
-                          {division.children && (
-                            <button
-                              onClick={e => toggleCollapse(division.id, e)}
-                              className="absolute -bottom-3 left-1/2 -translate-x-1/2 h-6 w-6 rounded-full bg-secondary text-secondary-foreground border border-border flex items-center justify-center shadow-xs hover:scale-110 transition-transform"
-                            >
-                              {isDivCollapsed ? (
-                                <ChevronDown className="h-3.5 w-3.5" />
-                              ) : (
-                                <ChevronUp className="h-3.5 w-3.5" />
-                              )}
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Level 3: Connecting SVG lines & Departments */}
-                        {!isDivCollapsed && division.children && (
-                          <div className="flex flex-col items-center w-full mt-3">
-                            {/* Vertical Line */}
-                            <div className="w-0.5 h-4 bg-primary/40" />
-
-                            <div className="space-y-2.5 w-full">
-                              {division.children.map(dept => {
-                                const isDeptMatched = isMatched(dept);
-
-                                return (
-                                  <div
-                                    key={dept.id}
-                                    onClick={() => setSelectedNode(dept)}
-                                    className={`rounded-xl border p-3 bg-muted/30 text-start shadow-2xs hover:bg-card hover:shadow-md transition-all cursor-pointer ${
-                                      isDeptMatched
-                                        ? 'ring-2 ring-amber-400 border-amber-500 scale-102 bg-card'
-                                        : 'border-border/80 hover:border-primary/50'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-2.5">
-                                      <img
-                                        src={dept.avatarUrl}
-                                        alt={dept.managerName}
-                                        className="h-8 w-8 rounded-lg border object-cover shrink-0"
-                                      />
-                                      <div className="truncate flex-1">
-                                        <h5 className="text-[11px] font-bold text-foreground truncate">{dept.nameAr}</h5>
-                                        <p className="text-[10px] text-muted-foreground truncate">{dept.managerName}</p>
-                                      </div>
-                                      <Badge variant="outline" className="text-[9px] font-bold shrink-0">
-                                        {dept.employeeCount}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
+                          {isNodeCollapsed ? "+" : "−"}
+                        </text>
+                      </g>
+                    )}
+                  </g>
+                );
+              })}
+            </g>
+          </svg>
         </div>
       </div>
 
@@ -595,24 +710,18 @@ export const OrgChartSvg: React.FC = () => {
           <DialogContent className="max-w-md rounded-3xl p-6">
             <DialogHeader>
               <div className="flex items-center gap-3.5">
-                <img
-                  src={selectedNode.avatarUrl}
-                  alt={selectedNode.managerName}
-                  className="h-14 w-14 rounded-2xl border-2 border-primary object-cover shadow-sm"
-                />
+                <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-black text-sm">
+                  {selectedNode.code || "HR"}
+                </div>
                 <div>
                   <Badge variant="secondary" className="rounded-full text-[10px] font-bold px-2.5 mb-1">
-                    {selectedNode.type === 'board'
-                      ? 'الكيان الأعلى'
-                      : selectedNode.type === 'division'
-                      ? 'قطاع تنفيذي رئيسي'
-                      : 'إدارة تخصصية'}
+                    {KIND_LABEL[selectedNode.kind] || "إدارة مؤسسية"}
                   </Badge>
                   <DialogTitle className="text-base font-black text-foreground">
-                    {selectedNode.nameAr}
+                    {selectedNode.titleAr}
                   </DialogTitle>
                   <DialogDescription className="text-xs text-muted-foreground font-medium">
-                    {selectedNode.nameEn}
+                    {selectedNode.titleEn}
                   </DialogDescription>
                 </div>
               </div>
@@ -621,35 +730,39 @@ export const OrgChartSvg: React.FC = () => {
             <div className="space-y-3 pt-4 text-xs">
               <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-2.5 font-medium">
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">المدير المسؤول:</span>
-                  <span className="font-bold text-foreground">{selectedNode.managerName}</span>
+                  <span className="text-muted-foreground">المدير / المسؤول:</span>
+                  <span className="font-bold text-foreground">
+                    {selectedNode.managerName || selectedNode.subtitle || "غير محدد"}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">المسمى الوظيفي:</span>
-                  <span className="font-semibold text-primary">{selectedNode.titleAr}</span>
+                  <span className="text-muted-foreground">رمز الكيان الإداري:</span>
+                  <span className="font-mono font-bold text-primary">{selectedNode.code || "DEP-01"}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">إجمالي القوى العاملة:</span>
-                  <span className="font-black text-foreground">{selectedNode.employeeCount} موظف</span>
+                  <span className="font-black text-foreground">{selectedNode.employeeCount || 0} موظف</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">الشواغر الوظيفية المتاحة:</span>
-                  <span className="font-bold text-emerald-600">{selectedNode.openPositions} وظائف شاغرة</span>
+                  <span className="font-bold text-emerald-600">{selectedNode.openPositions || 0} شواغر</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">ميزانية الرواتب الشهرية:</span>
-                  <span className="font-mono font-bold text-foreground">
-                    {selectedNode.budgetMonthly.toLocaleString()} ر.س
-                  </span>
-                </div>
+                {selectedNode.budgetMonthly && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">ميزانية الرواتب التقديرية:</span>
+                    <span className="font-mono font-bold text-foreground">
+                      {selectedNode.budgetMonthly.toLocaleString()} ر.س / شهرياً
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end pt-2">
                 <Button
                   onClick={() => setSelectedNode(null)}
-                  className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 px-5"
+                  className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 px-5 h-9"
                 >
-                  إغلاق التفاصيل
+                  إغلاق
                 </Button>
               </div>
             </div>

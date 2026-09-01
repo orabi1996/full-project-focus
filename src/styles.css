@@ -10,7 +10,7 @@
  */
 
 @theme inline {
-  --font-sans: 'Plus Jakarta Sans', 'Cairo', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Cairo', 'Plus Jakarta Sans', 'Roboto', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   
   --radius-xs: 0.25rem;
@@ -157,7 +157,36 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    min-width: 320px;
+    margin: 0;
+    font-feature-settings: "kern" 1, "liga" 1;
+    text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  :focus-visible {
+    outline: 3px solid color-mix(in oklab, var(--ring) 55%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .material-app-shell .rounded-lg,
+  .material-app-shell .rounded-xl {
+    border-radius: var(--radius);
+  }
+
+  .material-app-shell [data-slot="card"] {
+    box-shadow:
+      0 1px 2px rgb(24 33 43 / 5%),
+      0 10px 30px rgb(24 33 43 / 3%);
   }
 }
 

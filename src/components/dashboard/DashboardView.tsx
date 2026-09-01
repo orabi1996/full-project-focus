@@ -1,5 +1,5 @@
-import React from 'react';
-import { useApp } from '../../lib/context/AppContext';
+import React from "react";
+import { useApp } from "../../lib/context/AppContext";
 import {
   Users,
   UserCheck,
@@ -20,9 +20,9 @@ import {
   Activity,
   Award,
   Zap,
-} from 'lucide-react';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
+} from "lucide-react";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import {
   AreaChart,
   Area,
@@ -37,9 +37,11 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-} from 'recharts';
+} from "recharts";
 
-export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = ({ onNavigate }) => {
+export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = ({
+  onNavigate,
+}) => {
   const {
     t,
     language,
@@ -54,31 +56,36 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
   } = useApp();
 
   const totalEmployees = employees.length;
-  const presentToday = attendanceRecords.filter(a => a.status === 'present' || a.status === 'late').length;
-  const lateToday = attendanceRecords.filter(a => a.status === 'late').length;
-  const onLeaveToday = employees.filter(e => e.status === 'on_leave').length;
-  const pendingApprovals = requests.filter(r => r.status === 'pending_approval');
+  const presentToday = attendanceRecords.filter(
+    (a) => a.status === "present" || a.status === "late",
+  ).length;
+  const lateToday = attendanceRecords.filter((a) => a.status === "late").length;
+  const onLeaveToday = employees.filter((e) => e.status === "on_leave").length;
+  const pendingApprovals = requests.filter((r) => r.status === "pending_approval");
   const currentPayroll = payrollRuns[0];
 
-  const handleQuickPunch = (type: 'in' | 'out') => {
+  const handleQuickPunch = (type: "in" | "out") => {
     const res = punchInOut(type);
     alert(res.message);
   };
 
   // Realistic 7-Day Attendance Trend Data (M3 Tonal Colors)
   const attendanceTrendData = [
-    { day: 'الأحد', present: 116, late: 4, absent: 0 },
-    { day: 'الإثنين', present: 114, late: 5, absent: 1 },
-    { day: 'الثلاثاء', present: 117, late: 2, absent: 1 },
-    { day: 'الأربعاء', present: 115, late: 3, absent: 2 },
-    { day: 'الخميس', present: 118, late: 2, absent: 0 },
-    { day: 'الجمعة', present: 0, late: 0, absent: 0 },
-    { day: 'السبت', present: 0, late: 0, absent: 0 },
+    { day: "الأحد", present: 116, late: 4, absent: 0 },
+    { day: "الإثنين", present: 114, late: 5, absent: 1 },
+    { day: "الثلاثاء", present: 117, late: 2, absent: 1 },
+    { day: "الأربعاء", present: 115, late: 3, absent: 2 },
+    { day: "الخميس", present: 118, late: 2, absent: 0 },
+    { day: "الجمعة", present: 0, late: 0, absent: 0 },
+    { day: "السبت", present: 0, late: 0, absent: 0 },
   ];
 
   // Department Headcount & Cost Distribution
-  const departmentDistributionData = orgUnits.map(unit => ({
-    name: language === 'ar' ? unit.nameAr.replace('قطاع ', '').replace('إدارة ', '').replace('الإدارة العامة لـ', '') : unit.nameEn,
+  const departmentDistributionData = orgUnits.map((unit) => ({
+    name:
+      language === "ar"
+        ? unit.nameAr.replace("قطاع ", "").replace("إدارة ", "").replace("الإدارة العامة لـ", "")
+        : unit.nameEn,
     count: unit.employeeCount,
     budget: Math.round(unit.employeeCount * 18500),
   }));
@@ -91,31 +98,37 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-primary-foreground/15 px-3 py-1 text-xs font-bold backdrop-blur-md border border-primary-foreground/20">
-                {language === 'ar' ? 'منظومة الموارد البشرية المتكاملة M3' : 'Material 3 Cloud HRMS'}
+                {language === "ar" ? "منظومة الموارد البشرية المتكاملة M3" : "Material 3 Cloud HRMS"}
               </span>
               <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
             </div>
             <h1 className="text-xl md:text-2xl font-black tracking-tight">
-              {t.dashboard.welcome}،{' '}
-              {language === 'ar'
+              {t.dashboard.welcome}،{" "}
+              {language === "ar"
                 ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
                 : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`}
             </h1>
             <p className="text-xs text-primary-foreground/80 font-medium max-w-xl">
-              {t.dashboard.todayOverview} • {new Date().toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {t.dashboard.todayOverview} •{" "}
+              {new Date().toLocaleDateString(language === "ar" ? "ar-SA" : "en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2.5">
             <Button
-              onClick={() => handleQuickPunch('in')}
+              onClick={() => handleQuickPunch("in")}
               className="rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs gap-1.5 shadow-sm px-4 h-10"
             >
               <Clock className="h-4 w-4" />
               {t.dashboard.punchInNow}
             </Button>
             <Button
-              onClick={() => onNavigate('leaves')}
+              onClick={() => onNavigate("leaves")}
               variant="secondary"
               className="rounded-full font-bold text-xs gap-1.5 px-4 h-10 bg-secondary text-secondary-foreground hover:bg-secondary/80"
             >
@@ -123,7 +136,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               {t.dashboard.requestLeave}
             </Button>
             <Button
-              onClick={() => onNavigate('employees')}
+              onClick={() => onNavigate("employees")}
               variant="outline"
               className="rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30 font-bold text-xs gap-1.5 px-4 h-10 backdrop-blur-sm"
             >
@@ -138,7 +151,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Total Employees */}
         <div
-          onClick={() => onNavigate('employees')}
+          onClick={() => onNavigate("employees")}
           className="group rounded-2xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:shadow-md cursor-pointer relative overflow-hidden"
         >
           <div className="flex items-center justify-between">
@@ -158,7 +171,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
         {/* Attendance Today */}
         <div
-          onClick={() => onNavigate('attendance')}
+          onClick={() => onNavigate("attendance")}
           className="group rounded-2xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:shadow-md cursor-pointer relative overflow-hidden"
         >
           <div className="flex items-center justify-between">
@@ -182,7 +195,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
         {/* Pending Approvals */}
         <div
-          onClick={() => onNavigate('workflow')}
+          onClick={() => onNavigate("workflow")}
           className="group rounded-2xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:shadow-md cursor-pointer relative overflow-hidden"
         >
           <div className="flex items-center justify-between">
@@ -202,7 +215,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
         {/* Monthly Payroll */}
         <div
-          onClick={() => onNavigate('payroll')}
+          onClick={() => onNavigate("payroll")}
           className="group rounded-2xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:shadow-md cursor-pointer relative overflow-hidden"
         >
           <div className="flex items-center justify-between">
@@ -213,7 +226,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-2xl font-black text-foreground">
-              {currentPayroll ? (currentPayroll.totalNetSalary / 1000).toFixed(1) + 'K' : '0'} {t.currency}
+              {currentPayroll ? (currentPayroll.totalNetSalary / 1000).toFixed(1) + "K" : "0"} {t.currency}
             </span>
             <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-700 border-purple-200 rounded-full px-2 font-bold">
               جاهز للمراجعة
@@ -243,7 +256,10 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={attendanceTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <AreaChart
+                data={attendanceTrendData}
+                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+              >
                 <defs>
                   <linearGradient id="presentGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#0B57D0" stopOpacity={0.35} />
@@ -258,9 +274,25 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                 <XAxis dataKey="day" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
-                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                <Area type="monotone" dataKey="present" name="حضور في الموعد" stroke="#0B57D0" fillOpacity={1} fill="url(#presentGrad)" strokeWidth={2.5} />
-                <Area type="monotone" dataKey="late" name="متأخرين" stroke="#f59e0b" fillOpacity={1} fill="url(#lateGrad)" strokeWidth={2.5} />
+                <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }} />
+                <Area
+                  type="monotone"
+                  dataKey="present"
+                  name="حضور في الموعد"
+                  stroke="#0B57D0"
+                  fillOpacity={1}
+                  fill="url(#presentGrad)"
+                  strokeWidth={2.5}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="late"
+                  name="متأخرين"
+                  stroke="#f59e0b"
+                  fillOpacity={1}
+                  fill="url(#lateGrad)"
+                  strokeWidth={2.5}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -279,7 +311,11 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={departmentDistributionData} layout="vertical" margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
+              <BarChart
+                data={departmentDistributionData}
+                layout="vertical"
+                margin={{ top: 5, right: 10, left: 20, bottom: 5 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                 <XAxis type="number" tick={{ fontSize: 10 }} />
                 <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={70} />
@@ -303,7 +339,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => onNavigate('workflow')}
+              onClick={() => onNavigate("workflow")}
               className="text-xs text-primary font-bold hover:bg-secondary h-8 rounded-full px-3"
             >
               {t.dashboard.viewAllTasks}
@@ -317,14 +353,17 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                 رائع! لا توجد طلبات معلقة بانتظار موافقتك حالياً
               </div>
             ) : (
-              pendingApprovals.map(req => (
+              pendingApprovals.map((req) => (
                 <div
                   key={req.id}
                   className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-border/60 bg-muted/20 p-4 text-xs transition-all hover:bg-muted/40 shadow-xs"
                 >
                   <div className="flex items-center gap-3.5">
                     <img
-                      src={req.requesterAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+                      src={
+                        req.requesterAvatar ||
+                        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
+                      }
                       alt={req.requesterName}
                       className="h-10 w-10 rounded-full border-2 border-primary/20 object-cover shadow-xs"
                     />
@@ -332,17 +371,19 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-foreground">{req.requesterName}</span>
                         <Badge variant="secondary" className="text-[10px] rounded-full px-2 font-bold">
-                          {req.type === 'leave'
-                            ? 'إجازة'
-                            : req.type === 'expense_claim'
-                            ? 'نفقات'
-                            : 'سلفة مالية'}
+                          {req.type === "leave"
+                            ? "إجازة"
+                            : req.type === "expense_claim"
+                              ? "نفقات"
+                              : "سلفة مالية"}
                         </Badge>
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {req.payload.leaveTypeNameAr || req.payload.categoryNameAr || req.payload.reason}
-                        {req.payload.totalDays ? ` • ${req.payload.totalDays} أيام` : ''}
-                        {req.payload.amount ? ` • ${req.payload.amount} ${t.currency}` : ''}
+                        {req.payload.leaveTypeNameAr ||
+                          req.payload.categoryNameAr ||
+                          req.payload.reason}
+                        {req.payload.totalDays ? ` • ${req.payload.totalDays} أيام` : ""}
+                        {req.payload.amount ? ` • ${req.payload.amount} ${t.currency}` : ""}
                       </p>
                     </div>
                   </div>
@@ -350,7 +391,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                   <div className="flex items-center gap-2 self-end sm:self-center">
                     <Button
                       size="sm"
-                      onClick={() => onNavigate('workflow')}
+                      onClick={() => onNavigate("workflow")}
                       className="h-8 text-xs font-bold bg-primary hover:bg-primary/90 rounded-full px-4"
                     >
                       {t.approve}
@@ -358,7 +399,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => onNavigate('workflow')}
+                      onClick={() => onNavigate("workflow")}
                       className="h-8 text-xs font-bold text-destructive hover:bg-destructive/10 rounded-full px-3"
                     >
                       {t.reject}
@@ -404,7 +445,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onNavigate('ats')}
+                onClick={() => onNavigate("ats")}
                 className="justify-start text-xs h-9 gap-2 font-bold rounded-full border-border/80 hover:bg-secondary"
               >
                 <Briefcase className="h-4 w-4 text-blue-500" />
@@ -413,7 +454,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onNavigate('shifts')}
+                onClick={() => onNavigate("shifts")}
                 className="justify-start text-xs h-9 gap-2 font-bold rounded-full border-border/80 hover:bg-secondary"
               >
                 <Clock className="h-4 w-4 text-emerald-500" />
@@ -422,7 +463,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onNavigate('expenses')}
+                onClick={() => onNavigate("expenses")}
                 className="justify-start text-xs h-9 gap-2 font-bold rounded-full border-border/80 hover:bg-secondary"
               >
                 <DollarSign className="h-4 w-4 text-amber-500" />
@@ -431,7 +472,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onNavigate('reports')}
+                onClick={() => onNavigate("reports")}
                 className="justify-start text-xs h-9 gap-2 font-bold rounded-full border-border/80 hover:bg-secondary"
               >
                 <FileText className="h-4 w-4 text-purple-500" />

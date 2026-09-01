@@ -1,6 +1,6 @@
-import { ar } from './ar';
-import { en } from './en';
-import type { Language } from '../../types';
+import { ar } from "./ar";
+import { en } from "./en";
+import type { Language } from "../../types";
 
 export const translations = {
   ar,

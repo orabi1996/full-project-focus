@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useApp } from '../../lib/context/AppContext';
-import { exportToCSV } from '../../lib/utils/export-helpers';
+import React, { useState } from "react";
+import { useApp } from "../../lib/context/AppContext";
+import { exportToCSV } from "../../lib/utils/export-helpers";
 import {
   Clock,
   MapPin,
@@ -12,9 +12,9 @@ import {
   Search,
   Plus,
   Compass,
-} from 'lucide-react';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
+} from "lucide-react";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '../ui/dialog';
+} from "../ui/dialog";
 
 export const AttendanceView: React.FC = () => {
   const {
@@ -30,28 +30,38 @@ export const AttendanceView: React.FC = () => {
     currentUser,
     punchInOut,
     submitAttendanceCorrection,
+    processAttendance,
     language,
     t,
   } = useApp();
 
-  const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
-  const [correctionDate, setCorrectionDate] = useState('2026-08-30');
-  const [correctInTime, setCorrectInTime] = useState('08:00');
-  const [correctOutTime, setCorrectOutTime] = useState('17:00');
-  const [correctionReason, setCorrectionReason] = useState('');
+  const handleProcessAttendance = () => {
+    const today = new Date();
+    const from = new Date(today.getFullYear(), today.getMonth(), 1)
+      .toISOString()
+      .slice(0, 10);
+    const to = today.toISOString().slice(0, 10);
+    processAttendance(from, to);
+  };
 
-  const handlePunch = (type: 'in' | 'out') => {
+  const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
+  const [correctionDate, setCorrectionDate] = useState("2026-08-30");
+  const [correctInTime, setCorrectInTime] = useState("08:00");
+  const [correctOutTime, setCorrectOutTime] = useState("17:00");
+  const [correctionReason, setCorrectionReason] = useState("");
+
+  const handlePunch = (type: "in" | "out") => {
     // Get browser geolocation if available
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        pos => {
+        (pos) => {
           const res = punchInOut(type, { lat: pos.coords.latitude, lng: pos.coords.longitude });
-          alert(`${res.message} • ${res.geofenceValid ? 'داخل السياج الجغرافي' : 'خارج النطاق'}`);
+          alert(`${res.message} • ${res.geofenceValid ? "داخل السياج الجغرافي" : "خارج النطاق"}`);
         },
         () => {
           const res = punchInOut(type);
           alert(res.message);
-        }
+        },
       );
     } else {
       const res = punchInOut(type);
@@ -60,24 +70,24 @@ export const AttendanceView: React.FC = () => {
   };
 
   const handleExportAttendance = () => {
-    const data = attendanceRecords.map(r => ({
-      'الرقم الوظيفي': r.employeeNo,
-      'اسم الموظف': r.employeeName,
-      'التاريخ': r.workDate,
-      'الوردية': r.scheduledShift,
-      'وقت الدخول': r.actualIn || '—',
-      'وقت الخروج': r.actualOut || '—',
-      'ساعات العمل': r.workedHours,
-      'التأخير (دقائق)': r.lateMinutes,
-      'السياج الجغرافي': r.geofenceValid ? 'داخل المقر' : 'خارج النطاق',
-      'الحالة': r.status === 'present' ? 'حاضر' : r.status === 'late' ? 'متأخر' : 'غائب',
+    const data = attendanceRecords.map((r) => ({
+      "الرقم الوظيفي": r.employeeNo,
+      "اسم الموظف": r.employeeName,
+      التاريخ: r.workDate,
+      الوردية: r.scheduledShift,
+      "وقت الدخول": r.actualIn || "—",
+      "وقت الخروج": r.actualOut || "—",
+      "ساعات العمل": r.workedHours,
+      "التأخير (دقائق)": r.lateMinutes,
+      "السياج الجغرافي": r.geofenceValid ? "داخل المقر" : "خارج النطاق",
+      الحالة: r.status === "present" ? "حاضر" : r.status === "late" ? "متأخر" : "غائب",
     }));
-    exportToCSV(`Attendance_Log_${new Date().toISOString().split('T')[0]}`, data);
+    exportToCSV(`Attendance_Log_${new Date().toISOString().split("T")[0]}`, data);
   };
 
   const handleSubmitCorrection = () => {
     if (!correctionReason) {
-      alert('يرجى كتابة سبب تصحيح البصمة');
+      alert("يرجى كتابة سبب تصحيح البصمة");
       return;
     }
     submitAttendanceCorrection({
@@ -86,9 +96,9 @@ export const AttendanceView: React.FC = () => {
       correctOut: correctOutTime,
       reason: correctionReason,
     });
-    alert('تم إرسال طلب تصحيح البصمة بنجاح للاعتماد');
+    alert("تم إرسال طلب تصحيح البصمة بنجاح للاعتماد");
     setIsCorrectionModalOpen(false);
-    setCorrectionReason('');
+    setCorrectionReason("");
   };
 
   return (
@@ -107,14 +117,14 @@ export const AttendanceView: React.FC = () => {
 
         <div className="flex items-center gap-2.5">
           <Button
-            onClick={() => handlePunch('in')}
+            onClick={() => handlePunch("in")}
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-sm"
           >
             <Clock className="h-4 w-4" />
             {t.attendance.checkIn} (GPS)
           </Button>
           <Button
-            onClick={() => handlePunch('out')}
+            onClick={() => handlePunch("out")}
             variant="outline"
             className="font-bold text-xs gap-1.5 text-foreground hover:bg-muted"
           >
@@ -142,21 +152,21 @@ export const AttendanceView: React.FC = () => {
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <span className="text-xs font-semibold text-muted-foreground">حضور فعلي مسجل</span>
           <p className="text-2xl font-black text-emerald-600 mt-2">
-            {attendanceRecords.filter(a => a.status === 'present').length + 112}
+            {attendanceRecords.filter((a) => a.status === "present").length + 112}
           </p>
           <span className="text-[10px] text-muted-foreground">93.3% نسبة الالتزام</span>
         </div>
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <span className="text-xs font-semibold text-muted-foreground">تأخير وخروج مبكر</span>
           <p className="text-2xl font-black text-amber-600 mt-2">
-            {attendanceRecords.filter(a => a.status === 'late').length}
+            {attendanceRecords.filter((a) => a.status === "late").length}
           </p>
           <span className="text-[10px] text-amber-600 font-medium">ضمن فترة السماح</span>
         </div>
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <span className="text-xs font-semibold text-muted-foreground">غياب وإجازات</span>
           <p className="text-2xl font-black text-blue-600 mt-2">
-            {attendanceRecords.filter(a => a.status === 'absent').length + 7}
+            {attendanceRecords.filter((a) => a.status === "absent").length + 7}
           </p>
           <span className="text-[10px] text-muted-foreground">معتمد رسمياً</span>
         </div>
@@ -166,12 +176,29 @@ export const AttendanceView: React.FC = () => {
       <div className="rounded-xl border bg-card overflow-hidden shadow-sm space-y-3">
         <div className="p-4 border-b flex flex-col sm:flex-row justify-between items-center gap-3">
           <h2 className="text-sm font-bold text-foreground">
-            {t.attendance.dailySummary} • {new Date().toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US')}
+            {t.attendance.dailySummary} •{" "}
+            {new Date().toLocaleDateString(language === "ar" ? "ar-SA" : "en-US")}
           </h2>
-          <Button onClick={handleExportAttendance} variant="outline" size="sm" className="h-8 text-xs font-bold gap-1">
-            <Download className="h-3.5 w-3.5" />
-            {t.export} كشف الحضور (Excel)
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleProcessAttendance}
+              variant="secondary"
+              size="sm"
+              className="h-8 text-xs font-bold gap-1"
+            >
+              <Compass className="h-3.5 w-3.5" />
+              معالجة البصمات (احتساب الساعات والتأخير)
+            </Button>
+            <Button
+              onClick={handleExportAttendance}
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs font-bold gap-1"
+            >
+              <Download className="h-3.5 w-3.5" />
+              {t.export} كشف الحضور (Excel)
+            </Button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -188,40 +215,50 @@ export const AttendanceView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {attendanceRecords.map(rec => (
+              {attendanceRecords.map((rec) => (
                 <tr key={rec.id} className="hover:bg-muted/20">
                   <td className="py-3 px-4">
                     <span className="font-bold text-foreground">{rec.employeeName}</span>
                     <p className="text-[10px] text-muted-foreground font-mono">{rec.employeeNo}</p>
                   </td>
-                  <td className="py-3 px-4 text-muted-foreground">{rec.scheduledShift || 'الوردية الصباحية'}</td>
-                  <td className="py-3 px-4 font-mono font-bold text-foreground">{rec.actualIn || '—'}</td>
-                  <td className="py-3 px-4 font-mono font-bold text-foreground">{rec.actualOut || '—'}</td>
+                  <td className="py-3 px-4 text-muted-foreground">
+                    {rec.scheduledShift || "الوردية الصباحية"}
+                  </td>
+                  <td className="py-3 px-4 font-mono font-bold text-foreground">
+                    {rec.actualIn || "—"}
+                  </td>
+                  <td className="py-3 px-4 font-mono font-bold text-foreground">
+                    {rec.actualOut || "—"}
+                  </td>
                   <td className="py-3 px-4 font-semibold text-foreground">{rec.workedHours} س</td>
                   <td className="py-3 px-4">
                     <Badge
                       variant="outline"
                       className={`text-[10px] ${
                         rec.geofenceValid
-                          ? 'bg-emerald-500/10 text-emerald-700 border-emerald-200'
-                          : 'bg-destructive/10 text-destructive border-destructive/20'
+                          ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
+                          : "bg-destructive/10 text-destructive border-destructive/20"
                       }`}
                     >
-                      {rec.geofenceValid ? 'داخل النطاق' : 'خارج النطاق'}
+                      {rec.geofenceValid ? "داخل النطاق" : "خارج النطاق"}
                     </Badge>
                   </td>
                   <td className="py-3 px-4">
                     <Badge
                       variant="outline"
                       className={`text-[10px] ${
-                        rec.status === 'present'
-                          ? 'bg-emerald-500/10 text-emerald-700 border-emerald-200'
-                          : rec.status === 'late'
-                          ? 'bg-amber-500/10 text-amber-700 border-amber-200'
-                          : 'bg-destructive/10 text-destructive border-destructive/20'
+                        rec.status === "present"
+                          ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
+                          : rec.status === "late"
+                            ? "bg-amber-500/10 text-amber-700 border-amber-200"
+                            : "bg-destructive/10 text-destructive border-destructive/20"
                       }`}
                     >
-                      {rec.status === 'present' ? 'حاضر في الموعد' : rec.status === 'late' ? `متأخر (${rec.lateMinutes} د)` : 'غائب'}
+                      {rec.status === "present"
+                        ? "حاضر في الموعد"
+                        : rec.status === "late"
+                          ? `متأخر (${rec.lateMinutes} د)`
+                          : "غائب"}
                     </Badge>
                   </td>
                 </tr>
@@ -250,7 +287,7 @@ export const AttendanceView: React.FC = () => {
               <input
                 type="date"
                 value={correctionDate}
-                onChange={e => setCorrectionDate(e.target.value)}
+                onChange={(e) => setCorrectionDate(e.target.value)}
                 className="w-full h-8 rounded border px-2.5"
               />
             </div>
@@ -261,7 +298,7 @@ export const AttendanceView: React.FC = () => {
                 <input
                   type="time"
                   value={correctInTime}
-                  onChange={e => setCorrectInTime(e.target.value)}
+                  onChange={(e) => setCorrectInTime(e.target.value)}
                   className="w-full h-8 rounded border px-2.5"
                 />
               </div>
@@ -270,7 +307,7 @@ export const AttendanceView: React.FC = () => {
                 <input
                   type="time"
                   value={correctOutTime}
-                  onChange={e => setCorrectOutTime(e.target.value)}
+                  onChange={(e) => setCorrectOutTime(e.target.value)}
                   className="w-full h-8 rounded border px-2.5"
                 />
               </div>
@@ -281,7 +318,7 @@ export const AttendanceView: React.FC = () => {
               <textarea
                 rows={2}
                 value={correctionReason}
-                onChange={e => setCorrectionReason(e.target.value)}
+                onChange={(e) => setCorrectionReason(e.target.value)}
                 placeholder="مثال: نسيان البصمة بسبب اجتماع عمل خارجي..."
                 className="w-full rounded border p-2 text-xs"
               />
@@ -289,7 +326,11 @@ export const AttendanceView: React.FC = () => {
           </div>
 
           <DialogFooter className="mt-2">
-            <Button size="sm" onClick={handleSubmitCorrection} className="text-xs bg-primary font-bold">
+            <Button
+              size="sm"
+              onClick={handleSubmitCorrection}
+              className="text-xs bg-primary font-bold"
+            >
               إرسال طلب التصحيح
             </Button>
           </DialogFooter>

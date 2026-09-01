@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useApp } from '../../lib/context/AppContext';
+import React, { useState, useEffect } from "react";
+import { useApp } from "../../lib/context/AppContext";
 import {
   Search,
   Users,
@@ -15,12 +15,9 @@ import {
   Smartphone,
   CheckCircle2,
   Plus,
-} from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-} from '../ui/dialog';
-import { Badge as CommandBadge } from '../ui/badge';
+} from "lucide-react";
+import { Dialog, DialogContent } from "../ui/dialog";
+import { Badge as CommandBadge } from "../ui/badge";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -34,45 +31,111 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onNavigate,
 }) => {
   const { employees, language, t } = useApp();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
 
   // Keyboard shortcut listener (Ctrl+K or Cmd+K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         onOpenChange(!open);
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onOpenChange]);
 
   const quickNav = [
-    { id: 'dashboard', labelAr: 'لوحة المتابعة والمؤشرات الرئيسية', icon: FileBarChart, cat: 'الرئيسية' },
-    { id: 'employees', labelAr: 'دليل وسجل الموظفين والملفات 360°', icon: Users, cat: 'شؤون الموظفين' },
-    { id: 'attendance', labelAr: 'لوحة الحضور والانصراف والبصمات GPS', icon: Clock, cat: 'الوقت والدوام' },
-    { id: 'leaves', labelAr: 'أرصدة الإجازات وتقديم طلب إجازة', icon: CalendarDays, cat: 'الوقت والدوام' },
-    { id: 'payroll', labelAr: 'مسيرات الرواتب الشهرية وملفات حماية الأجور WPS', icon: Wallet, cat: 'المالية والرواتب' },
-    { id: 'loans', labelAr: 'السلف الشهرية ومخالصة نهاية الخدمة EOSB', icon: Wallet, cat: 'المالية والرواتب' },
-    { id: 'expenses', labelAr: 'إدارة النفقات ورفع فواتير المصروفات', icon: Receipt, cat: 'المالية والرواتب' },
-    { id: 'ats', labelAr: 'التوظيف وتتبع المرشحين (Kanban Pipeline)', icon: Briefcase, cat: 'استقطاب المواهب' },
-    { id: 'performance', labelAr: 'تقييمات الأداء ودورات 360° Review', icon: Award, cat: 'استقطاب المواهب' },
-    { id: 'assets', labelAr: 'سجل العهد والأجهزة وسياسات الشركة', icon: Package, cat: 'البيئة المؤسسية' },
-    { id: 'reports', labelAr: 'كتالوج التقارير ومولد الاستعلامات المخصص', icon: FileBarChart, cat: 'التقارير والإحصائيات' },
-    { id: 'integrations', labelAr: 'مركز القيود المحاسبية وتكاملات ERP', icon: Shield, cat: 'التكامل والأمان' },
-    { id: 'ess', labelAr: 'بوابة الخدمة الذاتية وتطبيق الجوال الذكي', icon: Smartphone, cat: 'الخدمة الذاتية' },
+    {
+      id: "dashboard",
+      labelAr: "لوحة المتابعة والمؤشرات الرئيسية",
+      icon: FileBarChart,
+      cat: "الرئيسية",
+    },
+    {
+      id: "employees",
+      labelAr: "دليل وسجل الموظفين والملفات 360°",
+      icon: Users,
+      cat: "شؤون الموظفين",
+    },
+    {
+      id: "attendance",
+      labelAr: "لوحة الحضور والانصراف والبصمات GPS",
+      icon: Clock,
+      cat: "الوقت والدوام",
+    },
+    {
+      id: "leaves",
+      labelAr: "أرصدة الإجازات وتقديم طلب إجازة",
+      icon: CalendarDays,
+      cat: "الوقت والدوام",
+    },
+    {
+      id: "payroll",
+      labelAr: "مسيرات الرواتب الشهرية وملفات حماية الأجور WPS",
+      icon: Wallet,
+      cat: "المالية والرواتب",
+    },
+    {
+      id: "loans",
+      labelAr: "السلف الشهرية ومخالصة نهاية الخدمة EOSB",
+      icon: Wallet,
+      cat: "المالية والرواتب",
+    },
+    {
+      id: "expenses",
+      labelAr: "إدارة النفقات ورفع فواتير المصروفات",
+      icon: Receipt,
+      cat: "المالية والرواتب",
+    },
+    {
+      id: "ats",
+      labelAr: "التوظيف وتتبع المرشحين (Kanban Pipeline)",
+      icon: Briefcase,
+      cat: "استقطاب المواهب",
+    },
+    {
+      id: "performance",
+      labelAr: "تقييمات الأداء ودورات 360° Review",
+      icon: Award,
+      cat: "استقطاب المواهب",
+    },
+    {
+      id: "assets",
+      labelAr: "سجل العهد والأجهزة وسياسات الشركة",
+      icon: Package,
+      cat: "البيئة المؤسسية",
+    },
+    {
+      id: "reports",
+      labelAr: "كتالوج التقارير ومولد الاستعلامات المخصص",
+      icon: FileBarChart,
+      cat: "التقارير والإحصائيات",
+    },
+    {
+      id: "integrations",
+      labelAr: "مركز القيود المحاسبية وتكاملات ERP",
+      icon: Shield,
+      cat: "التكامل والأمان",
+    },
+    {
+      id: "ess",
+      labelAr: "بوابة الخدمة الذاتية وتطبيق الجوال الذكي",
+      icon: Smartphone,
+      cat: "الخدمة الذاتية",
+    },
   ];
 
-  const filteredNav = quickNav.filter(item =>
-    item.labelAr.toLowerCase().includes(query.toLowerCase())
+  const filteredNav = quickNav.filter((item) =>
+    item.labelAr.toLowerCase().includes(query.toLowerCase()),
   );
 
-  const filteredEmployees = employees.filter(emp =>
-    emp.firstNameAr.includes(query) ||
-    emp.lastNameAr.includes(query) ||
-    emp.employeeNo.toLowerCase().includes(query.toLowerCase()) ||
-    emp.jobTitleAr.includes(query)
+  const filteredEmployees = employees.filter(
+    (emp) =>
+      emp.firstNameAr.includes(query) ||
+      emp.lastNameAr.includes(query) ||
+      emp.employeeNo.toLowerCase().includes(query.toLowerCase()) ||
+      emp.jobTitleAr.includes(query),
   );
 
   return (
@@ -85,7 +148,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             type="text"
             placeholder="ابحث عن موظف، شاشة، مسير رواتب، أو إجراء سريع..."
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={(e) => setQuery(e.target.value)}
             className="h-12 w-full bg-transparent px-3 text-xs focus:outline-none placeholder:text-muted-foreground"
             autoFocus
           />
@@ -102,7 +165,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               <span className="px-2 text-[10px] font-bold uppercase text-muted-foreground">
                 الشاشات والوحدات الوظيفية
               </span>
-              {filteredNav.map(item => {
+              {filteredNav.map((item) => {
                 const Icon = item.icon;
                 return (
                   <button
@@ -132,18 +195,21 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               <span className="px-2 text-[10px] font-bold uppercase text-muted-foreground">
                 سجل الموظفين المتطابقين ({filteredEmployees.length})
               </span>
-              {filteredEmployees.map(emp => (
+              {filteredEmployees.map((emp) => (
                 <button
                   key={emp.id}
                   onClick={() => {
-                    onNavigate('employees');
+                    onNavigate("employees");
                     onOpenChange(false);
                   }}
                   className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 hover:bg-primary/10 transition-colors text-start"
                 >
                   <div className="flex items-center gap-2.5">
                     <img
-                      src={emp.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+                      src={
+                        emp.avatarUrl ||
+                        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
+                      }
                       alt={emp.firstNameAr}
                       className="h-6 w-6 rounded-full border object-cover"
                     />
@@ -156,7 +222,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold text-primary">{emp.totalSalary.toLocaleString()} ر.س</span>
+                  <span className="text-[10px] font-bold text-primary">
+                    {emp.totalSalary.toLocaleString()} ر.س
+                  </span>
                 </button>
               ))}
             </div>

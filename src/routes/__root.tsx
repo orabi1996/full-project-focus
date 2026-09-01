@@ -13,7 +13,6 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { MaterialDesignProvider } from "../lib/theme/MaterialDesignProvider";
 import { AuthProvider } from "../lib/auth/AuthContext";
-import { AuthGate } from "../components/auth/AuthGate";
 
 function NotFoundComponent() {
   return (
@@ -127,10 +126,8 @@ function RootComponent() {
     <MaterialDesignProvider>
       <AuthProvider>
         <QueryClientProvider client={queryClient}>
-          <AuthGate>
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
-          </AuthGate>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
         </QueryClientProvider>
       </AuthProvider>
     </MaterialDesignProvider>

@@ -86,8 +86,55 @@ export const OrganizationView: React.FC = () => {
     radiusMeters: 150,
   });
 
-  const [orgChartZoom, setOrgChartZoom] = useState(1);
-  const [orgChartSearch, setOrgChartSearch] = useState("");
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  const unitTypeLabel: Record<OrgUnitType, string> = {
+    division: "قطاع تنفيذي",
+    department: "إدارة عامة",
+    section: "قسم",
+    unit: "وحدة",
+  };
+
+  const selectedUnit = useMemo(
+    () => orgUnits.find((unit) => unit.id === selectedNodeId) ?? null,
+    [orgUnits, selectedNodeId],
+  );
+
+  const chartRoot = useMemo<OrgChartNodeData>(() => {
+    const byParent = new Map<string, typeof orgUnits>();
+    const ids = new Set(orgUnits.map((unit) => unit.id));
+    orgUnits.forEach((unit) => {
+      const key = unit.parentId && ids.has(unit.parentId) ? unit.parentId : "__root__";
+      const bucket = byParent.get(key) ?? [];
+      bucket.push(unit);
+      byParent.set(key, bucket);
+    });
+
+    const build = (parentKey: string, depth: number): OrgChartNodeData[] => {
+      if (depth > 8) return [];
+      return (byParent.get(parentKey) ?? []).map((unit) => ({
+        id: unit.id,
+        titleAr: unit.nameAr,
+        titleEn: unit.nameEn,
+        subtitle: unit.managerName || "بدون مدير معين",
+        code: unit.code,
+        kind: unit.type,
+        employeeCount: unit.employeeCount,
+        children: build(unit.id, depth + 1),
+      }));
+    };
+
+    return {
+      id: "__company__",
+      titleAr: company.legalNameAr,
+      titleEn: company.legalNameEn,
+      subtitle: `سجل تجاري ${company.crNumber}`,
+      code: company.id,
+      kind: "company",
+      employeeCount: employees.length,
+      children: build("__root__", 1),
+    };
+  }, [orgUnits, company, employees.length]);
 
   const handleCreateDept = () => {
     if (!newDept.nameAr) {
@@ -96,10 +143,12 @@ export const OrganizationView: React.FC = () => {
     }
     addOrgUnit({
       companyId: company.id,
+      parentId: newDept.parentId || null,
       nameAr: newDept.nameAr,
       nameEn: newDept.nameEn || newDept.nameAr,
       code: newDept.code,
       type: newDept.type,
+      managerEmployeeId: newDept.managerEmployeeId || undefined,
       managerName: newDept.managerName || "غير معين",
       status: "active",
     });
@@ -111,8 +160,11 @@ export const OrganizationView: React.FC = () => {
       code: `DEP-${Math.floor(100 + Math.random() * 900)}`,
       type: "department",
       managerName: "",
+      managerEmployeeId: "",
+      parentId: "",
     });
   };
+
 
   const handleCreateSub = () => {
     if (!newSub.nameAr) {

@@ -3,6 +3,7 @@ import { useApp } from "../../lib/context/AppContext";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 import { CommandPalette } from "./CommandPalette";
+import { ViewErrorBoundary } from "../ui/ViewErrorBoundary";
 import { canAccessModule } from "../../lib/auth/permissions";
 
 const DashboardView = lazy(() =>
@@ -213,15 +214,17 @@ export const AppLayout: React.FC = () => {
         {/* Dynamic Page Body */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-muted/15">
           <div className="mx-auto max-w-7xl">
-            <Suspense
-              fallback={
-                <div className="rounded-2xl border bg-card p-8 text-center text-sm text-muted-foreground">
-                  جاري تحميل الوحدة…
-                </div>
-              }
-            >
-              {renderActiveView()}
-            </Suspense>
+            <ViewErrorBoundary key={currentTab}>
+              <Suspense
+                fallback={
+                  <div className="rounded-2xl border bg-card p-8 text-center text-sm text-muted-foreground">
+                    جاري تحميل الوحدة…
+                  </div>
+                }
+              >
+                {renderActiveView()}
+              </Suspense>
+            </ViewErrorBoundary>
           </div>
         </main>
       </div>

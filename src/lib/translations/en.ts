@@ -40,6 +40,7 @@ export const en = {
     dashboard: "Dashboard",
     organization: "Org Structure",
     employees: "Employee Directory",
+    documents: "Document Vault",
     rbac: "Roles & Security",
     workflow: "Requests & Approvals",
     leaves: "Leaves & Holidays",

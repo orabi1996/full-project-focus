@@ -64,6 +64,12 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           iconSource: "material",
         },
         {
+          id: "documents",
+          label: t.nav.documents,
+          iconName: "folder_shared",
+          iconSource: "material",
+        },
+        {
           id: "rbac",
           label: t.nav.rbac,
           iconName: "admin_panel_settings",

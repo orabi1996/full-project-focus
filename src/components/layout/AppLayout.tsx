@@ -16,6 +16,9 @@ const OrganizationView = lazy(() =>
 const EmployeesView = lazy(() =>
   import("../employees/EmployeesView").then((module) => ({ default: module.EmployeesView })),
 );
+const DocumentVaultView = lazy(() =>
+  import("../documents/DocumentVaultView").then((module) => ({ default: module.DocumentVaultView })),
+);
 const RbacView = lazy(() =>
   import("../rbac/RbacView").then((module) => ({ default: module.RbacView })),
 );
@@ -65,6 +68,7 @@ const VALID_TABS = new Set([
   "dashboard",
   "organization",
   "employees",
+  "documents",
   "rbac",
   "workflow",
   "leaves",
@@ -126,6 +130,8 @@ export const AppLayout: React.FC = () => {
         return <OrganizationView />;
       case "employees":
         return <EmployeesView />;
+      case "documents":
+        return <DocumentVaultView />;
       case "rbac":
         return <RbacView />;
       case "workflow":

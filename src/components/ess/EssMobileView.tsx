@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useApp } from '../../lib/context/AppContext';
+import React, { useState } from "react";
+import { useApp } from "../../lib/context/AppContext";
 import {
   Smartphone,
   Clock,
@@ -16,9 +16,9 @@ import {
   QrCode,
   Download,
   Send,
-} from 'lucide-react';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
+} from "lucide-react";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -26,34 +26,29 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '../ui/dialog';
+} from "../ui/dialog";
 
-export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = ({ onNavigate }) => {
-  const {
-    currentUser,
-    leaveBalances,
-    punchInOut,
-    requests,
-    payrollDetails,
-    language,
-    t,
-  } = useApp();
+export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = ({
+  onNavigate,
+}) => {
+  const { currentUser, leaveBalances, punchInOut, requests, payrollDetails, language, t } =
+    useApp();
 
   const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
   const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
-  const [certificateDestination, setCertificateDestination] = useState('سفارة / جهة حكومية');
+  const [certificateDestination, setCertificateDestination] = useState("سفارة / جهة حكومية");
 
-  const handlePunch = (type: 'in' | 'out') => {
+  const handlePunch = (type: "in" | "out") => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        pos => {
+        (pos) => {
           const res = punchInOut(type, { lat: pos.coords.latitude, lng: pos.coords.longitude });
-          alert(`${res.message} (GPS: ${res.geofenceValid ? 'داخل مقر العمل' : 'خارج النطاق'})`);
+          alert(`${res.message} (GPS: ${res.geofenceValid ? "داخل مقر العمل" : "خارج النطاق"})`);
         },
         () => {
           const res = punchInOut(type);
           alert(res.message);
-        }
+        },
       );
     } else {
       const res = punchInOut(type);
@@ -62,11 +57,13 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
   };
 
   const handleRequestCertificate = () => {
-    alert(`تم إصدار شهادة التعريف بالراتب الإلكترونية الموجهة إلى (${certificateDestination}) مع الختم الرقمي ورمز الاستجابة QR بنجاح!`);
+    alert(
+      `تم إصدار شهادة التعريف بالراتب الإلكترونية الموجهة إلى (${certificateDestination}) مع الختم الرقمي ورمز الاستجابة QR بنجاح!`,
+    );
     setIsCertificateModalOpen(false);
   };
 
-  const myPendingRequests = requests.filter(r => r.requesterId === currentUser.id);
+  const myPendingRequests = requests.filter((r) => r.requesterId === currentUser.id);
   const myPayroll = payrollDetails[0];
 
   return (
@@ -79,7 +76,8 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             {t.nav.ess} وتطبيق الجوال الذكي (M20)
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            تجربة الخدمة الذاتية الموحدة للموظف والمدير: تسجيل الحضور بالـ GPS، متابعة الطلبات وقسائم الراتب
+            تجربة الخدمة الذاتية الموحدة للموظف والمدير: تسجيل الحضور بالـ GPS، متابعة الطلبات
+            وقسائم الراتب
           </p>
         </div>
       </div>
@@ -95,18 +93,25 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           {/* User Profile Card */}
           <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-primary to-primary/80 p-3.5 text-primary-foreground shadow-sm">
             <img
-              src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+              src={
+                currentUser.avatarUrl ||
+                "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
+              }
               alt={currentUser.firstNameAr}
               className="h-12 w-12 rounded-full border-2 border-primary-foreground/40 object-cover shadow-sm"
             />
             <div className="truncate">
               <span className="text-xs font-bold block truncate">
-                {language === 'ar'
+                {language === "ar"
                   ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
                   : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`}
               </span>
-              <p className="text-[10px] text-primary-foreground/80 truncate">{currentUser.jobTitleAr}</p>
-              <p className="text-[10px] text-primary-foreground/70 font-mono mt-0.5">{currentUser.employeeNo}</p>
+              <p className="text-[10px] text-primary-foreground/80 truncate">
+                {currentUser.jobTitleAr}
+              </p>
+              <p className="text-[10px] text-primary-foreground/70 font-mono mt-0.5">
+                {currentUser.employeeNo}
+              </p>
             </div>
           </div>
 
@@ -119,7 +124,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
             <div className="flex justify-center gap-3">
               <Button
-                onClick={() => handlePunch('in')}
+                onClick={() => handlePunch("in")}
                 size="sm"
                 className="h-10 px-5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm gap-1.5"
               >
@@ -127,7 +132,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                 تسجيل دخول
               </Button>
               <Button
-                onClick={() => handlePunch('out')}
+                onClick={() => handlePunch("out")}
                 size="sm"
                 variant="outline"
                 className="h-10 px-5 rounded-full font-bold text-xs gap-1.5 hover:bg-muted"
@@ -140,10 +145,12 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
           {/* Quick Actions Grid */}
           <div className="space-y-2">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase">خدمات سريعة</span>
+            <span className="text-[11px] font-bold text-muted-foreground uppercase">
+              خدمات سريعة
+            </span>
             <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => onNavigate('leaves')}
+                onClick={() => onNavigate("leaves")}
                 className="rounded-xl border bg-muted/10 p-3 text-start hover:border-primary/50 transition-colors"
               >
                 <CalendarDays className="h-5 w-5 text-sky-500 mb-1.5" />
@@ -154,7 +161,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               </button>
 
               <button
-                onClick={() => onNavigate('expenses')}
+                onClick={() => onNavigate("expenses")}
                 className="rounded-xl border bg-muted/10 p-3 text-start hover:border-primary/50 transition-colors"
               >
                 <Receipt className="h-5 w-5 text-amber-500 mb-1.5" />
@@ -184,17 +191,28 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
           {/* My Requests Track */}
           <div className="space-y-2 border-t pt-3">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase">آخر طلباتي</span>
+            <span className="text-[11px] font-bold text-muted-foreground uppercase">
+              آخر طلباتي
+            </span>
             {myPendingRequests.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground text-center py-2">لا توجد طلبات معلقة</p>
+              <p className="text-[11px] text-muted-foreground text-center py-2">
+                لا توجد طلبات معلقة
+              </p>
             ) : (
-              myPendingRequests.slice(0, 2).map(req => (
-                <div key={req.id} className="rounded-lg border bg-muted/20 p-2.5 text-xs flex justify-between items-center">
+              myPendingRequests.slice(0, 2).map((req) => (
+                <div
+                  key={req.id}
+                  className="rounded-lg border bg-muted/20 p-2.5 text-xs flex justify-between items-center"
+                >
                   <div>
                     <span className="font-bold text-foreground block">
-                      {req.payload.leaveTypeNameAr || req.payload.categoryNameAr || req.payload.reason}
+                      {req.payload.leaveTypeNameAr ||
+                        req.payload.categoryNameAr ||
+                        req.payload.reason}
                     </span>
-                    <span className="text-[10px] text-muted-foreground font-mono">{req.referenceNo}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      {req.referenceNo}
+                    </span>
                   </div>
                   <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700">
                     بانتظار المدير
@@ -225,20 +243,28 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               <input
                 type="text"
                 value={certificateDestination}
-                onChange={e => setCertificateDestination(e.target.value)}
+                onChange={(e) => setCertificateDestination(e.target.value)}
                 className="w-full h-8 rounded border px-2.5"
               />
             </div>
             <div className="rounded-lg border bg-muted/20 p-3 space-y-1">
               <p className="font-bold">بيانات الشهادة:</p>
-              <p className="text-muted-foreground">الموظف: {currentUser.firstNameAr} {currentUser.lastNameAr}</p>
-              <p className="text-muted-foreground">الراتب الأساسي: 12,000 ر.س • إجمالي الراتب: 16,000 ر.س</p>
+              <p className="text-muted-foreground">
+                الموظف: {currentUser.firstNameAr} {currentUser.lastNameAr}
+              </p>
+              <p className="text-muted-foreground">
+                الراتب الأساسي: 12,000 ر.س • إجمالي الراتب: 16,000 ر.س
+              </p>
               <p className="text-muted-foreground">تاريخ المباشرة: {currentUser.hireDate}</p>
             </div>
           </div>
 
           <DialogFooter className="mt-2">
-            <Button size="sm" onClick={handleRequestCertificate} className="text-xs bg-primary font-bold">
+            <Button
+              size="sm"
+              onClick={handleRequestCertificate}
+              className="text-xs bg-primary font-bold"
+            >
               توليد وتحميل الشهادة PDF
             </Button>
           </DialogFooter>
@@ -264,7 +290,10 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                 </div>
                 <div className="flex justify-between text-emerald-600">
                   <span>بدل السكن + النقل:</span>
-                  <span>+{(myPayroll.housingAllowance + myPayroll.transportAllowance).toLocaleString()} ر.س</span>
+                  <span>
+                    +{(myPayroll.housingAllowance + myPayroll.transportAllowance).toLocaleString()}{" "}
+                    ر.س
+                  </span>
                 </div>
                 <div className="flex justify-between text-destructive">
                   <span>التأمينات GOSI:</span>
@@ -278,7 +307,11 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             </div>
 
             <DialogFooter className="mt-2">
-              <Button size="sm" onClick={() => setIsPayslipModalOpen(false)} className="text-xs bg-primary font-bold">
+              <Button
+                size="sm"
+                onClick={() => setIsPayslipModalOpen(false)}
+                className="text-xs bg-primary font-bold"
+              >
                 إغلاق
               </Button>
             </DialogFooter>

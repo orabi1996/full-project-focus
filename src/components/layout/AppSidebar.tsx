@@ -1,5 +1,5 @@
-import React from 'react';
-import { useApp } from '../../lib/context/AppContext';
+import React from "react";
+import { useApp } from "../../lib/context/AppContext";
 import {
   LayoutDashboard,
   Building2,
@@ -21,14 +21,17 @@ import {
   Smartphone,
   ChevronLeft,
   ChevronRight,
-} from 'lucide-react';
-import { Badge } from '../ui/badge';
+} from "lucide-react";
+import { Badge } from "../ui/badge";
+import { canAccessModule } from "../../lib/auth/permissions";
 
 interface AppSidebarProps {
   currentTab: string;
   onSelectTab: (tabId: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 export const AppSidebar: React.FC<AppSidebarProps> = ({
@@ -36,86 +39,96 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   onSelectTab,
   collapsed,
   onToggleCollapse,
+  mobileOpen = false,
+  onMobileClose,
 }) => {
-  const { language, direction, t, requests, attendanceRecords } = useApp();
+  const { language, direction, t, requests, attendanceRecords, currentRole } = useApp();
 
-  const pendingRequestsCount = requests.filter(r => r.status === 'pending_approval').length;
-  const lateAttendanceCount = attendanceRecords.filter(a => a.status === 'late').length;
+  const pendingRequestsCount = requests.filter((r) => r.status === "pending_approval").length;
+  const lateAttendanceCount = attendanceRecords.filter((a) => a.status === "late").length;
 
   const navGroups = [
     {
-      groupTitle: language === 'ar' ? 'الرئيسية' : 'General',
+      groupTitle: language === "ar" ? "الرئيسية" : "General",
+      items: [{ id: "dashboard", label: t.nav.dashboard, icon: LayoutDashboard, badge: undefined }],
+    },
+    {
+      groupTitle: language === "ar" ? "شؤون الموظفين والهيكل" : "Workforce & Org",
       items: [
-        { id: 'dashboard', label: t.nav.dashboard, icon: LayoutDashboard, badge: undefined },
+        { id: "organization", label: t.nav.organization, icon: Building2, badge: undefined },
+        { id: "employees", label: t.nav.employees, icon: Users, badge: undefined },
+        { id: "rbac", label: t.nav.rbac, icon: ShieldCheck, badge: undefined },
       ],
     },
     {
-      groupTitle: language === 'ar' ? 'شؤون الموظفين والهيكل' : 'Workforce & Org',
-      items: [
-        { id: 'organization', label: t.nav.organization, icon: Building2, badge: undefined },
-        { id: 'employees', label: t.nav.employees, icon: Users, badge: undefined },
-        { id: 'rbac', label: t.nav.rbac, icon: ShieldCheck, badge: undefined },
-      ],
-    },
-    {
-      groupTitle: language === 'ar' ? 'الوقت والعمليات اليومية' : 'Time & Operations',
+      groupTitle: language === "ar" ? "الوقت والعمليات اليومية" : "Time & Operations",
       items: [
         {
-          id: 'workflow',
+          id: "workflow",
           label: t.nav.workflow,
           icon: GitPullRequest,
           badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
-          badgeVariant: 'destructive' as const,
+          badgeVariant: "destructive" as const,
         },
-        { id: 'leaves', label: t.nav.leaves, icon: CalendarDays, badge: undefined },
+        { id: "leaves", label: t.nav.leaves, icon: CalendarDays, badge: undefined },
         {
-          id: 'attendance',
+          id: "attendance",
           label: t.nav.attendance,
           icon: Clock,
           badge: lateAttendanceCount > 0 ? lateAttendanceCount : undefined,
-          badgeVariant: 'secondary' as const,
+          badgeVariant: "secondary" as const,
         },
-        { id: 'shifts', label: t.nav.shifts, icon: CalendarCheck, badge: undefined },
+        { id: "shifts", label: t.nav.shifts, icon: CalendarCheck, badge: undefined },
       ],
     },
     {
-      groupTitle: language === 'ar' ? 'الرواتب والمالية' : 'Payroll & Finance',
+      groupTitle: language === "ar" ? "الرواتب والمالية" : "Payroll & Finance",
       items: [
-        { id: 'payroll', label: t.nav.payroll, icon: Wallet, badge: undefined },
-        { id: 'loans', label: t.nav.loans, icon: Wallet, badge: undefined },
-        { id: 'expenses', label: t.nav.expenses, icon: Receipt, badge: undefined },
+        { id: "payroll", label: t.nav.payroll, icon: Wallet, badge: undefined },
+        { id: "loans", label: t.nav.loans, icon: Wallet, badge: undefined },
+        { id: "expenses", label: t.nav.expenses, icon: Receipt, badge: undefined },
       ],
     },
     {
-      groupTitle: language === 'ar' ? 'المواهب وتطوير الأداء' : 'Talent & Growth',
+      groupTitle: language === "ar" ? "المواهب وتطوير الأداء" : "Talent & Growth",
       items: [
-        { id: 'ats', label: t.nav.ats, icon: UserPlus, badge: undefined },
-        { id: 'performance', label: t.nav.performance, icon: Award, badge: undefined },
-        { id: 'workforce', label: t.nav.workforce, icon: TrendingUp, badge: undefined },
+        { id: "ats", label: t.nav.ats, icon: UserPlus, badge: undefined },
+        { id: "performance", label: t.nav.performance, icon: Award, badge: undefined },
+        { id: "workforce", label: t.nav.workforce, icon: TrendingUp, badge: undefined },
       ],
     },
     {
-      groupTitle: language === 'ar' ? 'البيئة المؤسسية والتكامل' : 'Ecosystem & Governance',
+      groupTitle: language === "ar" ? "البيئة المؤسسية والتكامل" : "Ecosystem & Governance",
       items: [
-        { id: 'assets', label: t.nav.assets, icon: Package, badge: undefined },
-        { id: 'reports', label: t.nav.reports, icon: FileBarChart, badge: undefined },
-        { id: 'integrations', label: t.nav.integrations, icon: Network, badge: undefined },
-        { id: 'audit', label: t.nav.audit, icon: History, badge: undefined },
+        { id: "assets", label: t.nav.assets, icon: Package, badge: undefined },
+        { id: "reports", label: t.nav.reports, icon: FileBarChart, badge: undefined },
+        { id: "integrations", label: t.nav.integrations, icon: Network, badge: undefined },
+        { id: "audit", label: t.nav.audit, icon: History, badge: undefined },
       ],
     },
     {
-      groupTitle: language === 'ar' ? 'الخدمة الذاتية' : 'Self-Service',
+      groupTitle: language === "ar" ? "الخدمة الذاتية" : "Self-Service",
       items: [
-        { id: 'ess', label: t.nav.ess, icon: Smartphone, badge: 'ESS' as const, badgeVariant: 'default' as const },
+        {
+          id: "ess",
+          label: t.nav.ess,
+          icon: Smartphone,
+          badge: "ESS" as const,
+          badgeVariant: "default" as const,
+        },
       ],
     },
   ];
 
   return (
     <aside
-      className={`relative flex flex-col border-r border-border bg-card transition-all duration-300 ${
-        collapsed ? 'w-16' : 'w-64'
-      }`}
+      className={`fixed inset-y-0 start-0 z-50 flex flex-col border-e border-border bg-card shadow-xl transition-all duration-300 md:relative md:z-auto md:translate-x-0 md:shadow-none ${
+        mobileOpen
+          ? "translate-x-0"
+          : direction === "rtl"
+            ? "translate-x-full"
+            : "-translate-x-full"
+      } ${collapsed ? "w-16" : "w-64"}`}
     >
       {/* Brand Header */}
       <div className="flex h-16 items-center justify-between border-b px-4">
@@ -125,12 +138,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               HR
             </div>
             <div className="flex flex-col truncate">
-              <span className="text-sm font-extrabold text-foreground truncate">
-                {t.appName}
-              </span>
-              <span className="text-[10px] text-muted-foreground truncate">
-                {t.appTagline}
-              </span>
+              <span className="text-sm font-extrabold text-foreground truncate">{t.appName}</span>
+              <span className="text-[10px] text-muted-foreground truncate">{t.appTagline}</span>
             </div>
           </div>
         )}
@@ -144,10 +153,16 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           onClick={onToggleCollapse}
           className="hidden h-6 w-6 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm hover:text-foreground md:flex"
         >
-          {direction === 'rtl' ? (
-            collapsed ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
+          {direction === "rtl" ? (
+            collapsed ? (
+              <ChevronLeft className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5" />
+            )
+          ) : collapsed ? (
+            <ChevronRight className="h-3.5 w-3.5" />
           ) : (
-            collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />
+            <ChevronLeft className="h-3.5 w-3.5" />
           )}
         </button>
       </div>
@@ -161,39 +176,42 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                 {group.groupTitle}
               </p>
             )}
-            {group.items.map(item => {
-              const Icon = item.icon;
-              const isActive = currentTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => onSelectTab(item.id)}
-                  title={collapsed ? item.label : undefined}
-                  className={`group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-xs font-semibold transition-all duration-150 ${
-                    isActive
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-foreground/80 hover:bg-muted hover:text-foreground'
-                  } ${collapsed ? 'justify-center' : ''}`}
-                >
-                  <Icon
-                    className={`h-4 w-4 shrink-0 transition-transform group-hover:scale-105 ${
-                      isActive ? 'text-primary-foreground' : 'text-muted-foreground'
-                    }`}
-                  />
-                  {!collapsed && (
-                    <span className="flex-1 text-start truncate">{item.label}</span>
-                  )}
-                  {!collapsed && item.badge !== undefined && (
-                    <Badge
-                      variant={item.badgeVariant || 'secondary'}
-                      className="h-4 px-1.5 text-[10px] font-bold"
-                    >
-                      {item.badge}
-                    </Badge>
-                  )}
-                </button>
-              );
-            })}
+            {group.items
+              .filter((item) => canAccessModule(currentRole, item.id))
+              .map((item) => {
+                const Icon = item.icon;
+                const isActive = currentTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      onSelectTab(item.id);
+                      onMobileClose?.();
+                    }}
+                    title={collapsed ? item.label : undefined}
+                    className={`group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-xs font-semibold transition-all duration-150 ${
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                    } ${collapsed ? "justify-center" : ""}`}
+                  >
+                    <Icon
+                      className={`h-4 w-4 shrink-0 transition-transform group-hover:scale-105 ${
+                        isActive ? "text-primary-foreground" : "text-muted-foreground"
+                      }`}
+                    />
+                    {!collapsed && <span className="flex-1 text-start truncate">{item.label}</span>}
+                    {!collapsed && item.badge !== undefined && (
+                      <Badge
+                        variant={item.badgeVariant || "secondary"}
+                        className="h-4 px-1.5 text-[10px] font-bold"
+                      >
+                        {item.badge}
+                      </Badge>
+                    )}
+                  </button>
+                );
+              })}
           </div>
         ))}
       </div>

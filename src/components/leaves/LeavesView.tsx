@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { useApp } from '../../lib/context/AppContext';
+import React, { useState } from "react";
+import { useApp } from "../../lib/context/AppContext";
+import { canManageModule } from "../../lib/auth/permissions";
 import {
   CalendarDays,
   Plus,
@@ -11,9 +12,9 @@ import {
   Info,
   Sliders,
   Settings,
-} from 'lucide-react';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
+} from "lucide-react";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -21,38 +22,49 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '../ui/dialog';
+} from "../ui/dialog";
 
 export const LeavesView: React.FC = () => {
-  const { leaveBalances, leaveTypes, employees, applyLeave, language, t } = useApp();
-  
+  const {
+    leaveBalances,
+    leaveTypes,
+    employees,
+    applyLeave,
+    addLeaveType,
+    adjustLeaveBalance,
+    currentRole,
+    language,
+    t,
+  } = useApp();
+  const canManage = canManageModule(currentRole, "leaves");
+
   // Modals state
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const [isAddTypeModalOpen, setIsAddTypeModalOpen] = useState(false);
   const [isAdjustBalanceOpen, setIsAdjustBalanceOpen] = useState(false);
 
   // Apply Form State
-  const [selectedTypeId, setSelectedTypeId] = useState(leaveTypes[0]?.id || '');
-  const [startDate, setStartDate] = useState('2026-09-01');
-  const [endDate, setEndDate] = useState('2026-09-05');
+  const [selectedTypeId, setSelectedTypeId] = useState(leaveTypes[0]?.id || "");
+  const [startDate, setStartDate] = useState("2026-09-01");
+  const [endDate, setEndDate] = useState("2026-09-05");
   const [totalDays, setTotalDays] = useState(5);
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState("");
 
   // Add Type State
-  const [newTypeName, setNewTypeName] = useState('');
+  const [newTypeName, setNewTypeName] = useState("");
   const [newTypeDays, setNewTypeDays] = useState(5);
   const [newTypePaid, setNewTypePaid] = useState(true);
 
   // Adjust Balance State
-  const [adjustEmpId, setAdjustEmpId] = useState(employees[0]?.id || '');
+  const [adjustEmpId, setAdjustEmpId] = useState(employees[0]?.id || "");
   const [adjustDays, setAdjustDays] = useState(2);
-  const [adjustReason, setAdjustReason] = useState('');
+  const [adjustReason, setAdjustReason] = useState("");
 
-  const selectedBalance = leaveBalances.find(b => b.leaveTypeId === selectedTypeId);
+  const selectedBalance = leaveBalances.find((b) => b.leaveTypeId === selectedTypeId);
 
   const handleApply = () => {
     if (!reason) {
-      alert('يرجى كتابة سبب الإجازة');
+      alert("يرجى كتابة سبب الإجازة");
       return;
     }
     const success = applyLeave({
@@ -63,49 +75,37 @@ export const LeavesView: React.FC = () => {
       reason,
     });
     if (success) {
-      alert('تم تقديم طلب الإجازة وحجز الرصيد بنجاح وتحويله للاعتماد');
+      alert("تم تقديم طلب الإجازة وحجز الرصيد بنجاح وتحويله للاعتماد");
       setIsApplyModalOpen(false);
-      setReason('');
+      setReason("");
     } else {
-      alert('عذراً، رصيدك المتاح لا يكفي لتغطية عدد الأيام المطلوبة');
+      alert("عذراً، رصيدك المتاح لا يكفي لتغطية عدد الأيام المطلوبة");
     }
   };
 
   const handleCreateLeaveType = () => {
     if (!newTypeName) {
-      alert('يرجى كتابة اسم نوع الإجازة');
+      alert("يرجى كتابة اسم نوع الإجازة");
       return;
     }
-    leaveTypes.push({
-      id: `lt-${Date.now()}`,
-      code: `LT-${Math.floor(10 + Math.random() * 90)}`,
-      nameAr: newTypeName,
-      nameEn: newTypeName,
-      color: '#8b5cf6',
-      isPaid: newTypePaid,
-      deductFromWorkingDaysOnly: true,
-      maxDaysPerYear: newTypeDays,
-      allowHalfDay: true,
-      allowNegativeBalance: false,
-      requiresAttachment: false,
-      carryoverLimitDays: 0,
-      accrualMethod: 'yearly_frontloaded',
-      status: 'active',
-    });
+    addLeaveType({ nameAr: newTypeName, maxDaysPerYear: newTypeDays, isPaid: newTypePaid });
     alert(`تمت إضافة نوع الإجازة (${newTypeName}) بنجاح!`);
     setIsAddTypeModalOpen(false);
-    setNewTypeName('');
+    setNewTypeName("");
   };
 
   const handleAdjustBalance = () => {
     if (!adjustReason) {
-      alert('يرجى كتابة سبب تعديل الرصيد');
+      alert("يرجى كتابة سبب تعديل الرصيد");
       return;
     }
-    const emp = employees.find(e => e.id === adjustEmpId);
-    alert(`تم تعديل الرصيد لـ (${emp?.firstNameAr} ${emp?.lastNameAr}) بمقدار ${adjustDays} يوم وتوثيقه في سجل التدقيق.`);
+    const emp = employees.find((e) => e.id === adjustEmpId);
+    adjustLeaveBalance(adjustEmpId, selectedTypeId, adjustDays, adjustReason);
+    alert(
+      `تم تعديل الرصيد لـ (${emp?.firstNameAr} ${emp?.lastNameAr}) بمقدار ${adjustDays} يوم وتوثيقه في سجل التدقيق.`,
+    );
     setIsAdjustBalanceOpen(false);
-    setAdjustReason('');
+    setAdjustReason("");
   };
 
   return (
@@ -122,36 +122,51 @@ export const LeavesView: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setIsApplyModalOpen(true)} size="sm" className="font-bold text-xs gap-1.5 bg-primary">
+          <Button
+            onClick={() => setIsApplyModalOpen(true)}
+            size="sm"
+            className="font-bold text-xs gap-1.5 bg-primary"
+          >
             <Plus className="h-4 w-4" />
             {t.leaves.applyLeave}
           </Button>
-          <Button onClick={() => setIsAddTypeModalOpen(true)} variant="outline" size="sm" className="font-bold text-xs gap-1.5">
-            <Settings className="h-4 w-4" />
-            إضافة نوع إجازة جديد
-          </Button>
-          <Button onClick={() => setIsAdjustBalanceOpen(true)} variant="secondary" size="sm" className="font-bold text-xs gap-1.5">
-            <Sliders className="h-4 w-4" />
-            تعديل رصيد يدوي
-          </Button>
+          {canManage && (
+            <>
+              <Button
+                onClick={() => setIsAddTypeModalOpen(true)}
+                variant="outline"
+                size="sm"
+                className="font-bold text-xs gap-1.5"
+              >
+                <Settings className="h-4 w-4" />
+                إضافة نوع إجازة جديد
+              </Button>
+              <Button
+                onClick={() => setIsAdjustBalanceOpen(true)}
+                variant="secondary"
+                size="sm"
+                className="font-bold text-xs gap-1.5"
+              >
+                <Sliders className="h-4 w-4" />
+                تعديل رصيد يدوي
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
       {/* Leave Balances Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {leaveBalances.map(bal => (
+        {leaveBalances.map((bal) => (
           <div
             key={bal.leaveTypeId}
             className="rounded-xl border bg-card p-4 shadow-sm space-y-3 relative overflow-hidden"
           >
             <div className="flex items-center justify-between">
               <span className="font-bold text-xs text-foreground">
-                {language === 'ar' ? bal.leaveTypeNameAr : bal.leaveTypeNameEn}
+                {language === "ar" ? bal.leaveTypeNameAr : bal.leaveTypeNameEn}
               </span>
-              <div
-                className="h-3 w-3 rounded-full"
-                style={{ backgroundColor: bal.color }}
-              />
+              <div className="h-3 w-3 rounded-full" style={{ backgroundColor: bal.color }} />
             </div>
 
             <div className="flex items-baseline gap-2">
@@ -204,7 +219,10 @@ export const LeavesView: React.FC = () => {
                   <p className="text-[10px] text-muted-foreground">إجازة سنوية (مجدولة)</p>
                 </div>
               </div>
-              <Badge className="bg-sky-500/10 text-sky-700 border-sky-200 text-[10px]" variant="outline">
+              <Badge
+                className="bg-sky-500/10 text-sky-700 border-sky-200 text-[10px]"
+                variant="outline"
+              >
                 5 سبتمبر - 12 سبتمبر (6 أيام)
               </Badge>
             </div>
@@ -221,7 +239,10 @@ export const LeavesView: React.FC = () => {
                   <p className="text-[10px] text-muted-foreground">إجازة سنوية (معتمدة)</p>
                 </div>
               </div>
-              <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-200 text-[10px]" variant="outline">
+              <Badge
+                className="bg-emerald-500/10 text-emerald-700 border-emerald-200 text-[10px]"
+                variant="outline"
+              >
                 15 سبتمبر - 20 سبتمبر (5 أيام)
               </Badge>
             </div>
@@ -235,9 +256,15 @@ export const LeavesView: React.FC = () => {
             سياسات وقواعد الإجازات
           </h2>
           <div className="space-y-2 text-xs text-muted-foreground">
-            <p>• الإجازة السنوية تخصم من أيام العمل الفعلية فقط مع استبعاد عطلات نهاية الأسبوع والأعياد الرسمية.</p>
+            <p>
+              • الإجازة السنوية تخصم من أيام العمل الفعلية فقط مع استبعاد عطلات نهاية الأسبوع
+              والأعياد الرسمية.
+            </p>
             <p>• يتم حجز الرصيد فور تقديم الطلب لمنع تكرار الحجز.</p>
-            <p>• الإجازات المرضية تخضع لشرائح نظام العمل السعودي (أول 30 يوم بأجر كامل، 60 يوم بثلاثة أرباع الأجر).</p>
+            <p>
+              • الإجازات المرضية تخضع لشرائح نظام العمل السعودي (أول 30 يوم بأجر كامل، 60 يوم بثلاثة
+              أرباع الأجر).
+            </p>
             <p>• الحد الأقصى لترحيل الإجازة السنوية للعام القادم هو 10 أيام عمل.</p>
           </div>
         </div>
@@ -261,11 +288,13 @@ export const LeavesView: React.FC = () => {
               <label className="font-bold">نوع الإجازة *</label>
               <select
                 value={selectedTypeId}
-                onChange={e => setSelectedTypeId(e.target.value)}
+                onChange={(e) => setSelectedTypeId(e.target.value)}
                 className="w-full h-8 rounded border px-2.5"
               >
-                {leaveTypes.map(lt => (
-                  <option key={lt.id} value={lt.id}>{lt.nameAr}</option>
+                {leaveTypes.map((lt) => (
+                  <option key={lt.id} value={lt.id}>
+                    {lt.nameAr}
+                  </option>
                 ))}
               </select>
             </div>
@@ -273,7 +302,9 @@ export const LeavesView: React.FC = () => {
             {selectedBalance && (
               <div className="rounded-lg border bg-muted/20 p-2.5 flex justify-between text-xs font-semibold">
                 <span>رصيدك المتاح حالياً:</span>
-                <span className="text-emerald-600 font-bold">{selectedBalance.availableBalance} يوم</span>
+                <span className="text-emerald-600 font-bold">
+                  {selectedBalance.availableBalance} يوم
+                </span>
               </div>
             )}
 
@@ -283,7 +314,7 @@ export const LeavesView: React.FC = () => {
                 <input
                   type="date"
                   value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
+                  onChange={(e) => setStartDate(e.target.value)}
                   className="w-full h-8 rounded border px-2.5"
                 />
               </div>
@@ -292,7 +323,7 @@ export const LeavesView: React.FC = () => {
                 <input
                   type="date"
                   value={endDate}
-                  onChange={e => setEndDate(e.target.value)}
+                  onChange={(e) => setEndDate(e.target.value)}
                   className="w-full h-8 rounded border px-2.5"
                 />
               </div>
@@ -305,7 +336,7 @@ export const LeavesView: React.FC = () => {
                 min="1"
                 max="30"
                 value={totalDays}
-                onChange={e => setTotalDays(Number(e.target.value))}
+                onChange={(e) => setTotalDays(Number(e.target.value))}
                 className="w-full h-8 rounded border px-2.5"
               />
             </div>
@@ -315,7 +346,7 @@ export const LeavesView: React.FC = () => {
               <textarea
                 rows={2}
                 value={reason}
-                onChange={e => setReason(e.target.value)}
+                onChange={(e) => setReason(e.target.value)}
                 placeholder="اكتب سبب طلب الإجازة..."
                 className="w-full rounded border p-2 text-xs"
               />
@@ -349,7 +380,7 @@ export const LeavesView: React.FC = () => {
               <input
                 type="text"
                 value={newTypeName}
-                onChange={e => setNewTypeName(e.target.value)}
+                onChange={(e) => setNewTypeName(e.target.value)}
                 placeholder="مثال: إجازة أداء الامتحانات الدراسية"
                 className="w-full h-8 rounded border px-2.5"
               />
@@ -359,7 +390,7 @@ export const LeavesView: React.FC = () => {
               <input
                 type="number"
                 value={newTypeDays}
-                onChange={e => setNewTypeDays(Number(e.target.value))}
+                onChange={(e) => setNewTypeDays(Number(e.target.value))}
                 className="w-full h-8 rounded border px-2.5"
               />
             </div>
@@ -368,15 +399,21 @@ export const LeavesView: React.FC = () => {
                 type="checkbox"
                 id="paidCheck"
                 checked={newTypePaid}
-                onChange={e => setNewTypePaid(e.target.checked)}
+                onChange={(e) => setNewTypePaid(e.target.checked)}
                 className="rounded text-primary h-4 w-4"
               />
-              <label htmlFor="paidCheck" className="text-xs font-semibold">إجازة مدفوعة الأجر بالكامل (Paid Leave)</label>
+              <label htmlFor="paidCheck" className="text-xs font-semibold">
+                إجازة مدفوعة الأجر بالكامل (Paid Leave)
+              </label>
             </div>
           </div>
 
           <DialogFooter className="mt-2">
-            <Button size="sm" onClick={handleCreateLeaveType} className="text-xs bg-primary font-bold">
+            <Button
+              size="sm"
+              onClick={handleCreateLeaveType}
+              className="text-xs bg-primary font-bold"
+            >
               حفظ نوع الإجازة
             </Button>
           </DialogFooter>
@@ -401,11 +438,27 @@ export const LeavesView: React.FC = () => {
               <label className="font-bold">الموظف المعني *</label>
               <select
                 value={adjustEmpId}
-                onChange={e => setAdjustEmpId(e.target.value)}
+                onChange={(e) => setAdjustEmpId(e.target.value)}
                 className="w-full h-8 rounded border px-2.5"
               >
-                {employees.map(emp => (
-                  <option key={emp.id} value={emp.id}>{emp.firstNameAr} {emp.lastNameAr}</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.firstNameAr} {emp.lastNameAr}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold">نوع الإجازة *</label>
+              <select
+                value={selectedTypeId}
+                onChange={(e) => setSelectedTypeId(e.target.value)}
+                className="w-full h-8 rounded border px-2.5"
+              >
+                {leaveTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.nameAr}
+                  </option>
                 ))}
               </select>
             </div>
@@ -414,7 +467,7 @@ export const LeavesView: React.FC = () => {
               <input
                 type="number"
                 value={adjustDays}
-                onChange={e => setAdjustDays(Number(e.target.value))}
+                onChange={(e) => setAdjustDays(Number(e.target.value))}
                 className="w-full h-8 rounded border px-2.5"
               />
             </div>
@@ -423,7 +476,7 @@ export const LeavesView: React.FC = () => {
               <textarea
                 rows={2}
                 value={adjustReason}
-                onChange={e => setAdjustReason(e.target.value)}
+                onChange={(e) => setAdjustReason(e.target.value)}
                 placeholder="مثال: رصيد تعويضي عن ساعات عمل في عطلة رسمية..."
                 className="w-full rounded border p-2 text-xs"
               />
@@ -431,7 +484,11 @@ export const LeavesView: React.FC = () => {
           </div>
 
           <DialogFooter className="mt-2">
-            <Button size="sm" onClick={handleAdjustBalance} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+            <Button
+              size="sm"
+              onClick={handleAdjustBalance}
+              className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+            >
               تأكيد وتوثيق تعديل الرصيد
             </Button>
           </DialogFooter>

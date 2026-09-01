@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
+import { IconSymbol } from "../ui/IconSymbol";
 import {
   Clock,
   MapPin,
@@ -12,6 +13,8 @@ import {
   Search,
   Plus,
   Compass,
+  Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -42,6 +45,7 @@ export const AttendanceView: React.FC = () => {
       .slice(0, 10);
     const to = today.toISOString().slice(0, 10);
     processAttendance(from, to);
+    alert("تمت معالجة واحتساب ساعات الحضور الإجمالية والتأخيرات لشهر سبتمبر 2026 بنجاح");
   };
 
   const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
@@ -51,12 +55,11 @@ export const AttendanceView: React.FC = () => {
   const [correctionReason, setCorrectionReason] = useState("");
 
   const handlePunch = (type: "in" | "out") => {
-    // Get browser geolocation if available
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const res = punchInOut(type, { lat: pos.coords.latitude, lng: pos.coords.longitude });
-          alert(`${res.message} • ${res.geofenceValid ? "داخل السياج الجغرافي" : "خارج النطاق"}`);
+          alert(`${res.message} • ${res.geofenceValid ? "داخل السياج الجغرافي للمقر" : "خارج النطاق الجغرافي"}`);
         },
         () => {
           const res = punchInOut(type);
@@ -103,22 +106,22 @@ export const AttendanceView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header & Punch Actions */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+      {/* Header & Punch Actions (Google M3 Style) */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
         <div>
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <Clock className="h-5 w-5 text-primary" />
+          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
+            <IconSymbol name="schedule" source="material" filled size={24} className="text-primary" />
             {t.attendance.liveDashboard} والبصمة الذكية (M07)
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            مراقبة الحضور اللحظية، السياج الجغرافي GPS، معالجة التأخير وكشوف الحضور الشهرية
+          <p className="text-xs text-muted-foreground font-medium mt-1">
+            مراقبة الحضور اللحظية، السياج الجغرافي GPS، معالجة التأخير والترحيل الآلي لمسير الرواتب
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <Button
             onClick={() => handlePunch("in")}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-sm"
+            className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-xs h-10 px-4"
           >
             <Clock className="h-4 w-4" />
             {t.attendance.checkIn} (GPS)
@@ -126,7 +129,7 @@ export const AttendanceView: React.FC = () => {
           <Button
             onClick={() => handlePunch("out")}
             variant="outline"
-            className="font-bold text-xs gap-1.5 text-foreground hover:bg-muted"
+            className="rounded-full font-bold text-xs gap-1.5 text-foreground hover:bg-secondary border-border/80 h-10 px-4 shadow-xs"
           >
             <Clock className="h-4 w-4 text-amber-600" />
             {t.attendance.checkOut}
@@ -135,8 +138,9 @@ export const AttendanceView: React.FC = () => {
             onClick={() => setIsCorrectionModalOpen(true)}
             variant="secondary"
             size="sm"
-            className="text-xs font-bold gap-1"
+            className="rounded-full text-xs font-bold gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs"
           >
+            <Compass className="h-4 w-4 text-primary" />
             {t.attendance.correctionRequest}
           </Button>
         </div>
@@ -144,56 +148,80 @@ export const AttendanceView: React.FC = () => {
 
       {/* Attendance Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-xl border bg-card p-4 shadow-sm">
-          <span className="text-xs font-semibold text-muted-foreground">إجمالي المجدولين</span>
-          <p className="text-2xl font-black text-foreground mt-2">120 موظف</p>
-          <span className="text-[10px] text-emerald-600 font-bold">100% مناوبات مغطاة</span>
+        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-muted-foreground">إجمالي المجدولين</span>
+            <p className="text-2xl font-black text-foreground mt-0.5">120 موظف</p>
+            <span className="text-[10px] text-emerald-600 font-bold">100% مناوبات مغطاة</span>
+          </div>
+          <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center text-primary">
+            <IconSymbol name="badge" source="material" size={22} />
+          </div>
         </div>
-        <div className="rounded-xl border bg-card p-4 shadow-sm">
-          <span className="text-xs font-semibold text-muted-foreground">حضور فعلي مسجل</span>
-          <p className="text-2xl font-black text-emerald-600 mt-2">
-            {attendanceRecords.filter((a) => a.status === "present").length + 112}
-          </p>
-          <span className="text-[10px] text-muted-foreground">93.3% نسبة الالتزام</span>
+
+        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-muted-foreground">حضور فعلي مسجل</span>
+            <p className="text-2xl font-black text-emerald-600 mt-0.5">
+              {attendanceRecords.filter((a) => a.status === "present").length + 112}
+            </p>
+            <span className="text-[10px] text-muted-foreground font-bold">93.3% نسبة الالتزام</span>
+          </div>
+          <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+            <CheckCircle2 className="h-5 w-5" />
+          </div>
         </div>
-        <div className="rounded-xl border bg-card p-4 shadow-sm">
-          <span className="text-xs font-semibold text-muted-foreground">تأخير وخروج مبكر</span>
-          <p className="text-2xl font-black text-amber-600 mt-2">
-            {attendanceRecords.filter((a) => a.status === "late").length}
-          </p>
-          <span className="text-[10px] text-amber-600 font-medium">ضمن فترة السماح</span>
+
+        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-muted-foreground">تأخير وخروج مبكر</span>
+            <p className="text-2xl font-black text-amber-600 mt-0.5">
+              {attendanceRecords.filter((a) => a.status === "late").length}
+            </p>
+            <span className="text-[10px] text-amber-600 font-bold">ضمن فترة السماح</span>
+          </div>
+          <div className="h-10 w-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
+            <AlertTriangle className="h-5 w-5" />
+          </div>
         </div>
-        <div className="rounded-xl border bg-card p-4 shadow-sm">
-          <span className="text-xs font-semibold text-muted-foreground">غياب وإجازات</span>
-          <p className="text-2xl font-black text-blue-600 mt-2">
-            {attendanceRecords.filter((a) => a.status === "absent").length + 7}
-          </p>
-          <span className="text-[10px] text-muted-foreground">معتمد رسمياً</span>
+
+        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-muted-foreground">غياب وإجازات</span>
+            <p className="text-2xl font-black text-primary mt-0.5">
+              {attendanceRecords.filter((a) => a.status === "absent").length + 7}
+            </p>
+            <span className="text-[10px] text-muted-foreground font-bold">معتمد بسجل الإجازات</span>
+          </div>
+          <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+            <IconSymbol name="event_available" source="material" size={22} />
+          </div>
         </div>
       </div>
 
       {/* Daily Attendance Sheet Table */}
-      <div className="rounded-xl border bg-card overflow-hidden shadow-sm space-y-3">
-        <div className="p-4 border-b flex flex-col sm:flex-row justify-between items-center gap-3">
-          <h2 className="text-sm font-bold text-foreground">
+      <div className="rounded-3xl border border-border/80 bg-card overflow-hidden shadow-xs space-y-4 p-5">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 border-b border-border/60 pb-4">
+          <h2 className="text-sm font-black text-foreground flex items-center gap-2">
+            <IconSymbol name="view_list" source="material" size={18} className="text-primary" />
             {t.attendance.dailySummary} •{" "}
             {new Date().toLocaleDateString(language === "ar" ? "ar-SA" : "en-US")}
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={handleProcessAttendance}
               variant="secondary"
               size="sm"
-              className="h-8 text-xs font-bold gap-1"
+              className="rounded-full h-9 text-xs font-bold gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4"
             >
-              <Compass className="h-3.5 w-3.5" />
-              معالجة البصمات (احتساب الساعات والتأخير)
+              <Compass className="h-3.5 w-3.5 text-primary" />
+              معالجة البصمات الشهرية
             </Button>
             <Button
               onClick={handleExportAttendance}
               variant="outline"
               size="sm"
-              className="h-8 text-xs font-bold gap-1"
+              className="rounded-full h-9 text-xs font-bold gap-1.5 border-border/80 hover:bg-secondary px-4"
             >
               <Download className="h-3.5 w-3.5" />
               {t.export} كشف الحضور (Excel)
@@ -201,9 +229,9 @@ export const AttendanceView: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-2xl border border-border/60">
           <table className="w-full text-xs">
-            <thead className="border-b bg-muted/40 font-bold text-muted-foreground">
+            <thead className="border-b border-border/60 bg-muted/40 font-bold text-muted-foreground">
               <tr>
                 <th className="py-3 px-4 text-start">الموظف</th>
                 <th className="py-3 px-4 text-start">الوردية المجدولة</th>
@@ -214,14 +242,14 @@ export const AttendanceView: React.FC = () => {
                 <th className="py-3 px-4 text-start">الحالة</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-border/60">
               {attendanceRecords.map((rec) => (
-                <tr key={rec.id} className="hover:bg-muted/20">
+                <tr key={rec.id} className="hover:bg-muted/20 transition-colors">
                   <td className="py-3 px-4">
-                    <span className="font-bold text-foreground">{rec.employeeName}</span>
-                    <p className="text-[10px] text-muted-foreground font-mono">{rec.employeeNo}</p>
+                    <span className="font-bold text-foreground block">{rec.employeeName}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">{rec.employeeNo}</span>
                   </td>
-                  <td className="py-3 px-4 text-muted-foreground">
+                  <td className="py-3 px-4 text-muted-foreground font-semibold">
                     {rec.scheduledShift || "الوردية الصباحية"}
                   </td>
                   <td className="py-3 px-4 font-mono font-bold text-foreground">
@@ -234,7 +262,7 @@ export const AttendanceView: React.FC = () => {
                   <td className="py-3 px-4">
                     <Badge
                       variant="outline"
-                      className={`text-[10px] ${
+                      className={`text-[10px] rounded-full px-2.5 font-bold ${
                         rec.geofenceValid
                           ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
                           : "bg-destructive/10 text-destructive border-destructive/20"
@@ -246,7 +274,7 @@ export const AttendanceView: React.FC = () => {
                   <td className="py-3 px-4">
                     <Badge
                       variant="outline"
-                      className={`text-[10px] ${
+                      className={`text-[10px] rounded-full px-2.5 font-bold ${
                         rec.status === "present"
                           ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
                           : rec.status === "late"
@@ -270,66 +298,66 @@ export const AttendanceView: React.FC = () => {
 
       {/* Attendance Correction Modal */}
       <Dialog open={isCorrectionModalOpen} onOpenChange={setIsCorrectionModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
+            <DialogTitle className="text-base font-black flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
               {t.attendance.correctionRequest}
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs font-medium">
               تقديم طلب لتعديل وقت الحضور أو الانصراف مع إرفاق المبرر للموافقة
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 text-xs py-2">
-            <div className="space-y-1">
+          <div className="space-y-3.5 text-xs py-2">
+            <div className="space-y-1.5">
               <label className="font-bold">تاريخ اليوم المراد تصحيحه *</label>
               <input
                 type="date"
                 value={correctionDate}
                 onChange={(e) => setCorrectionDate(e.target.value)}
-                className="w-full h-8 rounded border px-2.5"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">وقت الدخول الصحيح</label>
                 <input
                   type="time"
                   value={correctInTime}
                   onChange={(e) => setCorrectInTime(e.target.value)}
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">وقت الخروج الصحيح</label>
                 <input
                   type="time"
                   value={correctOutTime}
                   onChange={(e) => setCorrectOutTime(e.target.value)}
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="font-bold">سبب عدم التسجيل أو التصحيح *</label>
               <textarea
                 rows={2}
                 value={correctionReason}
                 onChange={(e) => setCorrectionReason(e.target.value)}
                 placeholder="مثال: نسيان البصمة بسبب اجتماع عمل خارجي..."
-                className="w-full rounded border p-2 text-xs"
+                className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
           </div>
 
-          <DialogFooter className="mt-2">
+          <DialogFooter className="mt-3">
             <Button
               size="sm"
               onClick={handleSubmitCorrection}
-              className="text-xs bg-primary font-bold"
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
             >
               إرسال طلب التصحيح
             </Button>

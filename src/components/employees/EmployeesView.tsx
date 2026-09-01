@@ -3,6 +3,7 @@ import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
 import { canManageModule } from "../../lib/auth/permissions";
 import type { Employee, ContractType, Gender, MaritalStatus } from "../../types";
+import { IconSymbol } from "../ui/IconSymbol";
 import { OfficialDocumentModal, type DocType } from "../documents/OfficialDocumentModal";
 import {
   Users,
@@ -21,6 +22,7 @@ import {
   Sparkles,
   Award,
   Printer,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -32,7 +34,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 export const EmployeesView: React.FC = () => {
   const {
@@ -41,6 +42,7 @@ export const EmployeesView: React.FC = () => {
     subsidiaries,
     workLocations,
     addEmployee,
+    openEmployeeProfile,
     currentRole,
     language,
     t,
@@ -49,7 +51,6 @@ export const EmployeesView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isAddWizardOpen, setIsAddWizardOpen] = useState(false);
 
   // Document Print Modal State
@@ -136,32 +137,32 @@ export const EmployeesView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+      {/* Header (Google M3 Style) */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
         <div>
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
+          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
+            <IconSymbol name="badge" source="material" filled size={24} className="text-primary" />
             {t.employees.directory} ({employees.length})
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            سجل الموظفين المركزي، الملفات الموحدة 360°، العقود والمستندات والرواتب
+          <p className="text-xs text-muted-foreground font-medium mt-1">
+            سجل الموظفين المركزي، الملفات الموحدة 360°، العقود والمستندات وتعديل البيانات
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2.5">
           <Button
             onClick={handleExportEmployees}
             variant="outline"
             size="sm"
-            className="font-bold text-xs gap-1.5"
+            className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
           >
-            <Download className="h-4 w-4" />
+            <Download className="h-4 w-4 text-primary" />
             {t.export} (Excel/CSV)
           </Button>
           {canManage && (
             <Button
               onClick={() => setIsAddWizardOpen(true)}
               size="sm"
-              className="font-bold text-xs gap-1.5 bg-primary"
+              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-4"
             >
               <UserPlus className="h-4 w-4" />
               {t.employees.addEmployee}
@@ -173,21 +174,21 @@ export const EmployeesView: React.FC = () => {
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
         <div className="relative w-full sm:w-80">
-          <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute right-3.5 top-3 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
             placeholder="بحث بالاسم، الرقم الوظيفي، الهوية، المسمى..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-9 w-full rounded-lg border bg-card pr-9 pl-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="h-10 w-full rounded-2xl border border-border/80 bg-card pr-10 pl-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 font-medium"
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
           <select
             value={selectedDept}
             onChange={(e) => setSelectedDept(e.target.value)}
-            className="h-9 rounded-lg border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="h-10 rounded-2xl border border-border/80 bg-card px-3 text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           >
             <option value="all">جميع الأقسام والإدارات</option>
             {orgUnits.map((unit) => (
@@ -200,10 +201,10 @@ export const EmployeesView: React.FC = () => {
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="h-9 rounded-lg border bg-card px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="h-10 rounded-2xl border border-border/80 bg-card px-3 text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           >
             <option value="all">كافة الحالات</option>
-            <option value="active">نشط</option>
+            <option value="active">نشط على رأس العمل</option>
             <option value="probation">تحت التجربة</option>
             <option value="on_leave">في إجازة</option>
           </select>
@@ -211,10 +212,10 @@ export const EmployeesView: React.FC = () => {
       </div>
 
       {/* Employees Table Grid */}
-      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-        <div className="overflow-x-auto">
+      <div className="rounded-3xl border border-border/80 bg-card overflow-hidden shadow-xs p-5 space-y-3">
+        <div className="overflow-x-auto rounded-2xl border border-border/60">
           <table className="w-full text-xs">
-            <thead className="border-b bg-muted/40 font-bold text-muted-foreground">
+            <thead className="border-b border-border/60 bg-muted/40 font-bold text-muted-foreground">
               <tr>
                 <th className="py-3 px-4 text-start">الموظف</th>
                 <th className="py-3 px-4 text-start">الرقم الوظيفي</th>
@@ -223,44 +224,47 @@ export const EmployeesView: React.FC = () => {
                 <th className="py-3 px-4 text-start">الراتب الإجمالي</th>
                 <th className="py-3 px-4 text-start">الحالة</th>
                 <th className="py-3 px-4 text-start">اكتمال الملف</th>
-                <th className="py-3 px-4 text-center">إجراءات</th>
+                <th className="py-3 px-4 text-center">إجراءات والملف 360°</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-border/60">
               {filteredEmployees.map((emp) => (
-                <tr key={emp.id} className="hover:bg-muted/30 transition-colors">
+                <tr key={emp.id} className="hover:bg-muted/20 transition-colors group">
                   <td className="py-3 px-4">
-                    <div className="flex items-center gap-3">
+                    <div
+                      onClick={() => openEmployeeProfile(emp)}
+                      className="flex items-center gap-3 cursor-pointer hover:opacity-85"
+                    >
                       <img
                         src={
                           emp.avatarUrl ||
                           "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
                         }
                         alt={emp.firstNameAr}
-                        className="h-9 w-9 rounded-full border object-cover shadow-xs"
+                        className="h-10 w-10 rounded-full border object-cover shadow-xs group-hover:ring-2 group-hover:ring-primary/40 transition-all"
                       />
                       <div>
-                        <span className="font-bold text-foreground">
+                        <span className="font-black text-foreground group-hover:text-primary group-hover:underline transition-colors block">
                           {language === "ar"
                             ? `${emp.firstNameAr} ${emp.lastNameAr}`
                             : `${emp.firstNameEn} ${emp.lastNameEn}`}
                         </span>
-                        <p className="text-[10px] text-muted-foreground">{emp.email}</p>
+                        <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{emp.email}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="py-3 px-4 font-mono font-semibold text-muted-foreground">
+                  <td className="py-3 px-4 font-mono font-bold text-muted-foreground">
                     {emp.employeeNo}
                   </td>
-                  <td className="py-3 px-4 font-medium text-foreground">{emp.departmentName}</td>
-                  <td className="py-3 px-4 text-muted-foreground">{emp.jobTitleAr}</td>
-                  <td className="py-3 px-4 font-bold text-foreground">
+                  <td className="py-3 px-4 font-bold text-foreground">{emp.departmentName}</td>
+                  <td className="py-3 px-4 text-muted-foreground font-medium">{emp.jobTitleAr}</td>
+                  <td className="py-3 px-4 font-black text-primary font-mono">
                     {emp.totalSalary.toLocaleString()} {t.currency}
                   </td>
                   <td className="py-3 px-4">
                     <Badge
                       variant="outline"
-                      className={`text-[10px] ${
+                      className={`text-[10px] rounded-full px-2.5 font-bold ${
                         emp.status === "active"
                           ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
                           : emp.status === "probation"
@@ -277,33 +281,32 @@ export const EmployeesView: React.FC = () => {
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
+                      <div className="h-2 w-16 rounded-full bg-muted overflow-hidden">
                         <div
                           className="h-full bg-emerald-500 rounded-full"
                           style={{ width: `${emp.completionScore}%` }}
                         />
                       </div>
-                      <span className="text-[10px] font-bold text-muted-foreground">
-                        %{emp.completionScore}
+                      <span className="text-[10px] font-mono font-bold text-muted-foreground">
+                        {emp.completionScore}%
                       </span>
                     </div>
                   </td>
                   <td className="py-3 px-4 text-center">
-                    <div className="flex items-center justify-center gap-1">
+                    <div className="flex items-center justify-center gap-1.5">
                       <Button
-                        variant="ghost"
                         size="sm"
-                        onClick={() => setSelectedEmployee(emp)}
-                        className="h-7 text-xs font-bold text-primary gap-1"
+                        onClick={() => openEmployeeProfile(emp)}
+                        className="rounded-full h-8 text-xs font-bold text-primary bg-primary/10 hover:bg-primary hover:text-primary-foreground gap-1 transition-all px-3"
                       >
                         <Eye className="h-3.5 w-3.5" />
-                        عرض 360°
+                        عرض وتعديل 360°
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => openDocumentModal(emp, "salary_certificate")}
-                        className="h-7 text-xs font-bold gap-1 text-slate-700 dark:text-slate-200"
+                        className="rounded-full h-8 text-xs font-bold gap-1 border-border/80 hover:bg-secondary px-3"
                       >
                         <Printer className="h-3 w-3 text-primary" />
                         شهادة راتب
@@ -317,237 +320,60 @@ export const EmployeesView: React.FC = () => {
         </div>
       </div>
 
-      {/* 360° Employee Profile Modal */}
-      {selectedEmployee && (
-        <Dialog open={!!selectedEmployee} onOpenChange={() => setSelectedEmployee(null)}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <img
-                    src={
-                      selectedEmployee.avatarUrl ||
-                      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
-                    }
-                    alt={selectedEmployee.firstNameAr}
-                    className="h-16 w-16 rounded-full border-2 border-primary object-cover shadow-sm"
-                  />
-                  <div>
-                    <DialogTitle className="text-lg font-bold">
-                      {language === "ar"
-                        ? `${selectedEmployee.firstNameAr} ${selectedEmployee.lastNameAr}`
-                        : `${selectedEmployee.firstNameEn} ${selectedEmployee.lastNameEn}`}
-                    </DialogTitle>
-                    <DialogDescription className="text-xs">
-                      {selectedEmployee.jobTitleAr} • {selectedEmployee.departmentName} •{" "}
-                      {selectedEmployee.employeeNo}
-                    </DialogDescription>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => openDocumentModal(selectedEmployee, "salary_certificate")}
-                    className="text-xs font-bold gap-1 bg-primary"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    شهادة تعريف بالراتب
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openDocumentModal(selectedEmployee, "employment_contract")}
-                    className="text-xs font-bold gap-1"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    عقد العمل (قوى)
-                  </Button>
-                </div>
-              </div>
-            </DialogHeader>
-
-            <Tabs defaultValue="overview" className="mt-4">
-              <TabsList className="grid grid-cols-4 w-full">
-                <TabsTrigger value="overview" className="text-xs font-bold">
-                  عام وهوية
-                </TabsTrigger>
-                <TabsTrigger value="contract" className="text-xs font-bold">
-                  العقد والوظيفة
-                </TabsTrigger>
-                <TabsTrigger value="salary" className="text-xs font-bold">
-                  الراتب والبنك
-                </TabsTrigger>
-                <TabsTrigger value="documents" className="text-xs font-bold">
-                  المستندات الرسمية
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="overview" className="space-y-3 pt-3 text-xs">
-                <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/20 p-3">
-                  <div>
-                    <span className="text-muted-foreground">رقم الهوية / الإقامة:</span>{" "}
-                    <span className="font-bold">{selectedEmployee.nationalIdOrIqama}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">الجنسية:</span>{" "}
-                    <span className="font-bold">{selectedEmployee.nationality}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">الجوال:</span>{" "}
-                    <span className="font-bold">{selectedEmployee.phone}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">البريد الإلكتروني:</span>{" "}
-                    <span className="font-bold">{selectedEmployee.email}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">تاريخ الميلاد:</span>{" "}
-                    <span className="font-bold">{selectedEmployee.birthDate}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">الحالة الاجتماعية:</span>{" "}
-                    <span className="font-bold">
-                      {selectedEmployee.maritalStatus === "married" ? "متزوج" : "أعزب"}
-                    </span>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="contract" className="space-y-3 pt-3 text-xs">
-                <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/20 p-3">
-                  <div>
-                    <span className="text-muted-foreground">تاريخ المباشرة:</span>{" "}
-                    <span className="font-bold">{selectedEmployee.hireDate}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">نوع العقد:</span>{" "}
-                    <span className="font-bold">دوام كامل (Full-time)</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">موقع العمل:</span>{" "}
-                    <span className="font-bold">{selectedEmployee.workLocationName}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">المدير المباشر:</span>{" "}
-                    <span className="font-bold">{selectedEmployee.managerName || "غير محدد"}</span>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="salary" className="space-y-3 pt-3 text-xs">
-                <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/20 p-3">
-                  <div>
-                    <span className="text-muted-foreground">الراتب الأساسي:</span>{" "}
-                    <span className="font-bold text-emerald-600">
-                      {selectedEmployee.basicSalary.toLocaleString()} ر.س
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">إجمالي الراتب الشهري:</span>{" "}
-                    <span className="font-bold text-primary">
-                      {selectedEmployee.totalSalary.toLocaleString()} ر.س
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">البنك المعتمد:</span>{" "}
-                    <span className="font-bold">مصرف الراجحي</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">الآيبان (IBAN):</span>{" "}
-                    <span className="font-mono font-bold">SA4480000201608010001234</span>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="documents" className="space-y-2 pt-3 text-xs">
-                <div className="rounded-lg border p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-primary" />
-                    <span>بطاقة الهوية الوطنية / الإقامة (محدثة)</span>
-                  </div>
-                  <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px]">
-                    سارية
-                  </Badge>
-                </div>
-                <div className="rounded-lg border p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-primary" />
-                    <span>عقد العمل الإلكتروني الموثق (قوى)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px]">
-                      موثق
-                    </Badge>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => openDocumentModal(selectedEmployee, "employment_contract")}
-                      className="h-6 text-xs font-bold text-primary"
-                    >
-                      معاينة العقد
-                    </Button>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* 5-Step Add Employee Wizard Modal */}
+      {/* 3-Step Add Employee Wizard Modal */}
       <Dialog open={isAddWizardOpen} onOpenChange={setIsAddWizardOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
+            <DialogTitle className="text-base font-black flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-primary" />
-              معالج إضافة موظف جديد (Wizard Step {wizardStep} of 3)
+              معالج إضافة موظف جديد (الخطوة {wizardStep} من 3)
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs font-medium">
               استكمال البيانات الشخصية والوظيفية والمالية للموظف
             </DialogDescription>
           </DialogHeader>
 
           {/* Wizard Step 1: Personal */}
           {wizardStep === 1 && (
-            <div className="grid grid-cols-2 gap-3 text-xs py-2">
-              <div className="space-y-1">
+            <div className="grid grid-cols-2 gap-3.5 text-xs py-2">
+              <div className="space-y-1.5">
                 <label className="font-bold">الاسم الأول (بالعربي) *</label>
                 <input
                   type="text"
                   value={newEmp.firstNameAr}
                   onChange={(e) => setNewEmp({ ...newEmp, firstNameAr: e.target.value })}
                   placeholder="مثال: أحمد"
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">اسم العائلة (بالعربي) *</label>
                 <input
                   type="text"
                   value={newEmp.lastNameAr}
                   onChange={(e) => setNewEmp({ ...newEmp, lastNameAr: e.target.value })}
                   placeholder="مثال: السعيد"
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">البريد الإلكتروني *</label>
                 <input
                   type="email"
                   value={newEmp.email}
                   onChange={(e) => setNewEmp({ ...newEmp, email: e.target.value })}
                   placeholder="ahmed@focus-hrms.com"
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">رقم الهوية / الإقامة *</label>
                 <input
                   type="text"
                   value={newEmp.nationalIdOrIqama}
                   onChange={(e) => setNewEmp({ ...newEmp, nationalIdOrIqama: e.target.value })}
                   placeholder="10XXXXXXXX"
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
             </div>
@@ -555,18 +381,18 @@ export const EmployeesView: React.FC = () => {
 
           {/* Wizard Step 2: Job Details */}
           {wizardStep === 2 && (
-            <div className="grid grid-cols-2 gap-3 text-xs py-2">
-              <div className="space-y-1">
+            <div className="grid grid-cols-2 gap-3.5 text-xs py-2">
+              <div className="space-y-1.5">
                 <label className="font-bold">المسمى الوظيفي *</label>
                 <input
                   type="text"
                   value={newEmp.jobTitleAr}
                   onChange={(e) => setNewEmp({ ...newEmp, jobTitleAr: e.target.value })}
                   placeholder="مثال: مهندس برمجيات"
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">القسم / الإدارة</label>
                 <select
                   value={newEmp.departmentId}
@@ -578,7 +404,7 @@ export const EmployeesView: React.FC = () => {
                       departmentName: d?.nameAr || "",
                     });
                   }}
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                   {orgUnits.map((u) => (
                     <option key={u.id} value={u.id}>
@@ -587,7 +413,7 @@ export const EmployeesView: React.FC = () => {
                   ))}
                 </select>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">موقع العمل</label>
                 <select
                   value={newEmp.workLocationId}
@@ -599,7 +425,7 @@ export const EmployeesView: React.FC = () => {
                       workLocationName: l?.nameAr || "",
                     });
                   }}
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                   {workLocations.map((l) => (
                     <option key={l.id} value={l.id}>
@@ -608,13 +434,13 @@ export const EmployeesView: React.FC = () => {
                   ))}
                 </select>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">تاريخ المباشرة</label>
                 <input
                   type="date"
                   value={newEmp.hireDate}
                   onChange={(e) => setNewEmp({ ...newEmp, hireDate: e.target.value })}
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
             </div>
@@ -622,38 +448,38 @@ export const EmployeesView: React.FC = () => {
 
           {/* Wizard Step 3: Salary & Review */}
           {wizardStep === 3 && (
-            <div className="grid grid-cols-2 gap-3 text-xs py-2">
-              <div className="space-y-1">
+            <div className="grid grid-cols-2 gap-3.5 text-xs py-2">
+              <div className="space-y-1.5">
                 <label className="font-bold">الراتب الأساسي (ر.س) *</label>
                 <input
                   type="number"
                   value={newEmp.basicSalary}
                   onChange={(e) => {
                     const b = Number(e.target.value);
-                    setNewEmp({ ...newEmp, basicSalary: b, totalSalary: b * 1.35 });
+                    setNewEmp({ ...newEmp, basicSalary: b, totalSalary: Number((b * 1.35).toFixed(0)) });
                   }}
-                  className="w-full h-8 rounded border px-2.5"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold">إجمالي الراتب التقديري</label>
                 <input
                   type="number"
                   readOnly
                   value={newEmp.totalSalary}
-                  className="w-full h-8 rounded border px-2.5 bg-muted font-bold text-primary"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted px-3 font-mono font-black text-primary"
                 />
               </div>
             </div>
           )}
 
-          <DialogFooter className="flex justify-between items-center w-full mt-3">
+          <DialogFooter className="flex justify-between items-center w-full mt-4">
             {wizardStep > 1 && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setWizardStep((prev) => prev - 1)}
-                className="text-xs"
+                className="rounded-full text-xs font-bold border-border/80 px-4 h-9"
               >
                 السابق
               </Button>
@@ -663,7 +489,7 @@ export const EmployeesView: React.FC = () => {
                 <Button
                   size="sm"
                   onClick={() => setWizardStep((prev) => prev + 1)}
-                  className="text-xs bg-primary"
+                  className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9 shadow-xs"
                 >
                   التالي
                 </Button>
@@ -671,7 +497,7 @@ export const EmployeesView: React.FC = () => {
                 <Button
                   size="sm"
                   onClick={handleCreateEmployee}
-                  className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                  className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 h-9 shadow-xs"
                 >
                   تأكيد وإضافة الموظف
                 </Button>

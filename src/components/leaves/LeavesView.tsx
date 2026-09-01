@@ -39,6 +39,7 @@ export const LeavesView: React.FC = () => {
     addLeaveType,
     adjustLeaveBalance,
     accrueLeaveBalances,
+    openEmployeeProfile,
     currentRole,
     language,
     t,

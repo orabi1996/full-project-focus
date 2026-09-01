@@ -166,6 +166,9 @@ interface AppContextType {
   accountingJournals: AccountingJournalEntry[];
 
   // Mutators & Operations
+  activeEmployeeModalId: string | null;
+  openEmployeeProfile: (employeeOrId: string | Employee) => void;
+  closeEmployeeProfile: () => void;
   addEmployee: (emp: Omit<Employee, "id" | "completionScore">) => void;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
   addOrgUnit: (unit: Omit<OrgUnit, "id" | "employeeCount">) => void;
@@ -319,6 +322,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [notifications, setNotifications] = useState<AppNotification[]>(mockNotifications);
   const [accountingJournals, setAccountingJournals] =
     useState<AccountingJournalEntry[]>(mockAccountingJournals);
+  const [activeEmployeeModalId, setActiveEmployeeModalId] = useState<string | null>(null);
+
+  const openEmployeeProfile = useCallback((employeeOrId: string | Employee) => {
+    const id = typeof employeeOrId === "string" ? employeeOrId : employeeOrId.id;
+    setActiveEmployeeModalId(id);
+  }, []);
+
+  const closeEmployeeProfile = useCallback(() => {
+    setActiveEmployeeModalId(null);
+  }, []);
 
   const refreshCoreData = useCallback(async () => {
     if (!session || isDemo) return;
@@ -1402,6 +1415,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         auditLogs,
         notifications,
         accountingJournals,
+        activeEmployeeModalId,
+        openEmployeeProfile,
+        closeEmployeeProfile,
         addEmployee,
         updateEmployee,
         addOrgUnit,

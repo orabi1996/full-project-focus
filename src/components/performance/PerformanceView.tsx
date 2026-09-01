@@ -36,6 +36,7 @@ export const PerformanceView: React.FC = () => {
     currentRole,
     addEvaluation,
     addPerformanceCycle,
+    openEmployeeProfile,
     language,
     t,
   } = useApp();
@@ -216,7 +217,13 @@ export const PerformanceView: React.FC = () => {
                     >
                       <div className="flex items-start justify-between">
                         <div>
-                          <h4 className="font-black text-foreground block">{ev.employeeName}</h4>
+                          <button
+                            type="button"
+                            onClick={() => openEmployeeProfile(ev.employeeId)}
+                            className="text-start font-black text-foreground block hover:text-primary hover:underline cursor-pointer"
+                          >
+                            {ev.employeeName}
+                          </button>
                           <p className="text-[10px] text-muted-foreground mt-0.5">
                             المقيّم: {ev.evaluatorName} (
                             {ev.evaluationType === "manager" ? "تقييم المدير" : "تقييم الزملاء"})

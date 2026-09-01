@@ -43,6 +43,7 @@ export const WorkflowView: React.FC = () => {
     returnRequest,
     submitRequest,
     addApprovalChain,
+    openEmployeeProfile,
     language,
     t,
   } = useApp();
@@ -207,11 +208,18 @@ export const WorkflowView: React.FC = () => {
                       "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
                     }
                     alt={req.requesterName}
-                    className="h-12 w-12 rounded-2xl border-2 border-primary/20 object-cover shadow-xs"
+                    onClick={() => openEmployeeProfile(req.requesterId)}
+                    className="h-12 w-12 rounded-2xl border-2 border-primary/20 object-cover shadow-xs cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
                   />
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-black text-sm text-foreground">{req.requesterName}</span>
+                      <button
+                        type="button"
+                        onClick={() => openEmployeeProfile(req.requesterId)}
+                        className="font-black text-sm text-foreground hover:text-primary hover:underline cursor-pointer text-start"
+                      >
+                        {req.requesterName}
+                      </button>
                       <Badge variant="secondary" className="text-[10px] rounded-full px-2.5 font-bold">
                         {req.type === "leave"
                           ? "طلب إجازة"

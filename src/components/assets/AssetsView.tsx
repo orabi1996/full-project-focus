@@ -35,6 +35,7 @@ export const AssetsView: React.FC = () => {
     addAsset,
     addCompanyDocument,
     acknowledgeDocument,
+    openEmployeeProfile,
     currentRole,
     language,
     t,
@@ -183,11 +184,15 @@ export const AssetsView: React.FC = () => {
                     <span className="font-bold text-foreground">{ast.serialNumber}</span>
                   </div>
                   {ast.assignedToEmployeeName && (
-                    <div className="flex justify-between font-sans">
+                    <div className="flex justify-between font-sans items-center">
                       <span>المستلم:</span>
-                      <span className="font-bold text-foreground">
+                      <button
+                        type="button"
+                        onClick={() => ast.assignedToEmployeeId && openEmployeeProfile(ast.assignedToEmployeeId)}
+                        className="font-bold text-foreground hover:text-primary hover:underline cursor-pointer"
+                      >
                         {ast.assignedToEmployeeName}
-                      </span>
+                      </button>
                     </div>
                   )}
                 </div>

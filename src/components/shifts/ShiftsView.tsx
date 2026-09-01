@@ -28,7 +28,7 @@ import {
 } from "../ui/dialog";
 
 export const ShiftsView: React.FC = () => {
-  const { shifts, employees, addShift, currentRole, language, t } = useApp();
+  const { shifts, employees, addShift, openEmployeeProfile, currentRole, language, t } = useApp();
   const canManage = canManageModule(currentRole, "shifts");
   const [activeTab, setActiveTab] = useState("definitions");
 
@@ -204,9 +204,15 @@ export const ShiftsView: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {employees.slice(0, 8).map((emp) => (
-                    <tr key={emp.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="py-3 px-4 font-bold text-foreground whitespace-nowrap">
-                        {emp.firstNameAr} {emp.lastNameAr}
+                    <tr key={emp.id} className="hover:bg-muted/20 transition-colors group">
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => openEmployeeProfile(emp)}
+                          className="font-bold text-foreground group-hover:text-primary group-hover:underline cursor-pointer text-start"
+                        >
+                          {emp.firstNameAr} {emp.lastNameAr}
+                        </button>
                       </td>
                       {daysOfWeek.map((_, dIdx) => (
                         <td key={dIdx} className="py-3 px-2 text-center">

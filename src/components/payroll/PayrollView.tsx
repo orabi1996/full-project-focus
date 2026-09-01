@@ -55,6 +55,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
     markPayrollAsPaid,
     createLoan,
     createSettlement,
+    openEmployeeProfile,
     language,
     t,
   } = useApp();
@@ -427,9 +428,15 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                   </thead>
                   <tbody className="divide-y divide-border/60">
                     {selectedRunDetails.map((item) => (
-                      <tr key={item.id} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-3 px-3 font-bold text-foreground">
-                          {item.employeeName}
+                      <tr key={item.id} className="hover:bg-muted/20 transition-colors group">
+                        <td className="py-3 px-3">
+                          <button
+                            type="button"
+                            onClick={() => openEmployeeProfile(item.employeeId)}
+                            className="text-start font-bold text-foreground block group-hover:text-primary group-hover:underline cursor-pointer"
+                          >
+                            {item.employeeName}
+                          </button>
                           <span className="block text-[10px] font-normal text-muted-foreground">
                             {item.departmentName}
                           </span>

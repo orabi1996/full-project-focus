@@ -34,6 +34,7 @@ export const AttendanceView: React.FC = () => {
     punchInOut,
     submitAttendanceCorrection,
     processAttendance,
+    openEmployeeProfile,
     language,
     t,
   } = useApp();
@@ -244,9 +245,15 @@ export const AttendanceView: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-border/60">
               {attendanceRecords.map((rec) => (
-                <tr key={rec.id} className="hover:bg-muted/20 transition-colors">
+                <tr key={rec.id} className="hover:bg-muted/20 transition-colors group">
                   <td className="py-3 px-4">
-                    <span className="font-bold text-foreground block">{rec.employeeName}</span>
+                    <button
+                      type="button"
+                      onClick={() => openEmployeeProfile(rec.employeeId)}
+                      className="text-start font-bold text-foreground block group-hover:text-primary group-hover:underline cursor-pointer"
+                    >
+                      {rec.employeeName}
+                    </button>
                     <span className="text-[10px] text-muted-foreground font-mono">{rec.employeeNo}</span>
                   </td>
                   <td className="py-3 px-4 text-muted-foreground font-semibold">

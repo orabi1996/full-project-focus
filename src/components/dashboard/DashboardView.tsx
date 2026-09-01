@@ -53,6 +53,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     payrollRuns,
     orgUnits,
     punchInOut,
+    openEmployeeProfile,
   } = useApp();
 
   const totalEmployees = employees.length;
@@ -365,11 +366,18 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                         "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
                       }
                       alt={req.requesterName}
-                      className="h-10 w-10 rounded-full border-2 border-primary/20 object-cover shadow-xs"
+                      onClick={() => openEmployeeProfile(req.requesterId)}
+                      className="h-10 w-10 rounded-full border-2 border-primary/20 object-cover shadow-xs cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
                     />
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-foreground">{req.requesterName}</span>
+                        <button
+                          type="button"
+                          onClick={() => openEmployeeProfile(req.requesterId)}
+                          className="font-bold text-foreground hover:text-primary hover:underline cursor-pointer text-start"
+                        >
+                          {req.requesterName}
+                        </button>
                         <Badge variant="secondary" className="text-[10px] rounded-full px-2 font-bold">
                           {req.type === "leave"
                             ? "إجازة"

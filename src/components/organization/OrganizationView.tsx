@@ -44,6 +44,7 @@ export const OrganizationView: React.FC = () => {
     addOrgUnit,
     addSubsidiary,
     addWorkLocation,
+    openEmployeeProfile,
     currentRole,
     language,
     t,
@@ -404,9 +405,10 @@ export const OrganizationView: React.FC = () => {
                           .map((employee) => (
                             <div
                               key={employee.id}
-                              className="flex items-center justify-between rounded-xl bg-muted/30 px-2.5 py-1.5 text-[11px]"
+                              onClick={() => openEmployeeProfile(employee)}
+                              className="flex items-center justify-between rounded-xl bg-muted/30 hover:bg-secondary/50 px-2.5 py-1.5 text-[11px] cursor-pointer transition-colors group"
                             >
-                              <span className="font-bold text-foreground">
+                              <span className="font-bold text-foreground group-hover:text-primary group-hover:underline">
                                 {employee.firstNameAr} {employee.lastNameAr}
                               </span>
                               <span className="text-muted-foreground text-[10px]">{employee.jobTitleAr}</span>

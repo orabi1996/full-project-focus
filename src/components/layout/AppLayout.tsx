@@ -3,6 +3,7 @@ import { useApp } from "../../lib/context/AppContext";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 import { CommandPalette } from "./CommandPalette";
+import { EmployeeProfileModal } from "../employees/EmployeeProfileModal";
 import { canAccessModule } from "../../lib/auth/permissions";
 
 const DashboardView = lazy(() =>
@@ -182,6 +183,9 @@ export const AppLayout: React.FC = () => {
         onOpenChange={setIsCommandPaletteOpen}
         onNavigate={selectTab}
       />
+
+      {/* Global 360 Employee Profile & Edit Modal */}
+      <EmployeeProfileModal />
 
       {/* Sidebar */}
       <AppSidebar

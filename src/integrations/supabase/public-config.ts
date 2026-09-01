@@ -6,7 +6,6 @@
  * precedence so staging or self-hosted deployments can point at another project.
  * Never add the service-role key to this file.
  */
-export const DEFAULT_SUPABASE_URL = "https://wzkesgtjfoqkbayiuwdh.supabase.co";
+export const DEFAULT_SUPABASE_URL = "https://rzsybirgoxwrxsnnowvx.supabase.co";
 
-export const DEFAULT_SUPABASE_PUBLISHABLE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6a2VzZ3RqZm9xa2JheWl1d2RoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxNjA2ODgsImV4cCI6MjEwMzczNjY4OH0.boU26BYpO068aTs7b5UqRl_kl-jMGr1BzoInzVMQVoc";
+export const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_RxvBYtaVZGEeULOQzMFQ2w_3zUcrf6_";

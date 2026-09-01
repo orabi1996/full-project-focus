@@ -21,10 +21,14 @@ export type Database = {
           created_at: string
           employee_id: string
           id: string
+          is_manual: boolean
+          late_minutes: number | null
           note: string | null
+          overtime_minutes: number | null
           status: Database["public"]["Enums"]["attendance_status"]
           work_date: string
           worked_hours: number
+          worked_minutes: number | null
         }
         Insert: {
           check_in?: string | null
@@ -32,10 +36,14 @@ export type Database = {
           created_at?: string
           employee_id: string
           id?: string
+          is_manual?: boolean
+          late_minutes?: number | null
           note?: string | null
+          overtime_minutes?: number | null
           status?: Database["public"]["Enums"]["attendance_status"]
           work_date: string
           worked_hours?: number
+          worked_minutes?: number | null
         }
         Update: {
           check_in?: string | null
@@ -43,10 +51,14 @@ export type Database = {
           created_at?: string
           employee_id?: string
           id?: string
+          is_manual?: boolean
+          late_minutes?: number | null
           note?: string | null
+          overtime_minutes?: number | null
           status?: Database["public"]["Enums"]["attendance_status"]
           work_date?: string
           worked_hours?: number
+          worked_minutes?: number | null
         }
         Relationships: [
           {
@@ -61,36 +73,51 @@ export type Database = {
       audit_events: {
         Row: {
           action: string
+          action_type: string | null
           actor_id: string | null
           actor_name: string | null
           actor_role: string | null
+          actor_user_id: string | null
           changes_summary: string | null
           created_at: string
           entity_id: string
           entity_type: string
           id: string
+          ip_address: string | null
+          severity: string | null
+          user_agent: string | null
         }
         Insert: {
           action: string
+          action_type?: string | null
           actor_id?: string | null
           actor_name?: string | null
           actor_role?: string | null
+          actor_user_id?: string | null
           changes_summary?: string | null
           created_at?: string
           entity_id: string
           entity_type: string
           id?: string
+          ip_address?: string | null
+          severity?: string | null
+          user_agent?: string | null
         }
         Update: {
           action?: string
+          action_type?: string | null
           actor_id?: string | null
           actor_name?: string | null
           actor_role?: string | null
+          actor_user_id?: string | null
           changes_summary?: string | null
           created_at?: string
           entity_id?: string
           entity_type?: string
           id?: string
+          ip_address?: string | null
+          severity?: string | null
+          user_agent?: string | null
         }
         Relationships: []
       }
@@ -99,9 +126,11 @@ export type Database = {
           created_at: string
           email: string
           full_name: string
+          full_name_ar: string | null
           id: string
           job_id: string | null
           phone: string | null
+          rating: number | null
           rating_score: number | null
           source: string | null
           stage: string
@@ -110,9 +139,11 @@ export type Database = {
           created_at?: string
           email: string
           full_name: string
+          full_name_ar?: string | null
           id?: string
           job_id?: string | null
           phone?: string | null
+          rating?: number | null
           rating_score?: number | null
           source?: string | null
           stage?: string
@@ -121,9 +152,11 @@ export type Database = {
           created_at?: string
           email?: string
           full_name?: string
+          full_name_ar?: string | null
           id?: string
           job_id?: string | null
           phone?: string | null
+          rating?: number | null
           rating_score?: number | null
           source?: string | null
           stage?: string
@@ -140,67 +173,96 @@ export type Database = {
       }
       companies: {
         Row: {
+          code: string | null
           cr_number: string | null
           created_at: string
           currency: string
           headquarters_address: string | null
           id: string
+          legal_name: string | null
           legal_name_ar: string
           legal_name_en: string
+          name: string | null
+          subsidiary_id: string | null
           tax_number: string | null
           timezone: string
         }
         Insert: {
+          code?: string | null
           cr_number?: string | null
           created_at?: string
           currency?: string
           headquarters_address?: string | null
           id?: string
+          legal_name?: string | null
           legal_name_ar: string
           legal_name_en: string
+          name?: string | null
+          subsidiary_id?: string | null
           tax_number?: string | null
           timezone?: string
         }
         Update: {
+          code?: string | null
           cr_number?: string | null
           created_at?: string
           currency?: string
           headquarters_address?: string | null
           id?: string
+          legal_name?: string | null
           legal_name_ar?: string
           legal_name_en?: string
+          name?: string | null
+          subsidiary_id?: string | null
           tax_number?: string | null
           timezone?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "companies_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_documents: {
         Row: {
           acknowledged_count: number
+          body_ar: string | null
           category: string
           created_at: string
           file_url: string
           id: string
+          requires_ack: boolean | null
+          title: string | null
           title_ar: string
           title_en: string
           version: string
         }
         Insert: {
           acknowledged_count?: number
+          body_ar?: string | null
           category: string
           created_at?: string
           file_url: string
           id?: string
+          requires_ack?: boolean | null
+          title?: string | null
           title_ar: string
           title_en: string
           version?: string
         }
         Update: {
           acknowledged_count?: number
+          body_ar?: string | null
           category?: string
           created_at?: string
           file_url?: string
           id?: string
+          requires_ack?: boolean | null
+          title?: string | null
           title_ar?: string
           title_en?: string
           version?: string
@@ -231,7 +293,9 @@ export type Database = {
       employees: {
         Row: {
           basic_salary: number
+          company_id: string | null
           created_at: string
+          created_by: string | null
           department_id: string | null
           email: string | null
           employee_no: string
@@ -239,13 +303,20 @@ export type Database = {
           hire_date: string
           id: string
           job_title: string
+          manager_id: string | null
+          payroll_group_id: string | null
           phone: string | null
+          position_title: string | null
           status: Database["public"]["Enums"]["employee_status"]
+          updated_at: string | null
           user_id: string | null
+          work_location_id: string | null
         }
         Insert: {
           basic_salary?: number
+          company_id?: string | null
           created_at?: string
+          created_by?: string | null
           department_id?: string | null
           email?: string | null
           employee_no: string
@@ -253,13 +324,20 @@ export type Database = {
           hire_date?: string
           id?: string
           job_title?: string
+          manager_id?: string | null
+          payroll_group_id?: string | null
           phone?: string | null
+          position_title?: string | null
           status?: Database["public"]["Enums"]["employee_status"]
+          updated_at?: string | null
           user_id?: string | null
+          work_location_id?: string | null
         }
         Update: {
           basic_salary?: number
+          company_id?: string | null
           created_at?: string
+          created_by?: string | null
           department_id?: string | null
           email?: string | null
           employee_no?: string
@@ -267,16 +345,49 @@ export type Database = {
           hire_date?: string
           id?: string
           job_title?: string
+          manager_id?: string | null
+          payroll_group_id?: string | null
           phone?: string | null
+          position_title?: string | null
           status?: Database["public"]["Enums"]["employee_status"]
+          updated_at?: string | null
           user_id?: string | null
+          work_location_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "employees_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "employees_department_id_fkey"
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_payroll_group_id_fkey"
+            columns: ["payroll_group_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_work_location_id_fkey"
+            columns: ["work_location_id"]
+            isOneToOne: false
+            referencedRelation: "work_locations"
             referencedColumns: ["id"]
           },
         ]
@@ -315,39 +426,69 @@ export type Database = {
         Row: {
           amount: number
           category_id: string | null
+          claim_no: string | null
           created_at: string
           currency: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
           description: string | null
           employee_id: string | null
+          expense_date: string | null
           id: string
+          merchant: string | null
           merchant_name: string
+          notes: string | null
+          policy_category_id: string | null
+          receipt_attached: boolean | null
           receipt_url: string | null
+          report_no: string | null
           spent_at: string
           status: string
         }
         Insert: {
           amount: number
           category_id?: string | null
+          claim_no?: string | null
           created_at?: string
           currency?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
           description?: string | null
           employee_id?: string | null
+          expense_date?: string | null
           id?: string
+          merchant?: string | null
           merchant_name: string
+          notes?: string | null
+          policy_category_id?: string | null
+          receipt_attached?: boolean | null
           receipt_url?: string | null
+          report_no?: string | null
           spent_at: string
           status?: string
         }
         Update: {
           amount?: number
           category_id?: string | null
+          claim_no?: string | null
           created_at?: string
           currency?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
           description?: string | null
           employee_id?: string | null
+          expense_date?: string | null
           id?: string
+          merchant?: string | null
           merchant_name?: string
+          notes?: string | null
+          policy_category_id?: string | null
+          receipt_attached?: boolean | null
           receipt_url?: string | null
+          report_no?: string | null
           spent_at?: string
           status?: string
         }
@@ -371,10 +512,12 @@ export type Database = {
       hardware_assets: {
         Row: {
           asset_tag: string
+          assigned_to: string | null
           assigned_to_employee_id: string | null
           category: string
           created_at: string
           id: string
+          name: string | null
           name_ar: string
           name_en: string
           serial_number: string
@@ -382,10 +525,12 @@ export type Database = {
         }
         Insert: {
           asset_tag: string
+          assigned_to?: string | null
           assigned_to_employee_id?: string | null
           category: string
           created_at?: string
           id?: string
+          name?: string | null
           name_ar: string
           name_en: string
           serial_number: string
@@ -393,10 +538,12 @@ export type Database = {
         }
         Update: {
           asset_tag?: string
+          assigned_to?: string | null
           assigned_to_employee_id?: string | null
           category?: string
           created_at?: string
           id?: string
+          name?: string | null
           name_ar?: string
           name_en?: string
           serial_number?: string
@@ -410,45 +557,70 @@ export type Database = {
             referencedRelation: "employees"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hardware_assets_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
         ]
       }
       job_openings: {
         Row: {
           created_at: string
           department_id: string | null
+          description: string | null
           description_ar: string | null
+          employment_type: string | null
           filled_count: number
+          headcount: number | null
           id: string
+          location_id: string | null
           openings_count: number
           published_status: string
           salary_max: number | null
           salary_min: number | null
+          status: string | null
+          title: string | null
           title_ar: string
           title_en: string
         }
         Insert: {
           created_at?: string
           department_id?: string | null
+          description?: string | null
           description_ar?: string | null
+          employment_type?: string | null
           filled_count?: number
+          headcount?: number | null
           id?: string
+          location_id?: string | null
           openings_count?: number
           published_status?: string
           salary_max?: number | null
           salary_min?: number | null
+          status?: string | null
+          title?: string | null
           title_ar: string
           title_en: string
         }
         Update: {
           created_at?: string
           department_id?: string | null
+          description?: string | null
           description_ar?: string | null
+          employment_type?: string | null
           filled_count?: number
+          headcount?: number | null
           id?: string
+          location_id?: string | null
           openings_count?: number
           published_status?: string
           salary_max?: number | null
           salary_min?: number | null
+          status?: string | null
+          title?: string | null
           title_ar?: string
           title_en?: string
         }
@@ -460,12 +632,20 @@ export type Database = {
             referencedRelation: "departments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "job_openings_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "work_locations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       leave_balances: {
         Row: {
           accrued_days: number
           annual_entitlement: number
+          balance: number | null
           carried_over_days: number
           employee_id: string | null
           id: string
@@ -473,10 +653,12 @@ export type Database = {
           reserved_days: number
           updated_at: string
           used_days: number
+          year: number | null
         }
         Insert: {
           accrued_days?: number
           annual_entitlement?: number
+          balance?: number | null
           carried_over_days?: number
           employee_id?: string | null
           id?: string
@@ -484,10 +666,12 @@ export type Database = {
           reserved_days?: number
           updated_at?: string
           used_days?: number
+          year?: number | null
         }
         Update: {
           accrued_days?: number
           annual_entitlement?: number
+          balance?: number | null
           carried_over_days?: number
           employee_id?: string | null
           id?: string
@@ -495,6 +679,7 @@ export type Database = {
           reserved_days?: number
           updated_at?: string
           used_days?: number
+          year?: number | null
         }
         Relationships: [
           {
@@ -522,10 +707,15 @@ export type Database = {
           created_at: string
           deduct_working_days_only: boolean | null
           id: string
+          is_active: boolean | null
           is_paid: boolean | null
+          max_days: number | null
           max_days_per_year: number | null
+          name: string | null
           name_ar: string
           name_en: string
+          requires_attachment: boolean | null
+          sort_order: number | null
           status: string | null
         }
         Insert: {
@@ -536,10 +726,15 @@ export type Database = {
           created_at?: string
           deduct_working_days_only?: boolean | null
           id?: string
+          is_active?: boolean | null
           is_paid?: boolean | null
+          max_days?: number | null
           max_days_per_year?: number | null
+          name?: string | null
           name_ar: string
           name_en: string
+          requires_attachment?: boolean | null
+          sort_order?: number | null
           status?: string | null
         }
         Update: {
@@ -550,50 +745,88 @@ export type Database = {
           created_at?: string
           deduct_working_days_only?: boolean | null
           id?: string
+          is_active?: boolean | null
           is_paid?: boolean | null
+          max_days?: number | null
           max_days_per_year?: number | null
+          name?: string | null
           name_ar?: string
           name_en?: string
+          requires_attachment?: boolean | null
+          sort_order?: number | null
           status?: string | null
         }
         Relationships: []
       }
       loans: {
         Row: {
+          approved_amount: number | null
+          approved_by: string | null
           created_at: string
+          decided_at: string | null
+          decision_note: string | null
           employee_id: string | null
           id: string
+          installment_amount: number | null
+          installments_paid: number
+          installments_total: number | null
           loan_type: string
           monthly_installment: number
+          outstanding_amount: number | null
           paid_installments: number
           principal_amount: number
+          reason: string | null
           remaining_balance: number
+          requested_at: string | null
           status: string
           total_installments: number
+          total_paid: number
         }
         Insert: {
+          approved_amount?: number | null
+          approved_by?: string | null
           created_at?: string
+          decided_at?: string | null
+          decision_note?: string | null
           employee_id?: string | null
           id?: string
+          installment_amount?: number | null
+          installments_paid?: number
+          installments_total?: number | null
           loan_type?: string
           monthly_installment: number
+          outstanding_amount?: number | null
           paid_installments?: number
           principal_amount: number
+          reason?: string | null
           remaining_balance: number
+          requested_at?: string | null
           status?: string
           total_installments: number
+          total_paid?: number
         }
         Update: {
+          approved_amount?: number | null
+          approved_by?: string | null
           created_at?: string
+          decided_at?: string | null
+          decision_note?: string | null
           employee_id?: string | null
           id?: string
+          installment_amount?: number | null
+          installments_paid?: number
+          installments_total?: number | null
           loan_type?: string
           monthly_installment?: number
+          outstanding_amount?: number | null
           paid_installments?: number
           principal_amount?: number
+          reason?: string | null
           remaining_balance?: number
+          requested_at?: string | null
           status?: string
           total_installments?: number
+          total_paid?: number
         }
         Relationships: [
           {
@@ -607,33 +840,45 @@ export type Database = {
       }
       notifications_inbox: {
         Row: {
+          body_ar: string | null
+          body_en: string | null
           created_at: string
           id: string
           is_read: boolean
+          link_path: string | null
           message_ar: string
           message_en: string
+          read_at: string | null
           recipient_id: string | null
           title_ar: string
           title_en: string
           type: string
         }
         Insert: {
+          body_ar?: string | null
+          body_en?: string | null
           created_at?: string
           id?: string
           is_read?: boolean
+          link_path?: string | null
           message_ar: string
           message_en: string
+          read_at?: string | null
           recipient_id?: string | null
           title_ar: string
           title_en: string
           type?: string
         }
         Update: {
+          body_ar?: string | null
+          body_en?: string | null
           created_at?: string
           id?: string
           is_read?: boolean
+          link_path?: string | null
           message_ar?: string
           message_en?: string
+          read_at?: string | null
           recipient_id?: string | null
           title_ar?: string
           title_en?: string
@@ -769,6 +1014,7 @@ export type Database = {
           punch_time: string
           punch_type: string
           source: string
+          work_location_id: string | null
         }
         Insert: {
           created_at?: string
@@ -781,6 +1027,7 @@ export type Database = {
           punch_time: string
           punch_type?: string
           source?: string
+          work_location_id?: string | null
         }
         Update: {
           created_at?: string
@@ -793,6 +1040,7 @@ export type Database = {
           punch_time?: string
           punch_type?: string
           source?: string
+          work_location_id?: string | null
         }
         Relationships: [
           {
@@ -800,6 +1048,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "punches_work_location_id_fkey"
+            columns: ["work_location_id"]
+            isOneToOne: false
+            referencedRelation: "work_locations"
             referencedColumns: ["id"]
           },
         ]

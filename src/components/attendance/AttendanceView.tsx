@@ -163,15 +163,26 @@ export const AttendanceView: React.FC = () => {
             {t.attendance.dailySummary} •{" "}
             {new Date().toLocaleDateString(language === "ar" ? "ar-SA" : "en-US")}
           </h2>
-          <Button
-            onClick={handleExportAttendance}
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs font-bold gap-1"
-          >
-            <Download className="h-3.5 w-3.5" />
-            {t.export} كشف الحضور (Excel)
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleProcessAttendance}
+              variant="secondary"
+              size="sm"
+              className="h-8 text-xs font-bold gap-1"
+            >
+              <Compass className="h-3.5 w-3.5" />
+              معالجة البصمات (احتساب الساعات والتأخير)
+            </Button>
+            <Button
+              onClick={handleExportAttendance}
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs font-bold gap-1"
+            >
+              <Download className="h-3.5 w-3.5" />
+              {t.export} كشف الحضور (Excel)
+            </Button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">

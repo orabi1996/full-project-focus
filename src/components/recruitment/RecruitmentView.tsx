@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useApp } from '../../lib/context/AppContext';
-import type { CandidateStage } from '../../types';
+import React, { useEffect, useState } from "react";
+import { useApp } from "../../lib/context/AppContext";
+import type { Candidate, CandidateStage } from "../../types";
 import {
   UserPlus,
   Briefcase,
@@ -17,10 +17,10 @@ import {
   Eye,
   Award,
   Globe,
-} from 'lucide-react';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+} from "lucide-react";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -28,22 +28,31 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '../ui/dialog';
+} from "../ui/dialog";
 
-export const RecruitmentView: React.FC = () => {
+interface RecruitmentViewProps {
+  section?: "ats" | "workforce";
+}
+
+export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats" }) => {
   const {
     jobOpenings,
     candidates,
     workforcePlans,
     orgUnits,
+    workLocations,
+    currentRole,
+    addJobOpening,
+    addCandidate,
+    updateCandidateScore,
     moveCandidateStage,
     sendJobOffer,
     language,
     t,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState('pipeline');
-  const [selectedCandidate, setSelectedCandidate] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState(section === "ats" ? "pipeline" : "workforce");
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
@@ -51,101 +60,113 @@ export const RecruitmentView: React.FC = () => {
 
   // New Job Opening State
   const [newJob, setNewJob] = useState({
-    titleAr: '',
-    titleEn: '',
-    departmentId: orgUnits[0]?.id || '',
+    titleAr: "",
+    titleEn: "",
+    departmentId: orgUnits[0]?.id || "",
     openingsCount: 1,
     salaryMin: 12000,
     salaryMax: 18000,
-    descriptionAr: '',
+    descriptionAr: "",
   });
 
   // Apply State
   const [applyingJob, setApplyingJob] = useState(jobOpenings[0]);
-  const [applicantName, setApplicantName] = useState('');
-  const [applicantEmail, setApplicantEmail] = useState('');
-  const [applicantPhone, setApplicantPhone] = useState('');
+  const [applicantName, setApplicantName] = useState("");
+  const [applicantEmail, setApplicantEmail] = useState("");
+  const [applicantPhone, setApplicantPhone] = useState("");
 
   // Offer State
   const [offerBasic, setOfferBasic] = useState(16000);
   const [offerHousing, setOfferHousing] = useState(4000);
   const [offerTransport, setOfferTransport] = useState(1000);
-  const [offerStartDate, setOfferStartDate] = useState('2026-10-01');
+  const [offerStartDate, setOfferStartDate] = useState("2026-10-01");
 
   // Scorecard State
   const [techRating, setTechRating] = useState(5);
   const [commRating, setCommRating] = useState(4);
-  const [evalNotes, setEvalNotes] = useState('');
+  const [evalNotes, setEvalNotes] = useState("");
+
+  const canManageRecruitment = ["super_admin", "hr_manager", "recruiter"].includes(currentRole);
+
+  useEffect(() => {
+    setActiveTab(section === "ats" ? "pipeline" : "workforce");
+  }, [section]);
 
   const stages: { key: CandidateStage; labelAr: string; color: string }[] = [
-    { key: 'applied', labelAr: 'مقدم جديد', color: 'border-blue-300' },
-    { key: 'screening', labelAr: 'الفرز والتدقيق', color: 'border-amber-300' },
-    { key: 'interview', labelAr: 'المقابلة الشخصية', color: 'border-purple-300' },
-    { key: 'assessment', labelAr: 'التقييم الفني', color: 'border-indigo-300' },
-    { key: 'job_offer', labelAr: 'العرض الوظيفي', color: 'border-emerald-300' },
-    { key: 'hired', labelAr: 'تم التعيين', color: 'border-emerald-600' },
+    { key: "applied", labelAr: "مقدم جديد", color: "border-blue-300" },
+    { key: "screening", labelAr: "الفرز والتدقيق", color: "border-amber-300" },
+    { key: "interview", labelAr: "المقابلة الشخصية", color: "border-purple-300" },
+    { key: "assessment", labelAr: "التقييم الفني", color: "border-indigo-300" },
+    { key: "job_offer", labelAr: "العرض الوظيفي", color: "border-emerald-300" },
+    { key: "hired", labelAr: "تم التعيين", color: "border-emerald-600" },
   ];
 
   const handleCreateJob = () => {
     if (!newJob.titleAr) {
-      alert('يرجى كتابة المسمى الوظيفي');
+      alert("يرجى كتابة المسمى الوظيفي");
       return;
     }
-    const dept = orgUnits.find(u => u.id === newJob.departmentId);
-    jobOpenings.push({
-      id: `job-${Date.now()}`,
+    const dept = orgUnits.find((u) => u.id === newJob.departmentId);
+    addJobOpening({
       titleAr: newJob.titleAr,
       titleEn: newJob.titleEn || newJob.titleAr,
       departmentId: newJob.departmentId,
-      departmentName: dept?.nameAr || 'التقنية',
-      locationId: 'loc-1',
-      locationName: 'المقر الرئيسي (الرياض)',
-      employmentType: 'full_time',
-      requirementsAr: 'حسب متطلبات الوظيفة',
-      requirementsEn: 'As per job requirements',
+      departmentName: dept?.nameAr || "التقنية",
+      locationId: workLocations[0]?.id || "",
+      locationName: workLocations[0]?.nameAr || "غير محدد",
+      employmentType: "full_time",
+      requirementsAr: "حسب متطلبات الوظيفة",
+      requirementsEn: "As per job requirements",
       openingsCount: newJob.openingsCount,
       filledCount: 0,
       salaryMin: newJob.salaryMin,
       salaryMax: newJob.salaryMax,
-      descriptionAr: newJob.descriptionAr || 'وظيفة جديدة معتمدة في خطة التوظيف',
-      descriptionEn: 'Job Opening',
-      publishedStatus: 'published',
-      publishedAt: new Date().toISOString().split('T')[0],
+      descriptionAr: newJob.descriptionAr || "وظيفة جديدة معتمدة في خطة التوظيف",
+      descriptionEn: "Job Opening",
+      publishedStatus: "published",
+      publishedAt: new Date().toISOString().split("T")[0],
     });
-    alert('تم نشر الوظيفة الشاغرة بنجاح في بوابة التوظيف!');
+    alert("تم نشر الوظيفة الشاغرة بنجاح في بوابة التوظيف!");
     setIsAddJobOpen(false);
-    setNewJob({ titleAr: '', titleEn: '', departmentId: orgUnits[0]?.id || '', openingsCount: 1, salaryMin: 12000, salaryMax: 18000, descriptionAr: '' });
+    setNewJob({
+      titleAr: "",
+      titleEn: "",
+      departmentId: orgUnits[0]?.id || "",
+      openingsCount: 1,
+      salaryMin: 12000,
+      salaryMax: 18000,
+      descriptionAr: "",
+    });
   };
 
   const handleApplyForJob = () => {
     if (!applicantName || !applicantEmail) {
-      alert('يرجى استكمال الاسم والبريد الإلكتروني');
+      alert("يرجى استكمال الاسم والبريد الإلكتروني");
       return;
     }
-    candidates.unshift({
-      id: `cand-${Date.now()}`,
-      jobId: applyingJob?.id || 'job-1',
-      jobTitle: applyingJob?.titleAr || 'مهندس برمجيات',
+    addCandidate({
+      jobId: applyingJob?.id || "job-1",
+      jobTitle: applyingJob?.titleAr || "مهندس برمجيات",
       fullName: applicantName,
       email: applicantEmail,
-      phone: applicantPhone || '0550001234',
-      stage: 'applied',
+      phone: applicantPhone || "0550001234",
+      stage: "applied",
       ratingScore: 5.0,
-      appliedDate: new Date().toISOString().split('T')[0],
-      source: 'website',
+      appliedDate: new Date().toISOString().split("T")[0],
+      source: "website",
       notesCount: 0,
-      cvUrl: 'https://cdn.focus-hrms.com/resumes/applicant.pdf',
+      cvUrl: "https://cdn.focus-hrms.com/resumes/applicant.pdf",
     });
     alert(`تم استلام طلب التقديم لـ (${applicantName}) ونقله فورياً لمرحلة الفرز في الـ ATS!`);
     setIsApplyModalOpen(false);
-    setApplicantName('');
-    setApplicantEmail('');
+    setApplicantName("");
+    setApplicantEmail("");
   };
 
   const handleSaveScorecard = () => {
     if (!selectedCandidate) return;
     const avg = Number(((techRating + commRating) / 2).toFixed(1));
-    selectedCandidate.ratingScore = avg;
+    updateCandidateScore(selectedCandidate.id, avg);
     alert(`تم حفظ بطاقة تقييم المرشح بنجاح! النتيجة: ${avg} / 5.0`);
     setIsScorecardOpen(false);
   };
@@ -172,51 +193,66 @@ export const RecruitmentView: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <UserPlus className="h-5 w-5 text-primary" />
-            {t.recruitment.candidatesPipeline} وتخطيط القوى العاملة (M14 & M15)
+            {section === "ats"
+              ? `${t.recruitment.candidatesPipeline} والتوظيف`
+              : "تخطيط القوى العاملة والميزانيات"}
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            تتبع المتقدمين (ATS Kanban Pipeline)، الوظائف الشاغرة، العروض الوظيفية ونمذجة الميزانيات
+            {section === "ats"
+              ? "تتبع المتقدمين، الوظائف الشاغرة، بطاقات التقييم والعروض الوظيفية"
+              : "مقارنة العدد الحالي بالمستهدف ونمذجة تكلفة خطط التعيين والإحلال"}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setIsAddJobOpen(true)} size="sm" className="font-bold text-xs gap-1.5 bg-primary">
-            <Plus className="h-4 w-4" />
-            نشر وظيفة شاغرة
-          </Button>
-          <Button
-            onClick={() => {
-              setApplyingJob(jobOpenings[0]);
-              setIsApplyModalOpen(true);
-            }}
-            variant="outline"
-            size="sm"
-            className="font-bold text-xs gap-1.5"
-          >
-            <Globe className="h-4 w-4 text-emerald-600" />
-            بوابة التوظيف (محاكاة تقديم مرشح)
-          </Button>
-        </div>
+        {section === "ats" && canManageRecruitment && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => setIsAddJobOpen(true)}
+              size="sm"
+              className="font-bold text-xs gap-1.5 bg-primary"
+            >
+              <Plus className="h-4 w-4" />
+              نشر وظيفة شاغرة
+            </Button>
+            <Button
+              onClick={() => {
+                setApplyingJob(jobOpenings[0]);
+                setIsApplyModalOpen(true);
+              }}
+              variant="outline"
+              size="sm"
+              className="font-bold text-xs gap-1.5"
+            >
+              <Globe className="h-4 w-4 text-emerald-600" />
+              بوابة التوظيف (محاكاة تقديم مرشح)
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-3 max-w-md">
-          <TabsTrigger value="pipeline" className="text-xs font-bold">
-            لوحة المرشحين (Kanban) ({candidates.length})
-          </TabsTrigger>
-          <TabsTrigger value="jobs" className="text-xs font-bold">
-            الوظائف الشاغرة ({jobOpenings.length})
-          </TabsTrigger>
-          <TabsTrigger value="workforce" className="text-xs font-bold">
-            تخطيط الميزانيات ({workforcePlans.length})
-          </TabsTrigger>
+        <TabsList className={`grid max-w-md ${section === "ats" ? "grid-cols-2" : "grid-cols-1"}`}>
+          {section === "ats" ? (
+            <>
+              <TabsTrigger value="pipeline" className="text-xs font-bold">
+                لوحة المرشحين (Kanban) ({candidates.length})
+              </TabsTrigger>
+              <TabsTrigger value="jobs" className="text-xs font-bold">
+                الوظائف الشاغرة ({jobOpenings.length})
+              </TabsTrigger>
+            </>
+          ) : (
+            <TabsTrigger value="workforce" className="text-xs font-bold">
+              تخطيط الميزانيات ({workforcePlans.length})
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Tab 1: Interactive ATS Kanban Pipeline */}
         <TabsContent value="pipeline" className="pt-4">
           <div className="flex gap-3 overflow-x-auto pb-4">
-            {stages.map(stage => {
-              const stageCandidates = candidates.filter(c => c.stage === stage.key);
+            {stages.map((stage) => {
+              const stageCandidates = candidates.filter((c) => c.stage === stage.key);
               return (
                 <div
                   key={stage.key}
@@ -230,7 +266,7 @@ export const RecruitmentView: React.FC = () => {
                   </div>
 
                   <div className="space-y-2.5 min-h-[350px]">
-                    {stageCandidates.map(cand => (
+                    {stageCandidates.map((cand) => (
                       <div
                         key={cand.id}
                         className="rounded-lg border bg-muted/20 p-3 text-xs space-y-2 shadow-xs hover:border-primary/50 transition-colors"
@@ -245,7 +281,8 @@ export const RecruitmentView: React.FC = () => {
                               setSelectedCandidate(cand);
                               setIsScorecardOpen(true);
                             }}
-                            className="flex items-center gap-0.5 text-amber-500 font-bold text-[10px] hover:underline"
+                            disabled={!canManageRecruitment}
+                            className="flex items-center gap-0.5 text-amber-500 font-bold text-[10px] hover:underline disabled:cursor-default disabled:no-underline"
                           >
                             <Star className="h-3 w-3 fill-current" />
                             {cand.ratingScore}
@@ -258,51 +295,56 @@ export const RecruitmentView: React.FC = () => {
                         </div>
 
                         {/* Stage Progression Buttons */}
-                        <div className="flex items-center justify-between pt-2 border-t gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setSelectedCandidate(cand);
-                              setIsScorecardOpen(true);
-                            }}
-                            className="h-6 text-[10px] px-1.5"
-                          >
-                            <Award className="h-3 w-3 text-primary" />
-                            تقييم
-                          </Button>
-
-                          {stage.key !== 'job_offer' && stage.key !== 'hired' ? (
+                        {canManageRecruitment && (
+                          <div className="flex items-center justify-between pt-2 border-t gap-1">
                             <Button
                               size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                const currentIndex = stages.findIndex(s => s.key === stage.key);
-                                if (currentIndex < stages.length - 1) {
-                                  moveCandidateStage(cand.id, stages[currentIndex + 1].key);
-                                }
-                              }}
-                              className="h-6 text-[10px] text-primary font-bold px-2"
-                            >
-                              ترقية →
-                            </Button>
-                          ) : stage.key === 'job_offer' ? (
-                            <Button
-                              size="sm"
+                              variant="ghost"
                               onClick={() => {
                                 setSelectedCandidate(cand);
-                                setIsOfferModalOpen(true);
+                                setIsScorecardOpen(true);
                               }}
-                              className="h-6 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2"
+                              className="h-6 text-[10px] px-1.5"
                             >
-                              إصدار عرض
+                              <Award className="h-3 w-3 text-primary" />
+                              تقييم
                             </Button>
-                          ) : (
-                            <Badge variant="outline" className="text-[9px] text-emerald-700 bg-emerald-50">
-                              تم التعيين
-                            </Badge>
-                          )}
-                        </div>
+
+                            {stage.key !== "job_offer" && stage.key !== "hired" ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  const currentIndex = stages.findIndex((s) => s.key === stage.key);
+                                  if (currentIndex < stages.length - 1) {
+                                    moveCandidateStage(cand.id, stages[currentIndex + 1].key);
+                                  }
+                                }}
+                                className="h-6 text-[10px] text-primary font-bold px-2"
+                              >
+                                ترقية →
+                              </Button>
+                            ) : stage.key === "job_offer" ? (
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedCandidate(cand);
+                                  setIsOfferModalOpen(true);
+                                }}
+                                className="h-6 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2"
+                              >
+                                إصدار عرض
+                              </Button>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] text-emerald-700 bg-emerald-50"
+                              >
+                                تم التعيين
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -315,12 +357,14 @@ export const RecruitmentView: React.FC = () => {
         {/* Tab 2: Job Openings */}
         <TabsContent value="jobs" className="space-y-4 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {jobOpenings.map(job => (
+            {jobOpenings.map((job) => (
               <div key={job.id} className="rounded-xl border bg-card p-5 shadow-sm space-y-3">
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-bold text-sm text-foreground">{job.titleAr}</h3>
-                    <p className="text-xs text-muted-foreground">{job.departmentName} • {job.locationName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {job.departmentName} • {job.locationName}
+                    </p>
                   </div>
                   <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px]">
                     منشورة للتقديم
@@ -330,7 +374,8 @@ export const RecruitmentView: React.FC = () => {
                 <div className="border-t pt-2 flex justify-between text-xs font-semibold text-muted-foreground">
                   <span>الشواغر المطلوبة: {job.openingsCount}</span>
                   <span className="text-primary">
-                    الراتب: {job.salaryMin?.toLocaleString()} - {job.salaryMax?.toLocaleString()} ر.س
+                    الراتب: {job.salaryMin?.toLocaleString()} - {job.salaryMax?.toLocaleString()}{" "}
+                    ر.س
                   </span>
                 </div>
               </div>
@@ -340,12 +385,14 @@ export const RecruitmentView: React.FC = () => {
 
         {/* Tab 3: Workforce Planning */}
         <TabsContent value="workforce" className="space-y-4 pt-4">
-          {workforcePlans.map(wp => (
+          {workforcePlans.map((wp) => (
             <div key={wp.id} className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b pb-3">
                 <div>
                   <h3 className="font-bold text-sm text-foreground">{wp.titleAr}</h3>
-                  <p className="text-xs text-muted-foreground">لعام {wp.year} • {wp.departmentName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    لعام {wp.year} • {wp.departmentName}
+                  </p>
                 </div>
                 <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px]">
                   خطة معتمدة
@@ -355,11 +402,15 @@ export const RecruitmentView: React.FC = () => {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                 <div className="rounded-lg border p-3 bg-muted/20">
                   <span className="text-muted-foreground">العدد الحالي</span>
-                  <p className="text-lg font-bold text-foreground mt-1">{wp.currentHeadcount} موظف</p>
+                  <p className="text-lg font-bold text-foreground mt-1">
+                    {wp.currentHeadcount} موظف
+                  </p>
                 </div>
                 <div className="rounded-lg border p-3 bg-muted/20">
                   <span className="text-muted-foreground">التعيينات المخططة</span>
-                  <p className="text-lg font-bold text-emerald-600 mt-1">+{wp.plannedHires} وظيفة</p>
+                  <p className="text-lg font-bold text-emerald-600 mt-1">
+                    +{wp.plannedHires} وظيفة
+                  </p>
                 </div>
                 <div className="rounded-lg border p-3 bg-muted/20">
                   <span className="text-muted-foreground">العدد المستهدف</span>
@@ -367,7 +418,9 @@ export const RecruitmentView: React.FC = () => {
                 </div>
                 <div className="rounded-lg border p-3 bg-muted/20">
                   <span className="text-muted-foreground">التكلفة السنوية التقديرية</span>
-                  <p className="text-lg font-bold text-foreground mt-1">{(wp.projectedCost / 1000000).toFixed(1)}M ر.س</p>
+                  <p className="text-lg font-bold text-foreground mt-1">
+                    {(wp.projectedCost / 1000000).toFixed(1)}M ر.س
+                  </p>
                 </div>
               </div>
             </div>
@@ -394,7 +447,7 @@ export const RecruitmentView: React.FC = () => {
               <input
                 type="text"
                 value={newJob.titleAr}
-                onChange={e => setNewJob({ ...newJob, titleAr: e.target.value })}
+                onChange={(e) => setNewJob({ ...newJob, titleAr: e.target.value })}
                 placeholder="مثال: مطور واجهات مستخدم أول (React)"
                 className="w-full h-8 rounded border px-2.5"
               />
@@ -403,11 +456,13 @@ export const RecruitmentView: React.FC = () => {
               <label className="font-bold">القسم / الإدارة *</label>
               <select
                 value={newJob.departmentId}
-                onChange={e => setNewJob({ ...newJob, departmentId: e.target.value })}
+                onChange={(e) => setNewJob({ ...newJob, departmentId: e.target.value })}
                 className="w-full h-8 rounded border px-2.5"
               >
-                {orgUnits.map(u => (
-                  <option key={u.id} value={u.id}>{u.nameAr}</option>
+                {orgUnits.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.nameAr}
+                  </option>
                 ))}
               </select>
             </div>
@@ -417,7 +472,7 @@ export const RecruitmentView: React.FC = () => {
                 <input
                   type="number"
                   value={newJob.salaryMin}
-                  onChange={e => setNewJob({ ...newJob, salaryMin: Number(e.target.value) })}
+                  onChange={(e) => setNewJob({ ...newJob, salaryMin: Number(e.target.value) })}
                   className="w-full h-8 rounded border px-2.5"
                 />
               </div>
@@ -426,7 +481,7 @@ export const RecruitmentView: React.FC = () => {
                 <input
                   type="number"
                   value={newJob.salaryMax}
-                  onChange={e => setNewJob({ ...newJob, salaryMax: Number(e.target.value) })}
+                  onChange={(e) => setNewJob({ ...newJob, salaryMax: Number(e.target.value) })}
                   className="w-full h-8 rounded border px-2.5"
                 />
               </div>
@@ -436,7 +491,7 @@ export const RecruitmentView: React.FC = () => {
               <textarea
                 rows={2}
                 value={newJob.descriptionAr}
-                onChange={e => setNewJob({ ...newJob, descriptionAr: e.target.value })}
+                onChange={(e) => setNewJob({ ...newJob, descriptionAr: e.target.value })}
                 placeholder="اكتب وصفاً مختصراً للمهام..."
                 className="w-full rounded border p-2 text-xs"
               />
@@ -476,7 +531,7 @@ export const RecruitmentView: React.FC = () => {
                   min={1}
                   max={5}
                   value={techRating}
-                  onChange={e => setTechRating(Number(e.target.value))}
+                  onChange={(e) => setTechRating(Number(e.target.value))}
                   className="w-full cursor-pointer accent-primary"
                 />
               </div>
@@ -491,7 +546,7 @@ export const RecruitmentView: React.FC = () => {
                   min={1}
                   max={5}
                   value={commRating}
-                  onChange={e => setCommRating(Number(e.target.value))}
+                  onChange={(e) => setCommRating(Number(e.target.value))}
                   className="w-full cursor-pointer accent-primary"
                 />
               </div>
@@ -501,7 +556,7 @@ export const RecruitmentView: React.FC = () => {
                 <textarea
                   rows={2}
                   value={evalNotes}
-                  onChange={e => setEvalNotes(e.target.value)}
+                  onChange={(e) => setEvalNotes(e.target.value)}
                   placeholder="مرشح متميز ولديه شغف قوي بالتقنيات الحديثة..."
                   className="w-full rounded border p-2 text-xs"
                 />
@@ -509,7 +564,11 @@ export const RecruitmentView: React.FC = () => {
             </div>
 
             <DialogFooter className="mt-2">
-              <Button size="sm" onClick={handleSaveScorecard} className="text-xs bg-primary font-bold">
+              <Button
+                size="sm"
+                onClick={handleSaveScorecard}
+                className="text-xs bg-primary font-bold"
+              >
                 حفظ التقييم وترقية المرشح
               </Button>
             </DialogFooter>
@@ -526,7 +585,7 @@ export const RecruitmentView: React.FC = () => {
               بوابة التوظيف الإلكترونية (نموذج التقديم)
             </DialogTitle>
             <DialogDescription className="text-xs">
-              الوظيفة: {applyingJob?.titleAr || 'مهندس برمجيات'}
+              الوظيفة: {applyingJob?.titleAr || "مهندس برمجيات"}
             </DialogDescription>
           </DialogHeader>
 
@@ -536,7 +595,7 @@ export const RecruitmentView: React.FC = () => {
               <input
                 type="text"
                 value={applicantName}
-                onChange={e => setApplicantName(e.target.value)}
+                onChange={(e) => setApplicantName(e.target.value)}
                 placeholder="مثال: يوسف العتيبي"
                 className="w-full h-8 rounded border px-2.5"
               />
@@ -546,7 +605,7 @@ export const RecruitmentView: React.FC = () => {
               <input
                 type="email"
                 value={applicantEmail}
-                onChange={e => setApplicantEmail(e.target.value)}
+                onChange={(e) => setApplicantEmail(e.target.value)}
                 placeholder="yousef@example.com"
                 className="w-full h-8 rounded border px-2.5"
               />
@@ -556,7 +615,7 @@ export const RecruitmentView: React.FC = () => {
               <input
                 type="text"
                 value={applicantPhone}
-                onChange={e => setApplicantPhone(e.target.value)}
+                onChange={(e) => setApplicantPhone(e.target.value)}
                 placeholder="05XXXXXXXX"
                 className="w-full h-8 rounded border px-2.5"
               />
@@ -564,7 +623,11 @@ export const RecruitmentView: React.FC = () => {
           </div>
 
           <DialogFooter className="mt-2">
-            <Button size="sm" onClick={handleApplyForJob} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+            <Button
+              size="sm"
+              onClick={handleApplyForJob}
+              className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+            >
               إرسال طلب التقديم
             </Button>
           </DialogFooter>
@@ -591,7 +654,7 @@ export const RecruitmentView: React.FC = () => {
                 <input
                   type="number"
                   value={offerBasic}
-                  onChange={e => setOfferBasic(Number(e.target.value))}
+                  onChange={(e) => setOfferBasic(Number(e.target.value))}
                   className="w-full h-8 rounded border px-2.5"
                 />
               </div>
@@ -602,7 +665,7 @@ export const RecruitmentView: React.FC = () => {
                   <input
                     type="number"
                     value={offerHousing}
-                    onChange={e => setOfferHousing(Number(e.target.value))}
+                    onChange={(e) => setOfferHousing(Number(e.target.value))}
                     className="w-full h-8 rounded border px-2.5"
                   />
                 </div>
@@ -611,7 +674,7 @@ export const RecruitmentView: React.FC = () => {
                   <input
                     type="number"
                     value={offerTransport}
-                    onChange={e => setOfferTransport(Number(e.target.value))}
+                    onChange={(e) => setOfferTransport(Number(e.target.value))}
                     className="w-full h-8 rounded border px-2.5"
                   />
                 </div>
@@ -627,14 +690,18 @@ export const RecruitmentView: React.FC = () => {
                 <input
                   type="date"
                   value={offerStartDate}
-                  onChange={e => setOfferStartDate(e.target.value)}
+                  onChange={(e) => setOfferStartDate(e.target.value)}
                   className="w-full h-8 rounded border px-2.5"
                 />
               </div>
             </div>
 
             <DialogFooter className="mt-2">
-              <Button size="sm" onClick={handleSendOffer} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+              <Button
+                size="sm"
+                onClick={handleSendOffer}
+                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+              >
                 تأكيد وإرسال العرض للمرشح
               </Button>
             </DialogFooter>

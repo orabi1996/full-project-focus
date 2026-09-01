@@ -5,33 +5,33 @@
 // ----------------------------------------------------------------------------
 // Common & Core Types
 // ----------------------------------------------------------------------------
-export type Language = 'ar' | 'en';
-export type Direction = 'rtl' | 'ltr';
+export type Language = "ar" | "en";
+export type Direction = "rtl" | "ltr";
 
-export type UserRole = 
-  | 'super_admin'       // مشرف عام للنظام
-  | 'hr_manager'        // مدير الموارد البشرية
-  | 'payroll_officer'   // مسؤول الرواتب
-  | 'attendance_officer'// مسؤول الحضور
-  | 'line_manager'      // مدير مباشر
-  | 'recruiter'         // مسؤول التوظيف
-  | 'finance_officer'   // مسؤول المالية والمصروفات
-  | 'performance_lead'  // مسؤول الأداء
-  | 'employee'          // موظف
-  | 'auditor';          // مدقق / قراءة فقط
+export type UserRole =
+  | "super_admin" // مشرف عام للنظام
+  | "hr_manager" // مدير الموارد البشرية
+  | "payroll_officer" // مسؤول الرواتب
+  | "attendance_officer" // مسؤول الحضور
+  | "line_manager" // مدير مباشر
+  | "recruiter" // مسؤول التوظيف
+  | "finance_officer" // مسؤول المالية والمصروفات
+  | "performance_lead" // مسؤول الأداء
+  | "employee" // موظف
+  | "auditor"; // مدقق / قراءة فقط
 
-export type DataScope = 'self' | 'team' | 'department' | 'subsidiary' | 'all';
+export type DataScope = "self" | "team" | "department" | "subsidiary" | "all";
 
-export type RequestStatus = 
-  | 'draft' 
-  | 'submitted' 
-  | 'pending_approval' 
-  | 'returned' 
-  | 'approved' 
-  | 'rejected' 
-  | 'in_execution' 
-  | 'completed' 
-  | 'cancelled';
+export type RequestStatus =
+  | "draft"
+  | "submitted"
+  | "pending_approval"
+  | "returned"
+  | "approved"
+  | "rejected"
+  | "in_execution"
+  | "completed"
+  | "cancelled";
 
 // ----------------------------------------------------------------------------
 // M02: Organization & Work Structure
@@ -58,7 +58,7 @@ export interface Subsidiary {
   code: string;
   managerEmployeeId?: string;
   managerName?: string;
-  status: 'active' | 'inactive';
+  status: "active" | "inactive";
   employeeCount: number;
   crNumber?: string;
 }
@@ -70,10 +70,10 @@ export interface OrgUnit {
   nameAr: string;
   nameEn: string;
   code: string;
-  type: 'division' | 'department' | 'section' | 'unit';
+  type: "division" | "department" | "section" | "unit";
   managerEmployeeId?: string;
   managerName?: string;
-  status: 'active' | 'inactive';
+  status: "active" | "inactive";
   employeeCount: number;
 }
 
@@ -87,30 +87,25 @@ export interface WorkLocation {
   latitude: number;
   longitude: number;
   radiusMeters: number;
-  status: 'active' | 'inactive';
+  status: "active" | "inactive";
   defaultShiftId?: string;
 }
 
 // ----------------------------------------------------------------------------
 // M03: Employee Master & 360° Profile
 // ----------------------------------------------------------------------------
-export type EmployeeStatus = 
-  | 'draft' 
-  | 'preboarding' 
-  | 'probation' 
-  | 'active' 
-  | 'on_leave' 
-  | 'suspended' 
-  | 'terminated';
+export type EmployeeStatus =
+  "draft" | "preboarding" | "probation" | "active" | "on_leave" | "suspended" | "terminated";
 
-export type ContractType = 'full_time' | 'part_time' | 'contractor' | 'seasonal' | 'internship';
-export type Gender = 'male' | 'female';
-export type MaritalStatus = 'single' | 'married' | 'divorced' | 'widowed';
+export type ContractType = "full_time" | "part_time" | "contractor" | "seasonal" | "internship";
+export type Gender = "male" | "female";
+export type MaritalStatus = "single" | "married" | "divorced" | "widowed";
 
 export interface EmployeeDocument {
   id: string;
   employeeId: string;
-  type: 'national_id' | 'iqama' | 'passport' | 'contract' | 'degree' | 'medical_insurance' | 'other';
+  type:
+    "national_id" | "iqama" | "passport" | "contract" | "degree" | "medical_insurance" | "other";
   titleAr: string;
   titleEn: string;
   documentNumber: string;
@@ -118,7 +113,7 @@ export interface EmployeeDocument {
   expiryDate?: string;
   fileUrl: string;
   fileSize?: string;
-  status: 'valid' | 'expiring_soon' | 'expired' | 'pending_verification';
+  status: "valid" | "expiring_soon" | "expired" | "pending_verification";
 }
 
 export interface SalaryProfile {
@@ -152,7 +147,7 @@ export interface Employee {
   birthDate: string;
   maritalStatus: MaritalStatus;
   avatarUrl?: string;
-  
+
   // Organization Placement
   subsidiaryId: string;
   subsidiaryName?: string;
@@ -164,20 +159,20 @@ export interface Employee {
   managerName?: string;
   workLocationId: string;
   workLocationName?: string;
-  
+
   // Employment Details
   hireDate: string;
   contractType: ContractType;
   probationEndDate?: string;
   status: EmployeeStatus;
   completionScore: number; // 0 to 100%
-  
+
   // Financial Summary
   basicSalary: number;
   totalSalary: number;
-  
+
   // Custom Fields
-  customFields?: Record<string, any>;
+  customFields?: Record<string, unknown>;
 }
 
 // ----------------------------------------------------------------------------
@@ -186,7 +181,7 @@ export interface Employee {
 export interface AppPermission {
   id: string;
   module: string;
-  action: 'view' | 'create' | 'edit' | 'delete' | 'approve' | 'export' | 'pay' | 'configure';
+  action: "view" | "create" | "edit" | "delete" | "approve" | "export" | "pay" | "configure";
   nameAr: string;
   nameEn: string;
   descriptionAr: string;
@@ -202,6 +197,7 @@ export interface RoleDefinition {
   descriptionEn: string;
   isSystem: boolean;
   userCount: number;
+  dataScope?: DataScope;
   permissions: {
     permissionId: string;
     dataScope: DataScope;
@@ -211,19 +207,25 @@ export interface RoleDefinition {
 // ----------------------------------------------------------------------------
 // M05: Requests, Tasks & Approval Engine
 // ----------------------------------------------------------------------------
-export type RequestCategory = 
-  | 'leave' 
-  | 'attendance_correction' 
-  | 'expense_claim' 
-  | 'loan_advance' 
-  | 'salary_certificate' 
-  | 'resignation' 
-  | 'asset_request' 
-  | 'general';
+export type RequestCategory =
+  | "leave"
+  | "attendance_correction"
+  | "expense_claim"
+  | "loan_advance"
+  | "salary_certificate"
+  | "resignation"
+  | "asset_request"
+  | "general";
 
 export interface ApprovalStep {
   sequence: number;
-  resolverType: 'direct_manager' | 'department_head' | 'hr_manager' | 'finance_manager' | 'specific_user' | 'custom_role';
+  resolverType:
+    | "direct_manager"
+    | "department_head"
+    | "hr_manager"
+    | "finance_manager"
+    | "specific_user"
+    | "custom_role";
   resolverValue?: string;
   stepNameAr: string;
   stepNameEn: string;
@@ -234,11 +236,11 @@ export interface ApprovalChain {
   requestType: RequestCategory;
   nameAr: string;
   nameEn: string;
-  scopeType: 'all_employees' | 'department' | 'subsidiary' | 'specific_employees';
+  scopeType: "all_employees" | "department" | "subsidiary" | "specific_employees";
   scopeValues?: string[];
   steps: ApprovalStep[];
   isDefault: boolean;
-  status: 'active' | 'inactive';
+  status: "active" | "inactive";
 }
 
 export interface RequestTimelineEvent {
@@ -247,7 +249,7 @@ export interface RequestTimelineEvent {
   actorId: string;
   actorName: string;
   actorRole: string;
-  action: 'submitted' | 'approved' | 'rejected' | 'returned' | 'delegated';
+  action: "submitted" | "approved" | "rejected" | "returned" | "delegated";
   note?: string;
   timestamp: string;
 }
@@ -268,7 +270,7 @@ export interface ServiceRequest {
   currentApproverRole?: string;
   submittedAt: string;
   updatedAt: string;
-  payload: Record<string, any>;
+  payload: Record<string, string | number | boolean | null | undefined>;
   timeline: RequestTimelineEvent[];
   attachmentUrls?: string[];
 }
@@ -276,7 +278,7 @@ export interface ServiceRequest {
 // ----------------------------------------------------------------------------
 // M06: Leaves & Holidays
 // ----------------------------------------------------------------------------
-export type LeaveAccrualMethod = 'yearly_frontloaded' | 'monthly_accrual' | 'contract_anniversary';
+export type LeaveAccrualMethod = "yearly_frontloaded" | "monthly_accrual" | "contract_anniversary";
 
 export interface LeaveTypePolicy {
   id: string;
@@ -292,7 +294,7 @@ export interface LeaveTypePolicy {
   requiresAttachment: boolean;
   accrualMethod: LeaveAccrualMethod;
   carryoverLimitDays: number;
-  status: 'active' | 'inactive';
+  status: "active" | "inactive";
 }
 
 export interface EmployeeLeaveBalance {
@@ -315,7 +317,7 @@ export interface LeaveRequestPayload {
   startDate: string;
   endDate: string;
   isHalfDay: boolean;
-  halfDayPeriod?: 'morning' | 'evening';
+  halfDayPeriod?: "morning" | "evening";
   totalDays: number;
   reason: string;
   replacementEmployeeId?: string;
@@ -326,7 +328,15 @@ export interface LeaveRequestPayload {
 // ----------------------------------------------------------------------------
 // M07, M08, M09: Time, Shifts & Attendance
 // ----------------------------------------------------------------------------
-export type AttendanceStatus = 'present' | 'late' | 'early_departure' | 'absent' | 'on_leave' | 'holiday' | 'rest_day' | 'missing_punch';
+export type AttendanceStatus =
+  | "present"
+  | "late"
+  | "early_departure"
+  | "absent"
+  | "on_leave"
+  | "holiday"
+  | "rest_day"
+  | "missing_punch";
 
 export interface ShiftDefinition {
   id: string;
@@ -334,9 +344,9 @@ export interface ShiftDefinition {
   nameAr: string;
   nameEn: string;
   color: string;
-  type: 'fixed' | 'flexible' | 'split';
+  type: "fixed" | "flexible" | "split";
   startTime: string; // "09:00"
-  endTime: string;   // "17:00"
+  endTime: string; // "17:00"
   flexibleHours?: number; // 8 hours
   splitSecondStartTime?: string;
   splitSecondEndTime?: string;
@@ -354,7 +364,7 @@ export interface ScheduleAssignment {
   shiftNameAr: string;
   shiftColor: string;
   isRestDay: boolean;
-  status: 'draft' | 'published';
+  status: "draft" | "published";
 }
 
 export interface DailyAttendanceRecord {
@@ -374,7 +384,7 @@ export interface DailyAttendanceRecord {
   earlyDepartureMinutes: number;
   workedHours: number;
   overtimeHours: number;
-  punchSource: 'biometric_device' | 'mobile_gps' | 'manual_admin' | 'correction_request';
+  punchSource: "biometric_device" | "mobile_gps" | "manual_admin" | "correction_request";
   geofenceValid: boolean;
   violationsCount: number;
   reviewedByPayroll: boolean;
@@ -391,28 +401,28 @@ export interface AttendanceCorrectionPayload {
 // ----------------------------------------------------------------------------
 // M10 & M11: Payroll, Loans & Settlements
 // ----------------------------------------------------------------------------
-export type PayrollCalculationBasis = 'fixed_30_days' | 'calendar_days';
+export type PayrollCalculationBasis = "fixed_30_days" | "calendar_days";
 
 export interface PayrollGroup {
   id: string;
   nameAr: string;
   nameEn: string;
   calculationBasis: PayrollCalculationBasis;
-  cutoffDay: number;   // e.g. 25th of month
-  payday: number;      // e.g. 28th of month
+  cutoffDay: number; // e.g. 25th of month
+  payday: number; // e.g. 28th of month
   currency: string;
   employeeCount: number;
 }
 
-export type PayrollRunStatus = 
-  | 'draft' 
-  | 'calculating' 
-  | 'ready_for_review' 
-  | 'pending_approval' 
-  | 'approved' 
-  | 'confirmed_locked' 
-  | 'paid' 
-  | 'closed';
+export type PayrollRunStatus =
+  | "draft"
+  | "calculating"
+  | "ready_for_review"
+  | "pending_approval"
+  | "approved"
+  | "confirmed_locked"
+  | "paid"
+  | "closed";
 
 export interface PayrollRun {
   id: string;
@@ -442,7 +452,7 @@ export interface EmployeePayrollDetail {
   departmentName: string;
   bankName: string;
   iban: string;
-  
+
   // Earnings
   basicSalary: number;
   housingAllowance: number;
@@ -453,7 +463,7 @@ export interface EmployeePayrollDetail {
   retroAdjustments: number;
   bonusAmount: number;
   grossSalary: number;
-  
+
   // Deductions
   unpaidLeaveDeduction: number;
   absenceLateDeduction: number;
@@ -461,7 +471,7 @@ export interface EmployeePayrollDetail {
   gosiEmployeeDeduction: number;
   otherDeductions: number;
   totalDeductions: number;
-  
+
   // Net
   netSalary: number;
   notes?: string;
@@ -471,14 +481,14 @@ export interface LoanRecord {
   id: string;
   employeeId: string;
   employeeName: string;
-  loanType: 'personal_advance' | 'housing_advance' | 'emergency';
+  loanType: "personal_advance" | "housing_advance" | "emergency";
   principalAmount: number;
   monthlyInstallment: number;
   totalInstallments: number;
   paidInstallments: number;
   remainingBalance: number;
   startDate: string;
-  status: 'active' | 'completed' | 'paused' | 'cancelled';
+  status: "active" | "completed" | "paused" | "cancelled";
 }
 
 export interface FinalSettlementRecord {
@@ -496,7 +506,7 @@ export interface FinalSettlementRecord {
   loanDeductionAmount: number;
   assetClearanceComplete: boolean;
   netSettlementAmount: number;
-  status: 'draft' | 'pending_approval' | 'approved' | 'paid';
+  status: "draft" | "pending_approval" | "approved" | "paid";
 }
 
 // ----------------------------------------------------------------------------
@@ -526,7 +536,7 @@ export interface ExpenseClaim {
   receiptUrl?: string;
   description: string;
   policyWarningTriggered: boolean;
-  status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'reimbursed';
+  status: "draft" | "submitted" | "approved" | "rejected" | "reimbursed";
 }
 
 export interface ExpenseReport {
@@ -550,10 +560,10 @@ export interface PerformanceCycle {
   id: string;
   titleAr: string;
   titleEn: string;
-  periodType: 'annual' | 'semi_annual' | 'quarterly' | 'probation';
+  periodType: "annual" | "semi_annual" | "quarterly" | "probation";
   startDate: string;
   endDate: string;
-  status: 'draft' | 'active' | 'in_review' | 'completed';
+  status: "draft" | "active" | "in_review" | "completed";
   participantsCount: number;
   completionRate: number;
 }
@@ -565,9 +575,9 @@ export interface EvaluationRecord {
   employeeName: string;
   evaluatorId: string;
   evaluatorName: string;
-  evaluationType: 'self' | 'manager' | 'peer' | 'subordinate';
+  evaluationType: "self" | "manager" | "peer" | "subordinate";
   overallScore: number; // e.g. 4.2 / 5.0
-  status: 'pending' | 'submitted' | 'acknowledged';
+  status: "pending" | "submitted" | "acknowledged";
   submittedAt?: string;
 }
 
@@ -587,21 +597,21 @@ export interface WorkforcePlan {
   targetHeadcount: number;
   currentBudget: number;
   projectedCost: number;
-  status: 'draft' | 'pending_approval' | 'approved';
+  status: "draft" | "pending_approval" | "approved";
 }
 
 // ----------------------------------------------------------------------------
 // M15: ATS & Recruitment
 // ----------------------------------------------------------------------------
-export type CandidateStage = 
-  | 'applied' 
-  | 'screening' 
-  | 'interview' 
-  | 'assessment' 
-  | 'job_offer' 
-  | 'hired' 
-  | 'rejected' 
-  | 'withdrawn';
+export type CandidateStage =
+  | "applied"
+  | "screening"
+  | "interview"
+  | "assessment"
+  | "job_offer"
+  | "hired"
+  | "rejected"
+  | "withdrawn";
 
 export interface JobOpening {
   id: string;
@@ -614,7 +624,7 @@ export interface JobOpening {
   employmentType: ContractType;
   openingsCount: number;
   filledCount: number;
-  publishedStatus: 'draft' | 'published' | 'closed';
+  publishedStatus: "draft" | "published" | "closed";
   salaryMin?: number;
   salaryMax?: number;
   descriptionAr: string;
@@ -635,7 +645,7 @@ export interface Candidate {
   ratingScore: number; // 1 to 5
   cvUrl?: string;
   appliedDate: string;
-  source: 'website' | 'linkedin' | 'referral' | 'agency';
+  source: "website" | "linkedin" | "referral" | "agency";
   notesCount: number;
 }
 
@@ -648,7 +658,7 @@ export interface JobOffer {
   housingAllowance: number;
   transportAllowance: number;
   proposedStartDate: string;
-  status: 'draft' | 'pending_approval' | 'sent_to_candidate' | 'accepted' | 'declined';
+  status: "draft" | "pending_approval" | "sent_to_candidate" | "accepted" | "declined";
 }
 
 // ----------------------------------------------------------------------------
@@ -659,23 +669,23 @@ export interface HardwareAsset {
   assetTag: string;
   nameAr: string;
   nameEn: string;
-  category: 'laptop' | 'phone' | 'vehicle' | 'security_card' | 'access_key' | 'other';
+  category: "laptop" | "phone" | "vehicle" | "security_card" | "access_key" | "other";
   serialNumber: string;
   assignedToEmployeeId?: string | null;
   assignedToEmployeeName?: string;
   assignedDate?: string;
-  status: 'available' | 'assigned' | 'under_maintenance' | 'retired';
+  status: "available" | "assigned" | "under_maintenance" | "retired";
 }
 
 export interface CompanyDocument {
   id: string;
   titleAr: string;
   titleEn: string;
-  category: 'policy' | 'regulation' | 'handbook' | 'form' | 'announcement';
+  category: "policy" | "regulation" | "handbook" | "form" | "announcement";
   version: string;
   expiryDate?: string;
   fileUrl: string;
-  visibilityScope: 'all' | 'subsidiary' | 'department';
+  visibilityScope: "all" | "subsidiary" | "department";
   requiresAcknowledgment: boolean;
   acknowledgedCount: number;
 }
@@ -704,7 +714,7 @@ export interface AppNotification {
   titleEn: string;
   messageAr: string;
   messageEn: string;
-  type: 'request' | 'leave' | 'attendance' | 'payroll' | 'document' | 'general';
+  type: "request" | "leave" | "attendance" | "payroll" | "document" | "general";
   actionUrl?: string;
   isRead: boolean;
   createdAt: string;
@@ -713,11 +723,11 @@ export interface AppNotification {
 export interface AccountingJournalEntry {
   id: string;
   journalNo: string;
-  sourceType: 'payroll_run' | 'expense_report' | 'eosb_settlement';
+  sourceType: "payroll_run" | "expense_report" | "eosb_settlement";
   sourceReference: string;
   date: string;
   totalDebit: number;
   totalCredit: number;
-  status: 'draft' | 'posted' | 'failed' | 'synced_to_erp';
-  erpIntegrationType?: 'odoo' | 'sap' | 'zoho' | 'quickbooks';
+  status: "draft" | "posted" | "failed" | "synced_to_erp";
+  erpIntegrationType?: "odoo" | "sap" | "zoho" | "quickbooks";
 }

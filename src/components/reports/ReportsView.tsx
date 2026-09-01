@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useApp } from '../../lib/context/AppContext';
-import { exportToCSV } from '../../lib/utils/export-helpers';
+import React, { useState } from "react";
+import { useApp } from "../../lib/context/AppContext";
+import { exportToCSV } from "../../lib/utils/export-helpers";
 import {
   FileBarChart,
   Download,
@@ -14,63 +14,78 @@ import {
   Plus,
   Play,
   Table,
-} from 'lucide-react';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+} from "lucide-react";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 export const ReportsView: React.FC = () => {
-  const { employees, payrollDetails, attendanceRecords, leaveBalances, expenseClaims, language, t } = useApp();
-  const [activeTab, setActiveTab] = useState('catalog');
+  const {
+    employees,
+    payrollDetails,
+    attendanceRecords,
+    leaveBalances,
+    expenseClaims,
+    language,
+    t,
+  } = useApp();
+  const [activeTab, setActiveTab] = useState("catalog");
 
   // Custom Builder State
-  const [selectedSource, setSelectedSource] = useState<'employees' | 'payroll' | 'attendance' | 'expenses'>('employees');
-  const [selectedColumns, setSelectedColumns] = useState<string[]>(['employeeNo', 'name', 'jobTitle', 'department', 'totalSalary']);
+  type ReportSource = "employees" | "payroll" | "attendance" | "expenses";
+  const [selectedSource, setSelectedSource] = useState<ReportSource>("employees");
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([
+    "employeeNo",
+    "name",
+    "jobTitle",
+    "department",
+    "totalSalary",
+  ]);
 
   const columnOptions: Record<string, { key: string; labelAr: string }[]> = {
     employees: [
-      { key: 'employeeNo', labelAr: 'الرقم الوظيفي' },
-      { key: 'name', labelAr: 'اسم الموظف' },
-      { key: 'nationalId', labelAr: 'رقم الهوية / الإقامة' },
-      { key: 'jobTitle', labelAr: 'المسمى الوظيفي' },
-      { key: 'department', labelAr: 'القسم' },
-      { key: 'hireDate', labelAr: 'تاريخ المباشرة' },
-      { key: 'totalSalary', labelAr: 'إجمالي الراتب' },
-      { key: 'status', labelAr: 'الحالة' },
+      { key: "employeeNo", labelAr: "الرقم الوظيفي" },
+      { key: "name", labelAr: "اسم الموظف" },
+      { key: "nationalId", labelAr: "رقم الهوية / الإقامة" },
+      { key: "jobTitle", labelAr: "المسمى الوظيفي" },
+      { key: "department", labelAr: "القسم" },
+      { key: "hireDate", labelAr: "تاريخ المباشرة" },
+      { key: "totalSalary", labelAr: "إجمالي الراتب" },
+      { key: "status", labelAr: "الحالة" },
     ],
     payroll: [
-      { key: 'employeeNo', labelAr: 'الرقم الوظيفي' },
-      { key: 'name', labelAr: 'اسم الموظف' },
-      { key: 'basicSalary', labelAr: 'الراتب الأساسي' },
-      { key: 'housingAllowance', labelAr: 'بدل السكن' },
-      { key: 'transportAllowance', labelAr: 'بدل النقل' },
-      { key: 'overtimeAmount', labelAr: 'الإضافي' },
-      { key: 'totalDeductions', labelAr: 'الخصومات' },
-      { key: 'netSalary', labelAr: 'صافي الراتب' },
+      { key: "employeeNo", labelAr: "الرقم الوظيفي" },
+      { key: "name", labelAr: "اسم الموظف" },
+      { key: "basicSalary", labelAr: "الراتب الأساسي" },
+      { key: "housingAllowance", labelAr: "بدل السكن" },
+      { key: "transportAllowance", labelAr: "بدل النقل" },
+      { key: "overtimeAmount", labelAr: "الإضافي" },
+      { key: "totalDeductions", labelAr: "الخصومات" },
+      { key: "netSalary", labelAr: "صافي الراتب" },
     ],
     attendance: [
-      { key: 'employeeNo', labelAr: 'الرقم الوظيفي' },
-      { key: 'name', labelAr: 'اسم الموظف' },
-      { key: 'workDate', labelAr: 'التاريخ' },
-      { key: 'actualIn', labelAr: 'وقت الدخول' },
-      { key: 'actualOut', labelAr: 'وقت الخروج' },
-      { key: 'workedHours', labelAr: 'ساعات العمل' },
-      { key: 'status', labelAr: 'الحالة' },
+      { key: "employeeNo", labelAr: "الرقم الوظيفي" },
+      { key: "name", labelAr: "اسم الموظف" },
+      { key: "workDate", labelAr: "التاريخ" },
+      { key: "actualIn", labelAr: "وقت الدخول" },
+      { key: "actualOut", labelAr: "وقت الخروج" },
+      { key: "workedHours", labelAr: "ساعات العمل" },
+      { key: "status", labelAr: "الحالة" },
     ],
     expenses: [
-      { key: 'categoryNameAr', labelAr: 'التصنيف' },
-      { key: 'merchantName', labelAr: 'المورد' },
-      { key: 'amount', labelAr: 'المبلغ' },
-      { key: 'spentAt', labelAr: 'التاريخ' },
-      { key: 'description', labelAr: 'الوصف' },
-      { key: 'status', labelAr: 'الحالة' },
+      { key: "categoryNameAr", labelAr: "التصنيف" },
+      { key: "merchantName", labelAr: "المورد" },
+      { key: "amount", labelAr: "المبلغ" },
+      { key: "spentAt", labelAr: "التاريخ" },
+      { key: "description", labelAr: "الوصف" },
+      { key: "status", labelAr: "الحالة" },
     ],
   };
 
   const getCustomReportData = () => {
     switch (selectedSource) {
-      case 'employees':
-        return employees.map(e => ({
+      case "employees":
+        return employees.map((e) => ({
           employeeNo: e.employeeNo,
           name: `${e.firstNameAr} ${e.lastNameAr}`,
           nationalId: e.nationalIdOrIqama,
@@ -78,10 +93,10 @@ export const ReportsView: React.FC = () => {
           department: e.departmentName,
           hireDate: e.hireDate,
           totalSalary: e.totalSalary,
-          status: e.status === 'active' ? 'نشط' : 'تحت التجربة',
+          status: e.status === "active" ? "نشط" : "تحت التجربة",
         }));
-      case 'payroll':
-        return payrollDetails.map(d => ({
+      case "payroll":
+        return payrollDetails.map((d) => ({
           employeeNo: d.employeeNo,
           name: d.employeeName,
           basicSalary: d.basicSalary,
@@ -91,24 +106,24 @@ export const ReportsView: React.FC = () => {
           totalDeductions: d.totalDeductions,
           netSalary: d.netSalary,
         }));
-      case 'attendance':
-        return attendanceRecords.map(a => ({
+      case "attendance":
+        return attendanceRecords.map((a) => ({
           employeeNo: a.employeeNo,
           name: a.employeeName,
           workDate: a.workDate,
-          actualIn: a.actualIn || '—',
-          actualOut: a.actualOut || '—',
+          actualIn: a.actualIn || "—",
+          actualOut: a.actualOut || "—",
           workedHours: a.workedHours,
-          status: a.status === 'present' ? 'حاضر' : a.status === 'late' ? 'متأخر' : 'غائب',
+          status: a.status === "present" ? "حاضر" : a.status === "late" ? "متأخر" : "غائب",
         }));
-      case 'expenses':
-        return expenseClaims.map(c => ({
+      case "expenses":
+        return expenseClaims.map((c) => ({
           categoryNameAr: c.categoryNameAr,
           merchantName: c.merchantName,
           amount: c.amount,
           spentAt: c.spentAt,
           description: c.description,
-          status: c.status === 'approved' ? 'معتمد' : 'قيد المراجعة',
+          status: c.status === "approved" ? "معتمد" : "قيد المراجعة",
         }));
     }
   };
@@ -116,28 +131,67 @@ export const ReportsView: React.FC = () => {
   const handleExportCustomReport = () => {
     const rawData = getCustomReportData();
     const cols = columnOptions[selectedSource];
-    
+
     // Filter by selected columns
-    const filteredRows = rawData.map(row => {
-      const res: Record<string, any> = {};
-      selectedColumns.forEach(colKey => {
-        const colDef = cols.find(c => c.key === colKey);
+    const filteredRows = rawData.map((row) => {
+      const res: Record<string, unknown> = {};
+      selectedColumns.forEach((colKey) => {
+        const colDef = cols.find((c) => c.key === colKey);
         const label = colDef ? colDef.labelAr : colKey;
-        res[label] = (row as any)[colKey];
+        res[label] = (row as Record<string, unknown>)[colKey];
       });
       return res;
     });
 
-    exportToCSV(`Custom_Report_${selectedSource}_${new Date().toISOString().split('T')[0]}`, filteredRows);
+    exportToCSV(
+      `Custom_Report_${selectedSource}_${new Date().toISOString().split("T")[0]}`,
+      filteredRows,
+    );
   };
 
   const standardReports = [
-    { id: 'rep-emp', titleAr: 'تقرير الموظفين الشامل وبيانات العقود', category: 'شؤون الموظفين', format: 'Excel / PDF', count: employees.length },
-    { id: 'rep-pay', titleAr: 'تقرير مسيرات الرواتب الشهرية والبدلات', category: 'الرواتب', format: 'Excel / CSV', count: payrollDetails.length },
-    { id: 'rep-att', titleAr: 'تقرير الحضور والانصراف وساعات العمل الإضافية', category: 'الحضور', format: 'Excel', count: attendanceRecords.length },
-    { id: 'rep-gosi', titleAr: 'تقرير التأمينات الاجتماعية وحماية الأجور (WPS SIF)', category: 'الرواتب', format: 'SIF / Excel', count: payrollDetails.length },
-    { id: 'rep-leave', titleAr: 'تقرير أرصدة الإجازات والمحجوز والمستهلك', category: 'الإجازات', format: 'Excel / PDF', count: leaveBalances.length },
-    { id: 'rep-exp', titleAr: 'تقرير النفقات والمصروفات ومراكز التكلفة', category: 'المالية', format: 'Excel / PDF', count: expenseClaims.length },
+    {
+      id: "rep-emp",
+      titleAr: "تقرير الموظفين الشامل وبيانات العقود",
+      category: "شؤون الموظفين",
+      format: "Excel / PDF",
+      count: employees.length,
+    },
+    {
+      id: "rep-pay",
+      titleAr: "تقرير مسيرات الرواتب الشهرية والبدلات",
+      category: "الرواتب",
+      format: "Excel / CSV",
+      count: payrollDetails.length,
+    },
+    {
+      id: "rep-att",
+      titleAr: "تقرير الحضور والانصراف وساعات العمل الإضافية",
+      category: "الحضور",
+      format: "Excel",
+      count: attendanceRecords.length,
+    },
+    {
+      id: "rep-gosi",
+      titleAr: "تقرير التأمينات الاجتماعية وحماية الأجور (WPS SIF)",
+      category: "الرواتب",
+      format: "SIF / Excel",
+      count: payrollDetails.length,
+    },
+    {
+      id: "rep-leave",
+      titleAr: "تقرير أرصدة الإجازات والمحجوز والمستهلك",
+      category: "الإجازات",
+      format: "Excel / PDF",
+      count: leaveBalances.length,
+    },
+    {
+      id: "rep-exp",
+      titleAr: "تقرير النفقات والمصروفات ومراكز التكلفة",
+      category: "المالية",
+      format: "Excel / PDF",
+      count: expenseClaims.length,
+    },
   ];
 
   return (
@@ -169,8 +223,11 @@ export const ReportsView: React.FC = () => {
         {/* Tab 1: Catalog */}
         <TabsContent value="catalog" className="space-y-4 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {standardReports.map(rep => (
-              <div key={rep.id} className="rounded-xl border bg-card p-5 shadow-sm space-y-3 hover:border-primary/40 transition-colors">
+            {standardReports.map((rep) => (
+              <div
+                key={rep.id}
+                className="rounded-xl border bg-card p-5 shadow-sm space-y-3 hover:border-primary/40 transition-colors"
+              >
                 <div className="flex items-start justify-between">
                   <Badge variant="secondary" className="text-[10px]">
                     {rep.category}
@@ -184,14 +241,16 @@ export const ReportsView: React.FC = () => {
                   <Button
                     size="sm"
                     onClick={() => {
-                      if (rep.id === 'rep-emp') {
-                        exportToCSV('Employees_Report', employees);
-                      } else if (rep.id === 'rep-pay') {
-                        exportToCSV('Payroll_Report', payrollDetails);
-                      } else if (rep.id === 'rep-att') {
-                        exportToCSV('Attendance_Report', attendanceRecords);
+                      if (rep.id === "rep-emp") {
+                        exportToCSV("Employees_Report", employees);
+                      } else if (rep.id === "rep-pay") {
+                        exportToCSV("Payroll_Report", payrollDetails);
+                      } else if (rep.id === "rep-att") {
+                        exportToCSV("Attendance_Report", attendanceRecords);
                       } else {
-                        exportToCSV(rep.titleAr, [{ 'الحالة': 'تقرير قياسي معتمد', 'التاريخ': new Date().toISOString() }]);
+                        exportToCSV(rep.titleAr, [
+                          { الحالة: "تقرير قياسي معتمد", التاريخ: new Date().toISOString() },
+                        ]);
                       }
                     }}
                     className="w-full text-xs font-bold gap-1 bg-primary"
@@ -209,7 +268,9 @@ export const ReportsView: React.FC = () => {
         <TabsContent value="builder" className="space-y-4 pt-4">
           <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
             <div className="border-b pb-3">
-              <h3 className="font-bold text-sm text-foreground">أداة بناء التقارير المخصصة (Custom Query Builder)</h3>
+              <h3 className="font-bold text-sm text-foreground">
+                أداة بناء التقارير المخصصة (Custom Query Builder)
+              </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
                 اختر مصدر البيانات والحقول المطلوبة لتوليد التقرير وتنزيله مباشرة
               </p>
@@ -221,10 +282,10 @@ export const ReportsView: React.FC = () => {
                 <label className="font-bold text-foreground">1. مصدر البيانات الرئيسي</label>
                 <select
                   value={selectedSource}
-                  onChange={e => {
-                    const src = e.target.value as any;
+                  onChange={(e) => {
+                    const src = e.target.value as ReportSource;
                     setSelectedSource(src);
-                    setSelectedColumns(columnOptions[src].slice(0, 5).map(c => c.key));
+                    setSelectedColumns(columnOptions[src].slice(0, 5).map((c) => c.key));
                   }}
                   className="w-full h-9 rounded-lg border bg-background px-3 text-xs"
                 >
@@ -237,18 +298,23 @@ export const ReportsView: React.FC = () => {
 
               {/* Column Selection Checkboxes */}
               <div className="space-y-1.5">
-                <label className="font-bold text-foreground">2. الحقول والأعمدة المراد استخراجها</label>
+                <label className="font-bold text-foreground">
+                  2. الحقول والأعمدة المراد استخراجها
+                </label>
                 <div className="flex flex-wrap gap-2 pt-1">
-                  {columnOptions[selectedSource].map(col => (
-                    <label key={col.key} className="flex items-center gap-1 text-xs cursor-pointer border rounded-md px-2 py-1 bg-muted/20">
+                  {columnOptions[selectedSource].map((col) => (
+                    <label
+                      key={col.key}
+                      className="flex items-center gap-1 text-xs cursor-pointer border rounded-md px-2 py-1 bg-muted/20"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedColumns.includes(col.key)}
-                        onChange={e => {
+                        onChange={(e) => {
                           if (e.target.checked) {
                             setSelectedColumns([...selectedColumns, col.key]);
                           } else {
-                            setSelectedColumns(selectedColumns.filter(k => k !== col.key));
+                            setSelectedColumns(selectedColumns.filter((k) => k !== col.key));
                           }
                         }}
                         className="rounded text-primary h-3.5 w-3.5"

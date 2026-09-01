@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { useApp } from '../../lib/context/AppContext';
+import React, { useState } from "react";
+import { useApp } from "../../lib/context/AppContext";
+import { canManageModule } from "../../lib/auth/permissions";
 import {
   CalendarCheck,
   Clock,
@@ -11,10 +12,10 @@ import {
   Layers,
   MapPin,
   Save,
-} from 'lucide-react';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+} from "lucide-react";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -22,11 +23,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '../ui/dialog';
+} from "../ui/dialog";
 
 export const ShiftsView: React.FC = () => {
-  const { shifts, employees, language, t } = useApp();
-  const [activeTab, setActiveTab] = useState('definitions');
+  const { shifts, employees, addShift, currentRole, language, t } = useApp();
+  const canManage = canManageModule(currentRole, "shifts");
+  const [activeTab, setActiveTab] = useState("definitions");
 
   // Modals state
   const [isAddShiftOpen, setIsAddShiftOpen] = useState(false);
@@ -34,25 +36,24 @@ export const ShiftsView: React.FC = () => {
   const [isAddDeviceOpen, setIsAddDeviceOpen] = useState(false);
 
   // New Shift Form State
-  const [shiftName, setShiftName] = useState('');
-  const [shiftStartTime, setShiftStartTime] = useState('08:00');
-  const [shiftEndTime, setShiftEndTime] = useState('17:00');
+  const [shiftName, setShiftName] = useState("");
+  const [shiftStartTime, setShiftStartTime] = useState("08:00");
+  const [shiftEndTime, setShiftEndTime] = useState("17:00");
   const [shiftGraceArrival, setShiftGraceArrival] = useState(15);
-  const [shiftType, setShiftType] = useState<'fixed' | 'flexible' | 'split'>('fixed');
+  const [shiftType, setShiftType] = useState<"fixed" | "flexible" | "split">("fixed");
 
   // Device Form State
-  const [deviceName, setDeviceName] = useState('');
-  const [deviceIp, setDeviceIp] = useState('192.168.1.200');
+  const [deviceName, setDeviceName] = useState("");
+  const [deviceIp, setDeviceIp] = useState("192.168.1.200");
 
-  const daysOfWeek = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+  const daysOfWeek = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
   const handleCreateShift = () => {
     if (!shiftName) {
-      alert('يرجى كتابة اسم الوردية / الدوام');
+      alert("يرجى كتابة اسم الوردية / الدوام");
       return;
     }
-    shifts.push({
-      id: `shift-${Date.now()}`,
+    addShift({
       code: `SH-${Math.floor(10 + Math.random() * 90)}`,
       nameAr: shiftName,
       nameEn: shiftName,
@@ -61,23 +62,23 @@ export const ShiftsView: React.FC = () => {
       endTime: shiftEndTime,
       graceMinutesArrival: shiftGraceArrival,
       graceMinutesDeparture: 15,
-      color: '#0284c7',
+      color: "#0284c7",
       overtimeEligible: true,
       allowSinglePunch: false,
     });
     alert(`تم إنشاء الوردية (${shiftName}) بنجاح!`);
     setIsAddShiftOpen(false);
-    setShiftName('');
+    setShiftName("");
   };
 
   const handleCreateDevice = () => {
     if (!deviceName) {
-      alert('يرجى كتابة اسم الجهاز');
+      alert("يرجى كتابة اسم الجهاز");
       return;
     }
     alert(`تم ربط واختبار الاتصال بجهاز البصمة (${deviceName}) بنجاح!`);
     setIsAddDeviceOpen(false);
-    setDeviceName('');
+    setDeviceName("");
   };
 
   return (
@@ -93,16 +94,27 @@ export const ShiftsView: React.FC = () => {
             فترات الدوام، سياسات المرونة والتأخير، جدول الجدولة التفاعلي وربط أجهزة الحضور
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setIsAddShiftOpen(true)} size="sm" className="font-bold text-xs gap-1.5 bg-primary">
-            <Plus className="h-4 w-4" />
-            إنشاء وردية دوام جديدة
-          </Button>
-          <Button onClick={() => setIsAddDeviceOpen(true)} variant="outline" size="sm" className="font-bold text-xs gap-1.5">
-            <Server className="h-4 w-4" />
-            ربط جهاز بصمة جديد
-          </Button>
-        </div>
+        {canManage && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => setIsAddShiftOpen(true)}
+              size="sm"
+              className="font-bold text-xs gap-1.5 bg-primary"
+            >
+              <Plus className="h-4 w-4" />
+              إنشاء وردية دوام جديدة
+            </Button>
+            <Button
+              onClick={() => setIsAddDeviceOpen(true)}
+              variant="outline"
+              size="sm"
+              className="font-bold text-xs gap-1.5"
+            >
+              <Server className="h-4 w-4" />
+              ربط جهاز بصمة جديد
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -122,23 +134,20 @@ export const ShiftsView: React.FC = () => {
         {/* Tab 1: Shift Definitions */}
         <TabsContent value="definitions" className="space-y-4 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {shifts.map(sh => (
+            {shifts.map((sh) => (
               <div
                 key={sh.id}
                 className="rounded-xl border bg-card p-4 shadow-sm space-y-3 relative overflow-hidden"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: sh.color }}
-                    />
+                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: sh.color }} />
                     <h3 className="font-bold text-xs text-foreground">
-                      {language === 'ar' ? sh.nameAr : sh.nameEn}
+                      {language === "ar" ? sh.nameAr : sh.nameEn}
                     </h3>
                   </div>
                   <Badge variant="outline" className="text-[10px]">
-                    {sh.type === 'fixed' ? 'ثابت' : sh.type === 'flexible' ? 'مرن' : 'فترتان'}
+                    {sh.type === "fixed" ? "ثابت" : sh.type === "flexible" ? "مرن" : "فترتان"}
                   </Badge>
                 </div>
 
@@ -151,11 +160,15 @@ export const ShiftsView: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">فترة السماح (حضور):</span>
-                    <span className="font-bold text-emerald-600">+{sh.graceMinutesArrival} دقيقة</span>
+                    <span className="font-bold text-emerald-600">
+                      +{sh.graceMinutesArrival} دقيقة
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">حساب الساعات الإضافية:</span>
-                    <span className="font-bold text-foreground">{sh.overtimeEligible ? 'مفعل (1.5x)' : 'غير مفعل'}</span>
+                    <span className="font-bold text-foreground">
+                      {sh.overtimeEligible ? "مفعل (1.5x)" : "غير مفعل"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -181,12 +194,14 @@ export const ShiftsView: React.FC = () => {
                   <tr>
                     <th className="py-2.5 px-3 text-start">الموظف</th>
                     {daysOfWeek.map((day, idx) => (
-                      <th key={idx} className="py-2.5 px-2 text-center">{day}</th>
+                      <th key={idx} className="py-2.5 px-2 text-center">
+                        {day}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {employees.slice(0, 8).map(emp => (
+                  {employees.slice(0, 8).map((emp) => (
                     <tr key={emp.id} className="hover:bg-muted/20">
                       <td className="py-2.5 px-3 font-bold text-foreground whitespace-nowrap">
                         {emp.firstNameAr} {emp.lastNameAr}
@@ -218,22 +233,32 @@ export const ShiftsView: React.FC = () => {
             <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
               <div className="flex items-center gap-2 border-b pb-2">
                 <Server className="h-4 w-4 text-primary" />
-                <h3 className="font-bold text-xs text-foreground">أجهزة البصمة المربوطة بالسحابة (ZKTeco / Anviz)</h3>
+                <h3 className="font-bold text-xs text-foreground">
+                  أجهزة البصمة المربوطة بالسحابة (ZKTeco / Anviz)
+                </h3>
               </div>
               <div className="space-y-2 text-xs">
                 <div className="rounded-lg border p-2.5 flex items-center justify-between">
                   <div>
                     <p className="font-bold">جهاز البوابة الرئيسية (برج العليا)</p>
-                    <p className="text-[10px] text-muted-foreground font-mono">IP: 192.168.10.150 • متصل</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">
+                      IP: 192.168.10.150 • متصل
+                    </p>
                   </div>
-                  <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px]">متصل الآن</Badge>
+                  <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px]">
+                    متصل الآن
+                  </Badge>
                 </div>
                 <div className="rounded-lg border p-2.5 flex items-center justify-between">
                   <div>
                     <p className="font-bold">جهاز فرع الغربية (جدة)</p>
-                    <p className="text-[10px] text-muted-foreground font-mono">IP: 192.168.20.150 • متصل</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">
+                      IP: 192.168.20.150 • متصل
+                    </p>
                   </div>
-                  <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px]">متصل الآن</Badge>
+                  <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px]">
+                    متصل الآن
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -241,12 +266,20 @@ export const ShiftsView: React.FC = () => {
             <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
               <div className="flex items-center gap-2 border-b pb-2">
                 <Upload className="h-4 w-4 text-primary" />
-                <h3 className="font-bold text-xs text-foreground">استيراد سجلات البصمة الخام (Raw Punches)</h3>
+                <h3 className="font-bold text-xs text-foreground">
+                  استيراد سجلات البصمة الخام (Raw Punches)
+                </h3>
               </div>
               <p className="text-xs text-muted-foreground">
-                يمكن رفع ملفات البصمة بصيغة CSV أو Excel وسيتم تطبيق فحص التكرارات (Idempotency) ومطابقتها مع الدوامات المجدولة.
+                يمكن رفع ملفات البصمة بصيغة CSV أو Excel وسيتم تطبيق فحص التكرارات (Idempotency)
+                ومطابقتها مع الدوامات المجدولة.
               </p>
-              <Button onClick={() => alert('تم استيراد ومعالجة 450 حركة بصمة خام ومطابقتها بنجاح!')} size="sm" variant="outline" className="text-xs font-bold gap-1 w-full">
+              <Button
+                onClick={() => alert("تم استيراد ومعالجة 450 حركة بصمة خام ومطابقتها بنجاح!")}
+                size="sm"
+                variant="outline"
+                className="text-xs font-bold gap-1 w-full"
+              >
                 <Upload className="h-3.5 w-3.5" />
                 اختيار ملف البصمات (CSV / XLSX)
               </Button>
@@ -274,7 +307,7 @@ export const ShiftsView: React.FC = () => {
               <input
                 type="text"
                 value={shiftName}
-                onChange={e => setShiftName(e.target.value)}
+                onChange={(e) => setShiftName(e.target.value)}
                 placeholder="مثال: الوردية المسائية (خدمة العملاء)"
                 className="w-full h-8 rounded border px-2.5"
               />
@@ -285,7 +318,7 @@ export const ShiftsView: React.FC = () => {
                 <input
                   type="time"
                   value={shiftStartTime}
-                  onChange={e => setShiftStartTime(e.target.value)}
+                  onChange={(e) => setShiftStartTime(e.target.value)}
                   className="w-full h-8 rounded border px-2.5"
                 />
               </div>
@@ -294,7 +327,7 @@ export const ShiftsView: React.FC = () => {
                 <input
                   type="time"
                   value={shiftEndTime}
-                  onChange={e => setShiftEndTime(e.target.value)}
+                  onChange={(e) => setShiftEndTime(e.target.value)}
                   className="w-full h-8 rounded border px-2.5"
                 />
               </div>
@@ -304,7 +337,7 @@ export const ShiftsView: React.FC = () => {
               <input
                 type="number"
                 value={shiftGraceArrival}
-                onChange={e => setShiftGraceArrival(Number(e.target.value))}
+                onChange={(e) => setShiftGraceArrival(Number(e.target.value))}
                 className="w-full h-8 rounded border px-2.5"
               />
             </div>
@@ -337,7 +370,7 @@ export const ShiftsView: React.FC = () => {
               <input
                 type="text"
                 value={deviceName}
-                onChange={e => setDeviceName(e.target.value)}
+                onChange={(e) => setDeviceName(e.target.value)}
                 placeholder="مثال: جهاز بوابة المستودعات المركزية"
                 className="w-full h-8 rounded border px-2.5"
               />
@@ -347,7 +380,7 @@ export const ShiftsView: React.FC = () => {
               <input
                 type="text"
                 value={deviceIp}
-                onChange={e => setDeviceIp(e.target.value)}
+                onChange={(e) => setDeviceIp(e.target.value)}
                 className="w-full h-8 rounded border px-2.5 font-mono"
               />
             </div>

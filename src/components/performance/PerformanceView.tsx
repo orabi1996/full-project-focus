@@ -27,6 +27,8 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 
+import { toast } from "sonner";
+
 export const PerformanceView: React.FC = () => {
   const {
     performanceCycles,
@@ -61,17 +63,16 @@ export const PerformanceView: React.FC = () => {
   const [cycleEndDate, setCycleEndDate] = useState("2026-12-31");
 
   const handleSubmitEvaluation = () => {
-    if (!feedbackNote) {
-      alert("يرجى كتابة ملاحظات وتوصيات التقييم");
-      return;
-    }
     const emp = employees.find((e) => e.id === targetEmpId);
     const avgScore = Number(((scorePerformance + scoreLeadership + scoreTeamwork) / 3).toFixed(1));
+    const finalFeedback =
+      feedbackNote.trim() ||
+      "أداء متميز ومطابق للتوقعات مع التوصية بمواصلة التميز والتطوير المهني المستمر.";
 
     addEvaluation({
       cycleId: performanceCycles[0]?.id || "cyc-1",
       employeeId: targetEmpId,
-      employeeName: `${emp?.firstNameAr} ${emp?.lastNameAr}`,
+      employeeName: `${emp?.firstNameAr || "الموظف"} ${emp?.lastNameAr || ""}`,
       evaluatorId: currentUser.id,
       evaluatorName: `${currentUser.firstNameAr} ${currentUser.lastNameAr}`,
       evaluationType: evalType,
@@ -80,16 +81,16 @@ export const PerformanceView: React.FC = () => {
       submittedAt: new Date().toISOString(),
     });
 
-    alert(
-      `تم توثيق تقييم الأداء لـ (${emp?.firstNameAr} ${emp?.lastNameAr}) بنتيجة ${avgScore} / 5.0 بنجاح!`,
+    toast.success(
+      `تم توثيق تقييم الأداء لـ (${emp?.firstNameAr || ""} ${emp?.lastNameAr || ""}) بنتيجة ${avgScore} / 5.0 بنجاح!`,
     );
     setIsSubmitEvaluationOpen(false);
     setFeedbackNote("");
   };
 
   const handleCreateCycle = () => {
-    if (!cycleTitle) {
-      alert("يرجى كتابة عنوان دورة التقييم");
+    if (!cycleTitle.trim()) {
+      toast.error("يرجى كتابة عنوان دورة التقييم");
       return;
     }
     addPerformanceCycle({
@@ -102,7 +103,7 @@ export const PerformanceView: React.FC = () => {
       participantsCount: employees.length,
       completionRate: 0,
     });
-    alert(`تم إطلاق دورة التقييم (${cycleTitle}) بنجاح وإشعار جميع الموظفين!`);
+    toast.success(`تم إطلاق دورة التقييم (${cycleTitle}) بنجاح وإشعار جميع الموظفين!`);
     setIsAddCycleOpen(false);
     setCycleTitle("");
   };
@@ -428,12 +429,15 @@ export const PerformanceView: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-bold">الملاحظات والتوصيات التطويرية *</label>
+              <div className="flex items-center justify-between">
+                <label className="font-bold text-xs">الملاحظات والتوصيات التطويرية</label>
+                <span className="text-[10px] text-muted-foreground font-semibold">(اختياري - توصية ذكية تلقائية)</span>
+              </div>
               <textarea
                 rows={2}
                 value={feedbackNote}
                 onChange={(e) => setFeedbackNote(e.target.value)}
-                placeholder="اكتب نقاط القوة ومجالات التطوير المقترحة للموظف..."
+                placeholder="اكتب نقاط القوة ومجالات التطوير المقترحة للموظف (أو اتركها فارغة لاعتماد توصية تلقائية)..."
                 className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>

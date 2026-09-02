@@ -13,9 +13,8 @@ export async function enterDemo(page: Page) {
 
 export async function openModule(page: Page, label: string, moduleId: string) {
   const moduleButton = page.getByRole("button", { name: new RegExp(label) }).first();
-  if (!(await moduleButton.isVisible())) {
-    await page.getByTitle("فتح القائمة الرئيسية").click();
-  }
+  const mobileMenuButton = page.getByTitle("فتح القائمة الرئيسية");
+  if (await mobileMenuButton.isVisible()) await mobileMenuButton.click();
   await moduleButton.scrollIntoViewIfNeeded();
   await moduleButton.click();
   await expect(page).toHaveURL(new RegExp(`#${moduleId}$`));

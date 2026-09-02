@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -46,7 +47,7 @@ export const AttendanceView: React.FC = () => {
       .slice(0, 10);
     const to = today.toISOString().slice(0, 10);
     processAttendance(from, to);
-    alert("تمت معالجة واحتساب ساعات الحضور الإجمالية والتأخيرات لشهر سبتمبر 2026 بنجاح");
+    toast.success("تمت معالجة واحتساب ساعات الحضور الإجمالية والتأخيرات لشهر سبتمبر 2026 بنجاح");
   };
 
   const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
@@ -60,16 +61,16 @@ export const AttendanceView: React.FC = () => {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const res = punchInOut(type, { lat: pos.coords.latitude, lng: pos.coords.longitude });
-          alert(`${res.message} • ${res.geofenceValid ? "داخل السياج الجغرافي للمقر" : "خارج النطاق الجغرافي"}`);
+          toast.success(`${res.message} • ${res.geofenceValid ? "داخل السياج الجغرافي للمقر" : "خارج النطاق الجغرافي"}`);
         },
         () => {
           const res = punchInOut(type);
-          alert(res.message);
+          toast.success(res.message);
         },
       );
     } else {
       const res = punchInOut(type);
-      alert(res.message);
+      toast.success(res.message);
     }
   };
 
@@ -91,7 +92,7 @@ export const AttendanceView: React.FC = () => {
 
   const handleSubmitCorrection = () => {
     if (!correctionReason) {
-      alert("يرجى كتابة سبب تصحيح البصمة");
+      toast.error("يرجى كتابة سبب تصحيح البصمة");
       return;
     }
     submitAttendanceCorrection({
@@ -100,7 +101,7 @@ export const AttendanceView: React.FC = () => {
       correctOut: correctOutTime,
       reason: correctionReason,
     });
-    alert("تم إرسال طلب تصحيح البصمة بنجاح للاعتماد");
+    toast.success("تم إرسال طلب تصحيح البصمة بنجاح للاعتماد");
     setIsCorrectionModalOpen(false);
     setCorrectionReason("");
   };

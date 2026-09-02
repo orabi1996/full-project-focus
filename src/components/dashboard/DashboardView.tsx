@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { toast } from "sonner";
 import {
   AreaChart,
   Area,
@@ -67,7 +68,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
   const handleQuickPunch = (type: "in" | "out") => {
     const res = punchInOut(type);
-    alert(res.message);
+    toast.success(res.message);
   };
 
   // Realistic 7-Day Attendance Trend Data (M3 Tonal Colors)

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   Dialog,
@@ -143,7 +144,7 @@ export const DocumentVaultView: React.FC = () => {
 
   const handleUploadSubmit = () => {
     if (!newDoc.title) {
-      alert("يرجى كتابة عنوان الوثيقة");
+      toast.error("يرجى كتابة عنوان الوثيقة");
       return;
     }
     const emp = employees.find((e) => e.id === newDoc.employeeId);
@@ -161,7 +162,7 @@ export const DocumentVaultView: React.FC = () => {
     };
 
     setDocuments([docItem, ...documents]);
-    alert("تم رفع وحفظ الوثيقة في المستودع السحابي الآمن بنجاح");
+    toast.success("تم رفع وحفظ الوثيقة في المستودع السحابي الآمن بنجاح");
     setIsUploadModalOpen(false);
     setNewDoc({
       employeeId: employees[0]?.id || "",
@@ -449,7 +450,7 @@ export const DocumentVaultView: React.FC = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => alert(`جارٍ فتح وتحميل الوثيقة: ${doc.fileName}`)}
+                          onClick={() => toast.success(`جارٍ فتح وتحميل الوثيقة: ${doc.fileName}`)}
                           className="h-8 w-8 rounded-full text-primary hover:bg-secondary"
                           title="عرض وتنزيل"
                         >

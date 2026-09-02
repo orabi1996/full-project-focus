@@ -23,6 +23,7 @@ import {
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -86,7 +87,7 @@ export const WorkflowView: React.FC = () => {
 
   const handleCreateNewRequest = () => {
     if (!reqReason) {
-      alert("يرجى كتابة تفاصيل ومبررات الطلب");
+      toast.error("يرجى كتابة تفاصيل ومبررات الطلب");
       return;
     }
     submitRequest({
@@ -95,14 +96,14 @@ export const WorkflowView: React.FC = () => {
         reason: reqReason,
       },
     });
-    alert("تم تقديم الطلب بنجاح وإرساله لمسار الاعتماد.");
+    toast.success("تم تقديم الطلب بنجاح وإرساله لمسار الاعتماد.");
     setIsNewRequestOpen(false);
     setReqReason("");
   };
 
   const handleCreateNewChain = () => {
     if (!chainName) {
-      alert("يرجى كتابة اسم مسار الاعتماد");
+      toast.error("يرجى كتابة اسم مسار الاعتماد");
       return;
     }
     addApprovalChain({
@@ -127,7 +128,7 @@ export const WorkflowView: React.FC = () => {
         },
       ],
     });
-    alert("تم إنشاء وتوثيق سلسلة الموافقات الجديدة بنجاح!");
+    toast.success("تم إنشاء وتوثيق سلسلة الموافقات الجديدة بنجاح!");
     setIsNewChainOpen(false);
     setChainName("");
   };

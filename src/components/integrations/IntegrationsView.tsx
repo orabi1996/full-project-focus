@@ -27,6 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../ui/dialog";
+import { toast } from "sonner";
 
 export const IntegrationsView: React.FC = () => {
   const { accountingJournals, currentRole, language, t } = useApp();
@@ -87,15 +88,15 @@ export const IntegrationsView: React.FC = () => {
 
   const handleCreateWebhook = () => {
     if (!webhookUrl) {
-      alert("يرجى كتابة رابط الـ Webhook");
+      toast.error("يرجى كتابة رابط الـ Webhook");
       return;
     }
-    alert(`تم إنشاء وتفعيل نقطة الـ Webhook بنجاح للحدث: (${webhookEvent})!`);
+    toast.success(`تم إنشاء وتفعيل نقطة الـ Webhook بنجاح للحدث: (${webhookEvent})!`);
     setIsAddWebhookOpen(false);
   };
 
   const handleSyncJournals = () => {
-    alert(
+    toast.success(
       "تم إرسال قيود الرواتب والمصروفات إلى نظام Odoo بنجاح! كود الاستجابة: 200 OK (Batch ID: JRN-9823)",
     );
     setIsSyncJournalOpen(false);

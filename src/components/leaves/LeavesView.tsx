@@ -21,6 +21,7 @@ import {
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -73,7 +74,7 @@ export const LeavesView: React.FC = () => {
 
   const handleApply = () => {
     if (!reason) {
-      alert("يرجى كتابة سبب الإجازة");
+      toast.error("يرجى كتابة سبب الإجازة");
       return;
     }
     const success = applyLeave({
@@ -84,33 +85,33 @@ export const LeavesView: React.FC = () => {
       reason,
     });
     if (success) {
-      alert("تم تقديم طلب الإجازة وحجز الرصيد بنجاح وتحويله لمسار الموافقات الإلكتروني");
+      toast.success("تم تقديم طلب الإجازة وحجز الرصيد بنجاح وتحويله لمسار الموافقات الإلكتروني");
       setIsApplyModalOpen(false);
       setReason("");
     } else {
-      alert("عذراً، رصيدك المتاح لا يكفي لتغطية عدد الأيام المطلوبة");
+      toast.error("عذراً، رصيدك المتاح لا يكفي لتغطية عدد الأيام المطلوبة");
     }
   };
 
   const handleCreateLeaveType = () => {
     if (!newTypeName) {
-      alert("يرجى كتابة اسم نوع الإجازة");
+      toast.error("يرجى كتابة اسم نوع الإجازة");
       return;
     }
     addLeaveType({ nameAr: newTypeName, maxDaysPerYear: newTypeDays, isPaid: newTypePaid });
-    alert(`تمت إضافة نوع الإجازة (${newTypeName}) بنجاح!`);
+    toast.success(`تمت إضافة نوع الإجازة (${newTypeName}) بنجاح!`);
     setIsAddTypeModalOpen(false);
     setNewTypeName("");
   };
 
   const handleAdjustBalance = () => {
     if (!adjustReason) {
-      alert("يرجى كتابة سبب تعديل الرصيد");
+      toast.error("يرجى كتابة سبب تعديل الرصيد");
       return;
     }
     const emp = employees.find((e) => e.id === adjustEmpId);
     adjustLeaveBalance(adjustEmpId, selectedTypeId, adjustDays, adjustReason);
-    alert(
+    toast.success(
       `تم تعديل الرصيد لـ (${emp?.firstNameAr} ${emp?.lastNameAr}) بمقدار ${adjustDays} يوم وتوثيقه في سجل التدقيق.`,
     );
     setIsAdjustBalanceOpen(false);

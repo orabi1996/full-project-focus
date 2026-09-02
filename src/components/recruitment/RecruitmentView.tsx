@@ -23,6 +23,7 @@ import {
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -105,7 +106,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
   const handleCreateJob = () => {
     if (!newJob.titleAr) {
-      alert("يرجى كتابة المسمى الوظيفي");
+      toast.error("يرجى كتابة المسمى الوظيفي");
       return;
     }
     const dept = orgUnits.find((u) => u.id === newJob.departmentId);
@@ -128,7 +129,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
       publishedStatus: "published",
       publishedAt: new Date().toISOString().split("T")[0],
     });
-    alert("تم نشر الوظيفة الشاغرة بنجاح في بوابة التوظيف!");
+    toast.success("تم نشر الوظيفة الشاغرة بنجاح في بوابة التوظيف!");
     setIsAddJobOpen(false);
     setNewJob({
       titleAr: "",
@@ -143,7 +144,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
   const handleApplyForJob = () => {
     if (!applicantName || !applicantEmail) {
-      alert("يرجى استكمال الاسم والبريد الإلكتروني");
+      toast.error("يرجى استكمال الاسم والبريد الإلكتروني");
       return;
     }
     addCandidate({
@@ -159,7 +160,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
       notesCount: 0,
       cvUrl: "https://cdn.focus-hrms.com/resumes/applicant.pdf",
     });
-    alert(`تم استلام طلب التقديم لـ (${applicantName}) ونقله فورياً لمرحلة الفرز في الـ ATS!`);
+    toast.success(`تم استلام طلب التقديم لـ (${applicantName}) ونقله فورياً لمرحلة الفرز في الـ ATS!`);
     setIsApplyModalOpen(false);
     setApplicantName("");
     setApplicantEmail("");
@@ -169,7 +170,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
     if (!selectedCandidate) return;
     const avg = Number(((techRating + commRating) / 2).toFixed(1));
     updateCandidateScore(selectedCandidate.id, avg);
-    alert(`تم حفظ بطاقة تقييم المرشح بنجاح! النتيجة: ${avg} / 5.0`);
+    toast.success(`تم حفظ بطاقة تقييم المرشح بنجاح! النتيجة: ${avg} / 5.0`);
     setIsScorecardOpen(false);
   };
 
@@ -184,7 +185,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
       transportAllowance: offerTransport,
       proposedStartDate: offerStartDate,
     });
-    alert(`تم إصدار وتوثيق عرض العمل للمرشح (${selectedCandidate.fullName}) بنجاح`);
+    toast.success(`تم إصدار وتوثيق عرض العمل للمرشح (${selectedCandidate.fullName}) بنجاح`);
     setIsOfferModalOpen(false);
   };
 

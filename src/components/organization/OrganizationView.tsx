@@ -21,6 +21,7 @@ import {
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import type { OrgUnit } from "../../types";
+import { toast } from "sonner";
 
 type OrgUnitType = OrgUnit["type"];
 
@@ -148,7 +149,7 @@ export const OrganizationView: React.FC = () => {
 
   const handleCreateDept = () => {
     if (!newDept.nameAr) {
-      alert("يرجى كتابة اسم الإدارة / القسم");
+      toast.error("يرجى كتابة اسم الإدارة / القسم");
       return;
     }
     addOrgUnit({
@@ -162,7 +163,7 @@ export const OrganizationView: React.FC = () => {
       managerName: newDept.managerName || "غير معين",
       status: "active",
     });
-    alert("تمت إضافة الإدارة / القسم بنجاح في الهيكل التنظيمي");
+    toast.success("تمت إضافة الإدارة / القسم بنجاح في الهيكل التنظيمي");
     setIsAddDeptOpen(false);
     setNewDept({
       nameAr: "",
@@ -177,7 +178,7 @@ export const OrganizationView: React.FC = () => {
 
   const handleCreateSub = () => {
     if (!newSub.nameAr) {
-      alert("يرجى كتابة اسم الشركة الفرعية");
+      toast.error("يرجى كتابة اسم الشركة الفرعية");
       return;
     }
     addSubsidiary({
@@ -189,7 +190,7 @@ export const OrganizationView: React.FC = () => {
       managerName: newSub.managerName || "غير معين",
       status: "active",
     });
-    alert("تمت إضافة الشركة التابعة بنجاح");
+    toast.success("تمت إضافة الشركة التابعة بنجاح");
     setIsAddSubOpen(false);
     setNewSub({
       nameAr: "",
@@ -202,7 +203,7 @@ export const OrganizationView: React.FC = () => {
 
   const handleCreateLoc = () => {
     if (!newLoc.nameAr) {
-      alert("يرجى كتابة اسم الموقع الجغرافي");
+      toast.error("يرجى كتابة اسم الموقع الجغرافي");
       return;
     }
     addWorkLocation({
@@ -216,7 +217,7 @@ export const OrganizationView: React.FC = () => {
       radiusMeters: newLoc.radiusMeters,
       status: "active",
     });
-    alert("تمت إضافة الموقع الجغرافي ونطاق السياج بنجاح");
+    toast.success("تمت إضافة الموقع الجغرافي ونطاق السياج بنجاح");
     setIsAddLocOpen(false);
     setNewLoc({
       nameAr: "",

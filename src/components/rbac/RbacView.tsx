@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -165,7 +166,7 @@ export const RbacView: React.FC = () => {
 
   const handleCreateCustomRole = () => {
     if (!newRoleName) {
-      alert("يرجى كتابة مسمى الدور");
+      toast.error("يرجى كتابة مسمى الدور");
       return;
     }
     const createdRole: Omit<RoleDefinition, "id" | "userCount" | "permissions"> & {
@@ -181,7 +182,7 @@ export const RbacView: React.FC = () => {
     };
     setSelectedRole(addRole(createdRole));
     setIsAddRoleOpen(false);
-    alert(`تم إنشاء الدور المخصص (${newRoleName}) بنجاح!`);
+    toast.success(`تم إنشاء الدور المخصص (${newRoleName}) بنجاح!`);
     setNewRoleName("");
     setNewRoleDesc("");
   };
@@ -338,7 +339,7 @@ export const RbacView: React.FC = () => {
             </span>
             {canManage && (
               <Button
-                onClick={() => alert("تم حفظ وتطبيق مصفوفة الصلاحيات بنجاح!")}
+                onClick={() => toast.success("تم حفظ وتطبيق مصفوفة الصلاحيات بنجاح!")}
                 size="sm"
                 className="rounded-full text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-5 h-9 shadow-xs"
               >

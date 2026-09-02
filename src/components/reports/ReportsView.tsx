@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
+import { toast } from "sonner";
 import { IconSymbol } from "../ui/IconSymbol";
 import {
   FileBarChart,
@@ -234,7 +235,7 @@ export const ReportsView: React.FC = () => {
           </p>
         </div>
         <Button
-          onClick={() => alert(`نسبة التوطين للمنشأة: ${saudizationRate}% - النطاق الأخضر البلاتيني`)}
+          onClick={() => toast.success(`نسبة التوطين للمنشأة: ${saudizationRate}% - النطاق الأخضر البلاتيني`)}
           size="sm"
           className="rounded-full font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-5 h-10 shadow-xs"
         >

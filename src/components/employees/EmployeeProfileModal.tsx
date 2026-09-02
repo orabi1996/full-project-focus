@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   Dialog,
@@ -144,7 +145,7 @@ export const EmployeeProfileModal: React.FC = () => {
 
   const handleSaveChanges = () => {
     if (!formData.firstNameAr || !formData.lastNameAr || !formData.email) {
-      alert("يرجى التأكد من استكمال الحقول الأساسية");
+      toast.error("يرجى التأكد من استكمال الحقول الأساسية");
       return;
     }
 
@@ -179,7 +180,7 @@ export const EmployeeProfileModal: React.FC = () => {
     };
 
     updateEmployee(employee.id, updates);
-    alert(`تم حفظ وتحديث ملف الموظف (${updates.firstNameAr} ${updates.lastNameAr}) بنجاح!`);
+    toast.success(`تم حفظ وتحديث ملف الموظف (${updates.firstNameAr} ${updates.lastNameAr}) بنجاح!`);
     setIsEditing(false);
   };
 

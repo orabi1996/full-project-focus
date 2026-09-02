@@ -27,6 +27,7 @@ import {
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -110,13 +111,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
       ? runGroupId
       : payrollGroups[0]?.id;
     if (!groupId) {
-      alert("يجب إنشاء مجموعة رواتب أولاً قبل تشغيل المسير");
+      toast.error("يجب إنشاء مجموعة رواتب أولاً قبل تشغيل المسير");
       return;
     }
     processPayrollRun(groupId, runYear, runMonth);
     setSelectedRunId(`pr-${groupId}-${runYear}-${String(runMonth).padStart(2, "0")}`);
     setIsRunModalOpen(false);
-    alert(`تم بدء احتساب مسير رواتب ${runMonth}/${runYear} بنجاح`);
+    toast.success(`تم بدء احتساب مسير رواتب ${runMonth}/${runYear} بنجاح`);
   };
 
   const handleExportWPS = () => {
@@ -124,7 +125,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
     const establishmentId = company.crNumber || company.taxNumber || "1010892341";
     const employerBankCode = "NCBKSA";
     if (selectedRunDetails.length === 0) {
-      alert("لا توجد تفاصيل موظفين في المسير المختار");
+      toast.error("لا توجد تفاصيل موظفين في المسير المختار");
       return;
     }
     const wpsRecords = selectedRunDetails.map((d) => ({
@@ -140,7 +141,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
 
     const payrollPeriod = `${selectedRun.periodYear}${String(selectedRun.periodMonth).padStart(2, "0")}`;
     generateWPSSIFFile(establishmentId, employerBankCode, payrollPeriod, wpsRecords);
-    alert("تم توليد وتنزيل ملف حماية الأجور (WPS SIF File) المعتمد بنجاح!");
+    toast.success("تم توليد وتنزيل ملف حماية الأجور (WPS SIF File) المعتمد بنجاح!");
   };
 
   const handleExportPayrollCSV = () => {
@@ -164,7 +165,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
 
   const handleCreateLoan = () => {
     if (!loanReason) {
-      alert("يرجى كتابة سبب طلب السلفة");
+      toast.error("يرجى كتابة سبب طلب السلفة");
       return;
     }
     createLoan({
@@ -173,7 +174,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
       totalInstallments: installmentsCount,
       reason: loanReason,
     });
-    alert("تم إرسال طلب السلفة للاعتماد بنجاح");
+    toast.success("تم إرسال طلب السلفة للاعتماد بنجاح");
     setIsLoanModalOpen(false);
     setLoanReason("");
   };
@@ -209,7 +210,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
       status: "pending_approval",
     });
 
-    alert(`تم احتساب مخالصة نهاية الخدمة بنجاح! إجمالي المستحق: ${netTotal.toLocaleString()} ر.س`);
+    toast.success(`تم احتساب مخالصة نهاية الخدمة بنجاح! إجمالي المستحق: ${netTotal.toLocaleString()} ر.س`);
     setIsSettlementModalOpen(false);
   };
 

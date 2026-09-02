@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   Dialog,
@@ -198,7 +199,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        alert("حجم الصورة يجب أن لا يتجاوز 5 ميغابايت");
+        toast.error("حجم الصورة يجب أن لا يتجاوز 5 ميغابايت");
         return;
       }
       const reader = new FileReader();
@@ -207,7 +208,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
         setFormData((prev) => ({ ...prev, avatarUrl: result }));
         updateEmployee(employee.id, { avatarUrl: result });
         setIsAvatarModalOpen(false);
-        alert("تم تحديث صورة البروفايل بنجاح!");
+        toast.success("تم تحديث صورة البروفايل بنجاح!");
       };
       reader.readAsDataURL(file);
     }
@@ -217,7 +218,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
     setFormData((prev) => ({ ...prev, avatarUrl: url }));
     updateEmployee(employee.id, { avatarUrl: url });
     setIsAvatarModalOpen(false);
-    alert("تم تعيين الصورة الرمزية للموظف بنجاح!");
+    toast.success("تم تعيين الصورة الرمزية للموظف بنجاح!");
   };
 
   const handleSaveCustomAvatarUrl = () => {
@@ -226,12 +227,12 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
     updateEmployee(employee.id, { avatarUrl: customAvatarUrl });
     setIsAvatarModalOpen(false);
     setCustomAvatarUrl("");
-    alert("تم تحديث رابط الصورة بنجاح!");
+    toast.success("تم تحديث رابط الصورة بنجاح!");
   };
 
   const handleSaveChanges = () => {
     if (!formData.firstNameAr || !formData.lastNameAr || !formData.email) {
-      alert("يرجى التأكد من استكمال الحقول الأساسية");
+      toast.error("يرجى التأكد من استكمال الحقول الأساسية");
       return;
     }
 
@@ -268,7 +269,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
     };
 
     updateEmployee(employee.id, updates);
-    alert(`تم حفظ وتحديث ملف الموظف (${updates.firstNameAr} ${updates.lastNameAr}) بنجاح!`);
+    toast.success(`تم حفظ وتحديث ملف الموظف (${updates.firstNameAr} ${updates.lastNameAr}) بنجاح!`);
     setIsEditing(false);
   };
 

@@ -28,6 +28,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../ui/dialog";
+import { toast } from "sonner";
 
 export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = ({
   onNavigate,
@@ -44,21 +45,21 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const res = punchInOut(type, { lat: pos.coords.latitude, lng: pos.coords.longitude });
-          alert(`${res.message} (GPS: ${res.geofenceValid ? "داخل مقر العمل" : "خارج النطاق"})`);
+          toast.success(`${res.message} (GPS: ${res.geofenceValid ? "داخل مقر العمل" : "خارج النطاق"})`);
         },
         () => {
           const res = punchInOut(type);
-          alert(res.message);
+          toast.success(res.message);
         },
       );
     } else {
       const res = punchInOut(type);
-      alert(res.message);
+      toast.success(res.message);
     }
   };
 
   const handleRequestCertificate = () => {
-    alert(
+    toast.success(
       `تم إصدار شهادة التعريف بالراتب الإلكترونية الموجهة إلى (${certificateDestination}) مع الختم الرقمي ورمز الاستجابة QR بنجاح!`,
     );
     setIsCertificateModalOpen(false);

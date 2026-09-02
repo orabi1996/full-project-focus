@@ -33,6 +33,7 @@ import {
   BadgePercent,
   AlertTriangle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import {
@@ -262,13 +263,13 @@ export const EmployeesView: React.FC = () => {
 
   const handleCreateEmployee = () => {
     if (!newEmp.firstNameAr || !newEmp.lastNameAr || !newEmp.email) {
-      alert("يرجى استكمال الحقول الإلزامية");
+      toast.error("يرجى استكمال الحقول الإلزامية");
       return;
     }
     addEmployee(newEmp);
     setIsAddWizardOpen(false);
     setWizardStep(1);
-    alert("تمت إضافة الموظف بنجاح في سجلات المنظومة");
+    toast.success("تمت إضافة الموظف بنجاح في سجلات المنظومة");
   };
 
   const openDocumentModal = (emp: Employee, type: DocType) => {

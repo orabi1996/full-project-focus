@@ -27,6 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../ui/dialog";
+import { toast } from "sonner";
 
 export const ExpensesView: React.FC = () => {
   const {
@@ -61,11 +62,11 @@ export const ExpensesView: React.FC = () => {
 
   const handleAddClaim = () => {
     if (isOverBlock) {
-      alert(`عذراً، المبلغ يتجاوز الحد المانع لهذه الفئة (${selectedCat?.maxLimitBlock} ر.س)`);
+      toast.error(`عذراً، المبلغ يتجاوز الحد المانع لهذه الفئة (${selectedCat?.maxLimitBlock} ر.س)`);
       return;
     }
     if (!merchant || !description) {
-      alert("يرجى استكمال بيانات المورد ووصف المصروف");
+      toast.error("يرجى استكمال بيانات المورد ووصف المصروف");
       return;
     }
 
@@ -81,7 +82,7 @@ export const ExpensesView: React.FC = () => {
       description,
     });
 
-    alert("تم تقديم مطالبة المصروفات بنجاح وإرسالها للمدير والمالية للاعتماد");
+    toast.success("تم تقديم مطالبة المصروفات بنجاح وإرسالها للمدير والمالية للاعتماد");
     setIsClaimModalOpen(false);
     setMerchant("");
     setDescription("");
@@ -89,7 +90,7 @@ export const ExpensesView: React.FC = () => {
 
   const handleCreateCategory = () => {
     if (!newCatName) {
-      alert("يرجى كتابة اسم فئة المصروف");
+      toast.error("يرجى كتابة اسم فئة المصروف");
       return;
     }
     addExpenseCategory({
@@ -97,7 +98,7 @@ export const ExpensesView: React.FC = () => {
       warningLimit: newCatWarning,
       blockLimit: newCatBlock,
     });
-    alert(`تمت إضافة سياسة وفئة المصروفات (${newCatName}) بنجاح!`);
+    toast.success(`تمت إضافة سياسة وفئة المصروفات (${newCatName}) بنجاح!`);
     setIsAddCatModalOpen(false);
     setNewCatName("");
   };

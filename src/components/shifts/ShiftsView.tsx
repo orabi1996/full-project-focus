@@ -18,6 +18,7 @@ import {
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -52,7 +53,7 @@ export const ShiftsView: React.FC = () => {
 
   const handleCreateShift = () => {
     if (!shiftName) {
-      alert("يرجى كتابة اسم الوردية / الدوام");
+      toast.error("يرجى كتابة اسم الوردية / الدوام");
       return;
     }
     addShift({
@@ -68,17 +69,17 @@ export const ShiftsView: React.FC = () => {
       overtimeEligible: true,
       allowSinglePunch: false,
     });
-    alert(`تم إنشاء الوردية (${shiftName}) بنجاح!`);
+    toast.success(`تم إنشاء الوردية (${shiftName}) بنجاح!`);
     setIsAddShiftOpen(false);
     setShiftName("");
   };
 
   const handleCreateDevice = () => {
     if (!deviceName) {
-      alert("يرجى كتابة اسم الجهاز");
+      toast.error("يرجى كتابة اسم الجهاز");
       return;
     }
-    alert(`تم ربط واختبار الاتصال بجهاز البصمة (${deviceName}) بنجاح!`);
+    toast.success(`تم ربط واختبار الاتصال بجهاز البصمة (${deviceName}) بنجاح!`);
     setIsAddDeviceOpen(false);
     setDeviceName("");
   };
@@ -282,7 +283,7 @@ export const ShiftsView: React.FC = () => {
                 يمكن رفع ملفات حركات البصمة من أجهزة USB بصيغة CSV أو Excel وسيتم تطبيق فحص التكرارات ومطابقتها آلياً.
               </p>
               <Button
-                onClick={() => alert("تم استيراد ومعالجة 450 حركة بصمة خام ومطابقتها بنجاح!")}
+                onClick={() => toast.success("تم استيراد ومعالجة 450 حركة بصمة خام ومطابقتها بنجاح!")}
                 size="sm"
                 variant="outline"
                 className="rounded-full text-xs font-bold gap-1.5 w-full h-10 border-border/80 hover:bg-secondary"

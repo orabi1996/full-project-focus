@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
 import type { HardwareAsset, CompanyDocument } from "../../types";
+import { toast } from "sonner";
 import { IconSymbol } from "../ui/IconSymbol";
 import {
   Package,
@@ -62,7 +63,7 @@ export const AssetsView: React.FC = () => {
 
   const handleCreateAsset = () => {
     if (!assetName) {
-      alert("يرجى كتابة اسم العهدة / الجهاز");
+      toast.error("يرجى كتابة اسم العهدة / الجهاز");
       return;
     }
     const emp = employees.find((e) => e.id === assignedEmpId);
@@ -77,14 +78,14 @@ export const AssetsView: React.FC = () => {
       status: emp ? "assigned" : "available",
       assignedDate: emp ? new Date().toISOString().split("T")[0] : undefined,
     });
-    alert(`تم تسجيل العهدة (${assetName}) بنجاح!`);
+    toast.success(`تم تسجيل العهدة (${assetName}) بنجاح!`);
     setIsAddAssetOpen(false);
     setAssetName("");
   };
 
   const handleCreateDoc = () => {
     if (!docTitle || !docFileUrl) {
-      alert("يرجى كتابة عنوان الوثيقة وإضافة رابط الملف");
+      toast.error("يرجى كتابة عنوان الوثيقة وإضافة رابط الملف");
       return;
     }
     addCompanyDocument({
@@ -96,7 +97,7 @@ export const AssetsView: React.FC = () => {
       requiresAcknowledgment: true,
       visibilityScope: "all",
     });
-    alert(`تم نشر الوثيقة (${docTitle}) وإتاحتها لجميع الموظفين لتأكيد القراءة!`);
+    toast.success(`تم نشر الوثيقة (${docTitle}) وإتاحتها لجميع الموظفين لتأكيد القراءة!`);
     setIsAddDocOpen(false);
     setDocTitle("");
     setDocFileUrl("");
@@ -222,7 +223,7 @@ export const AssetsView: React.FC = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => alert(`جاري تنزيل ملف ${doc.titleAr}`)}
+                    onClick={() => toast.info(`جاري تنزيل ملف ${doc.titleAr}`)}
                     className="h-8 text-xs font-bold gap-1 text-primary rounded-full border-border/80 hover:bg-secondary px-3"
                   >
                     <Download className="h-3.5 w-3.5" />
@@ -232,7 +233,7 @@ export const AssetsView: React.FC = () => {
                     size="sm"
                     onClick={() => {
                       acknowledgeDocument(doc.id);
-                      alert("تم تسجيل إقرارك بالاطلاع على اللائحة بنجاح");
+                      toast.success("تم تسجيل إقرارك بالاطلاع على اللائحة بنجاح");
                     }}
                     className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-3 shadow-xs"
                   >

@@ -10,6 +10,7 @@ import type {
   Employee,
   RoleDefinition,
   ApprovalChain,
+  DelegationRule,
   ServiceRequest,
   LeaveTypePolicy,
   EmployeeLeaveBalance,
@@ -1142,6 +1143,35 @@ export const mockApprovalChains: ApprovalChain[] = [
         stepNameEn: "Finance & Payroll Schedule Approval",
       },
     ],
+  },
+];
+
+export const mockDelegationRules: DelegationRule[] = [
+  {
+    id: "del-01",
+    delegatorId: "emp-02",
+    delegatorName: "أشرف محمود (مدير الموارد البشرية)",
+    delegateId: "emp-01",
+    delegateName: "خالد المهيري (نائب المدير العام)",
+    startDate: "2026-09-01",
+    endDate: "2026-09-10",
+    reason: "انتداب لحضور قمة الموارد البشرية والتحول الرقمي بالرياض",
+    status: "active",
+    scope: "all_requests",
+    createdAt: "2026-08-30T10:00:00Z",
+  },
+  {
+    id: "del-02",
+    delegatorId: "emp-07",
+    delegatorName: "طارق العتيبي (مدير المشاريع)",
+    delegateId: "emp-08",
+    delegateName: "مشعل الغامدي (كبير مهندسي العمليات)",
+    startDate: "2026-08-15",
+    endDate: "2026-08-25",
+    reason: "إجازة سنوية اعتيادية",
+    status: "expired",
+    scope: "leave",
+    createdAt: "2026-08-14T09:00:00Z",
   },
 ];
 

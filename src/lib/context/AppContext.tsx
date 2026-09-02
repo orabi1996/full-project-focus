@@ -11,6 +11,7 @@ import type {
   Employee,
   RoleDefinition,
   ApprovalChain,
+  DelegationRule,
   ServiceRequest,
   LeaveTypePolicy,
   EmployeeLeaveBalance,
@@ -77,6 +78,7 @@ import {
   mockEmployees,
   mockRoles,
   mockApprovalChains,
+  mockDelegationRules,
   mockRequests,
   mockLeaveTypes,
   mockEmployeeLeaveBalances,
@@ -146,6 +148,7 @@ interface AppContextType {
   employees: Employee[];
   roles: RoleDefinition[];
   approvalChains: ApprovalChain[];
+  delegationRules: DelegationRule[];
   requests: ServiceRequest[];
   leaveTypes: LeaveTypePolicy[];
   leaveBalances: EmployeeLeaveBalance[];
@@ -191,6 +194,9 @@ interface AppContextType {
   rejectRequest: (requestId: string, note?: string) => void;
   returnRequest: (requestId: string, note?: string) => void;
   addApprovalChain: (chain: Omit<ApprovalChain, "id">) => void;
+  deleteApprovalChain: (id: string) => void;
+  addDelegationRule: (rule: Omit<DelegationRule, "id" | "createdAt" | "status">) => void;
+  revokeDelegationRule: (id: string) => void;
 
   // Leaves
   applyLeave: (payload: {
@@ -306,6 +312,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
   const [roles, setRoles] = useState<RoleDefinition[]>(mockRoles);
   const [approvalChains, setApprovalChains] = useState<ApprovalChain[]>(mockApprovalChains);
+  const [delegationRules, setDelegationRules] = useState<DelegationRule[]>(mockDelegationRules);
   const [requests, setRequests] = useState<ServiceRequest[]>(mockRequests);
   const [leaveTypes, setLeaveTypes] = useState<LeaveTypePolicy[]>(mockLeaveTypes);
   const [leaveBalances, setLeaveBalances] =
@@ -723,6 +730,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       newChain.nameAr,
       `نوع الطلب: ${newChain.requestType}`,
     );
+  };
+
+  const deleteApprovalChain = (id: string) => {
+    setApprovalChains((prev) => prev.filter((c) => c.id !== id));
+    toast.success("تم حذف مسار الاعتماد بنجاح");
+  };
+
+  const addDelegationRule = (rule: Omit<DelegationRule, "id" | "createdAt" | "status">) => {
+    const newRule: DelegationRule = {
+      ...rule,
+      id: `del-${Date.now()}`,
+      status: "active",
+      createdAt: new Date().toISOString(),
+    };
+    setDelegationRules((prev) => [newRule, ...prev]);
+    toast.success(`تم تفعيل تفويض الصلاحيات لـ (${rule.delegateName}) بنجاح`);
+    logAuditEvent(
+      "تفعيل تفويض صلاحيات",
+      "DelegationRule",
+      newRule.id,
+      rule.delegatorName,
+      `المفوض له: ${rule.delegateName} | الفترة: ${rule.startDate} إلى ${rule.endDate}`,
+    );
+  };
+
+  const revokeDelegationRule = (id: string) => {
+    setDelegationRules((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: "revoked" } : r)),
+    );
+    toast.info("تم إلغاء التفويض بنجاح");
   };
 
   // Leaves
@@ -1550,6 +1587,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         employees,
         roles,
         approvalChains,
+        delegationRules,
         requests,
         leaveTypes,
         leaveBalances,
@@ -1589,6 +1627,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rejectRequest,
         returnRequest,
         addApprovalChain,
+        deleteApprovalChain,
+        addDelegationRule,
+        revokeDelegationRule,
         applyLeave,
         addLeaveType,
         adjustLeaveBalance,

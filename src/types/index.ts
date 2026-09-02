@@ -304,6 +304,20 @@ export interface ApprovalChain {
   status: "active" | "inactive";
 }
 
+export interface DelegationRule {
+  id: string;
+  delegatorId: string;
+  delegatorName: string;
+  delegateId: string;
+  delegateName: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  status: "active" | "expired" | "revoked";
+  scope: "all_requests" | "leave" | "expense_claim" | "loan_advance";
+  createdAt: string;
+}
+
 export interface RequestTimelineEvent {
   id: string;
   stepNumber: number;

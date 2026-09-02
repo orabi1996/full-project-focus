@@ -47,7 +47,7 @@ export const IconSymbol: React.FC<IconSymbolProps> = ({
 
   // 2. Phosphor Icons
   if (source === "phosphor") {
-    const Component = (PhosphorIcons as Record<string, React.ElementType>)[name];
+    const Component = (PhosphorIcons as unknown as Record<string, React.ElementType>)[name];
     if (Component) {
       return (
         <Component
@@ -110,7 +110,7 @@ export const IconSymbol: React.FC<IconSymbolProps> = ({
   }
 
   // 5. Default / Fallback: Lucide Icons
-  const LucideComp = (LucideIcons as Record<string, React.ElementType>)[name];
+  const LucideComp = (LucideIcons as unknown as Record<string, React.ElementType>)[name];
   if (LucideComp) {
     return (
       <LucideComp

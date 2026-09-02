@@ -1096,7 +1096,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                         {req.payload.leaveTypeNameAr || req.payload.categoryNameAr || req.payload.reason}
                       </span>
                       <span className="text-[10px] text-muted-foreground font-mono">
-                        {req.referenceNo} • {req.createdAt.split("T")[0]}
+                        {req.referenceNo} • {req.submittedAt.split("T")[0]}
                       </span>
                     </div>
                     <Badge

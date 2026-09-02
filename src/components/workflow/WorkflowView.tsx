@@ -623,7 +623,7 @@ export const WorkflowView: React.FC = () => {
                               ? "bg-emerald-500/10 text-emerald-700 border-emerald-300"
                               : req.status === "rejected"
                                 ? "bg-destructive/10 text-destructive border-destructive/30"
-                                : req.status === "returned_for_revision"
+                                : req.status === "returned"
                                   ? "bg-purple-500/10 text-purple-700 border-purple-300"
                                   : "bg-amber-500/10 text-amber-700 border-amber-300"
                           }`}
@@ -632,7 +632,7 @@ export const WorkflowView: React.FC = () => {
                             ? "معتمد نهائياً"
                             : req.status === "rejected"
                               ? "مرفوض"
-                              : req.status === "returned_for_revision"
+                              : req.status === "returned"
                                 ? "معاد للاستكمال"
                                 : "قيد المراجعة"}
                         </Badge>

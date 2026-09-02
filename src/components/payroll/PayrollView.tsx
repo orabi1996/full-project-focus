@@ -212,6 +212,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
     createLoan({
       principalAmount: loanAmount,
       monthlyInstallment: Math.round(loanAmount / installmentsCount),
+      totalInstallments: installmentsCount,
       reason: loanReason,
     });
     setIsLoanModalOpen(false);
@@ -222,7 +223,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
     const emp = employees.find((e) => e.id === settlementEmpId);
     if (!emp) return;
 
-    const joinDate = new Date(emp.joiningDate);
+    const joinDate = new Date(emp.hireDate);
     const termDate = new Date(terminationDate);
     const totalDays = Math.max(
       1,
@@ -232,9 +233,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
     const serviceMonths = Math.floor((totalDays % 365) / 30);
 
     const eosbCalc = calculateEOSB({
-      serviceYears,
-      serviceMonths,
-      lastDrawnSalary: emp.totalSalary,
+      totalMonthlyWage: emp.totalSalary,
+      startDate: emp.hireDate,
+      endDate: terminationDate,
       separationType,
     });
 
@@ -250,8 +251,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
       eosbAmount: eosbCalc.finalEOSBAmount,
       leaveBalancePayoutDays: 15,
       leaveBalancePayoutAmount: leavePayout,
+      pendingSalaryAmount: 0,
+      loanDeductionAmount: 0,
+      noticePeriodServed: true,
+      assetClearanceComplete: false,
       netSettlementAmount: netTotal,
-      eosbNotes: eosbCalc.explanation,
+      eosbNotes: `مدة الخدمة المحتسبة ${eosbCalc.totalServiceYearsDecimal} سنة بنسبة استحقاق ${eosbCalc.resignationMultiplier}%`,
+      status: "draft",
     });
 
     setIsSettlementModalOpen(false);
@@ -1143,7 +1149,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
                 <option value="contract_expiration">انتهاء مدة العقد المحدد (مكافأة كاملة)</option>
-                <option value="company_termination">إنهاء من صاحب العمل بموجب م77 (مكافأة كاملة)</option>
+                <option value="termination_by_employer">إنهاء من صاحب العمل بموجب م77 (مكافأة كاملة)</option>
                 <option value="resignation">استقالة العامل (م85 - متدرجة حسب مدة الخدمة)</option>
                 <option value="force_majeure">قوة قاهرة أو ترك العمل لظروف استثنائية (كاملة)</option>
               </select>

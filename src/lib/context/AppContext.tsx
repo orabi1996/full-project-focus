@@ -5,6 +5,7 @@ import type {
   DataScope,
   UserRole,
   CompanyProfile,
+  CostCenter,
   Subsidiary,
   OrgUnit,
   WorkLocation,
@@ -33,6 +34,7 @@ import type {
   JobOpening,
   Candidate,
   JobOffer,
+  JobPosition,
   HardwareAsset,
   CompanyDocument,
   AuditLogEntry,
@@ -50,11 +52,13 @@ import {
   createAuditEventRecord,
   createCandidateRecord,
   createCompanyDocumentRecord,
+  createCostCenterRecord,
   createEvaluationRecord,
   createExpenseCategoryRecord,
   createExpenseClaimRecord,
   createJobOfferRecord,
   createJobOpeningRecord,
+  createJobPositionRecord,
   createLeaveTypeRecord,
   createOrganizationUnitRecord,
   createPayrollRunWithDetailsRecord,
@@ -68,10 +72,17 @@ import {
   markNotificationReadRecord,
   returnAssetRecord,
   updateCandidateRecord,
+  updateCompanyRecord,
+  updateCostCenterRecord,
+  updateJobPositionRecord,
+  updateOrganizationUnitRecord,
   updatePayrollRunStatusRecord,
+  updateSubsidiaryRecord,
+  updateWorkLocationRecord,
 } from "../data/operational-repository";
 import {
   mockCompany,
+  mockCostCenters,
   mockSubsidiaries,
   mockOrgUnits,
   mockWorkLocations,
@@ -99,6 +110,7 @@ import {
   mockJobOpenings,
   mockCandidates,
   mockJobOffers,
+  mockJobPositions,
   mockAssets,
   mockCompanyDocs,
   mockAuditLogs,
@@ -145,6 +157,8 @@ interface AppContextType {
   subsidiaries: Subsidiary[];
   orgUnits: OrgUnit[];
   workLocations: WorkLocation[];
+  costCenters: CostCenter[];
+  jobPositions: JobPosition[];
   employees: Employee[];
   roles: RoleDefinition[];
   approvalChains: ApprovalChain[];
@@ -181,9 +195,20 @@ interface AppContextType {
   closeEmployeeProfile: () => void;
   addEmployee: (emp: Omit<Employee, "id" | "completionScore">) => void;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
+  updateCompany: (profile: CompanyProfile) => void;
   addOrgUnit: (unit: Omit<OrgUnit, "id" | "employeeCount">) => void;
+  updateOrgUnit: (id: string, unit: Omit<OrgUnit, "id" | "employeeCount">) => void;
   addSubsidiary: (subsidiary: Omit<Subsidiary, "id" | "employeeCount">) => void;
+  updateSubsidiary: (id: string, subsidiary: Omit<Subsidiary, "id" | "employeeCount">) => void;
   addWorkLocation: (location: Omit<WorkLocation, "id">) => void;
+  updateWorkLocation: (id: string, location: Omit<WorkLocation, "id">) => void;
+  addCostCenter: (center: Omit<CostCenter, "id" | "employeeCount" | "managerName">) => void;
+  updateCostCenter: (
+    id: string,
+    center: Omit<CostCenter, "id" | "employeeCount" | "managerName">,
+  ) => void;
+  addJobPosition: (position: Omit<JobPosition, "id" | "filledHeadcount">) => void;
+  updateJobPosition: (id: string, position: Omit<JobPosition, "id" | "filledHeadcount">) => void;
   addRole: (
     role: Omit<RoleDefinition, "id" | "userCount" | "permissions"> & { dataScope: DataScope },
   ) => RoleDefinition;
@@ -309,6 +334,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>(mockSubsidiaries);
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>(mockOrgUnits);
   const [workLocations, setWorkLocations] = useState<WorkLocation[]>(mockWorkLocations);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>(mockCostCenters);
+  const [jobPositions, setJobPositions] = useState<JobPosition[]>(mockJobPositions);
   const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
   const [roles, setRoles] = useState<RoleDefinition[]>(mockRoles);
   const [approvalChains, setApprovalChains] = useState<ApprovalChain[]>(mockApprovalChains);
@@ -321,8 +348,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [attendanceRecords, setAttendanceRecords] =
     useState<DailyAttendanceRecord[]>(mockAttendanceRecords);
   const [overtimeRecords, setOvertimeRecords] = useState<OvertimeRecord[]>(mockOvertimeRecords);
-  const [attendanceCorrections, setAttendanceCorrections] =
-    useState<AttendanceCorrectionRequest[]>(mockAttendanceCorrectionRequests);
+  const [attendanceCorrections, setAttendanceCorrections] = useState<AttendanceCorrectionRequest[]>(
+    mockAttendanceCorrectionRequests,
+  );
   const [payrollGroups, setPayrollGroups] = useState<PayrollGroup[]>(mockPayrollGroups);
   const [payrollRuns, setPayrollRuns] = useState<PayrollRun[]>(mockPayrollRuns);
   const [payrollDetails, setPayrollDetails] = useState<EmployeePayrollDetail[]>(mockPayrollDetails);
@@ -372,6 +400,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (operational.company) setCompany(operational.company);
       setSubsidiaries(operational.subsidiaries);
       setWorkLocations(operational.workLocations);
+      setCostCenters(operational.costCenters);
+      setJobPositions(operational.jobPositions);
       setRoles(operational.roles);
       setApprovalChains(operational.approvalChains);
       setLeaveTypes(operational.leaveTypes);
@@ -412,6 +442,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSubsidiaries(mockSubsidiaries);
     setOrgUnits(mockOrgUnits);
     setWorkLocations(mockWorkLocations);
+    setCostCenters(mockCostCenters);
+    setJobPositions(mockJobPositions);
     setRoles(mockRoles);
     setApprovalChains(mockApprovalChains);
     setAttendanceRecords(mockAttendanceRecords);
@@ -519,6 +551,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditEvent("تحديث بيانات موظف", "Employee", id, id, "تم تعديل البيانات الوظيفية أو الشخصية");
   };
 
+  const updateCompany = (profile: CompanyProfile) => {
+    setCompany(profile);
+    persistLiveChange(() => updateCompanyRecord(profile));
+    logAuditEvent(
+      "تحديث بيانات المنشأة",
+      "Company",
+      profile.id,
+      profile.legalNameAr,
+      "تم تحديث الملف النظامي وبيانات التواصل للمنشأة",
+    );
+  };
+
   const addOrgUnit = (unit: Omit<OrgUnit, "id" | "employeeCount">) => {
     const newUnit: OrgUnit = { ...unit, id: `dept-${Date.now()}`, employeeCount: 0 };
     setOrgUnits((prev) => [newUnit, ...prev]);
@@ -529,6 +573,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       newUnit.id,
       newUnit.nameAr,
       "تم تحديث الهيكل التنظيمي",
+    );
+  };
+
+  const updateOrgUnit = (id: string, unit: Omit<OrgUnit, "id" | "employeeCount">) => {
+    setOrgUnits((prev) => prev.map((item) => (item.id === id ? { ...item, ...unit } : item)));
+    persistLiveChange(() => updateOrganizationUnitRecord(id, unit));
+    logAuditEvent(
+      "تحديث وحدة تنظيمية",
+      "OrgUnit",
+      id,
+      unit.nameAr,
+      "تم تعديل الوحدة في الهيكل التنظيمي",
     );
   };
 
@@ -545,6 +601,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const updateSubsidiary = (id: string, subsidiary: Omit<Subsidiary, "id" | "employeeCount">) => {
+    setSubsidiaries((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...subsidiary } : item)),
+    );
+    persistLiveChange(() => updateSubsidiaryRecord(id, subsidiary));
+    logAuditEvent(
+      "تحديث شركة تابعة",
+      "Subsidiary",
+      id,
+      subsidiary.nameAr,
+      "تم تعديل بيانات الكيان التابع",
+    );
+  };
+
   const addWorkLocation = (location: Omit<WorkLocation, "id">) => {
     const newLocation: WorkLocation = { ...location, id: `loc-${Date.now()}` };
     setWorkLocations((prev) => [newLocation, ...prev]);
@@ -555,6 +625,90 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       newLocation.id,
       newLocation.nameAr,
       "تم إعداد الموقع والسياج الجغرافي",
+    );
+  };
+
+  const updateWorkLocation = (id: string, location: Omit<WorkLocation, "id">) => {
+    setWorkLocations((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...location } : item)),
+    );
+    persistLiveChange(() => updateWorkLocationRecord(id, location));
+    logAuditEvent(
+      "تحديث موقع عمل",
+      "WorkLocation",
+      id,
+      location.nameAr,
+      "تم تعديل بيانات الموقع والسياج الجغرافي",
+    );
+  };
+
+  const addCostCenter = (center: Omit<CostCenter, "id" | "employeeCount" | "managerName">) => {
+    const manager = employees.find((employee) => employee.id === center.managerEmployeeId);
+    const newCenter: CostCenter = {
+      ...center,
+      id: `cost-${Date.now()}`,
+      employeeCount: 0,
+      managerName: manager ? `${manager.firstNameAr} ${manager.lastNameAr}` : undefined,
+    };
+    setCostCenters((prev) => [newCenter, ...prev]);
+    persistLiveChange(() => createCostCenterRecord(center));
+    logAuditEvent(
+      "إضافة مركز تكلفة",
+      "CostCenter",
+      newCenter.id,
+      center.nameAr,
+      "تم إنشاء مركز تكلفة تنظيمي",
+    );
+  };
+
+  const updateCostCenter = (
+    id: string,
+    center: Omit<CostCenter, "id" | "employeeCount" | "managerName">,
+  ) => {
+    const manager = employees.find((employee) => employee.id === center.managerEmployeeId);
+    setCostCenters((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              ...center,
+              managerName: manager ? `${manager.firstNameAr} ${manager.lastNameAr}` : undefined,
+            }
+          : item,
+      ),
+    );
+    persistLiveChange(() => updateCostCenterRecord(id, center));
+    logAuditEvent("تحديث مركز تكلفة", "CostCenter", id, center.nameAr, "تم تعديل مركز التكلفة");
+  };
+
+  const addJobPosition = (position: Omit<JobPosition, "id" | "filledHeadcount">) => {
+    const newPosition: JobPosition = {
+      ...position,
+      id: `position-${Date.now()}`,
+      filledHeadcount: 0,
+    };
+    setJobPositions((prev) => [newPosition, ...prev]);
+    persistLiveChange(() => createJobPositionRecord(position));
+    logAuditEvent(
+      "إضافة منصب وظيفي",
+      "JobPosition",
+      newPosition.id,
+      position.titleAr,
+      "تم إنشاء منصب داخل الهيكل",
+    );
+  };
+
+  const updateJobPosition = (id: string, position: Omit<JobPosition, "id" | "filledHeadcount">) => {
+    setJobPositions((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...position } : item)),
+    );
+    persistLiveChange(() => updateJobPositionRecord(id, position));
+    logAuditEvent(
+      "تحديث منصب وظيفي",
+      "JobPosition",
+      id,
+      position.titleAr,
+      "تم تعديل المنصب والعدد المخطط",
     );
   };
 
@@ -756,9 +910,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const revokeDelegationRule = (id: string) => {
-    setDelegationRules((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "revoked" } : r)),
-    );
+    setDelegationRules((prev) => prev.map((r) => (r.id === id ? { ...r, status: "revoked" } : r)));
     toast.info("تم إلغاء التفويض بنجاح");
   };
 
@@ -1087,9 +1239,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const rejectOvertimeRequest = (id: string) => {
-    setOvertimeRecords((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "rejected" } : r)),
-    );
+    setOvertimeRecords((prev) => prev.map((r) => (r.id === id ? { ...r, status: "rejected" } : r)));
     toast.info("تم رفض طلب العمل الإضافي");
   };
 
@@ -1308,6 +1458,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       paidInstallments: 0,
       remainingBalance: payload.principalAmount,
       startDate: new Date().toISOString().split("T")[0],
+      reason: payload.reason,
       status: "active",
     };
     if (dataMode === "demo") setLoans((prev) => [newLoan, ...prev]);
@@ -1584,6 +1735,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         subsidiaries,
         orgUnits,
         workLocations,
+        costCenters,
+        jobPositions,
         employees,
         roles,
         approvalChains,
@@ -1618,9 +1771,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         closeEmployeeProfile,
         addEmployee,
         updateEmployee,
+        updateCompany,
         addOrgUnit,
+        updateOrgUnit,
         addSubsidiary,
+        updateSubsidiary,
         addWorkLocation,
+        updateWorkLocation,
+        addCostCenter,
+        updateCostCenter,
+        addJobPosition,
+        updateJobPosition,
         addRole,
         submitRequest,
         approveRequest,

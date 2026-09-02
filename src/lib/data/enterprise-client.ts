@@ -14,11 +14,26 @@ export interface CompanyRow extends Record<string, unknown> {
   id: string;
   legal_name_ar: string;
   legal_name_en: string;
+  code: string | null;
+  entity_type: string;
+  unified_number: string | null;
   cr_number: string | null;
   tax_number: string | null;
+  gosi_number: string | null;
+  labor_office_number: string | null;
+  industry: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  country: string;
+  city: string | null;
+  postal_code: string | null;
+  logo_url: string | null;
   currency: string;
   timezone: string;
   headquarters_address: string | null;
+  fiscal_year_start_month: number;
+  updated_at: string;
   created_at: string;
 }
 export interface SubsidiaryRow extends Record<string, unknown> {
@@ -28,23 +43,67 @@ export interface SubsidiaryRow extends Record<string, unknown> {
   name_en: string;
   code: string;
   cr_number: string | null;
+  tax_number: string | null;
+  unified_number: string | null;
+  address: string | null;
+  city: string | null;
+  email: string | null;
+  phone: string | null;
   manager_employee_id: string | null;
   status: string;
+  updated_at: string;
   created_at: string;
 }
 export interface WorkLocationRow extends Record<string, unknown> {
   id: string;
   company_id: string | null;
+  subsidiary_id: string | null;
   name_ar: string;
   name_en: string;
   code: string;
   address: string | null;
+  city: string | null;
+  country: string;
+  location_type: string;
+  timezone: string;
   latitude: number | null;
   longitude: number | null;
   radius_meters: number;
   default_shift_id: string | null;
   status: string;
+  updated_at: string;
   created_at: string;
+}
+
+export interface CostCenterRow extends Record<string, unknown> {
+  id: string;
+  company_id: string;
+  code: string;
+  name_ar: string;
+  name_en: string;
+  manager_employee_id: string | null;
+  annual_budget: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JobPositionRow extends Record<string, unknown> {
+  id: string;
+  company_id: string;
+  subsidiary_id: string | null;
+  department_id: string;
+  cost_center_id: string | null;
+  reports_to_position_id: string | null;
+  code: string;
+  title_ar: string;
+  title_en: string;
+  grade: string | null;
+  employment_type: string;
+  planned_headcount: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
 }
 export interface RoleDefinitionRow extends Record<string, unknown> {
   id: string;
@@ -73,12 +132,17 @@ export interface DepartmentRow extends Record<string, unknown> {
   id: string;
   company_id: string | null;
   parent_id: string | null;
+  subsidiary_id: string | null;
+  cost_center_id: string | null;
   name: string;
   name_en: string | null;
+  description_ar: string | null;
+  description_en: string | null;
   code: string;
   unit_type: string;
   manager_employee_id: string | null;
   status: string;
+  updated_at: string;
   created_at: string;
 }
 export interface EmployeeExtendedRow extends Record<string, unknown> {
@@ -104,6 +168,7 @@ export interface EmployeeExtendedRow extends Record<string, unknown> {
   job_title: string;
   manager_id: string | null;
   work_location_id: string | null;
+  job_position_id: string | null;
   hire_date: string;
   contract_type: string;
   probation_end_date: string | null;
@@ -451,6 +516,8 @@ type EnterpriseDatabase = Omit<Database, "public"> & {
       companies: EnterpriseTable<CompanyRow>;
       subsidiaries: EnterpriseTable<SubsidiaryRow>;
       work_locations: EnterpriseTable<WorkLocationRow>;
+      cost_centers: EnterpriseTable<CostCenterRow>;
+      job_positions: EnterpriseTable<JobPositionRow>;
       role_definitions: EnterpriseTable<RoleDefinitionRow>;
       approval_chains: EnterpriseTable<ApprovalChainRow>;
       request_timeline: EnterpriseTable<RequestTimelineRow>;

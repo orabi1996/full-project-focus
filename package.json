@@ -9,9 +9,15 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "format": "prettier --write ."
+    "typecheck": "tsc --noEmit",
+    "test": "vitest --config vitest.config.ts",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:coverage": "vitest run --coverage --config vitest.config.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:all": "npm run typecheck && npm run test:coverage && npm run test:e2e",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -83,6 +89,8 @@
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@playwright/test": "^1.55.0",
+    "@vitest/coverage-v8": "^3.2.7",
     "@vitejs/plugin-react": "^5.2.0",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",

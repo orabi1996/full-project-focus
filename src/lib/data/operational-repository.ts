@@ -4,6 +4,7 @@ import type {
   AuditLogEntry,
   Candidate,
   CandidateStage,
+  CostCenter,
   CompanyProfile,
   CompanyDocument,
   Employee,
@@ -16,6 +17,7 @@ import type {
   HardwareAsset,
   JobOffer,
   JobOpening,
+  JobPosition,
   LoanRecord,
   OrgUnit,
   ApprovalChain,
@@ -34,6 +36,8 @@ export interface OperationalSnapshot {
   company: CompanyProfile | null;
   subsidiaries: Subsidiary[];
   workLocations: WorkLocation[];
+  costCenters: CostCenter[];
+  jobPositions: JobPosition[];
   roles: RoleDefinition[];
   approvalChains: ApprovalChain[];
   leaveTypes: Array<{
@@ -102,6 +106,8 @@ export async function fetchOperationalSnapshot(
     companiesResult,
     subsidiariesResult,
     locationsResult,
+    costCentersResult,
+    jobPositionsResult,
     rolesResult,
     approvalChainsResult,
     leaveTypesResult,
@@ -129,6 +135,8 @@ export async function fetchOperationalSnapshot(
     enterpriseSupabase.from("companies").select("*").limit(1),
     enterpriseSupabase.from("subsidiaries").select("*").order("name_ar"),
     enterpriseSupabase.from("work_locations").select("*").order("name_ar"),
+    enterpriseSupabase.from("cost_centers").select("*").order("code"),
+    enterpriseSupabase.from("job_positions").select("*").order("code"),
     enterpriseSupabase.from("role_definitions").select("*").order("name_ar"),
     enterpriseSupabase
       .from("approval_chains")
@@ -181,6 +189,8 @@ export async function fetchOperationalSnapshot(
     companiesResult,
     subsidiariesResult,
     locationsResult,
+    costCentersResult,
+    jobPositionsResult,
     rolesResult,
     approvalChainsResult,
     leaveTypesResult,
@@ -251,13 +261,26 @@ export async function fetchOperationalSnapshot(
           id: companiesResult.data[0].id,
           legalNameAr: companiesResult.data[0].legal_name_ar,
           legalNameEn: companiesResult.data[0].legal_name_en,
+          code: companiesResult.data[0].code ?? undefined,
+          entityType: (companiesResult.data[0].entity_type ||
+            "limited_liability") as CompanyProfile["entityType"],
+          unifiedNumber: companiesResult.data[0].unified_number ?? undefined,
           taxNumber: companiesResult.data[0].tax_number ?? "",
           crNumber: companiesResult.data[0].cr_number ?? "",
-          country: "المملكة العربية السعودية",
+          gosiNumber: companiesResult.data[0].gosi_number ?? undefined,
+          laborOfficeNumber: companiesResult.data[0].labor_office_number ?? undefined,
+          industry: companiesResult.data[0].industry ?? undefined,
+          email: companiesResult.data[0].email ?? undefined,
+          phone: companiesResult.data[0].phone ?? undefined,
+          website: companiesResult.data[0].website ?? undefined,
+          country: companiesResult.data[0].country,
+          city: companiesResult.data[0].city ?? undefined,
+          postalCode: companiesResult.data[0].postal_code ?? undefined,
           currency: companiesResult.data[0].currency,
           timezone: companiesResult.data[0].timezone,
+          logoUrl: companiesResult.data[0].logo_url ?? undefined,
           headquartersAddress: companiesResult.data[0].headquarters_address ?? "",
-          fiscalYearStartMonth: 1,
+          fiscalYearStartMonth: companiesResult.data[0].fiscal_year_start_month,
         }
       : null,
     subsidiaries: (subsidiariesResult.data ?? []).map((row) => ({
@@ -273,19 +296,62 @@ export async function fetchOperationalSnapshot(
       status: row.status === "inactive" ? "inactive" : "active",
       employeeCount: employees.filter((employee) => employee.subsidiaryId === row.id).length,
       crNumber: row.cr_number ?? undefined,
+      taxNumber: row.tax_number ?? undefined,
+      unifiedNumber: row.unified_number ?? undefined,
+      address: row.address ?? undefined,
+      city: row.city ?? undefined,
+      email: row.email ?? undefined,
+      phone: row.phone ?? undefined,
     })),
     workLocations: (locationsResult.data ?? []).map((row) => ({
       id: row.id,
       companyId: row.company_id ?? "",
+      subsidiaryId: row.subsidiary_id,
       nameAr: row.name_ar,
       nameEn: row.name_en,
       code: row.code,
       address: row.address ?? "",
+      city: row.city ?? undefined,
+      country: row.country,
+      locationType: (row.location_type || "branch") as WorkLocation["locationType"],
+      timezone: row.timezone,
       latitude: numberValue(row.latitude),
       longitude: numberValue(row.longitude),
       radiusMeters: row.radius_meters,
       status: row.status === "inactive" ? "inactive" : "active",
       defaultShiftId: row.default_shift_id ?? undefined,
+    })),
+    costCenters: (costCentersResult.data ?? []).map((row) => ({
+      id: row.id,
+      companyId: row.company_id,
+      code: row.code,
+      nameAr: row.name_ar,
+      nameEn: row.name_en,
+      managerEmployeeId: row.manager_employee_id,
+      managerName: row.manager_employee_id
+        ? employeeName(employeeMap.get(row.manager_employee_id))
+        : undefined,
+      annualBudget: numberValue(row.annual_budget),
+      employeeCount: orgUnits
+        .filter((unit) => unit.costCenterId === row.id)
+        .reduce((total, unit) => total + unit.employeeCount, 0),
+      status: row.status === "inactive" ? "inactive" : "active",
+    })),
+    jobPositions: (jobPositionsResult.data ?? []).map((row) => ({
+      id: row.id,
+      companyId: row.company_id,
+      subsidiaryId: row.subsidiary_id,
+      orgUnitId: row.department_id,
+      costCenterId: row.cost_center_id,
+      reportsToPositionId: row.reports_to_position_id,
+      code: row.code,
+      titleAr: row.title_ar,
+      titleEn: row.title_en,
+      grade: row.grade ?? undefined,
+      employmentType: (row.employment_type || "full_time") as JobPosition["employmentType"],
+      plannedHeadcount: row.planned_headcount,
+      filledHeadcount: employees.filter((employee) => employee.jobPositionId === row.id).length,
+      status: row.status === "inactive" ? "inactive" : "active",
     })),
     roles: (rolesResult.data ?? []).map((row) => ({
       id: row.id,
@@ -725,8 +791,12 @@ export async function createOrganizationUnitRecord(unit: Omit<OrgUnit, "id" | "e
   const { error } = await enterpriseSupabase.from("departments").insert({
     company_id: unit.companyId || null,
     parent_id: unit.parentId ?? null,
+    subsidiary_id: unit.subsidiaryId ?? null,
+    cost_center_id: unit.costCenterId ?? null,
     name: unit.nameAr,
     name_en: unit.nameEn,
+    description_ar: unit.descriptionAr ?? null,
+    description_en: unit.descriptionEn ?? null,
     code: unit.code,
     unit_type: unit.type,
     manager_employee_id: unit.managerEmployeeId ?? null,
@@ -742,6 +812,12 @@ export async function createSubsidiaryRecord(subsidiary: Omit<Subsidiary, "id" |
     name_en: subsidiary.nameEn,
     code: subsidiary.code,
     cr_number: subsidiary.crNumber ?? null,
+    tax_number: subsidiary.taxNumber ?? null,
+    unified_number: subsidiary.unifiedNumber ?? null,
+    address: subsidiary.address ?? null,
+    city: subsidiary.city ?? null,
+    email: subsidiary.email ?? null,
+    phone: subsidiary.phone ?? null,
     manager_employee_id: subsidiary.managerEmployeeId ?? null,
     status: subsidiary.status,
   });
@@ -751,16 +827,202 @@ export async function createSubsidiaryRecord(subsidiary: Omit<Subsidiary, "id" |
 export async function createWorkLocationRecord(location: Omit<WorkLocation, "id">) {
   const { error } = await enterpriseSupabase.from("work_locations").insert({
     company_id: location.companyId || null,
+    subsidiary_id: location.subsidiaryId ?? null,
     name_ar: location.nameAr,
     name_en: location.nameEn,
     code: location.code,
     address: location.address,
+    city: location.city ?? null,
+    country: location.country ?? "المملكة العربية السعودية",
+    location_type: location.locationType ?? "branch",
+    timezone: location.timezone ?? "Asia/Riyadh",
     latitude: location.latitude,
     longitude: location.longitude,
     radius_meters: location.radiusMeters,
     default_shift_id: location.defaultShiftId ?? null,
     status: location.status,
   });
+  if (error) throw new Error(error.message);
+}
+
+export async function updateCompanyRecord(company: CompanyProfile) {
+  const { error } = await enterpriseSupabase
+    .from("companies")
+    .update({
+      legal_name_ar: company.legalNameAr,
+      legal_name_en: company.legalNameEn,
+      code: company.code ?? null,
+      entity_type: company.entityType ?? "limited_liability",
+      unified_number: company.unifiedNumber ?? null,
+      cr_number: company.crNumber || null,
+      tax_number: company.taxNumber || null,
+      gosi_number: company.gosiNumber ?? null,
+      labor_office_number: company.laborOfficeNumber ?? null,
+      industry: company.industry ?? null,
+      email: company.email ?? null,
+      phone: company.phone ?? null,
+      website: company.website ?? null,
+      country: company.country,
+      city: company.city ?? null,
+      postal_code: company.postalCode ?? null,
+      logo_url: company.logoUrl ?? null,
+      currency: company.currency,
+      timezone: company.timezone,
+      headquarters_address: company.headquartersAddress,
+      fiscal_year_start_month: company.fiscalYearStartMonth,
+    })
+    .eq("id", company.id);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateOrganizationUnitRecord(
+  id: string,
+  unit: Omit<OrgUnit, "id" | "employeeCount">,
+) {
+  const { error } = await enterpriseSupabase
+    .from("departments")
+    .update({
+      company_id: unit.companyId || null,
+      parent_id: unit.parentId ?? null,
+      subsidiary_id: unit.subsidiaryId ?? null,
+      cost_center_id: unit.costCenterId ?? null,
+      name: unit.nameAr,
+      name_en: unit.nameEn,
+      description_ar: unit.descriptionAr ?? null,
+      description_en: unit.descriptionEn ?? null,
+      code: unit.code,
+      unit_type: unit.type,
+      manager_employee_id: unit.managerEmployeeId ?? null,
+      status: unit.status,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateSubsidiaryRecord(
+  id: string,
+  subsidiary: Omit<Subsidiary, "id" | "employeeCount">,
+) {
+  const { error } = await enterpriseSupabase
+    .from("subsidiaries")
+    .update({
+      company_id: subsidiary.companyId || null,
+      name_ar: subsidiary.nameAr,
+      name_en: subsidiary.nameEn,
+      code: subsidiary.code,
+      cr_number: subsidiary.crNumber ?? null,
+      tax_number: subsidiary.taxNumber ?? null,
+      unified_number: subsidiary.unifiedNumber ?? null,
+      address: subsidiary.address ?? null,
+      city: subsidiary.city ?? null,
+      email: subsidiary.email ?? null,
+      phone: subsidiary.phone ?? null,
+      manager_employee_id: subsidiary.managerEmployeeId ?? null,
+      status: subsidiary.status,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateWorkLocationRecord(id: string, location: Omit<WorkLocation, "id">) {
+  const { error } = await enterpriseSupabase
+    .from("work_locations")
+    .update({
+      company_id: location.companyId || null,
+      subsidiary_id: location.subsidiaryId ?? null,
+      name_ar: location.nameAr,
+      name_en: location.nameEn,
+      code: location.code,
+      address: location.address,
+      city: location.city ?? null,
+      country: location.country ?? "المملكة العربية السعودية",
+      location_type: location.locationType ?? "branch",
+      timezone: location.timezone ?? "Asia/Riyadh",
+      latitude: location.latitude,
+      longitude: location.longitude,
+      radius_meters: location.radiusMeters,
+      default_shift_id: location.defaultShiftId ?? null,
+      status: location.status,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function createCostCenterRecord(
+  center: Omit<CostCenter, "id" | "employeeCount" | "managerName">,
+) {
+  const { error } = await enterpriseSupabase.from("cost_centers").insert({
+    company_id: center.companyId,
+    code: center.code,
+    name_ar: center.nameAr,
+    name_en: center.nameEn,
+    manager_employee_id: center.managerEmployeeId ?? null,
+    annual_budget: center.annualBudget,
+    status: center.status,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function updateCostCenterRecord(
+  id: string,
+  center: Omit<CostCenter, "id" | "employeeCount" | "managerName">,
+) {
+  const { error } = await enterpriseSupabase
+    .from("cost_centers")
+    .update({
+      company_id: center.companyId,
+      code: center.code,
+      name_ar: center.nameAr,
+      name_en: center.nameEn,
+      manager_employee_id: center.managerEmployeeId ?? null,
+      annual_budget: center.annualBudget,
+      status: center.status,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function createJobPositionRecord(
+  position: Omit<JobPosition, "id" | "filledHeadcount">,
+) {
+  const { error } = await enterpriseSupabase.from("job_positions").insert({
+    company_id: position.companyId,
+    subsidiary_id: position.subsidiaryId ?? null,
+    department_id: position.orgUnitId,
+    cost_center_id: position.costCenterId ?? null,
+    reports_to_position_id: position.reportsToPositionId ?? null,
+    code: position.code,
+    title_ar: position.titleAr,
+    title_en: position.titleEn,
+    grade: position.grade ?? null,
+    employment_type: position.employmentType,
+    planned_headcount: position.plannedHeadcount,
+    status: position.status,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function updateJobPositionRecord(
+  id: string,
+  position: Omit<JobPosition, "id" | "filledHeadcount">,
+) {
+  const { error } = await enterpriseSupabase
+    .from("job_positions")
+    .update({
+      company_id: position.companyId,
+      subsidiary_id: position.subsidiaryId ?? null,
+      department_id: position.orgUnitId,
+      cost_center_id: position.costCenterId ?? null,
+      reports_to_position_id: position.reportsToPositionId ?? null,
+      code: position.code,
+      title_ar: position.titleAr,
+      title_en: position.titleEn,
+      grade: position.grade ?? null,
+      employment_type: position.employmentType,
+      planned_headcount: position.plannedHeadcount,
+      status: position.status,
+    })
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }
 

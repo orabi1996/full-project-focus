@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { IconSymbol } from "../ui/IconSymbol";
 import { OfficialDocumentModal, type DocType } from "./OfficialDocumentModal";
@@ -20,6 +20,10 @@ import {
   FileCheck,
   Calendar,
   Sparkles,
+  QrCode,
+  ExternalLink,
+  Printer,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -53,10 +57,17 @@ export const DocumentVaultView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+
+  // Modals
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isOfficialDocModalOpen, setIsOfficialDocModalOpen] = useState(false);
   const [officialDocType, setOfficialDocType] = useState<DocType>("salary_certificate");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(employees[0]?.id || "");
+
+  // Interactive Document Preview State
+  const [selectedDocForPreview, setSelectedDocForPreview] = useState<StoredDocument | null>(null);
+  const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
+  const [newRenewalExpiry, setNewRenewalExpiry] = useState("2027-12-31");
 
   // Mock initial enterprise documents
   const [documents, setDocuments] = useState<StoredDocument[]>([
@@ -143,7 +154,7 @@ export const DocumentVaultView: React.FC = () => {
   });
 
   const handleUploadSubmit = () => {
-    if (!newDoc.title) {
+    if (!newDoc.title.trim()) {
       toast.error("يرجى كتابة عنوان الوثيقة");
       return;
     }
@@ -174,32 +185,62 @@ export const DocumentVaultView: React.FC = () => {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("هل أنت متأكد من حذف هذه الوثيقة نهائياً؟")) {
-      setDocuments(documents.filter((d) => d.id !== id));
+    const doc = documents.find((d) => d.id === id);
+    setDocuments(documents.filter((d) => d.id !== id));
+    toast.success(`تم حذف الوثيقة (${doc?.title || ""}) بنجاح`);
+    if (selectedDocForPreview?.id === id) {
+      setSelectedDocForPreview(null);
     }
   };
 
+  const handleRenewDocument = () => {
+    if (!selectedDocForPreview) return;
+    if (!newRenewalExpiry) {
+      toast.error("يرجى اختيار تاريخ انتهاء الصلاحية الجديد");
+      return;
+    }
+    const updated = documents.map((d) =>
+      d.id === selectedDocForPreview.id
+        ? {
+            ...d,
+            expiryDate: newRenewalExpiry,
+            status: "valid" as const,
+          }
+        : d,
+    );
+    setDocuments(updated);
+    setSelectedDocForPreview({
+      ...selectedDocForPreview,
+      expiryDate: newRenewalExpiry,
+      status: "valid",
+    });
+    setIsRenewModalOpen(false);
+    toast.success("تم تجديد صلاحية الوثيقة وتحديث السجل بنجاح!");
+  };
+
   // Filtered Documents
-  const filteredDocs = documents.filter((doc) => {
-    const matchesSearch =
-      doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.fileName.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredDocs = useMemo(() => {
+    return documents.filter((doc) => {
+      const matchesSearch =
+        doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.fileName.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory = selectedCategory === "all" || doc.category === selectedCategory;
+      const matchesCategory = selectedCategory === "all" || doc.category === selectedCategory;
 
-    const matchesTab =
-      activeTab === "all" ||
-      (activeTab === "expiring" && (doc.status === "expiring_soon" || doc.status === "expired")) ||
-      (activeTab === "contracts" && doc.category === "contract") ||
-      (activeTab === "ids" && (doc.category === "iqama_id" || doc.category === "passport"));
+      const matchesTab =
+        activeTab === "all" ||
+        (activeTab === "expiring" && (doc.status === "expiring_soon" || doc.status === "expired")) ||
+        (activeTab === "contracts" && doc.category === "contract") ||
+        (activeTab === "ids" && (doc.category === "iqama_id" || doc.category === "passport"));
 
-    return matchesSearch && matchesCategory && matchesTab;
-  });
+      return matchesSearch && matchesCategory && matchesTab;
+    });
+  }, [documents, searchQuery, selectedCategory, activeTab]);
 
-  const expiringCount = documents.filter(
-    (d) => d.status === "expiring_soon" || d.status === "expired",
-  ).length;
+  const expiringCount = useMemo(() => {
+    return documents.filter((d) => d.status === "expiring_soon" || d.status === "expired").length;
+  }, [documents]);
 
   const selectedEmp = employees.find((e) => e.id === selectedEmployeeId) || employees[0];
 
@@ -210,12 +251,12 @@ export const DocumentVaultView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header (Google M3 Style) */}
+      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
         <div>
           <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol name="folder_open" source="material" filled size={24} className="text-primary" />
-            مستودع الوثائق والمستندات السحابي (M16)
+            <IconSymbol name="folder_open" source="material" filled size={26} className="text-primary" />
+            مستودع الوثائق والمستندات السحابي (M04)
           </h1>
           <p className="text-xs text-muted-foreground font-medium mt-1">
             الأرشفة الإلكترونية المشفرة للهويات، الإقامات، الجوازات، عقود قوى، وتنبيهات انتهاء الصلاحيات
@@ -226,7 +267,7 @@ export const DocumentVaultView: React.FC = () => {
           <Button
             onClick={() => setIsUploadModalOpen(true)}
             size="sm"
-            className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-4"
+            className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-5"
           >
             <Upload className="h-4 w-4" />
             رفع مستند جديد
@@ -256,49 +297,49 @@ export const DocumentVaultView: React.FC = () => {
 
       {/* KPI Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
+        <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">إجمالي الوثائق المؤرشفة</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5">{documents.length} وثائق رقمية</h4>
+            <p className="text-2xl font-black text-foreground mt-0.5">{documents.length} وثائق</p>
             <span className="text-[10px] text-emerald-600 font-bold">مشفرة ومحمية بالكامل</span>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center text-primary">
-            <IconSymbol name="cloud_done" source="material" size={22} />
+          <div className="h-11 w-11 rounded-2xl bg-secondary flex items-center justify-center text-primary">
+            <IconSymbol name="cloud_done" source="material" size={24} />
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
+        <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">عقود العمل الموثقة</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5">
-              {documents.filter((d) => d.category === "contract").length} عقود سارية
-            </h4>
+            <p className="text-2xl font-black text-foreground mt-0.5">
+              {documents.filter((d) => d.category === "contract").length} عقود
+            </p>
             <span className="text-[10px] text-primary font-bold">متوافقة مع منصة قوى</span>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-            <IconSymbol name="history_edu" source="material" size={22} />
+          <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+            <IconSymbol name="history_edu" source="material" size={24} />
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
+        <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">تنبيهات انتهاء الصلاحية</span>
-            <h4 className="text-xl font-black text-amber-600 mt-0.5">{expiringCount} وثائق تحتاج تجديد</h4>
-            <span className="text-[10px] text-amber-600 font-bold">خلال 30 يوماً / منتهية</span>
+            <p className="text-2xl font-black text-amber-600 mt-0.5">{expiringCount} وثائق</p>
+            <span className="text-[10px] text-amber-600 font-bold">تتطلب التجديد الفوري</span>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
-            <AlertTriangle className="h-5 w-5" />
+          <div className="h-11 w-11 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
+            <AlertTriangle className="h-6 w-6" />
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
+        <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">مساحة التخزين السحابي</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5">14.8 MB مستخدمة</h4>
-            <span className="text-[10px] text-purple-600 font-bold">سعة غير محدودة (M16)</span>
+            <p className="text-2xl font-black text-purple-600 mt-0.5">14.8 MB</p>
+            <span className="text-[10px] text-purple-600 font-bold">سعة مؤسسية آمنة</span>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-600">
-            <IconSymbol name="database" source="material" size={22} />
+          <div className="h-11 w-11 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-600">
+            <IconSymbol name="database" source="material" size={24} />
           </div>
         </div>
       </div>
@@ -307,17 +348,17 @@ export const DocumentVaultView: React.FC = () => {
       <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full md:w-auto">
-            <TabsList className="bg-muted/60 p-1 rounded-full border border-border/60">
-              <TabsTrigger value="all" className="rounded-full text-xs font-bold py-1.5 px-4 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+            <TabsList className="bg-muted/60 p-1 rounded-2xl border border-border/60">
+              <TabsTrigger value="all" className="rounded-xl text-xs font-bold py-1.5 px-4">
                 جميع الوثائق ({documents.length})
               </TabsTrigger>
-              <TabsTrigger value="expiring" className="rounded-full text-xs font-bold py-1.5 px-4 data-[state=active]:bg-card data-[state=active]:text-amber-600 data-[state=active]:shadow-xs">
+              <TabsTrigger value="expiring" className="rounded-xl text-xs font-bold py-1.5 px-4 text-amber-600">
                 منتهية وقريبة الانتهاء ({expiringCount})
               </TabsTrigger>
-              <TabsTrigger value="contracts" className="rounded-full text-xs font-bold py-1.5 px-4 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+              <TabsTrigger value="contracts" className="rounded-xl text-xs font-bold py-1.5 px-4">
                 عقود العمل
               </TabsTrigger>
-              <TabsTrigger value="ids" className="rounded-full text-xs font-bold py-1.5 px-4 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+              <TabsTrigger value="ids" className="rounded-xl text-xs font-bold py-1.5 px-4">
                 الهويات والجوازات
               </TabsTrigger>
             </TabsList>
@@ -376,17 +417,21 @@ export const DocumentVaultView: React.FC = () => {
                 filteredDocs.map((doc) => (
                   <tr key={doc.id} className="hover:bg-muted/20 transition-colors">
                     <td className="py-3 px-4 font-bold text-foreground">
-                      <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDocForPreview(doc)}
+                        className="flex items-center gap-2.5 text-start hover:text-primary transition-colors cursor-pointer"
+                      >
                         <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                           <FileText className="h-4 w-4" />
                         </div>
                         <div>
-                          <span className="block">{doc.title}</span>
+                          <span className="block font-bold">{doc.title}</span>
                           <span className="text-[10px] text-muted-foreground font-mono">
                             {doc.fileName} • {doc.fileSize}
                           </span>
                         </div>
-                      </div>
+                      </button>
                     </td>
 
                     <td className="py-3 px-4 font-semibold text-foreground">{doc.employeeName}</td>
@@ -446,13 +491,22 @@ export const DocumentVaultView: React.FC = () => {
                     </td>
 
                     <td className="py-3 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex items-center justify-center gap-1.5">
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => toast.success(`جارٍ فتح وتحميل الوثيقة: ${doc.fileName}`)}
+                          onClick={() => setSelectedDocForPreview(doc)}
                           className="h-8 w-8 rounded-full text-primary hover:bg-secondary"
-                          title="عرض وتنزيل"
+                          title="معاينة الوثيقة"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => toast.success(`جارٍ تنزيل الوثيقة الرسمية: ${doc.fileName}`)}
+                          className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary"
+                          title="تنزيل الملف"
                         >
                           <Download className="h-4 w-4" />
                         </Button>
@@ -461,7 +515,7 @@ export const DocumentVaultView: React.FC = () => {
                           size="icon"
                           onClick={() => handleDelete(doc.id)}
                           className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10"
-                          title="حذف"
+                          title="حذف الوثيقة"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -475,7 +529,165 @@ export const DocumentVaultView: React.FC = () => {
         </div>
       </div>
 
-      {/* Upload Document Modal */}
+      {/* MODAL 1: Interactive Document Preview */}
+      {selectedDocForPreview && (
+        <Dialog
+          open={!!selectedDocForPreview}
+          onOpenChange={(open) => !open && setSelectedDocForPreview(null)}
+        >
+          <DialogContent className="max-w-xl rounded-3xl p-6">
+            <DialogHeader>
+              <div className="flex justify-between items-start">
+                <div>
+                  <DialogTitle className="text-base font-black flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    معاينة الوثيقة: {selectedDocForPreview.title}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs font-medium">
+                    صاحب المستند: {selectedDocForPreview.employeeName}
+                  </DialogDescription>
+                </div>
+                <Badge
+                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                    selectedDocForPreview.status === "valid"
+                      ? "bg-emerald-500/10 text-emerald-700 border-emerald-300"
+                      : selectedDocForPreview.status === "expiring_soon"
+                        ? "bg-amber-500/10 text-amber-700 border-amber-300"
+                        : "bg-destructive/10 text-destructive border-destructive/30"
+                  }`}
+                >
+                  {selectedDocForPreview.status === "valid"
+                    ? "ساري المفعول"
+                    : selectedDocForPreview.status === "expiring_soon"
+                      ? "ينتهي قريباً"
+                      : "منتهي الصلاحية"}
+                </Badge>
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-3.5 text-xs py-2">
+              {/* Document Specs */}
+              <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-muted/30 border border-border/60">
+                <div>
+                  <span className="text-muted-foreground block text-[10px]">اسم الملف:</span>
+                  <span className="font-mono font-bold text-foreground">{selectedDocForPreview.fileName}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[10px]">حجم الملف:</span>
+                  <span className="font-mono font-bold">{selectedDocForPreview.fileSize}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[10px]">تاريخ الرفع:</span>
+                  <span className="font-mono font-bold">{selectedDocForPreview.uploadDate}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[10px]">تاريخ الانتهاء:</span>
+                  <span className="font-mono font-bold text-primary">
+                    {selectedDocForPreview.expiryDate || "غير محدد"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Certified Visual Document Sheet */}
+              <div className="rounded-2xl border-2 border-primary/20 bg-card p-5 space-y-3 relative overflow-hidden shadow-inner text-center">
+                <div className="flex justify-between items-center border-b border-border/60 pb-3">
+                  <span className="text-[11px] font-black text-foreground">{company.legalNameAr}</span>
+                  <span className="text-[10px] font-mono text-muted-foreground">وثيقة رقمية موثقة</span>
+                </div>
+
+                <div className="py-6 space-y-2">
+                  <div className="h-16 w-16 mx-auto rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                    <ShieldCheck className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-sm font-black text-foreground">{selectedDocForPreview.title}</h3>
+                  <p className="text-[11px] text-muted-foreground font-medium">
+                    تم توثيق وأرشفة هذا المستند إلكترونياً وتشفيره بمعيار AES-256
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-border/60 flex items-center justify-between text-[10px] text-muted-foreground">
+                  <div className="flex items-center gap-1 text-emerald-600 font-bold">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>المستند سليم ومطابق للأصل</span>
+                  </div>
+                  <span className="font-mono">SHA-256: 7f8a9b2c...</span>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="flex gap-2 mt-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setNewRenewalExpiry("2027-12-31");
+                  setIsRenewModalOpen(true);
+                }}
+                className="text-xs font-bold gap-1.5 rounded-full border-border/80 h-9"
+              >
+                <RefreshCw className="h-3.5 w-3.5 text-primary" />
+                تجديد الصلاحية
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => window.print()}
+                variant="outline"
+                className="text-xs font-bold gap-1.5 rounded-full border-border/80 h-9"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                طباعة
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => toast.success(`جارٍ تنزيل: ${selectedDocForPreview.fileName}`)}
+                className="text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-9"
+              >
+                <Download className="h-3.5 w-3.5" />
+                تنزيل الملف
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* MODAL 2: Renew Document Expiry Date */}
+      <Dialog open={isRenewModalOpen} onOpenChange={setIsRenewModalOpen}>
+        <DialogContent className="max-w-sm rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-primary" />
+              تجديد وتحديث تاريخ الصلاحية
+            </DialogTitle>
+            <DialogDescription className="text-xs font-medium">
+              تحديث مدة سريان الوثيقة بعد التجديد لدى الجهات المختصة
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-xs py-2">
+            <div className="space-y-1.5">
+              <label className="font-bold">تاريخ الانتهاء الجديد *</label>
+              <input
+                type="date"
+                value={newRenewalExpiry}
+                onChange={(e) => setNewRenewalExpiry(e.target.value)}
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button
+              size="sm"
+              onClick={handleRenewDocument}
+              className="w-full rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground h-9"
+            >
+              حفظ التجديد
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 3: Upload Document Modal */}
       <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
         <DialogContent className="max-w-md rounded-3xl p-6">
           <DialogHeader>
@@ -567,7 +779,7 @@ export const DocumentVaultView: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Official Certificate & Contract Printable PDF Modal */}
+      {/* MODAL 4: Official Certificate & Contract Printable PDF Modal */}
       {selectedEmp && (
         <OfficialDocumentModal
           isOpen={isOfficialDocModalOpen}

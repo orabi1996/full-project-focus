@@ -459,6 +459,46 @@ export interface AttendanceCorrectionPayload {
   reason: string;
 }
 
+export interface OvertimeRecord {
+  id: string;
+  employeeId: string;
+  employeeNo: string;
+  employeeName: string;
+  departmentName: string;
+  workDate: string;
+  startTime: string;
+  endTime: string;
+  hours: number;
+  rateMultiplier: number; // e.g. 1.5 for normal overtime, 2.0 for holiday/weekend
+  rateType: "regular_150" | "holiday_200";
+  reason: string;
+  hourlyRate: number; // base hourly rate
+  totalAmount: number; // hours * hourlyRate * rateMultiplier
+  status: "pending" | "approved" | "rejected";
+  approvedBy?: string;
+  approvedAt?: string;
+  createdAt: string;
+}
+
+export interface AttendanceCorrectionRequest {
+  id: string;
+  originalAttendanceId?: string;
+  employeeId: string;
+  employeeNo: string;
+  employeeName: string;
+  departmentName: string;
+  workDate: string;
+  originalIn?: string;
+  originalOut?: string;
+  correctInTime: string;
+  correctOutTime: string;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  submittedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
 // ----------------------------------------------------------------------------
 // M10 & M11: Payroll, Loans & Settlements
 // ----------------------------------------------------------------------------

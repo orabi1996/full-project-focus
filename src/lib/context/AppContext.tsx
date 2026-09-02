@@ -17,6 +17,8 @@ import type {
   ShiftDefinition,
   ScheduleAssignment,
   DailyAttendanceRecord,
+  OvertimeRecord,
+  AttendanceCorrectionRequest,
   PayrollGroup,
   PayrollRun,
   EmployeePayrollDetail,
@@ -80,6 +82,8 @@ import {
   mockEmployeeLeaveBalances,
   mockShifts,
   mockAttendanceRecords,
+  mockOvertimeRecords,
+  mockAttendanceCorrectionRequests,
   mockPayrollGroups,
   mockPayrollRuns,
   mockPayrollDetails,
@@ -115,6 +119,7 @@ import { createSettlementServer } from "../business/settlement.functions";
 import { actOnRequestServer } from "../business/approvals.functions";
 import { processAttendanceServer } from "../business/attendance.functions";
 import { accrueLeaveBalancesServer } from "../business/leave.functions";
+import { toast } from "sonner";
 
 interface AppContextType {
   // Localization
@@ -146,6 +151,8 @@ interface AppContextType {
   leaveBalances: EmployeeLeaveBalance[];
   shifts: ShiftDefinition[];
   attendanceRecords: DailyAttendanceRecord[];
+  overtimeRecords: OvertimeRecord[];
+  attendanceCorrections: AttendanceCorrectionRequest[];
   payrollGroups: PayrollGroup[];
   payrollRuns: PayrollRun[];
   payrollDetails: EmployeePayrollDetail[];
@@ -213,6 +220,11 @@ interface AppContextType {
     correctOut?: string;
     reason: string;
   }) => void;
+  submitOvertimeRequest: (record: Omit<OvertimeRecord, "id" | "status" | "createdAt">) => void;
+  approveOvertimeRequest: (id: string) => void;
+  rejectOvertimeRequest: (id: string) => void;
+  approveAttendanceCorrection: (id: string) => void;
+  rejectAttendanceCorrection: (id: string) => void;
 
   // Payroll & Loans
   processPayrollRun: (groupId: string, year: number, month: number) => void;
@@ -301,6 +313,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [shifts, setShifts] = useState<ShiftDefinition[]>(mockShifts);
   const [attendanceRecords, setAttendanceRecords] =
     useState<DailyAttendanceRecord[]>(mockAttendanceRecords);
+  const [overtimeRecords, setOvertimeRecords] = useState<OvertimeRecord[]>(mockOvertimeRecords);
+  const [attendanceCorrections, setAttendanceCorrections] =
+    useState<AttendanceCorrectionRequest[]>(mockAttendanceCorrectionRequests);
   const [payrollGroups, setPayrollGroups] = useState<PayrollGroup[]>(mockPayrollGroups);
   const [payrollRuns, setPayrollRuns] = useState<PayrollRun[]>(mockPayrollRuns);
   const [payrollDetails, setPayrollDetails] = useState<EmployeePayrollDetail[]>(mockPayrollDetails);
@@ -899,6 +914,146 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       type: "attendance_correction",
       payload,
     });
+    const newReq: AttendanceCorrectionRequest = {
+      id: `cor-${Date.now()}`,
+      employeeId: currentUser.id,
+      employeeNo: currentUser.employeeNo,
+      employeeName: `${currentUser.firstNameAr} ${currentUser.lastNameAr}`,
+      departmentName: currentUser.departmentName || "الموارد البشرية",
+      workDate: payload.workDate,
+      correctInTime: payload.correctIn || "08:00",
+      correctOutTime: payload.correctOut || "17:00",
+      reason: payload.reason,
+      status: "pending",
+      submittedAt: new Date().toISOString(),
+    };
+    setAttendanceCorrections((prev) => [newReq, ...prev]);
+    toast.success("تم تقديم طلب تصحيح البصمة بنجاح وإرساله للمدير المباشر للاعتماد");
+  };
+
+  const approveAttendanceCorrection = (id: string) => {
+    const correction = attendanceCorrections.find((c) => c.id === id);
+    if (!correction) return;
+
+    setAttendanceCorrections((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              status: "approved",
+              reviewedBy: `${currentUser.firstNameAr} ${currentUser.lastNameAr}`,
+              reviewedAt: new Date().toISOString(),
+            }
+          : c,
+      ),
+    );
+
+    // Update daily attendance record with corrected times
+    setAttendanceRecords((prev) => {
+      const existing = prev.find(
+        (att) =>
+          att.id === correction.originalAttendanceId ||
+          (att.employeeId === correction.employeeId && att.workDate === correction.workDate),
+      );
+      if (existing) {
+        return prev.map((att) =>
+          att.id === existing.id
+            ? {
+                ...att,
+                actualIn: correction.correctInTime,
+                actualOut: correction.correctOutTime,
+                status: "present",
+                lateMinutes: 0,
+                earlyDepartureMinutes: 0,
+                workedHours: 8.0,
+                punchSource: "correction_request",
+              }
+            : att,
+        );
+      } else {
+        const newRecord: DailyAttendanceRecord = {
+          id: `att-${Date.now()}`,
+          employeeId: correction.employeeId,
+          employeeNo: correction.employeeNo,
+          employeeName: correction.employeeName,
+          departmentName: correction.departmentName,
+          workDate: correction.workDate,
+          scheduledShift: "الدوام الرسمي المعتمد",
+          scheduledIn: "08:00",
+          scheduledOut: "17:00",
+          actualIn: correction.correctInTime,
+          actualOut: correction.correctOutTime,
+          status: "present",
+          lateMinutes: 0,
+          earlyDepartureMinutes: 0,
+          workedHours: 8.0,
+          overtimeHours: 0,
+          punchSource: "correction_request",
+          geofenceValid: true,
+          violationsCount: 0,
+          reviewedByPayroll: false,
+        };
+        return [newRecord, ...prev];
+      }
+    });
+
+    toast.success(`تم اعتماد تصحيح البصمة للموظف (${correction.employeeName}) بنجاح`);
+  };
+
+  const rejectAttendanceCorrection = (id: string) => {
+    setAttendanceCorrections((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, status: "rejected" } : c)),
+    );
+    toast.info("تم رفض طلب تصحيح البصمة");
+  };
+
+  const submitOvertimeRequest = (record: Omit<OvertimeRecord, "id" | "status" | "createdAt">) => {
+    const newRecord: OvertimeRecord = {
+      ...record,
+      id: `ot-${Date.now()}`,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+    setOvertimeRecords((prev) => [newRecord, ...prev]);
+    toast.success(`تم تقديم طلب العمل الإضافي (${record.hours} ساعات) بنجاح وإحالته للاعتماد`);
+  };
+
+  const approveOvertimeRequest = (id: string) => {
+    const target = overtimeRecords.find((r) => r.id === id);
+    if (!target) return;
+
+    setOvertimeRecords((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              status: "approved",
+              approvedBy: `${currentUser.firstNameAr} ${currentUser.lastNameAr}`,
+              approvedAt: new Date().toISOString(),
+            }
+          : r,
+      ),
+    );
+
+    // Update DailyAttendanceRecord overtimeHours so payroll includes it
+    setAttendanceRecords((prev) =>
+      prev.map((att) =>
+        att.employeeId === target.employeeId && att.workDate === target.workDate
+          ? { ...att, overtimeHours: Number((att.overtimeHours + target.hours).toFixed(2)) }
+          : att,
+      ),
+    );
+
+    toast.success(
+      `تم اعتماد ساعات العمل الإضافي للموظف (${target.employeeName}) بمبلغ ${target.totalAmount.toLocaleString()} ر.س واحتسابها ضمن الرواتب`,
+    );
+  };
+
+  const rejectOvertimeRequest = (id: string) => {
+    setOvertimeRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: "rejected" } : r)),
+    );
+    toast.info("تم رفض طلب العمل الإضافي");
   };
 
   // Payroll Operations
@@ -1400,6 +1555,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         leaveBalances,
         shifts,
         attendanceRecords,
+        overtimeRecords,
+        attendanceCorrections,
         payrollGroups,
         payrollRuns,
         payrollDetails,
@@ -1438,6 +1595,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addShift,
         punchInOut,
         submitAttendanceCorrection,
+        submitOvertimeRequest,
+        approveOvertimeRequest,
+        rejectOvertimeRequest,
+        approveAttendanceCorrection,
+        rejectAttendanceCorrection,
         processPayrollRun,
         lockAndConfirmPayrollRun,
         markPayrollAsPaid,

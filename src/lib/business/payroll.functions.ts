@@ -57,6 +57,12 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
     if (existing && existing.status !== "draft") {
       throw new Error("مسيّر هذا الشهر مُقفل بالفعل ولا يمكن إعادة تشغيله");
     }
+    if (existing) {
+      // Re-running the same month replaces the previous draft.
+      await supabase.from("payroll_details").delete().eq("payroll_run_id", existing.id);
+      await supabase.from("payroll_runs").delete().eq("id", existing.id);
+    }
+
 
     let employeeQuery = supabase
       .from("employees")

@@ -220,6 +220,54 @@ export const disburseRunPaymentsServer = createServerFn({ method: "POST" })
       await advanceLoansForRun(supabase, data.runId);
     }
 
+    // Settlement notifications: net paid, loan recovery due, and the bank reference.
+    try {
+      const { data: run } = await supabase
+        .from("payroll_runs")
+        .select("period_year, period_month, total_net_salary")
+        .eq("id", data.runId)
+        .maybeSingle();
+      const { data: runDetails } = await supabase
+        .from("payroll_details")
+        .select("employee_id, loan_deduction, loan_deductions, net_salary")
+        .eq("payroll_run_id", data.runId);
+      const loansTotal = round2(
+        (runDetails ?? []).reduce(
+          (sum: number, d: any) => sum + Number(d.loan_deduction ?? d.loan_deductions ?? 0),
+          0,
+        ),
+      );
+      const period = run ? `${String(run.period_month).padStart(2, "0")}/${run.period_year}` : "";
+      const body = `صافي المسيّر ${total.toLocaleString("ar-EG")} ر.س — السلف المستردة ${loansTotal.toLocaleString("ar-EG")} ر.س — مرجع الدفع البنكي ${batchNo} من حساب ${account.iban}`;
+
+      const recipients = new Set<string>([context.userId]);
+      const { data: staff } = await supabase
+        .from("employees")
+        .select("user_id")
+        .in(
+          "id",
+          (runDetails ?? []).map((d: any) => d.employee_id),
+        );
+      for (const row of staff ?? []) if (row.user_id) recipients.add(row.user_id);
+
+      await supabase.from("notifications_inbox").insert(
+        [...recipients].map((recipient) => ({
+          recipient_id: recipient,
+          type: "payroll_settlement",
+          title_ar: `تسوية رواتب ${period}`,
+          title_en: `Payroll settlement ${period}`,
+          message_ar: body,
+          message_en: body,
+          body_ar: body,
+          body_en: body,
+          link_path: "/?module=payroll",
+          is_read: false,
+        })),
+      );
+    } catch {
+      // notifications are best-effort and must never block a disbursement
+    }
+
     return {
       batchNo,
       paid: payable.length,
@@ -227,5 +275,91 @@ export const disburseRunPaymentsServer = createServerFn({ method: "POST" })
       totalPaid: total,
       remainingBalance: round2(balance - total),
       runClosed: !stillPending?.length,
+    };
+  });
+
+
+/** Settlement notifications (net, loan recovery, bank reference) for the signed-in user. */
+export const listPayrollNotificationsServer = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const supabase = context.supabase as any;
+    const { data, error } = await supabase
+      .from("notifications_inbox")
+      .select("id, title_ar, message_ar, body_ar, type, is_read, created_at, link_path")
+      .eq("recipient_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(`تعذر قراءة الإشعارات: ${error.message}`);
+    return (data ?? []).map((n: any) => ({
+      id: n.id,
+      title: n.title_ar,
+      message: n.message_ar ?? n.body_ar ?? "",
+      type: n.type,
+      isRead: !!n.is_read,
+      createdAt: n.created_at,
+      linkPath: n.link_path,
+    }));
+  });
+
+/** Marks one notification (or all) as read. */
+export const markNotificationReadServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id?: string; all?: boolean }) => input ?? {})
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as any;
+    let query = supabase
+      .from("notifications_inbox")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq("recipient_id", context.userId);
+    if (!data.all && data.id) query = query.eq("id", data.id);
+    const { error } = await query;
+    if (error) throw new Error(`تعذر تحديث الإشعار: ${error.message}`);
+    return { ok: true };
+  });
+
+/** Bank transfer instruction file (WPS/SARIE style) for a payroll run. */
+export const getBankTransferFileServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { runId: string }) => {
+    if (!input?.runId) throw new Error("معرّف المسيّر مطلوب");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as any;
+    await assertRole(supabase, context.userId, [...FINANCE_ROLES]);
+
+    const [{ data: payments, error }, { data: account }] = await Promise.all([
+      supabase
+        .from("payroll_payments")
+        .select(
+          "net_amount, iban, bank_name, status, batch_no, reference, paid_at, employees(full_name, employee_no)",
+        )
+        .eq("payroll_run_id", data.runId),
+      supabase
+        .from("company_bank_accounts")
+        .select("bank_name, account_name, iban, current_balance")
+        .eq("is_primary", true)
+        .maybeSingle(),
+    ]);
+    if (error) throw new Error(`تعذر قراءة الدفعات: ${error.message}`);
+
+    const rows = (payments ?? []).map((p: any) => ({
+      employeeNo: p.employees?.employee_no ?? "—",
+      employeeName: p.employees?.full_name ?? "—",
+      iban: p.iban ?? "",
+      bankName: p.bank_name ?? "",
+      amount: round2(Number(p.net_amount ?? 0)),
+      status: p.status,
+      reference: p.reference ?? "",
+      batchNo: p.batch_no ?? "",
+      paidAt: p.paid_at,
+    }));
+
+    return {
+      debitAccount: account ?? null,
+      rows,
+      total: round2(rows.reduce((sum: number, r: any) => sum + r.amount, 0)),
+      batchNo: rows.find((r: any) => r.batchNo)?.batchNo ?? null,
     };
   });

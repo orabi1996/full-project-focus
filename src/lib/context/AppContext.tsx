@@ -339,7 +339,15 @@ interface AppContextType {
   resetUserScreenPermissions: (userId: string) => void;
 }
 
-const AppContext = createContext<AppContextType | null>(null);
+// Keep a single context instance across HMR module re-evaluations, otherwise a
+// hot-reloaded provider and an older consumer end up on two different contexts
+// and `useApp` throws "must be used within an AppProvider".
+const globalScope = globalThis as unknown as {
+  __hrmsAppContext?: React.Context<AppContextType | null>;
+};
+const AppContext: React.Context<AppContextType | null> =
+  globalScope.__hrmsAppContext ?? createContext<AppContextType | null>(null);
+globalScope.__hrmsAppContext = AppContext;
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session, role: authenticatedRole, isDemo } = useAuth();

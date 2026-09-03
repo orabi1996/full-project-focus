@@ -3,18 +3,15 @@ import { useApp } from "../../lib/context/AppContext";
 import {
   Users,
   Search,
-  CheckCircle2,
   Shield,
-  Eye,
-  Edit,
-  FilePlus,
-  Trash2,
-  ShieldAlert,
-  RotateCcw,
-  Save,
   Filter,
+  CheckCircle2,
   UserCheck,
+  RotateCcw,
   Sparkles,
+  Sliders,
+  Check,
+  Building2,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -23,8 +20,54 @@ import { toast } from "sonner";
 import {
   ALL_SYSTEM_SCREENS,
   type ScreenActionPermissions,
-  type ScreenModuleConfig,
 } from "../../lib/auth/rbac-definitions";
+import { ScreenPermissionRow } from "./ScreenPermissionRow";
+
+interface DomainConfig {
+  id: string;
+  nameAr: string;
+  icon: string;
+  screenIds: string[];
+}
+
+const DOMAIN_SECTIONS: DomainConfig[] = [
+  {
+    id: "core",
+    nameAr: "الوحدات الإدارية والأساسية (Core Management)",
+    icon: "corporate_fare",
+    screenIds: ["dashboard", "organization", "employees", "documents"],
+  },
+  {
+    id: "operations",
+    nameAr: "الوقت والعمليات والدوام (Time & Operations)",
+    icon: "schedule",
+    screenIds: ["workflow", "leaves", "attendance", "shifts"],
+  },
+  {
+    id: "finance",
+    nameAr: "الرواتب والعمليات المالية (Payroll & Finance)",
+    icon: "account_balance_wallet",
+    screenIds: ["payroll", "loans", "expenses"],
+  },
+  {
+    id: "talent",
+    nameAr: "إدارة المواهب واستقطاب الكفاءات (Talent & Growth)",
+    icon: "stars",
+    screenIds: ["ats", "performance", "workforce"],
+  },
+  {
+    id: "governance",
+    nameAr: "الأصول والحوكمة والتكامل (Governance & Ecosystem)",
+    icon: "admin_panel_settings",
+    screenIds: ["assets", "reports", "integrations", "audit"],
+  },
+  {
+    id: "self_service",
+    nameAr: "الخدمة الذاتية والأمان (Self-Service & Access)",
+    icon: "smartphone",
+    screenIds: ["ess", "rbac"],
+  },
+];
 
 export const UserPermissionsPanel: React.FC = () => {
   const {
@@ -43,8 +86,7 @@ export const UserPermissionsPanel: React.FC = () => {
   );
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
-  const [screenSearchTerm, setScreenSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [screenSearch, setScreenSearch] = useState("");
 
   const selectedEmployee = useMemo(() => {
     return employees.find((e) => e.id === selectedUserId) || employees[0] || null;
@@ -133,10 +175,6 @@ export const UserPermissionsPanel: React.FC = () => {
     };
   };
 
-  const hasOverride = (screenId: string) => {
-    return Boolean(userOverrides[screenId]);
-  };
-
   const handleToggleGroup = (groupId: string, isMember: boolean) => {
     if (!selectedEmployee) return;
     if (isMember) {
@@ -146,42 +184,12 @@ export const UserPermissionsPanel: React.FC = () => {
     }
   };
 
-  const handleToggleUserScreenAction = (
+  const handleUpdateUserScreen = (
     screenId: string,
-    action: keyof ScreenActionPermissions,
+    actions: ScreenActionPermissions,
   ) => {
     if (!selectedEmployee) return;
-    const currentEffective = getEffectiveScreenPermission(screenId);
-    const nextVal = !currentEffective[action];
-    const newActionUpdate: Partial<ScreenActionPermissions> = {
-      [action]: nextVal,
-    };
-    if (action !== "view" && nextVal) {
-      newActionUpdate.view = true;
-    }
-    updateUserScreenPermissions(selectedEmployee.id, screenId, newActionUpdate);
-  };
-
-  const handleSetUserScreenFull = (screenId: string) => {
-    if (!selectedEmployee) return;
-    updateUserScreenPermissions(selectedEmployee.id, screenId, {
-      view: true,
-      create: true,
-      edit: true,
-      delete: true,
-      approveExport: true,
-    });
-  };
-
-  const handleSetUserScreenDisabled = (screenId: string) => {
-    if (!selectedEmployee) return;
-    updateUserScreenPermissions(selectedEmployee.id, screenId, {
-      view: false,
-      create: false,
-      edit: false,
-      delete: false,
-      approveExport: false,
-    });
+    updateUserScreenPermissions(selectedEmployee.id, screenId, actions);
   };
 
   const handleResetOverrides = () => {
@@ -189,101 +197,96 @@ export const UserPermissionsPanel: React.FC = () => {
     resetUserScreenPermissions(selectedEmployee.id);
   };
 
-  // Filtered screens
-  const filteredScreens = useMemo(() => {
-    return ALL_SYSTEM_SCREENS.filter((screen) => {
-      const matchCategory =
-        selectedCategory === "all" || screen.category === selectedCategory;
-      const matchSearch =
-        !screenSearchTerm.trim() ||
-        screen.nameAr.toLowerCase().includes(screenSearchTerm.toLowerCase()) ||
-        screen.code.toLowerCase().includes(screenSearchTerm.toLowerCase());
-      return matchCategory && matchSearch;
-    });
-  }, [selectedCategory, screenSearchTerm]);
+  const hasAnyOverrides = useMemo(() => {
+    return Boolean(selectedEmployee && Object.keys(userOverrides).length > 0);
+  }, [selectedEmployee, userOverrides]);
 
-  const categories = [
-    { id: "all", label: `كافة الشاشات (${ALL_SYSTEM_SCREENS.length})` },
-    { id: "core", label: "الرئيسية والهيكل" },
-    { id: "operations", label: "الوقت والعمليات" },
-    { id: "finance", label: "الرواتب والمالية" },
-    { id: "talent", label: "المواهب والنمو" },
-    { id: "governance", label: "الأمان والامتثال" },
-    { id: "self_service", label: "الخدمة الذاتية" },
-  ];
+  const isScreenVisible = (screenId: string) => {
+    if (!screenSearch.trim()) return true;
+    const s = ALL_SYSTEM_SCREENS.find((item) => item.id === screenId);
+    if (!s) return false;
+    const q = screenSearch.toLowerCase();
+    return (
+      s.nameAr.toLowerCase().includes(q) ||
+      s.nameEn.toLowerCase().includes(q) ||
+      s.code.toLowerCase().includes(q)
+    );
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-200">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* ========================================================= */}
         {/* LEFT COLUMN: Employees List (4 cols) */}
         {/* ========================================================= */}
         <div className="lg:col-span-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-black text-muted-foreground uppercase flex items-center gap-1.5">
+          <div>
+            <h2 className="text-sm font-black text-foreground flex items-center gap-2">
               <Users className="h-4 w-4 text-primary" />
               دليل المستخدمين والموظفين ({employees.length})
             </h2>
+            <p className="text-xs text-muted-foreground font-medium mt-0.5">
+              اختر الموظف لعرض المجموعات التي ينتمي إليها وتخصيص صلاحياته
+            </p>
           </div>
 
           {/* Search & Filter */}
           <div className="space-y-2">
             <div className="relative">
-              <Search className="absolute right-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Search className="absolute right-3.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="البحث بالاسم أو الرقم الوظيفي..."
-                className="w-full h-9 rounded-2xl border border-border/80 bg-card pr-9 pl-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-2xs"
+                className="w-full h-9 rounded-2xl border border-border/80 bg-card pr-10 pl-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-2xs"
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-              <select
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value)}
-                className="w-full h-8 rounded-xl border border-border/80 bg-card px-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary/40"
-              >
-                <option value="all">كافة الإدارات والأقسام</option>
-                {orgUnits.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.nameAr}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <select
+              value={selectedDepartment}
+              onChange={(e) => setSelectedDepartment(e.target.value)}
+              className="w-full h-9 rounded-2xl border border-border/80 bg-card px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              <option value="all">كافة الإدارات والأقسام ({employees.length})</option>
+              {orgUnits.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.nameAr}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Employees List */}
           <div className="space-y-2 max-h-[720px] overflow-y-auto custom-scrollbar pr-1">
             {filteredEmployees.map((emp) => {
               const isSelected = selectedEmployee?.id === emp.id;
-              const memberOf = permissionGroups.filter((g) => g.memberUserIds?.includes(emp.id));
-              const hasCustomOverrides = Boolean(userPermissionOverrides[emp.id]);
+              const memberOf = permissionGroups.filter((g) =>
+                g.memberUserIds?.includes(emp.id),
+              );
+              const hasOverrides = Boolean(userPermissionOverrides[emp.id]);
 
               return (
                 <div
                   key={emp.id}
                   onClick={() => setSelectedUserId(emp.id)}
-                  className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-2 ${
+                  className={`p-3.5 rounded-3xl border transition-all cursor-pointer space-y-2.5 ${
                     isSelected
                       ? "border-primary bg-primary/5 shadow-xs ring-2 ring-primary/30"
                       : "bg-card hover:border-primary/40 border-border/80"
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9 rounded-xl border border-border/80">
+                    <Avatar className="h-10 w-10 rounded-2xl border border-border/80 shadow-2xs">
                       <AvatarImage src={emp.avatarUrl} />
-                      <AvatarFallback className="text-[11px] font-bold bg-secondary">
+                      <AvatarFallback className="text-xs font-bold bg-secondary">
                         {emp.firstNameAr?.[0]}
                         {emp.lastNameAr?.[0]}
                       </AvatarFallback>
                     </Avatar>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-1">
                         <span className="font-bold text-xs text-foreground truncate">
                           {emp.firstNameAr} {emp.lastNameAr}
                         </span>
@@ -291,14 +294,14 @@ export const UserPermissionsPanel: React.FC = () => {
                           {emp.employeeNo}
                         </Badge>
                       </div>
-                      <div className="text-[10px] text-muted-foreground truncate">
+                      <div className="text-[10px] text-muted-foreground truncate mt-0.5">
                         {emp.jobTitleAr} • {emp.departmentName}
                       </div>
                     </div>
                   </div>
 
-                  {/* Badges of groups */}
-                  <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-border/50">
+                  {/* Groups badges */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1.5 border-t border-border/50">
                     {memberOf.length === 0 ? (
                       <span className="text-[10px] text-muted-foreground italic">
                         لا توجد مجموعة معينة
@@ -308,14 +311,14 @@ export const UserPermissionsPanel: React.FC = () => {
                         <Badge
                           key={g.id}
                           variant="secondary"
-                          className="text-[9px] font-bold rounded-full px-1.5 py-0"
+                          className="text-[9px] font-bold rounded-full px-2 py-0"
                           style={{ borderColor: g.color }}
                         >
                           {g.nameAr}
                         </Badge>
                       ))
                     )}
-                    {hasCustomOverrides && (
+                    {hasOverrides && (
                       <Badge className="bg-amber-500/20 text-amber-700 border-amber-500/30 text-[9px] font-bold rounded-full px-1.5 py-0 mr-auto">
                         صلاحيات مخصصة
                       </Badge>
@@ -328,17 +331,17 @@ export const UserPermissionsPanel: React.FC = () => {
         </div>
 
         {/* ========================================================= */}
-        {/* RIGHT COLUMN: Selected User Permissions & Matrix (8 cols) */}
+        {/* RIGHT COLUMN: User Config & Domain Screen Permissions */}
         {/* ========================================================= */}
-        {selectedEmployee ? (
-          <div className="lg:col-span-8 space-y-5">
-            {/* User Profile Summary Header Card */}
-            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
+        {selectedEmployee && (
+          <div className="lg:col-span-8 space-y-6">
+            {/* User Profile Card */}
+            <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
-                <div className="flex items-center gap-3.5">
-                  <Avatar className="h-12 w-12 rounded-2xl border-2 border-primary/30 shadow-xs">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-14 w-14 rounded-3xl border-2 border-primary/30 shadow-xs">
                     <AvatarImage src={selectedEmployee.avatarUrl} />
-                    <AvatarFallback className="text-sm font-bold bg-primary text-primary-foreground">
+                    <AvatarFallback className="text-base font-bold bg-primary text-primary-foreground">
                       {selectedEmployee.firstNameAr?.[0]}
                       {selectedEmployee.lastNameAr?.[0]}
                     </AvatarFallback>
@@ -346,64 +349,71 @@ export const UserPermissionsPanel: React.FC = () => {
 
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-base font-black text-foreground">
+                      <h2 className="text-lg font-black text-foreground">
                         {selectedEmployee.firstNameAr} {selectedEmployee.lastNameAr}
                       </h2>
-                      <Badge variant="outline" className="text-xs font-mono font-bold">
+                      <Badge variant="outline" className="font-mono text-xs font-bold">
                         {selectedEmployee.employeeNo}
                       </Badge>
                     </div>
                     <div className="text-xs text-muted-foreground font-medium flex items-center gap-2 mt-0.5">
-                      <span className="font-bold text-primary">{selectedEmployee.jobTitleAr}</span>
+                      <span className="font-bold text-primary">
+                        {selectedEmployee.jobTitleAr}
+                      </span>
                       <span>•</span>
                       <span>{selectedEmployee.departmentName}</span>
-                      <span>•</span>
-                      <span dir="ltr">{selectedEmployee.email}</span>
                     </div>
                   </div>
                 </div>
 
-                {hasOverride(ALL_SYSTEM_SCREENS[0].id) ||
-                Object.keys(userOverrides).length > 0 ? (
+                {hasAnyOverrides && (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleResetOverrides}
-                    className="rounded-full text-xs font-bold gap-1 text-amber-700 border-amber-500/40 hover:bg-amber-500/10 h-8 px-3"
+                    className="rounded-full text-xs font-bold gap-1 text-amber-700 border-amber-500/40 hover:bg-amber-500/10 h-9 px-3.5 self-start sm:self-center"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
                     استعادة الصلاحيات الموروثة
                   </Button>
-                ) : null}
+                )}
               </div>
 
-              {/* Group Memberships Quick Toggle */}
-              <div className="space-y-2">
-                <span className="text-xs font-black text-foreground flex items-center gap-1.5">
-                  <Shield className="h-4 w-4 text-primary" />
-                  المجموعات التي ينتمي إليها الموظف حالياً:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {/* Group Membership Toggles */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-foreground flex items-center gap-1.5">
+                    <Shield className="h-4 w-4 text-primary" />
+                    المجموعات التي ينتمي إليها الموظف (انقر لتعديل الانضمام):
+                  </span>
+                  <Badge variant="secondary" className="text-[10px] font-bold rounded-full px-2">
+                    عضو في {userGroups.length} مجموعات
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                   {permissionGroups.map((grp) => {
                     const isMember = grp.memberUserIds?.includes(selectedEmployee.id);
                     return (
                       <div
                         key={grp.id}
                         onClick={() => handleToggleGroup(grp.id, isMember)}
-                        className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                        className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between select-none ${
                           isMember
                             ? "border-primary bg-primary/10 shadow-2xs font-bold"
-                            : "border-border/70 hover:bg-muted/40 bg-muted/20 opacity-80"
+                            : "border-border/70 hover:bg-muted/40 bg-muted/20 opacity-75"
                         }`}
                       >
-                        <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           <input
                             type="checkbox"
                             checked={isMember}
                             onChange={() => {}}
-                            className="rounded-md text-primary focus:ring-primary h-3.5 w-3.5 pointer-events-none"
+                            className="rounded text-primary focus:ring-primary h-4 w-4 pointer-events-none"
                           />
-                          <span className="text-xs truncate text-foreground">{grp.nameAr}</span>
+                          <span className="text-xs truncate text-foreground">
+                            {grp.nameAr}
+                          </span>
                         </div>
                       </div>
                     );
@@ -412,227 +422,107 @@ export const UserPermissionsPanel: React.FC = () => {
               </div>
             </div>
 
-            {/* Direct Screen Permissions Matrix */}
-            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
+            {/* Screen Permissions Matrix */}
+            <div className="space-y-4">
+              {/* Search Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card p-4 rounded-3xl border border-border/80 shadow-xs">
                 <div>
                   <h3 className="font-black text-sm text-foreground flex items-center gap-2">
-                    <UserCheck className="h-4 w-4 text-primary" />
-                    الصلاحيات الفعلية للشاشات للمستخدم: {selectedEmployee.firstNameAr}
+                    <Sliders className="h-4 w-4 text-primary" />
+                    الصلاحيات الفعلية للشاشات للمستخدم ({selectedEmployee.firstNameAr})
                   </h3>
-                  <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
-                    الصلاحيات تُورث تلقائياً من المجموعات المنضم إليها، ويمكنك تخصيص أو استثناء أي شاشة يدوياً
+                  <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                    الصلاحيات موروثة من المجموعات المنضم إليها، ويمكنك تعديل أو استثناء أي شاشة بالأسفل
                   </p>
                 </div>
 
-                <Badge variant="secondary" className="rounded-full text-xs px-3 py-1 font-bold self-start sm:self-center">
-                  ينتمي لـ {userGroups.length} مجموعة
-                </Badge>
-              </div>
-
-              {/* Filters */}
-              <div className="space-y-3">
-                <div className="relative">
-                  <Search className="absolute right-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute right-3.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                   <input
                     type="text"
-                    value={screenSearchTerm}
-                    onChange={(e) => setScreenSearchTerm(e.target.value)}
-                    placeholder="البحث في الشاشات والوحدات..."
+                    value={screenSearch}
+                    onChange={(e) => setScreenSearch(e.target.value)}
+                    placeholder="البحث في الشاشات..."
                     className="w-full h-8 rounded-2xl border border-border/80 bg-muted/20 pr-9 pl-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
-
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setSelectedCategory(cat.id)}
-                      className={`text-[11px] font-bold rounded-full px-3 py-1 transition-all whitespace-nowrap ${
-                        selectedCategory === cat.id
-                          ? "bg-primary text-primary-foreground shadow-xs"
-                          : "bg-muted/40 hover:bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
               </div>
 
-              {/* Matrix Table */}
-              <div className="overflow-x-auto rounded-2xl border border-border/70">
-                <table className="w-full text-right border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-muted/40 border-b border-border/70 text-muted-foreground font-black text-[11px]">
-                      <th className="p-3 w-64">الشاشة والوحدة</th>
-                      <th className="p-3 text-center w-24">
-                        <span className="flex items-center justify-center gap-1">
-                          <Eye className="h-3.5 w-3.5 text-sky-600" />
-                          قراءة
-                        </span>
-                      </th>
-                      <th className="p-3 text-center w-24">
-                        <span className="flex items-center justify-center gap-1">
-                          <FilePlus className="h-3.5 w-3.5 text-emerald-600" />
-                          إدخال
-                        </span>
-                      </th>
-                      <th className="p-3 text-center w-24">
-                        <span className="flex items-center justify-center gap-1">
-                          <Edit className="h-3.5 w-3.5 text-amber-600" />
-                          تعديل
-                        </span>
-                      </th>
-                      <th className="p-3 text-center w-24">
-                        <span className="flex items-center justify-center gap-1">
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          حذف
-                        </span>
-                      </th>
-                      <th className="p-3 text-center w-28">
-                        <span className="flex items-center justify-center gap-1">
-                          <ShieldAlert className="h-3.5 w-3.5 text-purple-600" />
-                          اعتماد/تصدير
-                        </span>
-                      </th>
-                      <th className="p-3 text-center w-36">إجراء سريع</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/60">
-                    {filteredScreens.map((screen) => {
-                      const eff = getEffectiveScreenPermission(screen.id);
-                      const isOverridden = hasOverride(screen.id);
+              {/* Domain Groups Container */}
+              <div className="space-y-5">
+                {DOMAIN_SECTIONS.map((domain) => {
+                  const domainScreens = ALL_SYSTEM_SCREENS.filter(
+                    (s) => domain.screenIds.includes(s.id) && isScreenVisible(s.id),
+                  );
 
-                      return (
-                        <tr
-                          key={screen.id}
-                          className={`transition-colors ${
-                            isOverridden ? "bg-amber-500/5 hover:bg-amber-500/10" : "hover:bg-muted/30"
-                          }`}
-                        >
-                          <td className="p-3">
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant="outline"
-                                className="font-mono text-[10px] font-black px-1.5 py-0 h-5"
-                              >
-                                {screen.code}
-                              </Badge>
-                              <div>
-                                <span className="font-bold text-xs text-foreground block">
-                                  {screen.nameAr}
-                                </span>
-                                {isOverridden && (
-                                  <span className="text-[9px] text-amber-600 font-bold block">
-                                    ● تم تخصيص صلاحية فردية لهذا المستخدم
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
+                  if (domainScreens.length === 0) return null;
 
-                          {/* View Toggle */}
-                          <td className="p-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={eff.view}
-                              onChange={() => handleToggleUserScreenAction(screen.id, "view")}
-                              className="h-4 w-4 rounded text-sky-600 focus:ring-sky-500 cursor-pointer"
-                            />
-                          </td>
+                  return (
+                    <div
+                      key={domain.id}
+                      className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-4"
+                    >
+                      {/* Domain Header */}
+                      <div className="flex items-center gap-2.5 border-b border-border/60 pb-3">
+                        <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                          <Sliders className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <h4 className="font-black text-sm text-foreground">
+                            {domain.nameAr}
+                          </h4>
+                          <span className="text-[10px] text-muted-foreground font-medium">
+                            {domainScreens.length} شاشات في هذا القطاع
+                          </span>
+                        </div>
+                      </div>
 
-                          {/* Create Toggle */}
-                          <td className="p-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={eff.create}
-                              onChange={() => handleToggleUserScreenAction(screen.id, "create")}
-                              className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                            />
-                          </td>
-
-                          {/* Edit Toggle */}
-                          <td className="p-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={eff.edit}
-                              onChange={() => handleToggleUserScreenAction(screen.id, "edit")}
-                              className="h-4 w-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
-                            />
-                          </td>
-
-                          {/* Delete Toggle */}
-                          <td className="p-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={eff.delete}
-                              onChange={() => handleToggleUserScreenAction(screen.id, "delete")}
-                              className="h-4 w-4 rounded text-destructive focus:ring-destructive cursor-pointer"
-                            />
-                          </td>
-
-                          {/* Approve/Export Toggle */}
-                          <td className="p-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={eff.approveExport}
-                              onChange={() =>
-                                handleToggleUserScreenAction(screen.id, "approveExport")
+                      {/* Screen Rows */}
+                      <div className="space-y-2.5">
+                        {domainScreens.map((screen) => {
+                          const eff = getEffectiveScreenPermission(screen.id);
+                          return (
+                            <ScreenPermissionRow
+                              key={screen.id}
+                              screen={screen}
+                              permissions={eff}
+                              onChange={(nextPerm) =>
+                                handleUpdateUserScreen(screen.id, nextPerm)
                               }
-                              className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
                             />
-                          </td>
-
-                          {/* Row Actions */}
-                          <td className="p-3 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleSetUserScreenFull(screen.id)}
-                                className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground hover:bg-emerald-100 hover:text-emerald-700 transition-all"
-                              >
-                                كامل
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleSetUserScreenDisabled(screen.id)}
-                                className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all"
-                              >
-                                إيقاف
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Save Bar */}
-              <div className="border-t border-border/60 pt-4 flex flex-col sm:flex-row justify-between items-center gap-3">
-                <span className="text-xs text-muted-foreground font-medium">
-                  يتم حفظ الصلاحيات المخصصة لهذا المستخدم بشكل لحظي وآمن.
-                </span>
+              <div className="sticky bottom-4 z-20 bg-card/95 backdrop-blur-md p-4 rounded-3xl border border-border/80 shadow-lg flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  <span className="text-xs font-bold text-foreground">
+                    تم تطبيق الصلاحيات للمستخدم ({selectedEmployee.firstNameAr} {selectedEmployee.lastNameAr})
+                  </span>
+                </div>
 
                 <Button
                   onClick={() =>
                     toast.success(
-                      `تم حفظ وتطبيق الصلاحيات الخاصة للمستخدم (${selectedEmployee.firstNameAr} ${selectedEmployee.lastNameAr}) بنجاح!`,
+                      `تم حفظ وتأكيد صلاحيات المستخدم (${selectedEmployee.firstNameAr}) بنجاح!`,
                     )
                   }
                   size="sm"
-                  className="rounded-full text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-5 h-9 shadow-xs"
+                  className="rounded-full text-xs font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 h-9 shadow-xs"
                 >
-                  <Save className="h-4 w-4" />
-                  تأكيد وحفظ صلاحيات المستخدم
+                  <Check className="h-4 w-4" />
+                  تأكيد وحفظ الصلاحيات
                 </Button>
               </div>
             </div>
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );

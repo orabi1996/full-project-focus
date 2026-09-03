@@ -3,27 +3,26 @@ import { useApp } from "../../lib/context/AppContext";
 import {
   Shield,
   Users,
-  Search,
   Plus,
   Trash2,
   Save,
+  Search,
   CheckCircle2,
+  Sparkles,
+  Layers,
+  ChevronDown,
+  ChevronUp,
+  Building2,
+  Clock,
+  Wallet,
+  Briefcase,
   Sliders,
   Check,
-  X,
-  Copy,
-  Eye,
-  Edit,
-  FilePlus,
-  ShieldAlert,
-  ArrowUpDown,
-  Filter,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { toast } from "sonner";
-import { IconSymbol } from "../ui/IconSymbol";
 import type { DataScope } from "../../types";
 import {
   ALL_SYSTEM_SCREENS,
@@ -31,8 +30,62 @@ import {
   type ScreenActionPermissions,
   type ScreenModuleConfig,
 } from "../../lib/auth/rbac-definitions";
+import { ScreenPermissionRow } from "./ScreenPermissionRow";
 import { CreateGroupModal } from "./CreateGroupModal";
 import { ManageGroupMembersModal } from "./ManageGroupMembersModal";
+
+interface DomainConfig {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  icon: string;
+  screenIds: string[];
+}
+
+const DOMAIN_SECTIONS: DomainConfig[] = [
+  {
+    id: "core",
+    nameAr: "الوحدات الإدارية والأساسية (Core Management)",
+    nameEn: "Core Management & Organization",
+    icon: "corporate_fare",
+    screenIds: ["dashboard", "organization", "employees", "documents"],
+  },
+  {
+    id: "operations",
+    nameAr: "الوقت والعمليات والدوام (Time & Operations)",
+    nameEn: "Time & Operations Engine",
+    icon: "schedule",
+    screenIds: ["workflow", "leaves", "attendance", "shifts"],
+  },
+  {
+    id: "finance",
+    nameAr: "الرواتب والعمليات المالية (Payroll & Finance)",
+    nameEn: "Compensation, Payroll & Expenses",
+    icon: "account_balance_wallet",
+    screenIds: ["payroll", "loans", "expenses"],
+  },
+  {
+    id: "talent",
+    nameAr: "إدارة المواهب واستقطاب الكفاءات (Talent & Growth)",
+    nameEn: "Talent Acquisition & Performance",
+    icon: "stars",
+    screenIds: ["ats", "performance", "workforce"],
+  },
+  {
+    id: "governance",
+    nameAr: "الأصول والحوكمة والتكامل (Governance & Ecosystem)",
+    nameEn: "Assets, Audit, BI & Integrations",
+    icon: "admin_panel_settings",
+    screenIds: ["assets", "reports", "integrations", "audit"],
+  },
+  {
+    id: "self_service",
+    nameAr: "الخدمة الذاتية والأمان (Self-Service & Access)",
+    nameEn: "Employee Self-Service & Security",
+    icon: "smartphone",
+    screenIds: ["ess", "rbac"],
+  },
+];
 
 export const GroupPermissionsPanel: React.FC = () => {
   const {
@@ -45,15 +98,13 @@ export const GroupPermissionsPanel: React.FC = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<string>(
     permissionGroups[0]?.id || "grp-superadmin",
   );
-  const [groupSearchTerm, setGroupSearchTerm] = useState("");
-  const [screenSearchTerm, setScreenSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [screenSearch, setScreenSearch] = useState("");
 
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
 
-  // Selected Group resolution
+  // Selected Group
   const selectedGroup = useMemo(() => {
     return (
       permissionGroups.find((g) => g.id === selectedGroupId) ||
@@ -62,133 +113,44 @@ export const GroupPermissionsPanel: React.FC = () => {
     );
   }, [permissionGroups, selectedGroupId]);
 
-  // Filtered Groups
-  const filteredGroups = useMemo(() => {
-    return permissionGroups.filter((g) => {
-      const match =
-        !groupSearchTerm.trim() ||
-        g.nameAr.toLowerCase().includes(groupSearchTerm.toLowerCase()) ||
-        g.code.toLowerCase().includes(groupSearchTerm.toLowerCase()) ||
-        (g.nameEn && g.nameEn.toLowerCase().includes(groupSearchTerm.toLowerCase()));
-      return match;
-    });
-  }, [permissionGroups, groupSearchTerm]);
-
-  // Filtered Screens
-  const filteredScreens = useMemo(() => {
-    return ALL_SYSTEM_SCREENS.filter((screen) => {
-      const matchCategory =
-        selectedCategory === "all" || screen.category === selectedCategory;
-      const matchSearch =
-        !screenSearchTerm.trim() ||
-        screen.nameAr.toLowerCase().includes(screenSearchTerm.toLowerCase()) ||
-        screen.code.toLowerCase().includes(screenSearchTerm.toLowerCase()) ||
-        screen.nameEn.toLowerCase().includes(screenSearchTerm.toLowerCase());
-      return matchCategory && matchSearch;
-    });
-  }, [selectedCategory, screenSearchTerm]);
-
-  // Categories list for filter pills
-  const categories = [
-    { id: "all", label: `كافة الشاشات (${ALL_SYSTEM_SCREENS.length})` },
-    { id: "core", label: "الرئيسية والهيكل" },
-    { id: "operations", label: "الوقت والعمليات" },
-    { id: "finance", label: "الرواتب والمالية" },
-    { id: "talent", label: "المواهب والنمو" },
-    { id: "governance", label: "الأمان والامتثال" },
-    { id: "self_service", label: "الخدمة الذاتية" },
-  ];
-
   // Group Members Resolution
   const groupMembers = useMemo(() => {
     if (!selectedGroup?.memberUserIds) return [];
     return employees.filter((e) => selectedGroup.memberUserIds.includes(e.id));
   }, [employees, selectedGroup]);
 
-  // Permission Action Toggle Handler
-  const handleToggleScreenAction = (
+  // Permission updater for a single screen
+  const handleUpdateScreenPermission = (
     screenId: string,
-    action: keyof ScreenActionPermissions,
+    nextPerm: ScreenActionPermissions,
   ) => {
     if (!selectedGroup) return;
-
     const currentScreens = selectedGroup.screens || {};
-    const screenPerm = currentScreens[screenId] || {
-      view: false,
-      create: false,
-      edit: false,
-      delete: false,
-      approveExport: false,
-    };
-
-    const nextPerm = {
-      ...screenPerm,
-      [action]: !screenPerm[action],
-    };
-
-    // If granting create/edit/delete/approve, automatically grant view as well
-    if (action !== "view" && nextPerm[action]) {
-      nextPerm.view = true;
-    }
-
     const updatedScreens = {
       ...currentScreens,
       [screenId]: nextPerm,
     };
-
     updatePermissionGroup(selectedGroup.id, { screens: updatedScreens });
   };
 
-  // Row Quick Actions
-  const handleSetRowFullAccess = (screenId: string) => {
+  // Bulk Domain Toggle
+  const handleToggleDomain = (domain: DomainConfig, enable: boolean) => {
     if (!selectedGroup) return;
-    const currentScreens = selectedGroup.screens || {};
-    const updatedScreens = {
-      ...currentScreens,
-      [screenId]: {
-        view: true,
-        create: true,
-        edit: true,
-        delete: true,
-        approveExport: true,
-      },
-    };
-    updatePermissionGroup(selectedGroup.id, { screens: updatedScreens });
+    const currentScreens = { ...(selectedGroup.screens || {}) };
+    domain.screenIds.forEach((sId) => {
+      currentScreens[sId] = enable
+        ? { view: true, create: true, edit: true, delete: true, approveExport: true }
+        : { view: false, create: false, edit: false, delete: false, approveExport: false };
+    });
+    updatePermissionGroup(selectedGroup.id, { screens: currentScreens });
+    toast.success(
+      enable
+        ? `تم تفعيل كافة شاشات ${domain.nameAr} بنجاح.`
+        : `تم تعطيل شاشات ${domain.nameAr}.`,
+    );
   };
 
-  const handleSetRowReadOnly = (screenId: string) => {
-    if (!selectedGroup) return;
-    const currentScreens = selectedGroup.screens || {};
-    const updatedScreens = {
-      ...currentScreens,
-      [screenId]: {
-        view: true,
-        create: false,
-        edit: false,
-        delete: false,
-        approveExport: true,
-      },
-    };
-    updatePermissionGroup(selectedGroup.id, { screens: updatedScreens });
-  };
-
-  const handleSetRowDisabled = (screenId: string) => {
-    if (!selectedGroup) return;
-    const currentScreens = selectedGroup.screens || {};
-    const updatedScreens = {
-      ...currentScreens,
-      [screenId]: {
-        view: false,
-        create: false,
-        edit: false,
-        delete: false,
-        approveExport: false,
-      },
-    };
-    updatePermissionGroup(selectedGroup.id, { screens: updatedScreens });
-  };
-
-  // Bulk Actions
+  // Global Bulk Actions
   const handleSetAllFullAccess = () => {
     if (!selectedGroup) return;
     const newScreens: Record<string, ScreenActionPermissions> = {};
@@ -202,7 +164,7 @@ export const GroupPermissionsPanel: React.FC = () => {
       };
     }
     updatePermissionGroup(selectedGroup.id, { screens: newScreens });
-    toast.success(`تم منح كافة الصلاحيات على جميع الشاشات لمجموعة (${selectedGroup.nameAr}).`);
+    toast.success(`تم منح كافة الصلاحيات لجميع الشاشات لمجموعة (${selectedGroup.nameAr}).`);
   };
 
   const handleSetAllReadOnly = () => {
@@ -234,355 +196,355 @@ export const GroupPermissionsPanel: React.FC = () => {
       };
     }
     updatePermissionGroup(selectedGroup.id, { screens: newScreens });
-    toast.warning(`تم تعطيل الصلاحيات على كافة الشاشات لمجموعة (${selectedGroup.nameAr}).`);
+    toast.warning(`تم تعطيل الوصول لكافة الشاشات لمجموعة (${selectedGroup.nameAr}).`);
   };
 
-  const handleDeleteCurrentGroup = () => {
+  const handleDeleteGroup = () => {
     if (!selectedGroup) return;
-    if (confirm(`هل أنت متأكد من رغبتك في حذف المجموعة "${selectedGroup.nameAr}" نهائياً؟`)) {
-      const deleted = deletePermissionGroup(selectedGroup.id);
-      if (deleted && permissionGroups[0]) {
+    if (confirm(`هل أنت متأكد من رغبتك في حذف المجموعة "${selectedGroup.nameAr}"؟`)) {
+      const ok = deletePermissionGroup(selectedGroup.id);
+      if (ok && permissionGroups[0]) {
         setSelectedGroupId(permissionGroups[0].id);
       }
     }
   };
 
+  // Filter screens by search
+  const isScreenVisible = (screenId: string) => {
+    if (!screenSearch.trim()) return true;
+    const s = ALL_SYSTEM_SCREENS.find((item) => item.id === screenId);
+    if (!s) return false;
+    const q = screenSearch.toLowerCase();
+    return (
+      s.nameAr.toLowerCase().includes(q) ||
+      s.nameEn.toLowerCase().includes(q) ||
+      s.code.toLowerCase().includes(q)
+    );
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* ========================================================= */}
-        {/* LEFT COLUMN: Groups List (4 cols on lg) */}
-        {/* ========================================================= */}
-        <div className="lg:col-span-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-black text-muted-foreground uppercase flex items-center gap-1.5">
+    <div className="space-y-7 animate-in fade-in duration-200">
+      {/* ========================================================= */}
+      {/* 1. GROUPS DECK (Horizontal Grid of Groups) */}
+      {/* ========================================================= */}
+      <div className="space-y-3.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-black text-foreground flex items-center gap-2">
               <Shield className="h-4 w-4 text-primary" />
-              مجموعات الصلاحيات والأدوار ({permissionGroups.length})
+              مجموعات الصلاحيات المعتمدة في النظام ({permissionGroups.length})
             </h2>
-            <Button
-              onClick={() => setIsCreateModalOpen(true)}
-              size="sm"
-              className="h-8 rounded-full text-xs font-bold gap-1 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs px-3"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              مجموعة جديدة
-            </Button>
+            <p className="text-xs text-muted-foreground font-medium mt-0.5">
+              اضغط على أي مجموعة لتهيئة صلاحياتها وإدارة المستخدمين المنضمين إليها
+            </p>
           </div>
 
-          {/* Group Search Bar */}
-          <div className="relative">
-            <Search className="absolute right-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              type="text"
-              value={groupSearchTerm}
-              onChange={(e) => setGroupSearchTerm(e.target.value)}
-              placeholder="البحث في المجموعات والأدوار..."
-              className="w-full h-9 rounded-2xl border border-border/80 bg-card pr-9 pl-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-2xs"
-            />
-          </div>
-
-          {/* Groups List */}
-          <div className="space-y-2.5 max-h-[720px] overflow-y-auto custom-scrollbar pr-1">
-            {filteredGroups.map((grp) => {
-              const isSelected = selectedGroup?.id === grp.id;
-              const membersCount = grp.memberUserIds?.length || 0;
-              return (
-                <div
-                  key={grp.id}
-                  onClick={() => setSelectedGroupId(grp.id)}
-                  className={`p-4 rounded-3xl border transition-all cursor-pointer space-y-2.5 ${
-                    isSelected
-                      ? "border-primary bg-primary/5 shadow-xs ring-2 ring-primary/30"
-                      : "bg-card hover:border-primary/40 border-border/80"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className="h-8 w-8 rounded-xl flex items-center justify-center text-white shadow-xs font-bold"
-                        style={{ backgroundColor: grp.color || "#4f46e5" }}
-                      >
-                        <Shield className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <h3 className="font-black text-xs text-foreground line-clamp-1">
-                          {grp.nameAr}
-                        </h3>
-                        {grp.nameEn && (
-                          <span className="text-[10px] text-muted-foreground font-medium line-clamp-1">
-                            {grp.nameEn}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {grp.isSystem ? (
-                      <Badge variant="secondary" className="text-[9px] font-bold rounded-full px-2">
-                        نظام
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-[9px] font-bold rounded-full px-2 text-primary border-primary/30">
-                        مخصص
-                      </Badge>
-                    )}
-                  </div>
-
-                  <p className="text-[11px] text-muted-foreground line-clamp-2 font-medium">
-                    {grp.descriptionAr}
-                  </p>
-
-                  <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[10px]">
-                    <span className="font-mono text-primary font-bold">{grp.code}</span>
-                    <div className="flex items-center gap-1.5">
-                      <Badge variant="outline" className="text-[10px] font-bold rounded-full px-2">
-                        <Users className="h-3 w-3 mr-1 text-muted-foreground" />
-                        {membersCount} مستخدم
-                      </Badge>
-                      <Badge variant="secondary" className="text-[9px] font-bold rounded-full px-2">
-                        {grp.dataScope === "all"
-                          ? "كامل المنشأة"
-                          : grp.dataScope === "department"
-                            ? "القسم"
-                            : grp.dataScope === "team"
-                              ? "الفريق"
-                              : "شخصي"}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <Button
+            onClick={() => setIsCreateModalOpen(true)}
+            size="sm"
+            className="rounded-full text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-9 px-4 self-start sm:self-center"
+          >
+            <Plus className="h-4 w-4" />
+            إنشاء مجموعة جديدة
+          </Button>
         </div>
 
-        {/* ========================================================= */}
-        {/* RIGHT COLUMN: Group Details & 20-Screen Matrix (8 cols on lg) */}
-        {/* ========================================================= */}
-        {selectedGroup ? (
-          <div className="lg:col-span-8 space-y-5">
-            {/* Header Box */}
-            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-xs"
-                    style={{ backgroundColor: selectedGroup.color || "#4f46e5" }}
-                  >
-                    <Shield className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base font-black text-foreground">
-                        {selectedGroup.nameAr}
-                      </h2>
-                      {selectedGroup.isSystem && (
-                        <Badge variant="secondary" className="text-[10px] rounded-full px-2.5 font-bold">
-                          مجموعة نظام أساسية
-                        </Badge>
-                      )}
+        {/* Groups Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {permissionGroups.map((grp) => {
+            const isSelected = selectedGroup?.id === grp.id;
+            const memberCount = grp.memberUserIds?.length || 0;
+            // Calculate active screens count
+            const activeScreensCount = Object.values(grp.screens || {}).filter(
+              (s) => s.view || s.create || s.edit || s.delete || s.approveExport,
+            ).length;
+
+            return (
+              <div
+                key={grp.id}
+                onClick={() => setSelectedGroupId(grp.id)}
+                className={`p-4 rounded-3xl border transition-all cursor-pointer space-y-3 relative overflow-hidden select-none ${
+                  isSelected
+                    ? "bg-card border-primary shadow-md ring-2 ring-primary/30"
+                    : "bg-card hover:border-primary/40 border-border/80 shadow-2xs"
+                }`}
+              >
+                {/* Top Accent Color Line */}
+                <div
+                  className="absolute top-0 right-0 left-0 h-1"
+                  style={{ backgroundColor: grp.color || "#4f46e5" }}
+                />
+
+                <div className="flex items-start justify-between gap-3 pt-1">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className="h-10 w-10 rounded-2xl flex items-center justify-center text-white font-bold shrink-0 shadow-xs"
+                      style={{ backgroundColor: grp.color || "#4f46e5" }}
+                    >
+                      <Shield className="h-5 w-5" />
                     </div>
-                    <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                      {selectedGroup.descriptionAr}
-                    </p>
+                    <div className="min-w-0">
+                      <h3 className="font-black text-xs text-foreground truncate">
+                        {grp.nameAr}
+                      </h3>
+                      <span className="text-[10px] text-muted-foreground font-medium block truncate">
+                        {grp.nameEn || grp.code}
+                      </span>
+                    </div>
                   </div>
+
+                  {grp.isSystem ? (
+                    <Badge variant="secondary" className="text-[9px] font-bold rounded-full px-2 shrink-0">
+                      أساسية
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[9px] font-bold rounded-full px-2 text-primary border-primary/30 shrink-0">
+                      مخصصة
+                    </Badge>
+                  )}
                 </div>
 
-                {/* Scope and Delete Button */}
-                <div className="flex items-center gap-2 self-end sm:self-center">
-                  <div className="flex items-center gap-1.5 bg-muted/40 px-3 py-1 rounded-2xl border border-border/80">
-                    <span className="text-[11px] font-bold text-muted-foreground">نطاق البيانات:</span>
-                    <select
-                      value={selectedGroup.dataScope || "all"}
-                      onChange={(e) =>
-                        updatePermissionGroup(selectedGroup.id, {
-                          dataScope: e.target.value as DataScope,
-                        })
-                      }
-                      className="bg-transparent text-xs font-black text-primary focus:outline-none cursor-pointer"
-                    >
-                      <option value="all">كامل المنشأة (All Records)</option>
-                      <option value="subsidiary">الشركة التابعة فقط</option>
-                      <option value="department">القسم / الإدارة فقط</option>
-                      <option value="team">أعضاء الفريق المباشر</option>
-                      <option value="self">البيانات الشخصية فقط (Self)</option>
-                    </select>
-                  </div>
+                <p className="text-[11px] text-muted-foreground font-medium line-clamp-2 leading-relaxed">
+                  {grp.descriptionAr}
+                </p>
 
-                  {!selectedGroup.isSystem && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleDeleteCurrentGroup}
-                      className="h-8 rounded-full text-destructive border-destructive/30 hover:bg-destructive/10 text-xs font-bold gap-1"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      حذف
-                    </Button>
+                <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[11px]">
+                  <Badge variant="outline" className="text-[10px] font-bold rounded-full px-2.5 gap-1.5">
+                    <Users className="h-3 w-3 text-primary" />
+                    {memberCount} مستخدم
+                  </Badge>
+
+                  <span className="text-[10px] font-bold text-muted-foreground">
+                    {activeScreensCount} / {ALL_SYSTEM_SCREENS.length} شاشة
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* 2. SELECTED GROUP DETAILS & MEMBERS */}
+      {/* ========================================================= */}
+      {selectedGroup && (
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-5">
+            {/* Header & Data Scope */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border/60 pb-5">
+              <div className="flex items-center gap-4">
+                <div
+                  className="h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-xs shrink-0"
+                  style={{ backgroundColor: selectedGroup.color || "#4f46e5" }}
+                >
+                  <Shield className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <h2 className="text-lg font-black text-foreground">
+                      {selectedGroup.nameAr}
+                    </h2>
+                    <Badge variant="outline" className="font-mono text-xs font-bold">
+                      {selectedGroup.code}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                    {selectedGroup.descriptionAr}
+                  </p>
+                </div>
+              </div>
+
+              {/* Data Scope & Delete Group */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 bg-muted/40 px-3.5 py-1.5 rounded-2xl border border-border/80">
+                  <span className="text-xs font-bold text-muted-foreground">
+                    نطاق أمان البيانات:
+                  </span>
+                  <select
+                    value={selectedGroup.dataScope || "all"}
+                    onChange={(e) =>
+                      updatePermissionGroup(selectedGroup.id, {
+                        dataScope: e.target.value as DataScope,
+                      })
+                    }
+                    className="bg-transparent text-xs font-black text-primary focus:outline-none cursor-pointer"
+                  >
+                    <option value="all">كامل سجلات المنشأة (All Records)</option>
+                    <option value="subsidiary">الشركة التابعة الحالية فقط</option>
+                    <option value="department">القسم / الإدارة الحالية فقط</option>
+                    <option value="team">أعضاء الفريق المباشر فقط</option>
+                    <option value="self">البيانات الشخصية فقط (Self Only)</option>
+                  </select>
+                </div>
+
+                {!selectedGroup.isSystem && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDeleteGroup}
+                    className="rounded-full text-xs font-bold text-destructive border-destructive/30 hover:bg-destructive/10 h-9 px-3 gap-1.5"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    حذف المجموعة
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Members Section Card */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/20 p-4 rounded-2xl border border-border/60">
+              <div className="space-y-1.5">
+                <span className="text-xs font-black text-foreground flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  المستخدمون المنضمون لهذه المجموعة ({groupMembers.length} مستخدم):
+                </span>
+                <p className="text-[11px] text-muted-foreground font-medium">
+                  أي صلاحيات تُحدد بالأسفل تُطبق تلقائياً على كافة هؤلاء المستخدمين
+                </p>
+
+                {/* Member Avatars & Names */}
+                <div className="flex flex-wrap items-center gap-2 pt-1.5">
+                  {groupMembers.length === 0 ? (
+                    <span className="text-xs text-muted-foreground italic">
+                      لم يتم تعيين مستخدمين بعد في هذه المجموعة.
+                    </span>
+                  ) : (
+                    groupMembers.slice(0, 8).map((emp) => (
+                      <div
+                        key={emp.id}
+                        className="flex items-center gap-1.5 bg-card px-2.5 py-1 rounded-full border border-border/70 text-xs shadow-2xs"
+                      >
+                        <Avatar className="h-5 w-5 rounded-full">
+                          <AvatarImage src={emp.avatarUrl} />
+                          <AvatarFallback className="text-[8px] font-bold">
+                            {emp.firstNameAr?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-bold text-[11px] text-foreground">
+                          {emp.firstNameAr} {emp.lastNameAr}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                  {groupMembers.length > 8 && (
+                    <Badge variant="secondary" className="text-[10px] font-bold rounded-full px-2">
+                      +{groupMembers.length - 8} آخرين
+                    </Badge>
                   )}
                 </div>
               </div>
 
-              {/* Members Preview Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/20 p-3.5 rounded-2xl border border-border/60">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-black text-foreground flex items-center gap-1.5">
-                    <Users className="h-4 w-4 text-primary" />
-                    المستخدمين المعينين في المجموعة ({groupMembers.length}):
-                  </span>
+              {/* Add/Edit Members Button */}
+              <Button
+                onClick={() => setIsMembersModalOpen(true)}
+                size="sm"
+                className="rounded-full text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-9 px-4 shrink-0 self-start sm:self-center"
+              >
+                <Users className="h-4 w-4" />
+                إدارة وتعيين المستخدمين (+/-)
+              </Button>
+            </div>
+          </div>
 
-                  <div className="flex items-center -space-x-2 space-x-reverse overflow-hidden">
-                    {groupMembers.slice(0, 6).map((member) => (
-                      <Avatar
-                        key={member.id}
-                        className="h-7 w-7 rounded-full border-2 border-background"
-                        title={`${member.firstNameAr} ${member.lastNameAr} (${member.jobTitleAr})`}
-                      >
-                        <AvatarImage src={member.avatarUrl} />
-                        <AvatarFallback className="text-[9px] font-bold bg-secondary">
-                          {member.firstNameAr?.[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                    ))}
-                    {groupMembers.length > 6 && (
-                      <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-[9px] font-black border-2 border-background text-foreground">
-                        +{groupMembers.length - 6}
-                      </div>
-                    )}
-                  </div>
-                </div>
+          {/* ========================================================= */}
+          {/* 3. STRUCTURED SCREEN PERMISSIONS BY FUNCTIONAL DOMAINS */}
+          {/* ========================================================= */}
+          <div className="space-y-4">
+            {/* Top Toolbar: Search & Bulk Presets */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card p-4 rounded-3xl border border-border/80 shadow-xs">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute right-3.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={screenSearch}
+                  onChange={(e) => setScreenSearch(e.target.value)}
+                  placeholder="البحث في الشاشات والوحدات..."
+                  className="w-full h-9 rounded-2xl border border-border/80 bg-muted/20 pr-10 pl-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
 
+              {/* Bulk Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
-                  onClick={() => setIsMembersModalOpen(true)}
-                  size="sm"
                   variant="outline"
-                  className="rounded-full text-xs font-bold h-8 px-3.5 border-border/80 hover:bg-card gap-1.5 shadow-2xs"
+                  size="sm"
+                  onClick={handleSetAllFullAccess}
+                  className="rounded-full text-xs font-bold h-8 px-3 border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10"
                 >
-                  <Users className="h-3.5 w-3.5 text-primary" />
-                  إدارة أعضاء المجموعة ({groupMembers.length})
+                  كامل الصلاحيات للكل
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSetAllReadOnly}
+                  className="rounded-full text-xs font-bold h-8 px-3 border-sky-500/30 text-sky-700 hover:bg-sky-500/10"
+                >
+                  قراءة فقط للكل
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearAllPermissions}
+                  className="rounded-full text-xs font-bold h-8 px-3 border-destructive/30 text-destructive hover:bg-destructive/10"
+                >
+                  تعطيل الكل
                 </Button>
               </div>
             </div>
 
-            {/* Matrix Container */}
-            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
-              {/* Matrix Control Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
-                <div>
-                  <h3 className="font-black text-sm text-foreground flex items-center gap-2">
-                    <Sliders className="h-4 w-4 text-primary" />
-                    مصفوفة صلاحيات الشاشات والوحدات (20 شاشة ووحدة)
-                  </h3>
-                  <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
-                    حدد مستوى الصلاحية بدقة: قراءة، إدخال، تعديل، حذف، واعتماد/تصدير
-                  </p>
-                </div>
+            {/* Domain Groups Container */}
+            <div className="space-y-5">
+              {DOMAIN_SECTIONS.map((domain) => {
+                const domainScreens = ALL_SYSTEM_SCREENS.filter(
+                  (s) => domain.screenIds.includes(s.id) && isScreenVisible(s.id),
+                );
 
-                {/* Bulk Actions */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSetAllFullAccess}
-                    className="rounded-full text-[11px] font-bold h-7 px-2.5 border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10"
+                if (domainScreens.length === 0) return null;
+
+                return (
+                  <div
+                    key={domain.id}
+                    className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-4"
                   >
-                    كامل الصلاحيات للكل
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSetAllReadOnly}
-                    className="rounded-full text-[11px] font-bold h-7 px-2.5 border-sky-500/30 text-sky-600 hover:bg-sky-500/10"
-                  >
-                    قراءة فقط للكل
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleClearAllPermissions}
-                    className="rounded-full text-[11px] font-bold h-7 px-2.5 border-destructive/30 text-destructive hover:bg-destructive/10"
-                  >
-                    إلغاء الكل
-                  </Button>
-                </div>
-              </div>
+                    {/* Domain Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                          <Sliders className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <h3 className="font-black text-sm text-foreground">
+                            {domain.nameAr}
+                          </h3>
+                          <span className="text-[10px] text-muted-foreground font-medium">
+                            {domainScreens.length} شاشات في هذا القطاع
+                          </span>
+                        </div>
+                      </div>
 
-              {/* Filters & Category Tabs */}
-              <div className="space-y-3">
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute right-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                    <input
-                      type="text"
-                      value={screenSearchTerm}
-                      onChange={(e) => setScreenSearchTerm(e.target.value)}
-                      placeholder="البحث باسم الشاشة أو الكود (مثال: الرواتب، M10)..."
-                      className="w-full h-8 rounded-2xl border border-border/80 bg-muted/20 pr-9 pl-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
-                </div>
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleDomain(domain, true)}
+                          className="text-[11px] font-bold text-emerald-700 hover:underline px-2 py-1"
+                        >
+                          تفعيل كامل شاشات القطاع
+                        </button>
+                        <span className="text-border">·</span>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleDomain(domain, false)}
+                          className="text-[11px] font-bold text-muted-foreground hover:text-destructive hover:underline px-2 py-1"
+                        >
+                          تعطيل القطاع
+                        </button>
+                      </div>
+                    </div>
 
-                {/* Category Pills */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
-                  {categories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setSelectedCategory(cat.id)}
-                      className={`text-[11px] font-bold rounded-full px-3 py-1 transition-all whitespace-nowrap ${
-                        selectedCategory === cat.id
-                          ? "bg-primary text-primary-foreground shadow-xs"
-                          : "bg-muted/40 hover:bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Matrix Table */}
-              <div className="overflow-x-auto rounded-2xl border border-border/70">
-                <table className="w-full text-right border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-muted/40 border-b border-border/70 text-muted-foreground font-black text-[11px]">
-                      <th className="p-3 w-64">الشاشة والوحدة</th>
-                      <th className="p-3 text-center w-24">
-                        <span className="flex items-center justify-center gap-1">
-                          <Eye className="h-3.5 w-3.5 text-sky-600" />
-                          قراءة
-                        </span>
-                      </th>
-                      <th className="p-3 text-center w-24">
-                        <span className="flex items-center justify-center gap-1">
-                          <FilePlus className="h-3.5 w-3.5 text-emerald-600" />
-                          إدخال
-                        </span>
-                      </th>
-                      <th className="p-3 text-center w-24">
-                        <span className="flex items-center justify-center gap-1">
-                          <Edit className="h-3.5 w-3.5 text-amber-600" />
-                          تعديل
-                        </span>
-                      </th>
-                      <th className="p-3 text-center w-24">
-                        <span className="flex items-center justify-center gap-1">
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          حذف
-                        </span>
-                      </th>
-                      <th className="p-3 text-center w-28">
-                        <span className="flex items-center justify-center gap-1">
-                          <ShieldAlert className="h-3.5 w-3.5 text-purple-600" />
-                          اعتماد/تصدير
-                        </span>
-                      </th>
-                      <th className="p-3 text-center w-40">إجراءات سريعة</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/60">
-                    {filteredScreens.map((screen) => {
-                      const screenPerms: ScreenActionPermissions =
-                        selectedGroup.screens?.[screen.id] || {
+                    {/* Domain Screen Rows */}
+                    <div className="space-y-2.5">
+                      {domainScreens.map((screen) => {
+                        const perm = selectedGroup.screens?.[screen.id] || {
                           view: false,
                           create: false,
                           edit: false,
@@ -590,167 +552,53 @@ export const GroupPermissionsPanel: React.FC = () => {
                           approveExport: false,
                         };
 
-                      const isAllGranted =
-                        screenPerms.view &&
-                        screenPerms.create &&
-                        screenPerms.edit &&
-                        screenPerms.delete &&
-                        screenPerms.approveExport;
+                        return (
+                          <ScreenPermissionRow
+                            key={screen.id}
+                            screen={screen}
+                            permissions={perm}
+                            onChange={(nextPerm) =>
+                              handleUpdateScreenPermission(screen.id, nextPerm)
+                            }
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-                      const isAllDisabled =
-                        !screenPerms.view &&
-                        !screenPerms.create &&
-                        !screenPerms.edit &&
-                        !screenPerms.delete &&
-                        !screenPerms.approveExport;
-
-                      return (
-                        <tr
-                          key={screen.id}
-                          className="hover:bg-muted/30 transition-colors"
-                        >
-                          {/* Screen Info */}
-                          <td className="p-3">
-                            <div className="flex items-center gap-2.5">
-                              <Badge
-                                variant="outline"
-                                className="font-mono text-[10px] font-black px-1.5 py-0 h-5"
-                              >
-                                {screen.code}
-                              </Badge>
-                              <div>
-                                <span className="font-bold text-xs text-foreground block">
-                                  {screen.nameAr}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground font-medium line-clamp-1">
-                                  {screen.descriptionAr}
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* View Toggle */}
-                          <td className="p-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={screenPerms.view}
-                              onChange={() => handleToggleScreenAction(screen.id, "view")}
-                              className="h-4 w-4 rounded text-sky-600 focus:ring-sky-500 cursor-pointer"
-                              title="صلاحية القراءة والاستعراض"
-                            />
-                          </td>
-
-                          {/* Create Toggle */}
-                          <td className="p-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={screenPerms.create}
-                              onChange={() => handleToggleScreenAction(screen.id, "create")}
-                              className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                              title="صلاحية الإدخال وإنشاء سجل جديد"
-                            />
-                          </td>
-
-                          {/* Edit Toggle */}
-                          <td className="p-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={screenPerms.edit}
-                              onChange={() => handleToggleScreenAction(screen.id, "edit")}
-                              className="h-4 w-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
-                              title="صلاحية التعديل والتحديث"
-                            />
-                          </td>
-
-                          {/* Delete Toggle */}
-                          <td className="p-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={screenPerms.delete}
-                              onChange={() => handleToggleScreenAction(screen.id, "delete")}
-                              className="h-4 w-4 rounded text-destructive focus:ring-destructive cursor-pointer"
-                              title="صلاحية الحذف والإلغاء"
-                            />
-                          </td>
-
-                          {/* Approve/Export Toggle */}
-                          <td className="p-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={screenPerms.approveExport}
-                              onChange={() => handleToggleScreenAction(screen.id, "approveExport")}
-                              className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
-                              title="صلاحية الاعتماد أو تصدير التقارير"
-                            />
-                          </td>
-
-                          {/* Row Actions */}
-                          <td className="p-3 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleSetRowFullAccess(screen.id)}
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all ${
-                                  isAllGranted
-                                    ? "bg-emerald-600 text-white shadow-2xs"
-                                    : "bg-muted text-muted-foreground hover:bg-emerald-100 hover:text-emerald-700"
-                                }`}
-                                title="منح كافة الصلاحيات لهذه الشاشة"
-                              >
-                                كامل
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleSetRowReadOnly(screen.id)}
-                                className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground hover:bg-sky-100 hover:text-sky-700 transition-all"
-                                title="قراءة فقط"
-                              >
-                                قراءة
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleSetRowDisabled(screen.id)}
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all ${
-                                  isAllDisabled
-                                    ? "bg-destructive text-white shadow-2xs"
-                                    : "bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                }`}
-                                title="تعطيل الوصول لهذه الشاشة"
-                              >
-                                إيقاف
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+            {/* Bottom Save Bar */}
+            <div className="sticky bottom-4 z-20 bg-card/95 backdrop-blur-md p-4 rounded-3xl border border-border/80 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                <div>
+                  <span className="text-xs font-black text-foreground block">
+                    مصفوفة صلاحيات ({selectedGroup.nameAr})
+                  </span>
+                  <span className="text-[11px] text-muted-foreground font-medium">
+                    يتم الحفظ التلقائي وتأكيد سريان الصلاحيات فوراً في قاعدة البيانات
+                  </span>
+                </div>
               </div>
 
-              {/* Save Bar */}
-              <div className="border-t border-border/60 pt-4 flex flex-col sm:flex-row justify-between items-center gap-3">
-                <span className="text-xs text-muted-foreground font-medium">
-                  يتم حفظ التعديلات وحفظ الصلاحيات ومزامنتها فوراً في النظام.
-                </span>
-
-                <Button
-                  onClick={() =>
-                    toast.success(
-                      `تم حفظ وتأكيد مصفوفة الصلاحيات لمجموعة (${selectedGroup.nameAr}) بنجاح!`,
-                    )
-                  }
-                  size="sm"
-                  className="rounded-full text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-5 h-9 shadow-xs"
-                >
-                  <Save className="h-4 w-4" />
-                  حفظ وتأكيد مصفوفة الصلاحيات
-                </Button>
-              </div>
+              <Button
+                onClick={() =>
+                  toast.success(
+                    `تم تأكيد وحفظ كافة صلاحيات مجموعة (${selectedGroup.nameAr}) بنجاح!`,
+                  )
+                }
+                size="sm"
+                className="rounded-full text-xs font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 h-10 shadow-xs"
+              >
+                <Check className="h-4 w-4" />
+                تأكيد واعتماد الصلاحيات
+              </Button>
             </div>
           </div>
-        ) : null}
-      </div>
+        </div>
+      )}
 
       {/* Modals */}
       <CreateGroupModal

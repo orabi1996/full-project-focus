@@ -323,14 +323,17 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList
-          className={`grid max-w-md bg-muted/60 p-1 rounded-2xl border border-border/60 ${
-            section === "payroll" ? "grid-cols-1" : "grid-cols-2"
-          }`}
+          className={`grid max-w-2xl bg-muted/60 p-1 rounded-2xl border border-border/60 grid-cols-2`}
         >
           {section === "payroll" ? (
-            <TabsTrigger value="runs" className="rounded-xl text-xs font-bold py-2">
-              مسيرات الرواتب الشهرية ({payrollRuns.length})
-            </TabsTrigger>
+            <>
+              <TabsTrigger value="runs" className="rounded-xl text-xs font-bold py-2">
+                مسيرات الرواتب الشهرية ({payrollRuns.length})
+              </TabsTrigger>
+              <TabsTrigger value="distribution" className="rounded-xl text-xs font-bold py-2">
+                توزيع الرواتب حسب الإدارة
+              </TabsTrigger>
+            </>
           ) : (
             <>
               <TabsTrigger value="loans" className="rounded-xl text-xs font-bold py-2">

@@ -569,6 +569,20 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
           )}
         </TabsContent>
 
+        {/* Tab: Payroll distribution by organizational unit */}
+        <TabsContent value="distribution" className="space-y-4 pt-4">
+          <PayrollDistributionPanel
+            orgUnits={orgUnits}
+            employees={employees}
+            details={selectedRunDetails}
+            periodLabel={
+              selectedRun ? `${selectedRun.periodMonth}-${selectedRun.periodYear}` : "تقديري"
+            }
+            isEstimate={selectedRunDetails.length === 0}
+          />
+        </TabsContent>
+
+
         {/* Tab 2: Loans & Advances with Visual Repayment Progress */}
         <TabsContent value="loans" className="space-y-4 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

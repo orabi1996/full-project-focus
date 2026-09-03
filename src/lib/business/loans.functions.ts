@@ -58,7 +58,7 @@ export const listLoansOverviewServer = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false });
     if (error) throw new Error(`تعذر قراءة السلف: ${error.message}`);
 
-    const loans = (data ?? []).map(mapLoan);
+    const loans: PendingLoanRow[] = ((data ?? []) as any[]).map(mapLoan);
     const pending = loans.filter((l) => l.status === "approved" || l.status === "pending");
     const active = loans.filter((l) => l.status === "active");
 

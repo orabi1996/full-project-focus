@@ -37,13 +37,11 @@ export const runPayrollServer = createServerFn({ method: "POST" })
   });
 
 /**
- * Core payroll computation shared by the manual payroll run and by the
- * automatic run triggered when an attendance period is settled.
- * Pay is prorated on the employee's actual worked days for the period.
+ * Shared payroll computation, reused by the manual run and by attendance settlement.
+ * Re-running a draft period replaces the previous draft instead of duplicating it.
  */
 export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
     const { year, month } = data;
-
     const periodDays = daysInMonth(year, month);
     const periodStart = `${year}-${String(month).padStart(2, "0")}-01`;
     const periodEnd = `${year}-${String(month).padStart(2, "0")}-${String(periodDays).padStart(2, "0")}`;
@@ -58,7 +56,6 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
       throw new Error("مسيّر هذا الشهر مُقفل بالفعل ولا يمكن إعادة تشغيله");
     }
     if (existing) {
-      // Re-running the same month replaces the previous draft.
       await supabase.from("payroll_details").delete().eq("payroll_run_id", existing.id);
       await supabase.from("payroll_runs").delete().eq("id", existing.id);
     }
@@ -77,7 +74,7 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
 
     const employeeIds = employees.map((e: any) => e.id);
 
-    const [salaryRes, attendanceRes, loanRes, scheduleRes] = await Promise.all([
+    const [salaryRes, attendanceRes, loanRes] = await Promise.all([
       supabase
         .from("salary_profiles")
         .select(
@@ -99,12 +96,6 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
         )
         .in("employee_id", employeeIds)
         .eq("status", "active"),
-      supabase
-        .from("schedule_assignments")
-        .select("employee_id, work_date, is_rest_day")
-        .in("employee_id", employeeIds)
-        .gte("work_date", periodStart)
-        .lte("work_date", periodEnd),
     ]);
 
     const latestSalary = new Map<string, any>();
@@ -112,39 +103,23 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
       if (!latestSalary.has(row.employee_id)) latestSalary.set(row.employee_id, row);
     }
 
-    // Expected working days per employee from the published schedule (rest days excluded).
-    const expectedDays = new Map<string, number>();
-    for (const row of scheduleRes.data ?? []) {
-      if (row.is_rest_day) continue;
-      expectedDays.set(row.employee_id, (expectedDays.get(row.employee_id) ?? 0) + 1);
-    }
-
     const attendanceAgg = new Map<
       string,
-      {
-        absentDays: number;
-        leaveDays: number;
-        workedDays: number;
-        lateMinutes: number;
-        overtimeMinutes: number;
-      }
+      { absentDays: number; leaveDays: number; lateMinutes: number; overtimeMinutes: number }
     >();
     for (const row of attendanceRes.data ?? []) {
       const agg = attendanceAgg.get(row.employee_id) ?? {
         absentDays: 0,
         leaveDays: 0,
-        workedDays: 0,
         lateMinutes: 0,
         overtimeMinutes: 0,
       };
       if (row.status === "absent") agg.absentDays += 1;
       if (row.status === "leave") agg.leaveDays += 1;
-      if (["present", "late", "remote"].includes(row.status)) agg.workedDays += 1;
       agg.lateMinutes += row.late_minutes ?? 0;
       agg.overtimeMinutes += row.overtime_minutes ?? 0;
       attendanceAgg.set(row.employee_id, agg);
     }
-
 
     const loansByEmployee = new Map<string, any[]>();
     for (const loan of loanRes.data ?? []) {
@@ -173,21 +148,9 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
       const agg = attendanceAgg.get(employee.id) ?? {
         absentDays: 0,
         leaveDays: 0,
-        workedDays: 0,
         lateMinutes: 0,
         overtimeMinutes: 0,
       };
-      // Actual working days drive the pay: scheduled days not covered by an
-      // attended or paid-leave record are treated as unpaid absence.
-      const scheduledDays = expectedDays.get(employee.id) ?? 0;
-      const trackedDays = agg.workedDays + agg.leaveDays + agg.absentDays;
-      const absenceDays =
-        scheduledDays > 0
-          ? Math.max(0, scheduledDays - agg.workedDays - agg.leaveDays)
-          : agg.absentDays;
-      const workedDays =
-        trackedDays > 0 ? Math.max(0, periodDays - absenceDays) : periodDays;
-
       const loans = loansByEmployee.get(employee.id) ?? [];
       const loanInstallment = round2(
         loans.reduce(
@@ -206,7 +169,7 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
         otherAllowances: other,
         calculationBasis: "fixed_30_days",
         daysInMonth: periodDays,
-        absenceDays: absenceDays,
+        absenceDays: agg.absentDays,
         lateMinutes: agg.lateMinutes,
         overtimeHours,
         loanInstallment,
@@ -243,8 +206,8 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
         total_deductions: result.totalDeductions,
         gross_salary: result.totalEarnings,
         net_salary: result.netSalary,
-        working_days: workedDays,
-        absent_days: absenceDays,
+        working_days: periodDays - agg.absentDays,
+        absent_days: agg.absentDays,
       });
     }
 
@@ -309,42 +272,47 @@ export const updatePayrollRunStatusServer = createServerFn({ method: "POST" })
     if (error) throw new Error(`تعذر تحديث حالة المسيّر: ${error.message}`);
 
     if (data.status === "paid") {
-      const { data: rows } = await supabase
-        .from("payroll_details")
-        .select("employee_id, loan_deduction")
-        .eq("payroll_run_id", data.runId);
-
-      for (const row of rows ?? []) {
-        const deduction = Number(row.loan_deduction ?? 0);
-        if (deduction <= 0) continue;
-        const { data: loans } = await supabase
-          .from("loans")
-          .select(
-            "id, remaining_balance, outstanding_amount, installments_paid, paid_installments, total_paid, installments_total, total_installments",
-          )
-          .eq("employee_id", row.employee_id)
-          .eq("status", "active");
-
-        for (const loan of loans ?? []) {
-          const remaining = Math.max(
-            0,
-            round2(Number(loan.outstanding_amount ?? loan.remaining_balance ?? 0) - deduction),
-          );
-          const paid = Number(loan.installments_paid ?? loan.paid_installments ?? 0) + 1;
-          await supabase
-            .from("loans")
-            .update({
-              remaining_balance: remaining,
-              outstanding_amount: remaining,
-              installments_paid: paid,
-              paid_installments: paid,
-              total_paid: round2(Number(loan.total_paid ?? 0) + deduction),
-              status: remaining <= 0 ? "closed" : "active",
-            })
-            .eq("id", loan.id);
-        }
-      }
+      await advanceLoansForRun(supabase, data.runId);
     }
 
     return { ok: true };
   });
+
+/** Advances active loan installments once a payroll run is actually paid. */
+export async function advanceLoansForRun(supabase: any, runId: string) {
+  const { data: rows } = await supabase
+    .from("payroll_details")
+    .select("employee_id, loan_deduction")
+    .eq("payroll_run_id", runId);
+
+  for (const row of rows ?? []) {
+    const deduction = Number(row.loan_deduction ?? 0);
+    if (deduction <= 0) continue;
+    const { data: loans } = await supabase
+      .from("loans")
+      .select(
+        "id, remaining_balance, outstanding_amount, installments_paid, paid_installments, total_paid",
+      )
+      .eq("employee_id", row.employee_id)
+      .eq("status", "active");
+
+    for (const loan of loans ?? []) {
+      const remaining = Math.max(
+        0,
+        round2(Number(loan.outstanding_amount ?? loan.remaining_balance ?? 0) - deduction),
+      );
+      const paid = Number(loan.installments_paid ?? loan.paid_installments ?? 0) + 1;
+      await supabase
+        .from("loans")
+        .update({
+          remaining_balance: remaining,
+          outstanding_amount: remaining,
+          installments_paid: paid,
+          paid_installments: paid,
+          total_paid: round2(Number(loan.total_paid ?? 0) + deduction),
+          status: remaining <= 0 ? "closed" : "active",
+        })
+        .eq("id", loan.id);
+    }
+  }
+}

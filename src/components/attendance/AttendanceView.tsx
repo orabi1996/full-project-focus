@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
+import { BiometricTerminalPanel } from "./BiometricTerminalPanel";
 import { IconSymbol } from "../ui/IconSymbol";
 import {
   Clock,
@@ -38,8 +39,6 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import type { OvertimeRecord } from "../../types";
-import { Fingerprint } from "lucide-react";
-import { BiometricTerminalPanel } from "./BiometricTerminalPanel";
 
 export const AttendanceView: React.FC = () => {
   const {
@@ -70,7 +69,7 @@ export const AttendanceView: React.FC = () => {
     "operations_manager",
   ].includes(currentRole);
 
-  const [activeTab, setActiveTab] = useState<"timesheet" | "overtime" | "corrections" | "biometric" | "policies">(
+  const [activeTab, setActiveTab] = useState<"timesheet" | "biometric" | "overtime" | "corrections" | "policies">(
     "timesheet",
   );
 
@@ -389,6 +388,10 @@ export const AttendanceView: React.FC = () => {
             <Clock className="h-3.5 w-3.5" />
             سجل الدوام والتايم شيت اليومي
           </TabsTrigger>
+          <TabsTrigger value="biometric" className="rounded-xl text-xs font-bold gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+            أجهزة البصمة والاعتماد
+          </TabsTrigger>
           <TabsTrigger value="overtime" className="rounded-xl text-xs font-bold gap-1.5">
             <Zap className="h-3.5 w-3.5 text-amber-500" />
             الساعات والعمل الإضافي (م107)
@@ -407,20 +410,11 @@ export const AttendanceView: React.FC = () => {
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="biometric" className="rounded-xl text-xs font-bold gap-1.5">
-            <Fingerprint className="h-3.5 w-3.5 text-primary" />
-            جهاز البصمة وتسوية الرواتب
-          </TabsTrigger>
           <TabsTrigger value="policies" className="rounded-xl text-xs font-bold gap-1.5">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
             ضوابط نظام العمل والسياج الجغرافي
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="biometric" className="space-y-4">
-          <BiometricTerminalPanel />
-        </TabsContent>
-
 
         {/* TAB 1: Daily Timesheet & Records */}
         <TabsContent value="timesheet" className="space-y-4">
@@ -1020,6 +1014,11 @@ export const AttendanceView: React.FC = () => {
               </div>
             </div>
           </div>
+        </TabsContent>
+
+        {/* TAB: Biometric devices, punches & settlement */}
+        <TabsContent value="biometric" className="space-y-4">
+          <BiometricTerminalPanel />
         </TabsContent>
       </Tabs>
 

@@ -50,7 +50,6 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { Employee360Summary } from "./Employee360Summary";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 
 interface EmployeeFullProfileViewProps {
@@ -527,14 +526,8 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
       </div>
 
       {/* Comprehensive 7-Tab Content */}
-      <Tabs defaultValue="overview360" className="w-full">
-        <TabsList className="grid grid-cols-8 w-full bg-muted/60 p-1.5 rounded-full border border-border/60">
-          <TabsTrigger
-            value="overview360"
-            className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
-          >
-            ملف الموظف 360
-          </TabsTrigger>
+      <Tabs defaultValue="identity" className="w-full">
+        <TabsList className="grid grid-cols-7 w-full bg-muted/60 p-1.5 rounded-full border border-border/60">
           <TabsTrigger
             value="identity"
             className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
@@ -578,10 +571,6 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
             الإجازات والطلبات
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="overview360" className="space-y-4 pt-4">
-          <Employee360Summary employeeId={employee.id} />
-        </TabsContent>
 
         {/* Tab 1: Identity, Civil & Saudi National Address */}
         <TabsContent value="identity" className="space-y-4 pt-4">

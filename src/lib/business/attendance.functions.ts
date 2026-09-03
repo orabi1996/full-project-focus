@@ -3,7 +3,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertRole, round2 } from "./guards";
 import { computePayrollRun } from "./payroll.functions";
 
-
 interface ProcessInput {
   fromDate: string; // YYYY-MM-DD
   toDate: string; // YYYY-MM-DD
@@ -51,12 +50,11 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
     let punchQuery = supabase
       .from("punches")
       .select("employee_id, punch_time, punch_type")
+      .neq("approval_status", "rejected")
       .gte("punch_time", `${data.fromDate}T00:00:00Z`)
       .lte("punch_time", `${data.toDate}T23:59:59Z`)
-      .neq("approval_status", "rejected")
       .order("punch_time");
     if (data.employeeId) punchQuery = punchQuery.eq("employee_id", data.employeeId);
-
 
     const [punchRes, scheduleRes, shiftRes] = await Promise.all([
       punchQuery,
@@ -148,76 +146,126 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
     return { processed: rows.length };
   });
 
-// ---------------------------------------------------------------------------
-// Biometric terminal: real punches -> attendance records -> payroll
-// ---------------------------------------------------------------------------
+// ============================================================
+// Biometric devices, live punches and attendance settlement
+// ============================================================
 
-interface PunchInput {
-  employeeCode: string; // employee number or employee id
-  punchType: "in" | "out";
-  source?: "biometric_device" | "mobile_gps" | "manual_admin";
-  deviceId?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
+const HR_ATTENDANCE_ROLES = [
+  "super_admin",
+  "org_admin",
+  "hr_manager",
+  "attendance_officer",
+] as const;
+
+async function resolveEmployeeId(supabase: any, ref: string) {
+  const isUuid = /^[0-9a-f-]{36}$/i.test(ref);
+  const { data, error } = await supabase
+    .from("employees")
+    .select("id, full_name, employee_no")
+    .eq(isUuid ? "id" : "employee_no", ref)
+    .maybeSingle();
+  if (error) throw new Error(`تعذر البحث عن الموظف: ${error.message}`);
+  if (!data) throw new Error("لا يوجد موظف بهذا الرقم الوظيفي");
+  return data;
 }
 
-/** Registers a raw biometric punch for an employee (pending approval). */
-export const recordPunchServer = createServerFn({ method: "POST" })
+/** Lists registered biometric devices (tokens are never exposed). */
+export const listBiometricDevicesServer = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: PunchInput) => {
-    if (!input.employeeCode?.trim()) throw new Error("رقم الموظف مطلوب");
-    if (!["in", "out"].includes(input.punchType)) throw new Error("نوع البصمة غير صالح");
+  .handler(async ({ context }) => {
+    const supabase = context.supabase as any;
+    await assertRole(supabase, context.userId, [...HR_ATTENDANCE_ROLES]);
+    const { data, error } = await supabase
+      .from("biometric_devices")
+      .select(
+        "id, device_id, name_ar, status, auto_approve, last_seen_at, total_punches, created_at",
+      )
+      .order("created_at");
+    if (error) throw new Error(`تعذر قراءة الأجهزة: ${error.message}`);
+    return data ?? [];
+  });
+
+/** Registers a physical device and returns its connection token exactly once. */
+export const registerBiometricDeviceServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { deviceId: string; nameAr: string; autoApprove?: boolean }) => {
+    if (!input.deviceId?.trim()) throw new Error("معرّف الجهاز مطلوب");
+    if (!input.nameAr?.trim()) throw new Error("اسم الجهاز مطلوب");
     return input;
   })
   .handler(async ({ data, context }) => {
     const supabase = context.supabase as any;
-    await assertRole(supabase, context.userId, [
-      "super_admin",
-      "org_admin",
-      "hr_manager",
-      "attendance_officer",
-      "line_manager",
-    ]);
-
-    const code = data.employeeCode.trim();
-    const isUuid = /^[0-9a-f-]{36}$/i.test(code);
-    const { data: employee, error: empError } = await supabase
-      .from("employees")
-      .select("id, employee_no, full_name, status")
-      .eq(isUuid ? "id" : "employee_no", code)
-      .maybeSingle();
-    if (empError) throw new Error(`تعذر قراءة بيانات الموظف: ${empError.message}`);
-    if (!employee) throw new Error("لا يوجد موظف بهذا الرقم الوظيفي");
-    if (employee.status === "terminated") throw new Error("الموظف غير نشط ولا يمكن تسجيل بصمته");
-
-    const punchTime = new Date().toISOString();
-    const { data: inserted, error } = await supabase
-      .from("punches")
-      .insert({
-        employee_id: employee.id,
-        punch_time: punchTime,
-        punch_type: data.punchType,
-        source: data.source ?? "biometric_device",
-        device_id: data.deviceId ?? "FP-TERMINAL-01",
-        latitude: data.latitude ?? null,
-        longitude: data.longitude ?? null,
-        geofence_valid: data.latitude != null && data.longitude != null ? true : null,
-        approval_status: "pending",
-      })
-      .select("id")
-      .single();
-    if (error) throw new Error(`تعذر تسجيل البصمة: ${error.message}`);
-
-    return {
-      punchId: inserted.id,
-      employeeId: employee.id,
-      employeeName: employee.full_name,
-      employeeNo: employee.employee_no,
-      punchTime,
-    };
+    await assertRole(supabase, context.userId, ["super_admin", "org_admin", "hr_manager"]);
+    const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+    const { error } = await supabase.from("biometric_devices").upsert(
+      {
+        device_id: data.deviceId.trim(),
+        name_ar: data.nameAr.trim(),
+        device_token: token,
+        auto_approve: data.autoApprove ?? false,
+        status: "active",
+      },
+      { onConflict: "device_id" },
+    );
+    if (error) throw new Error(`تعذر تسجيل الجهاز: ${error.message}`);
+    return { deviceId: data.deviceId.trim(), token };
   });
 
-/** Lists punches for a given day with employee identity, newest first. */
+/** Records a real punch (device terminal or supervisor entry) into the punches table. */
+export const recordPunchServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: {
+      employeeRef: string;
+      punchType: "in" | "out";
+      deviceId?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+    }) => {
+      if (!input.employeeRef?.trim()) throw new Error("الرقم الوظيفي مطلوب");
+      if (input.punchType !== "in" && input.punchType !== "out")
+        throw new Error("نوع البصمة غير صالح");
+      return input;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as any;
+    await assertRole(supabase, context.userId, [...HR_ATTENDANCE_ROLES, "line_manager"]);
+    const employee = await resolveEmployeeId(supabase, data.employeeRef.trim());
+
+    const deviceId = data.deviceId?.trim() || "FP-TERMINAL-01";
+    const { data: device } = await supabase
+      .from("biometric_devices")
+      .select("device_id, auto_approve, total_punches")
+      .eq("device_id", deviceId)
+      .maybeSingle();
+
+    const { error } = await supabase.from("punches").insert({
+      employee_id: employee.id,
+      punch_time: new Date().toISOString(),
+      punch_type: data.punchType,
+      source: "biometric",
+      device_id: deviceId,
+      latitude: data.latitude ?? null,
+      longitude: data.longitude ?? null,
+      approval_status: device?.auto_approve ? "approved" : "pending",
+    });
+    if (error) throw new Error(`تعذر تسجيل البصمة: ${error.message}`);
+
+    if (device) {
+      await supabase
+        .from("biometric_devices")
+        .update({
+          last_seen_at: new Date().toISOString(),
+          total_punches: Number(device.total_punches ?? 0) + 1,
+        })
+        .eq("device_id", deviceId);
+    }
+
+    return { employeeName: employee.full_name, employeeNo: employee.employee_no };
+  });
+
+/** Lists punches for a day with employee identity and approval state. */
 export const listPunchesServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { date: string }) => {
@@ -226,116 +274,78 @@ export const listPunchesServer = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const supabase = context.supabase as any;
+    await assertRole(supabase, context.userId, [...HR_ATTENDANCE_ROLES, "line_manager"]);
     const { data: rows, error } = await supabase
       .from("punches")
       .select(
-        "id, employee_id, punch_time, punch_type, source, device_id, approval_status, employees(employee_no, full_name)",
+        "id, employee_id, punch_time, punch_type, source, device_id, approval_status, employees(full_name, employee_no)",
       )
       .gte("punch_time", `${data.date}T00:00:00Z`)
       .lte("punch_time", `${data.date}T23:59:59Z`)
       .order("punch_time", { ascending: false });
     if (error) throw new Error(`تعذر قراءة البصمات: ${error.message}`);
-
     return (rows ?? []).map((row: any) => ({
       id: row.id,
       employeeId: row.employee_id,
-      employeeNo: row.employees?.employee_no ?? "",
-      employeeName: row.employees?.full_name ?? "",
+      employeeName: row.employees?.full_name ?? "—",
+      employeeNo: row.employees?.employee_no ?? "—",
       punchTime: row.punch_time,
-      punchType: row.punch_type as "in" | "out",
-      source: row.source as string,
-      deviceId: row.device_id as string | null,
-      approvalStatus: row.approval_status as "pending" | "approved" | "rejected",
+      punchType: row.punch_type,
+      source: row.source,
+      deviceId: row.device_id,
+      approvalStatus: row.approval_status,
     }));
   });
 
-/**
- * Approves or rejects a punch. Rejected punches are excluded from attendance,
- * so the affected day is re-processed and payroll changes on the next run.
- */
-export const decidePunchServer = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: { punchId: string; decision: "approved" | "rejected" }) => {
-    if (!input.punchId) throw new Error("معرّف البصمة مطلوب");
-    if (!["approved", "rejected"].includes(input.decision)) throw new Error("قرار غير صالح");
-    return input;
-  })
-  .handler(async ({ data, context }) => {
-    const supabase = context.supabase as any;
-    await assertRole(supabase, context.userId, [
-      "super_admin",
-      "org_admin",
-      "hr_manager",
-      "attendance_officer",
-      "line_manager",
-    ]);
-
-    const { data: punch, error: readError } = await supabase
-      .from("punches")
-      .select("id, employee_id, punch_time")
-      .eq("id", data.punchId)
-      .maybeSingle();
-    if (readError) throw new Error(`تعذر قراءة البصمة: ${readError.message}`);
-    if (!punch) throw new Error("البصمة غير موجودة");
-
-    const { error } = await supabase
-      .from("punches")
-      .update({ approval_status: data.decision })
-      .eq("id", data.punchId);
-    if (error) throw new Error(`تعذر تحديث حالة البصمة: ${error.message}`);
-
-    const day = String(punch.punch_time).slice(0, 10);
-    const recomputed = await recomputeDay(supabase, punch.employee_id, day);
-    return { ok: true, day, employeeId: punch.employee_id, ...recomputed };
-  });
-
 /** Rebuilds one employee's attendance record for a single day from approved punches. */
-async function recomputeDay(supabase: any, employeeId: string, day: string) {
-  const [{ data: punches }, { data: schedule }, { data: shiftRows }] = await Promise.all([
-    supabase
-      .from("punches")
-      .select("punch_time, punch_type")
-      .eq("employee_id", employeeId)
-      .neq("approval_status", "rejected")
-      .gte("punch_time", `${day}T00:00:00Z`)
-      .lte("punch_time", `${day}T23:59:59Z`)
-      .order("punch_time"),
-    supabase
-      .from("schedule_assignments")
-      .select("shift_id, is_rest_day")
-      .eq("employee_id", employeeId)
-      .eq("work_date", day)
-      .maybeSingle(),
-    supabase
-      .from("shifts")
-      .select("id, start_time, end_time, grace_minutes_arrival, overtime_eligible"),
-  ]);
+export async function recomputeDay(supabase: any, employeeId: string, day: string) {
+  const { data: punches } = await supabase
+    .from("punches")
+    .select("punch_time, punch_type")
+    .eq("employee_id", employeeId)
+    .neq("approval_status", "rejected")
+    .gte("punch_time", `${day}T00:00:00Z`)
+    .lte("punch_time", `${day}T23:59:59Z`)
+    .order("punch_time");
 
-  const first = (punches ?? []).find((p: any) => p.punch_type === "in");
-  const last = [...(punches ?? [])].reverse().find((p: any) => p.punch_type === "out");
-
-  if (!first) {
+  const list = punches ?? [];
+  const firstIn = list.find((p: any) => p.punch_type === "in");
+  if (!firstIn) {
     await supabase
       .from("attendance_records")
       .delete()
       .eq("employee_id", employeeId)
-      .eq("work_date", day);
-    return { attendanceRemoved: true };
+      .eq("work_date", day)
+      .eq("is_manual", false);
+    return;
+  }
+  const lastOut = [...list].reverse().find((p: any) => p.punch_type === "out");
+
+  const { data: schedule } = await supabase
+    .from("schedule_assignments")
+    .select("shift_id, is_rest_day")
+    .eq("employee_id", employeeId)
+    .eq("work_date", day)
+    .maybeSingle();
+  let shift: any = null;
+  if (schedule?.shift_id) {
+    const { data } = await supabase
+      .from("shifts")
+      .select("start_time, end_time, grace_minutes_arrival, overtime_eligible")
+      .eq("id", schedule.shift_id)
+      .maybeSingle();
+    shift = data;
   }
 
-  const shift = schedule?.shift_id
-    ? (shiftRows ?? []).find((s: any) => s.id === schedule.shift_id)
-    : undefined;
-
-  const checkInMin = timeOfDay(first.punch_time);
-  const checkOutMin = last ? timeOfDay(last.punch_time) : null;
+  const checkInMin = timeOfDay(firstIn.punch_time);
+  const checkOutMin = lastOut ? timeOfDay(lastOut.punch_time) : null;
   let expectedMinutes = 8 * 60;
   let lateMinutes = 0;
   if (shift) {
-    const shiftStart = toMinutes(shift.start_time);
-    const shiftEnd = toMinutes(shift.end_time);
-    expectedMinutes = (shiftEnd >= shiftStart ? shiftEnd : shiftEnd + 1440) - shiftStart;
-    lateMinutes = Math.max(0, checkInMin - shiftStart - (shift.grace_minutes_arrival ?? 0));
+    const start = toMinutes(shift.start_time);
+    const end = toMinutes(shift.end_time);
+    expectedMinutes = (end >= start ? end : end + 1440) - start;
+    lateMinutes = Math.max(0, checkInMin - start - (shift.grace_minutes_arrival ?? 0));
   }
   let workedMinutes = 0;
   let overtimeMinutes = 0;
@@ -347,7 +357,7 @@ async function recomputeDay(supabase: any, employeeId: string, day: string) {
     }
   }
 
-  const { error } = await supabase.from("attendance_records").upsert(
+  await supabase.from("attendance_records").upsert(
     {
       employee_id: employeeId,
       work_date: day,
@@ -359,28 +369,48 @@ async function recomputeDay(supabase: any, employeeId: string, day: string) {
       late_minutes: lateMinutes,
       overtime_minutes: overtimeMinutes,
       is_manual: false,
-      note: "احتُسب آليًا من البصمات المعتمدة",
+      note: "احتُسب آليًا من بصمات الجهاز",
     },
     { onConflict: "employee_id,work_date" },
   );
-  if (error) throw new Error(`تعذر تحديث سجل الحضور: ${error.message}`);
-  return { attendanceRemoved: false, workedMinutes, lateMinutes, overtimeMinutes };
 }
 
+/** Approves or rejects a punch, then rebuilds the affected attendance day. */
+export const decidePunchServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { punchId: string; decision: "approved" | "rejected" }) => {
+    if (!input.punchId) throw new Error("معرّف البصمة مطلوب");
+    if (!["approved", "rejected"].includes(input.decision)) throw new Error("قرار غير صالح");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as any;
+    await assertRole(supabase, context.userId, [...HR_ATTENDANCE_ROLES, "line_manager"]);
+
+    const { data: punch, error } = await supabase
+      .from("punches")
+      .update({ approval_status: data.decision })
+      .eq("id", data.punchId)
+      .select("employee_id, punch_time")
+      .maybeSingle();
+    if (error) throw new Error(`تعذر تحديث البصمة: ${error.message}`);
+    if (!punch) throw new Error("البصمة غير موجودة");
+
+    await recomputeDay(supabase, punch.employee_id, String(punch.punch_time).slice(0, 10));
+    return { ok: true };
+  });
+
 /**
- * Settles an attendance period: approves all pending punches, converts them
- * into attendance records, recomputes payroll on actual worked days, and
- * locks the payroll run for the month.
+ * Settles one payroll month: approves pending punches, rebuilds attendance,
+ * recomputes payroll from the settled attendance and locks the run.
  */
 export const settleAttendancePeriodServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { year: number; month: number }) => {
-    if (!Number.isInteger(input.year) || input.year < 2000 || input.year > 2100) {
-      throw new Error("سنة غير صالحة");
+    if (!Number.isInteger(input.year) || !Number.isInteger(input.month)) {
+      throw new Error("فترة غير صالحة");
     }
-    if (!Number.isInteger(input.month) || input.month < 1 || input.month > 12) {
-      throw new Error("شهر غير صالح");
-    }
+    if (input.month < 1 || input.month > 12) throw new Error("شهر غير صالح");
     return input;
   })
   .handler(async ({ data, context }) => {
@@ -390,42 +420,46 @@ export const settleAttendancePeriodServer = createServerFn({ method: "POST" })
       "org_admin",
       "hr_manager",
       "payroll_officer",
-      "attendance_officer",
     ]);
 
-    const { year, month } = data;
-    const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-    const fromDate = `${year}-${String(month).padStart(2, "0")}-01`;
-    const toDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    const days = new Date(Date.UTC(data.year, data.month, 0)).getUTCDate();
+    const from = `${data.year}-${String(data.month).padStart(2, "0")}-01`;
+    const to = `${data.year}-${String(data.month).padStart(2, "0")}-${String(days).padStart(2, "0")}`;
 
-    const { data: run } = await supabase
-      .from("payroll_runs")
-      .select("id, status")
-      .eq("period_year", year)
-      .eq("period_month", month)
-      .maybeSingle();
-    if (run && run.status !== "draft") {
-      throw new Error("مسيّر هذا الشهر مُقفل بالفعل");
+    const { data: pending } = await supabase
+      .from("punches")
+      .select("id, employee_id, punch_time")
+      .eq("approval_status", "pending")
+      .gte("punch_time", `${from}T00:00:00Z`)
+      .lte("punch_time", `${to}T23:59:59Z`);
+
+    if (pending?.length) {
+      await supabase
+        .from("punches")
+        .update({ approval_status: "approved" })
+        .in(
+          "id",
+          pending.map((p: any) => p.id),
+        );
+      const uniqueDays = new Set(
+        pending.map((p: any) => `${p.employee_id}|${String(p.punch_time).slice(0, 10)}`),
+      );
+      for (const key of Array.from(uniqueDays) as string[]) {
+        const [employeeId, day] = key.split("|");
+        await recomputeDay(supabase, employeeId!, day!);
+      }
     }
 
-    // 1) auto-approve remaining pending punches for the period
+    const payroll = await computePayrollRun(supabase, { year: data.year, month: data.month });
     await supabase
-      .from("punches")
-      .update({ approval_status: "approved" })
-      .eq("approval_status", "pending")
-      .gte("punch_time", `${fromDate}T00:00:00Z`)
-      .lte("punch_time", `${toDate}T23:59:59Z`);
-
-    // 2) rebuild attendance from approved punches
-    await processAttendanceServer({ data: { fromDate, toDate } });
-
-    // 3) recompute payroll on actual worked days, then lock it
-    const payroll = await computePayrollRun(supabase, { year, month });
-    const { error: lockError } = await supabase
       .from("payroll_runs")
       .update({ status: "locked", locked_at: new Date().toISOString() })
       .eq("id", payroll.runId);
-    if (lockError) throw new Error(`تعذر قفل المسيّر: ${lockError.message}`);
 
-    return { ...payroll, period: { year, month }, locked: true };
+    return {
+      approvedPunches: pending?.length ?? 0,
+      runId: payroll.runId,
+      totalNet: payroll.totalNet,
+      employees: payroll.employees,
+    };
   });

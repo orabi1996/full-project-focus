@@ -76,7 +76,7 @@ export function openArabicReportPdf(options: ArabicReportOptions) {
 ${cardsHtml ? `<div class="cards">${cardsHtml}</div>` : ""}
 ${sectionsHtml}
 <div class="foot">${options.footer ?? "تقرير آلي مستخرج من قاعدة بيانات النظام — الأرقام مطابقة للسجلات الفعلية."}</div>
-<script>window.onload=()=>{window.focus();window.print();}<\/script>
+<script>window.onload=()=>{window.focus();window.print();}<\u002fscript>
 </body></html>`);
   win.document.close();
 }

@@ -85,7 +85,7 @@ export function openMonthlyPayrollPdf(meta: PayrollPdfMeta, rows: PayrollPdfRow[
   </tr></tfoot>
 </table>
 <div class="foot">تم توليد هذا التقرير آليًا من تسوية الرواتب — الأرقام مطابقة لسجلات قاعدة البيانات.</div>
-<script>window.onload=()=>{window.focus();window.print();}<\/script>
+<script>window.onload=()=>{window.focus();window.print();}<\u002fscript>
 </body></html>`);
   win.document.close();
 }

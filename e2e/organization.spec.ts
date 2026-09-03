@@ -28,7 +28,7 @@ test("يفتح محرر الوحدة التنظيمية ويحمي الاختي�
   await page.getByRole("button", { name: /إضافة قسم جديد/ }).click();
   await expect(page.getByRole("dialog")).toContainText("إضافة إدارة / قسم جديد");
   await expect(page.getByText("الوحدة الأعلى")).toBeVisible();
-  await expect(page.getByText("المدير")).toBeVisible();
+  await expect(page.getByText("المدير المسؤول", { exact: true })).toBeVisible();
 });
 
 test("يعرض تخطيط المناصب ومراكز التكلفة", async ({ page }) => {

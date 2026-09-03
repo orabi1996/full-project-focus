@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { OrgChartSvg, type OrgChartNodeData, defaultCompanyTree } from "./OrgChartSvg";
 import { CostCentersPanel, JobPositionsPanel } from "./OrganizationPlanningPanels";
+import { CompanyProfilePanel } from "./CompanyProfilePanel";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
 import {

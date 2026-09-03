@@ -9,6 +9,9 @@ import { SalaryFilesPanel } from "./SalaryFilesPanel";
 import { PayrollPaymentsPanel } from "./PayrollPaymentsPanel";
 import { PayrollReconciliationPanel } from "./PayrollReconciliationPanel";
 import { LoansTreasuryPanel } from "./LoansTreasuryPanel";
+import { BankTransferPanel } from "./BankTransferPanel";
+import { SettlementNotificationsPanel } from "./SettlementNotificationsPanel";
+import { MonthlyReportsPanel } from "./MonthlyReportsPanel";
 import {
   Wallet,
   DollarSign,
@@ -345,6 +348,12 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
               <TabsTrigger value="payments" className="rounded-xl text-xs font-bold py-2">
                 دفع الرواتب
               </TabsTrigger>
+              <TabsTrigger value="bank" className="rounded-xl text-xs font-bold py-2">
+                التحويل البنكي
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="rounded-xl text-xs font-bold py-2">
+                التقارير الشهرية
+              </TabsTrigger>
               <TabsTrigger value="reconciliation" className="rounded-xl text-xs font-bold py-2">
                 تسويات الرواتب
               </TabsTrigger>
@@ -608,6 +617,15 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
         {/* Tab: Monthly reconciliation & per-employee points report */}
         <TabsContent value="reconciliation" className="space-y-4 pt-4">
           <PayrollReconciliationPanel />
+          <SettlementNotificationsPanel />
+        </TabsContent>
+
+        <TabsContent value="bank" className="space-y-4 pt-4">
+          <BankTransferPanel />
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-4 pt-4">
+          <MonthlyReportsPanel />
         </TabsContent>
 
         {/* Tab: Monthly salary disbursement */}

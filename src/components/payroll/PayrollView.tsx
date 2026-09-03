@@ -4,6 +4,7 @@ import { calculateEOSB, type SeparationType } from "../../lib/utils/eosb-calcula
 import { exportToCSV, generateWPSSIFFile } from "../../lib/utils/export-helpers";
 import type { EmployeePayrollDetail, FinalSettlementRecord } from "../../types";
 import { IconSymbol } from "../ui/IconSymbol";
+import { PayrollDistributionPanel } from "./PayrollDistributionPanel";
 import {
   Wallet,
   DollarSign,
@@ -55,6 +56,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
     loans,
     settlements,
     employees,
+    orgUnits,
     payrollGroups,
     company,
     currentRole,

@@ -40,9 +40,20 @@ export interface CompanyProfile {
   id: string;
   legalNameAr: string;
   legalNameEn: string;
+  code?: string;
+  entityType?: "establishment" | "limited_liability" | "joint_stock" | "government" | "non_profit";
+  unifiedNumber?: string;
   taxNumber: string;
   crNumber: string;
+  gosiNumber?: string;
+  laborOfficeNumber?: string;
+  industry?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
   country: string;
+  city?: string;
+  postalCode?: string;
   currency: string;
   timezone: string;
   logoUrl?: string;
@@ -61,14 +72,24 @@ export interface Subsidiary {
   status: "active" | "inactive";
   employeeCount: number;
   crNumber?: string;
+  taxNumber?: string;
+  unifiedNumber?: string;
+  address?: string;
+  city?: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface OrgUnit {
   id: string;
   companyId: string;
   parentId?: string | null;
+  subsidiaryId?: string | null;
+  costCenterId?: string | null;
   nameAr: string;
   nameEn: string;
+  descriptionAr?: string;
+  descriptionEn?: string;
   code: string;
   type: "division" | "department" | "section" | "unit";
   managerEmployeeId?: string;
@@ -80,15 +101,50 @@ export interface OrgUnit {
 export interface WorkLocation {
   id: string;
   companyId: string;
+  subsidiaryId?: string | null;
   nameAr: string;
   nameEn: string;
   code: string;
   address: string;
+  city?: string;
+  country?: string;
+  locationType?: "headquarters" | "branch" | "office" | "warehouse" | "remote";
+  timezone?: string;
   latitude: number;
   longitude: number;
   radiusMeters: number;
   status: "active" | "inactive";
   defaultShiftId?: string;
+}
+
+export interface CostCenter {
+  id: string;
+  companyId: string;
+  code: string;
+  nameAr: string;
+  nameEn: string;
+  managerEmployeeId?: string | null;
+  managerName?: string;
+  annualBudget: number;
+  employeeCount: number;
+  status: "active" | "inactive";
+}
+
+export interface JobPosition {
+  id: string;
+  companyId: string;
+  subsidiaryId?: string | null;
+  orgUnitId: string;
+  costCenterId?: string | null;
+  reportsToPositionId?: string | null;
+  code: string;
+  titleAr: string;
+  titleEn: string;
+  grade?: string;
+  employmentType: "full_time" | "part_time" | "contractor" | "seasonal" | "internship";
+  plannedHeadcount: number;
+  filledHeadcount: number;
+  status: "active" | "inactive";
 }
 
 // ----------------------------------------------------------------------------
@@ -155,6 +211,7 @@ export interface Employee {
   departmentName?: string;
   jobTitleAr: string;
   jobTitleEn: string;
+  jobPositionId?: string | null;
   managerId?: string | null;
   managerName?: string;
   workLocationId: string;
@@ -373,6 +430,7 @@ export interface LeaveTypePolicy {
 }
 
 export interface EmployeeLeaveBalance {
+  employeeId?: string;
   leaveTypeId: string;
   leaveTypeNameAr: string;
   leaveTypeNameEn: string;
@@ -603,6 +661,7 @@ export interface LoanRecord {
   paidInstallments: number;
   remainingBalance: number;
   startDate: string;
+  reason?: string;
   status: "active" | "completed" | "paused" | "cancelled";
 }
 
@@ -621,6 +680,7 @@ export interface FinalSettlementRecord {
   loanDeductionAmount: number;
   assetClearanceComplete: boolean;
   netSettlementAmount: number;
+  eosbNotes?: string;
   status: "draft" | "pending_approval" | "approved" | "paid";
 }
 

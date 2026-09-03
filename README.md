@@ -61,10 +61,22 @@ npx supabase db push
 npm run dev
 
 # التحقق الكامل ثم بناء الإنتاج
-npm run test:run
 npm run lint
+npm run typecheck
+npm run test:unit
+npm run test:coverage
+npm run test:e2e
 npm run build
 ```
+
+## الاختبارات الأوتوماتيكية
+
+- `npm run test:unit`: اختبارات منطق الرواتب ونهاية الخدمة والصلاحيات والتصدير والهيكل التنظيمي.
+- `npm run test:coverage`: تقرير تغطية HTML وLCOV مع حدود نجاح إلزامية للوظائف الحرجة.
+- `npm run test:e2e`: اختبارات Playwright للدخول التجريبي والتنقل في جميع الوحدات والشاشات المكتبية والجوال.
+- `npm run test:all`: فحص TypeScript ثم التغطية ثم اختبارات المتصفح.
+
+يعمل Workflow باسم **HRMS automated quality** تلقائيًا على كل Push وPull Request إلى `main`، ويحفظ تقارير Coverage وPlaywright لمدة 14 يومًا. اختبارات المتصفح تستخدم بيانات Demo فقط ولا ترسل كلمات مرور حقيقية ولا تعدّل قاعدة الإنتاج.
 
 ## تهيئة التشغيل الإنتاجي
 

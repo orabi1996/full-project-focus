@@ -68,6 +68,7 @@ function mapEmployee(
     departmentName: department?.name ?? "غير محدد",
     jobTitleAr: row.job_title,
     jobTitleEn: row.job_title,
+    jobPositionId: row.job_position_id,
     managerId: row.manager_id,
     workLocationId: row.work_location_id ?? "",
     workLocationName: row.work_location_id
@@ -98,8 +99,12 @@ function mapOrgUnit(row: DepartmentRow): OrgUnit {
     id: row.id,
     companyId: row.company_id ?? "",
     parentId: row.parent_id,
+    subsidiaryId: row.subsidiary_id,
+    costCenterId: row.cost_center_id,
     nameAr: row.name,
     nameEn: row.name_en ?? row.name,
+    descriptionAr: row.description_ar ?? undefined,
+    descriptionEn: row.description_en ?? undefined,
     code: row.code,
     type: row.unit_type as OrgUnit["type"],
     managerEmployeeId: row.manager_employee_id ?? undefined,
@@ -299,6 +304,7 @@ export async function createEmployeeRecord(employee: Employee) {
     subsidiary_id: employee.subsidiaryId || null,
     manager_id: employee.managerId ?? null,
     work_location_id: employee.workLocationId || null,
+    job_position_id: employee.jobPositionId ?? null,
     job_title: employee.jobTitleAr,
     email: employee.email || null,
     personal_email: employee.personalEmail ?? null,
@@ -341,6 +347,7 @@ export async function updateEmployeeRecord(id: string, updates: Partial<Employee
   if (updates.workLocationId !== undefined)
     dbUpdates.work_location_id = updates.workLocationId || null;
   if (updates.jobTitleAr !== undefined) dbUpdates.job_title = updates.jobTitleAr;
+  if (updates.jobPositionId !== undefined) dbUpdates.job_position_id = updates.jobPositionId;
   if (updates.email !== undefined) dbUpdates.email = updates.email;
   if (updates.personalEmail !== undefined) dbUpdates.personal_email = updates.personalEmail;
   if (updates.phone !== undefined) dbUpdates.phone = updates.phone;

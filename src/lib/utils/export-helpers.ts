@@ -52,30 +52,66 @@ export function escapeSifField(value: string) {
 /**
  * Generates Saudi Wage Protection System (WPS) SIF file format
  */
+interface WPSRecord {
+  employeeId: string;
+  employeeName: string;
+  iban: string;
+  basicSalary: number;
+  housingAllowance: number;
+  otherEarnings: number;
+  deductions: number;
+  netSalary: number;
+}
+
+interface WPSExportOptions {
+  establishmentId: string;
+  employerBankCode: string;
+  fileCreationDate: string;
+  fileCreationTime: string;
+  salaryYearMonth: string;
+  records: WPSRecord[];
+}
+
+export function generateWPSSIFFile(options: WPSExportOptions): void;
 export function generateWPSSIFFile(
   employerCR: string,
   bankCode: string,
   payrollMonth: string,
-  records: {
-    employeeId: string;
-    employeeName: string;
-    iban: string;
-    basicSalary: number;
-    housingAllowance: number;
-    otherEarnings: number;
-    deductions: number;
-    netSalary: number;
-  }[],
+  records: WPSRecord[],
+): void;
+export function generateWPSSIFFile(
+  employerOrOptions: string | WPSExportOptions,
+  bankCode?: string,
+  payrollMonth?: string,
+  legacyRecords?: WPSRecord[],
 ) {
+  const options =
+    typeof employerOrOptions === "string"
+      ? {
+          establishmentId: employerOrOptions,
+          employerBankCode: bankCode ?? "",
+          fileCreationDate: new Date().toISOString().split("T")[0],
+          fileCreationTime: new Date()
+            .toTimeString()
+            .split(" ")[0]
+            .replace(/:/g, "")
+            .substring(0, 4),
+          salaryYearMonth: payrollMonth ?? "",
+          records: legacyRecords ?? [],
+        }
+      : employerOrOptions;
+  const employerCR = options.establishmentId;
+  const resolvedBankCode = options.employerBankCode;
+  const resolvedPayrollMonth = options.salaryYearMonth;
+  const records = options.records;
   const totalEmployees = records.length;
   const totalNet = records.reduce((sum, r) => sum + r.netSalary, 0);
 
   // Header Record: SCR,EmployerCR,BankCode,FileCreationDate,FileCreationTime,TotalSalary,TotalRecords,PayrollMonth
-  const now = new Date();
-  const creationDate = now.toISOString().split("T")[0].replace(/-/g, "");
-  const creationTime = now.toTimeString().split(" ")[0].replace(/:/g, "").substring(0, 4);
+  const creationDate = options.fileCreationDate.replace(/-/g, "");
+  const creationTime = options.fileCreationTime.replace(/:/g, "").substring(0, 4);
 
-  let sif = `SCR,${employerCR},${bankCode},${creationDate},${creationTime},${totalNet.toFixed(2)},${totalEmployees},${payrollMonth}\n`;
+  let sif = `SCR,${employerCR},${resolvedBankCode},${creationDate},${creationTime},${totalNet.toFixed(2)},${totalEmployees},${resolvedPayrollMonth}\n`;
 
   // Employee Records: EDR,EmployeeId,IBAN,EmployeeName,Basic,Housing,Other,Deductions,Net
   records.forEach((r) => {
@@ -86,7 +122,7 @@ export function generateWPSSIFFile(
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
   link.setAttribute("href", url);
-  link.setAttribute("download", `WPS_${employerCR}_${payrollMonth}.sif`);
+  link.setAttribute("download", `WPS_${employerCR}_${resolvedPayrollMonth}.sif`);
   link.style.visibility = "hidden";
   document.body.appendChild(link);
   link.click();

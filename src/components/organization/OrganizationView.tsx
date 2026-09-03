@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { OrgChartSvg, type OrgChartNodeData, defaultCompanyTree } from "./OrgChartSvg";
+import { CostCentersPanel, JobPositionsPanel } from "./OrganizationPlanningPanels";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
 import {
@@ -41,6 +42,8 @@ export const OrganizationView: React.FC = () => {
     subsidiaries,
     orgUnits,
     workLocations,
+    costCenters,
+    jobPositions,
     employees,
     addOrgUnit,
     addSubsidiary,
@@ -324,7 +327,7 @@ export const OrganizationView: React.FC = () => {
 
       {/* Tabs Menu (Google M3 Segmented / Primary Tabs) */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-2xl bg-muted/60 p-1 rounded-full border border-border/60">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-3xl border border-border/60 bg-muted/60 p-1 sm:grid-cols-3 xl:grid-cols-6">
           <TabsTrigger value="orgchart" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
             {t.org.orgChart} الشجري SVG
           </TabsTrigger>
@@ -336,6 +339,12 @@ export const OrganizationView: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="locations" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
             {t.org.locations} ({workLocations.length})
+          </TabsTrigger>
+          <TabsTrigger value="positions" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+            المناصب ({jobPositions.length})
+          </TabsTrigger>
+          <TabsTrigger value="cost-centers" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+            مراكز التكلفة ({costCenters.length})
           </TabsTrigger>
         </TabsList>
 
@@ -576,6 +585,14 @@ export const OrganizationView: React.FC = () => {
               </div>
             ))}
           </div>
+        </TabsContent>
+
+        <TabsContent value="positions" className="space-y-4 pt-4">
+          <JobPositionsPanel />
+        </TabsContent>
+
+        <TabsContent value="cost-centers" className="space-y-4 pt-4">
+          <CostCentersPanel />
         </TabsContent>
       </Tabs>
 

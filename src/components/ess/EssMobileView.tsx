@@ -121,9 +121,9 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
       return;
     }
     submitAttendanceCorrection({
-      date: corrDate,
-      requestedType: corrPunchType,
-      requestedTime: corrTime,
+      workDate: corrDate,
+      correctIn: corrPunchType === "check_in" ? corrTime : undefined,
+      correctOut: corrPunchType === "check_out" ? corrTime : undefined,
       reason: corrReason,
     });
     toast.success("تم إرسال طلب تصحيح البصمة لمسار الاعتماد بنجاح!");

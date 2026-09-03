@@ -124,10 +124,14 @@ export function LoginPage() {
               )}
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground block">
+                <label
+                  htmlFor="work-email"
+                  className="text-xs font-bold text-foreground block"
+                >
                   البريد الإلكتروني الوظيفي *
                 </label>
                 <input
+                  id="work-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -139,11 +143,15 @@ export function LoginPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground block">
+                <label
+                  htmlFor="login-password"
+                  className="text-xs font-bold text-foreground block"
+                >
                   كلمة المرور *
                 </label>
                 <div className="relative">
                   <input
+                    id="login-password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

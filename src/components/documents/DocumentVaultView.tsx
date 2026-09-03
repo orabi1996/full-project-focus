@@ -145,6 +145,217 @@ export interface CompanyPolicy {
 type MainTab = "vault" | "letters" | "audit_pipeline" | "compliance_radar" | "company_policies";
 type ViewMode = "grid" | "table";
 
+export function generateDocumentHtml(
+  doc: StoredDocument,
+  company: { legalNameAr?: string },
+): string {
+  const currentDate = new Date().toLocaleDateString("ar-SA", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const refNo = doc.docNumber || `DOC-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+
+  return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${doc.title} - ${doc.employeeName}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+    body {
+      font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 36px;
+      background: #f8fafc;
+      color: #0f172a;
+      direction: rtl;
+    }
+    .sheet {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 40px 48px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+      border: 1px solid #e2e8f0;
+      position: relative;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 18px;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      font-size: 17px;
+      font-weight: 900;
+      margin: 0 0 4px 0;
+      color: #0f172a;
+    }
+    .header p {
+      font-size: 11px;
+      color: #475569;
+      margin: 2px 0;
+    }
+    .meta {
+      text-align: left;
+      font-family: monospace;
+      font-size: 11px;
+    }
+    .title-banner {
+      background: #f1f5f9;
+      border-top: 1px solid #cbd5e1;
+      border-bottom: 1px solid #cbd5e1;
+      padding: 10px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .title-banner h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 900;
+      color: #0f172a;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 24px;
+      background: #f8fafc;
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 20px;
+      font-size: 12px;
+    }
+    .grid div {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px dashed #e2e8f0;
+      padding-bottom: 4px;
+    }
+    .grid div span.label {
+      color: #64748b;
+      font-weight: 600;
+    }
+    .grid div span.val {
+      color: #0f172a;
+      font-weight: 700;
+    }
+    .content-box {
+      font-size: 12px;
+      line-height: 1.8;
+      color: #1e293b;
+      margin-bottom: 28px;
+      text-align: justify;
+    }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-top: 2px solid #0f172a;
+      padding-top: 20px;
+      margin-top: 32px;
+    }
+    .stamp {
+      border: 2px dashed #059669;
+      color: #059669;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 900;
+      display: inline-block;
+      transform: rotate(-3deg);
+      margin-top: 6px;
+    }
+    .qr-box {
+      text-align: center;
+      font-size: 9px;
+      color: #64748b;
+    }
+    .qr-placeholder {
+      width: 56px;
+      height: 56px;
+      border: 2px solid #0f172a;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 4px auto;
+      font-weight: 900;
+      font-size: 9px;
+      background: #f1f5f9;
+    }
+    @media print {
+      body {
+        padding: 0;
+        background: #fff;
+      }
+      .sheet {
+        box-shadow: none;
+        border: none;
+        padding: 20px;
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="header">
+      <div>
+        <h1>${company.legalNameAr || "شركة فوكس للحلول والتقنية المحدودة"}</h1>
+        <p>سجل تجاري: 1010789654 • الرقم الضريبي: 300098765400003</p>
+        <p>المملكة العربية السعودية - الرياض - المقر الرئيسي</p>
+      </div>
+      <div class="meta">
+        <p><strong>المرجع:</strong> ${refNo}</p>
+        <p><strong>التاريخ:</strong> ${currentDate}</p>
+      </div>
+    </div>
+
+    <div class="title-banner">
+      <h2>شهادة وتوثيق مستند رسمي: ${doc.title}</h2>
+    </div>
+
+    <div class="grid">
+      <div><span class="label">صاحب الوثيقة / المنشأة:</span><span class="val">${doc.employeeName}</span></div>
+      <div><span class="label">الرقم الوظيفي:</span><span class="val font-mono">${doc.employeeNo || "منشأة"}</span></div>
+      <div><span class="label">رقم الوثيقة / السجل:</span><span class="val font-mono">${doc.docNumber || "—"}</span></div>
+      <div><span class="label">الجهة الحكومية / المصدرة:</span><span class="val">${doc.issuingAuthority || "رسمي"}</span></div>
+      <div><span class="label">تصنيف المستند:</span><span class="val">${doc.category}</span></div>
+      <div><span class="label">تاريخ الإصدار / الرفع:</span><span class="val font-mono">${doc.uploadDate}</span></div>
+      <div><span class="label">تاريخ انتهاء الصلاحية:</span><span class="val font-mono">${doc.expiryDate || "ساري بدون انتهاء"}</span></div>
+      <div><span class="label">مستوى السرية والوصول:</span><span class="val">${doc.confidentiality}</span></div>
+      <div><span class="label">حالة الصلاحية:</span><span class="val">${doc.status === "valid" ? "ساري المفعول وموثق" : doc.status === "expiring_soon" ? "ينتهي قريباً" : "منتهي الصلاحية"}</span></div>
+      <div><span class="label">المعتمد والمراجع:</span><span class="val">${doc.verifiedBy || "إدارة الموارد البشرية"}</span></div>
+    </div>
+
+    <div class="content-box">
+      <p>تشهد إدارة الموارد البشرية والشؤون الإدارية بأن هذا المستند معتمد ومحفوظ رسمياً بالأرشيف السحابي المشفر للشركة وفقاً للأنظمة واللوائح والقرارات الوزارية المعمول بها في المملكة العربية السعودية.</p>
+      ${doc.notes ? `<p><strong>ملاحظات التوثيق الرسمية:</strong> ${doc.notes}</p>` : ""}
+      <p style="font-size: 10px; color: #64748b;">تم التحقق من الوثيقة إلكترونياً برقم الأرشيف المعتمد (${doc.id.toUpperCase()}) بمعيار الأمان المشفر AES-256.</p>
+    </div>
+
+    <div class="footer">
+      <div>
+        <p style="font-weight: bold; margin: 0; font-size: 12px;">إدارة الموارد البشرية والتدقيق السحابي</p>
+        <p style="font-size: 10px; color: #64748b; margin: 2px 0;">شركة فوكس للحلول والتقنية المحدودة</p>
+        <div class="stamp">ختم الموارد البشرية المعتمد ✓</div>
+      </div>
+      <div class="qr-box">
+        <div class="qr-placeholder">QR CODE</div>
+        <span>رمز التحقق الإلكتروني</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 export const DocumentVaultView: React.FC = () => {
   const { employees, company, language, t } = useApp();
 
@@ -162,13 +373,14 @@ export const DocumentVaultView: React.FC = () => {
   // Bulk Selection
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
 
-  // Modals State
+  // Modals & Side Sheet State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isOfficialDocModalOpen, setIsOfficialDocModalOpen] = useState(false);
   const [officialDocType, setOfficialDocType] = useState<DocType>("salary_certificate");
   const [selectedEmployeeForDoc, setSelectedEmployeeForDoc] = useState(employees[0]?.id || "");
   const [isRequestDocModalOpen, setIsRequestDocModalOpen] = useState(false);
   const [selectedDocForPreview, setSelectedDocForPreview] = useState<StoredDocument | null>(null);
+  const [sidePrintDoc, setSidePrintDoc] = useState<StoredDocument | null>(null);
   const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
   const [newRenewalExpiry, setNewRenewalExpiry] = useState("2027-12-31");
   const [rejectReasonModalDoc, setRejectReasonModalDoc] = useState<StoredDocument | null>(null);
@@ -665,6 +877,65 @@ export const DocumentVaultView: React.FC = () => {
     if (selectedDocForPreview?.id === id) {
       setSelectedDocForPreview(null);
     }
+    if (sidePrintDoc?.id === id) {
+      setSidePrintDoc(null);
+    }
+  };
+
+  // Real File Download Handler
+  const handleDownloadDocument = (doc: StoredDocument) => {
+    if (doc.fileUrl) {
+      const link = document.createElement("a");
+      link.href = doc.fileUrl;
+      link.download = doc.fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success(`تم بدء تنزيل المستند (${doc.fileName}) وحفظه على جهازك بنجاح!`);
+      return;
+    }
+
+    const htmlContent = generateDocumentHtml(doc, company);
+    const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const baseName = doc.fileName.replace(/\.[^/.]+$/, "");
+    link.download = `${baseName}_وثيقة_رسمية.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`تم بدء تنزيل المستند (${doc.title}) وحفظه على جهازك بنجاح!`);
+  };
+
+  // Isolated Clean Document Print Handler
+  const handlePrintIsolated = (doc: StoredDocument) => {
+    const printWindow = window.open("", "_blank", "width=850,height=1100");
+    if (!printWindow) {
+      toast.error("يرجى السماح بالنوافذ المنبثقة لإتمام الطباعة المباشرة");
+      return;
+    }
+    const content = generateDocumentHtml(doc, company);
+    printWindow.document.open();
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 400);
+  };
+
+  // Bulk Download Handler
+  const handleDownloadBulk = () => {
+    if (selectedDocIds.length === 0) return;
+    const docsToDownload = filteredDocs.filter((d) => selectedDocIds.includes(d.id));
+    docsToDownload.forEach((doc, idx) => {
+      setTimeout(() => {
+        handleDownloadDocument(doc);
+      }, idx * 250);
+    });
+    toast.success(`جاري تنزيل وحفظ (${docsToDownload.length}) وثائق على جهازك...`);
   };
 
   // Verification Pipeline Actions
@@ -750,6 +1021,7 @@ export const DocumentVaultView: React.FC = () => {
       verifiedBy: "مسؤول الموارد البشرية",
       verifiedAt: new Date().toLocaleDateString("ar-SA"),
       renewalFeeEstimated: newDoc.category === "iqama_id" ? 650 : newDoc.category === "contract" ? 120 : 0,
+      fileUrl: selectedUploadFile ? URL.createObjectURL(selectedUploadFile) : undefined,
       versions: [],
     };
 
@@ -1411,6 +1683,16 @@ export const DocumentVaultView: React.FC = () => {
                       <Button
                         size="sm"
                         variant="outline"
+                        onClick={() => setSidePrintDoc(doc)}
+                        className="rounded-full text-xs font-bold h-8 w-8 p-0 border-border/80 hover:bg-secondary text-primary"
+                        title="معاينة وطباعة المستند في الصفحة الجانبية"
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => {
                           setSelectedDocForPreview(doc);
                           setNewRenewalExpiry("2027-12-31");
@@ -1425,9 +1707,9 @@ export const DocumentVaultView: React.FC = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => toast.success(`جارٍ تنزيل الوثيقة الرسمية: ${doc.fileName}`)}
+                        onClick={() => handleDownloadDocument(doc)}
                         className="rounded-full text-xs font-bold h-8 w-8 p-0 border-border/80 hover:bg-secondary"
-                        title="تنزيل الملف"
+                        title="تنزيل الملف وحفظه على جهازك"
                       >
                         <Download className="h-3.5 w-3.5 text-emerald-600" />
                       </Button>
@@ -1600,6 +1882,15 @@ export const DocumentVaultView: React.FC = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                onClick={() => setSidePrintDoc(doc)}
+                                className="h-8 w-8 rounded-full text-primary hover:bg-secondary"
+                                title="معاينة وطباعة المستند في الصفحة الجانبية"
+                              >
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => {
                                   setSelectedDocForPreview(doc);
                                   setNewRenewalExpiry("2027-12-31");
@@ -1613,11 +1904,9 @@ export const DocumentVaultView: React.FC = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() =>
-                                  toast.success(`جارٍ تنزيل الوثيقة الرسمية: ${doc.fileName}`)
-                                }
+                                onClick={() => handleDownloadDocument(doc)}
                                 className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary"
-                                title="تنزيل الملف"
+                                title="تنزيل الملف وحفظه على جهازك"
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
@@ -2096,9 +2385,7 @@ export const DocumentVaultView: React.FC = () => {
 
           <Button
             size="sm"
-            onClick={() => {
-              toast.success(`جارٍ تنزيل أرشيف مضغوط ZIP لـ (${selectedDocIds.length}) وثائق مختارة...`);
-            }}
+            onClick={handleDownloadBulk}
             className="rounded-full text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground h-8 px-3.5 shadow-xs"
           >
             <Download className="h-3.5 w-3.5" />
@@ -2270,7 +2557,7 @@ export const DocumentVaultView: React.FC = () => {
               </Button>
               <Button
                 size="sm"
-                onClick={() => window.print()}
+                onClick={() => setSidePrintDoc(selectedDocForPreview)}
                 variant="outline"
                 className="text-xs font-bold gap-1.5 rounded-full border-border/80 h-9"
               >
@@ -2279,9 +2566,7 @@ export const DocumentVaultView: React.FC = () => {
               </Button>
               <Button
                 size="sm"
-                onClick={() =>
-                  toast.success(`جارٍ تنزيل: ${selectedDocForPreview.fileName}`)
-                }
+                onClick={() => handleDownloadDocument(selectedDocForPreview)}
                 className="text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-9 px-4"
               >
                 <Download className="h-3.5 w-3.5" />
@@ -2654,6 +2939,220 @@ export const DocumentVaultView: React.FC = () => {
           employee={selectedEmployeeObj}
           documentType={officialDocType}
         />
+      )}
+
+      {/* SIDE DRAWER: Full Document Side Preview & Isolated Print Panel */}
+      {sidePrintDoc && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          {/* Backdrop Click to Close */}
+          <div
+            className="flex-1 cursor-pointer"
+            onClick={() => setSidePrintDoc(null)}
+          />
+
+          {/* Side Drawer Container */}
+          <div className="w-full max-w-2xl sm:max-w-3xl bg-card h-full shadow-2xl flex flex-col border-r border-border/80 animate-in slide-in-from-left duration-300 overflow-hidden">
+            {/* Header */}
+            <div className="p-4 bg-muted/40 border-b border-border/80 flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Printer className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-foreground">
+                    صفحة معاينة وطباعة المستند الرسمي
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground font-medium truncate max-w-xs sm:max-w-sm">
+                    {sidePrintDoc.title} • {sidePrintDoc.employeeName}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => handlePrintIsolated(sidePrintDoc)}
+                  className="rounded-full text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground h-8 px-3.5 shadow-xs"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  طباعة رسمية A4
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDownloadDocument(sidePrintDoc)}
+                  className="rounded-full text-xs font-bold gap-1.5 border-border/80 hover:bg-secondary h-8 px-3"
+                  title="تنزيل الملف وحفظه على جهازك"
+                >
+                  <Download className="h-3.5 w-3.5 text-emerald-600" />
+                  حفظ على الجهاز
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSidePrintDoc(null)}
+                  className="rounded-full h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                  title="إغلاق الصفحة الجانبية"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Document Body Viewport (Clean A4 Paper Sheet) */}
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-100 dark:bg-slate-950">
+              {sidePrintDoc.fileUrl &&
+              (sidePrintDoc.fileName.toLowerCase().endsWith(".png") ||
+                sidePrintDoc.fileName.toLowerCase().endsWith(".jpg") ||
+                sidePrintDoc.fileName.toLowerCase().endsWith(".jpeg")) ? (
+                <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 space-y-4 max-w-xl mx-auto text-slate-900">
+                  <div className="flex items-center justify-between border-b pb-3 text-xs font-bold">
+                    <span>مستند مرفق: {sidePrintDoc.fileName}</span>
+                    <Badge variant="outline">{sidePrintDoc.fileSize}</Badge>
+                  </div>
+                  <img
+                    src={sidePrintDoc.fileUrl}
+                    alt={sidePrintDoc.title}
+                    className="w-full max-h-[600px] object-contain rounded-lg mx-auto shadow-sm"
+                  />
+                </div>
+              ) : (
+                <div className="bg-white text-slate-900 rounded-2xl shadow-xl border border-slate-200 p-8 max-w-xl mx-auto space-y-6 font-sans text-xs leading-relaxed">
+                  {/* Official Header */}
+                  <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
+                    <div className="space-y-1 text-start">
+                      <h1 className="text-base font-black text-slate-900">
+                        {company.legalNameAr || "شركة فوكس للحلول والتقنية المحدودة"}
+                      </h1>
+                      <p className="text-[11px] text-slate-600 font-medium">
+                        سجل تجاري: 1010789654 • الرقم الضريبي: 300098765400003
+                      </p>
+                      <p className="text-[11px] text-slate-600">المملكة العربية السعودية - الرياض</p>
+                    </div>
+                    <div className="text-end space-y-1 font-mono text-[11px]">
+                      <p className="font-bold text-slate-900">
+                        المرجع: {sidePrintDoc.docNumber || "DOC-2026"}
+                      </p>
+                      <p className="text-slate-600">
+                        التاريخ: {new Date().toLocaleDateString("ar-SA")}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Document Title Banner */}
+                  <div className="text-center py-2.5 border-y-2 border-slate-900 bg-slate-50">
+                    <h2 className="text-base font-black text-slate-900 tracking-wide">
+                      شهادة وتوثيق مستند رسمي: {sidePrintDoc.title}
+                    </h2>
+                  </div>
+
+                  {/* Metadata Table */}
+                  <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 space-y-2 text-xs">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="font-semibold text-slate-600">صاحب الوثيقة / المنشأة:</span>{" "}
+                        <span className="font-bold text-slate-900">{sidePrintDoc.employeeName}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-slate-600">الرقم الوظيفي:</span>{" "}
+                        <span className="font-bold font-mono text-slate-900">
+                          {sidePrintDoc.employeeNo || "منشأة"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-slate-600">رقم الوثيقة / السجل:</span>{" "}
+                        <span className="font-bold font-mono text-slate-900">
+                          {sidePrintDoc.docNumber || "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-slate-600">الجهة الحكومية / المصدرة:</span>{" "}
+                        <span className="font-bold text-slate-900">
+                          {sidePrintDoc.issuingAuthority || "رسمي"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-slate-600">تاريخ الرفع:</span>{" "}
+                        <span className="font-bold font-mono text-slate-900">
+                          {sidePrintDoc.uploadDate}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-slate-600">تاريخ انتهاء الصلاحية:</span>{" "}
+                        <span className="font-bold font-mono text-slate-900">
+                          {sidePrintDoc.expiryDate || "ساري بدون انتهاء"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Certification Body Text */}
+                  <div className="space-y-3 text-justify text-slate-800 text-xs leading-6">
+                    <p>
+                      تشهد إدارة الموارد البشرية والشؤون القانونية بشركة فوكس للحلول والتقنية بأن المستند الموضح أعلاه معتمد وموثق رسمياً بالأرشيف السحابي للمنشأة، ومطابق لكافة الأنظمة والتعليمات المنصوص عليها بنظام العمل في المملكة العربية السعودية.
+                    </p>
+                    {sidePrintDoc.notes && (
+                      <p className="p-2.5 rounded-lg bg-slate-100 border border-slate-200 text-[11px] text-slate-700 font-medium">
+                        <strong>ملاحظات التوثيق:</strong> {sidePrintDoc.notes}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-slate-500 font-mono">
+                      معرف التوثيق الرقمي: {sidePrintDoc.id.toUpperCase()} • مشفر بمعيار AES-256
+                    </p>
+                  </div>
+
+                  {/* Official Footer with Stamp and QR Code */}
+                  <div className="border-t-2 border-slate-900 pt-5 mt-6 flex justify-between items-end">
+                    <div className="space-y-1 text-start">
+                      <p className="font-bold text-slate-900">إدارة الموارد البشرية والتدقيق</p>
+                      <p className="text-[11px] text-slate-600">شركة فوكس للحلول والتقنية المحدودة</p>
+                      <div className="h-14 w-32 border-2 border-dashed border-emerald-600 rounded-lg flex items-center justify-center text-emerald-700 font-black text-[10px] mt-1 rotate-[-3deg]">
+                        ختم الموارد البشرية المعتمد
+                      </div>
+                    </div>
+
+                    <div className="text-center space-y-1">
+                      <div className="h-14 w-14 mx-auto border-2 border-slate-900 rounded-lg p-1 flex items-center justify-center">
+                        <QrCode className="h-10 w-10 text-slate-900" />
+                      </div>
+                      <span className="text-[9px] font-mono text-slate-500 block">
+                        رمز التوثيق الإلكتروني
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Side Drawer Footer */}
+            <div className="p-4 bg-muted/30 border-t border-border/80 flex items-center justify-between shrink-0">
+              <span className="text-xs text-muted-foreground font-medium">
+                جاهز للطباعة بحجم A4 قياسي بدون هوامش إضافية
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDownloadDocument(sidePrintDoc)}
+                  className="rounded-full text-xs font-bold gap-1 border-border/80 h-9 px-4"
+                >
+                  <Download className="h-3.5 w-3.5 text-emerald-600" />
+                  تنزيل كملف
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handlePrintIsolated(sidePrintDoc)}
+                  className="rounded-full text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground h-9 px-5 shadow-xs"
+                >
+                  <Printer className="h-4 w-4" />
+                  طباعة المستند الآن
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

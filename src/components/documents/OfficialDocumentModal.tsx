@@ -53,7 +53,56 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
   const refNo = `DOC-2026-${Math.floor(100000 + Math.random() * 900000)}`;
 
   const handlePrint = () => {
-    window.print();
+    const sheet = document.getElementById("printable-official-letter-sheet");
+    if (!sheet) {
+      window.print();
+      return;
+    }
+    const printWindow = window.open("", "_blank", "width=850,height=1100");
+    if (!printWindow) {
+      toast.error("يرجى السماح بالنوافذ المنبثقة لإتمام الطباعة المباشرة");
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>${getDocTitle(currentDocType)} - ${employee.firstNameAr} ${employee.lastNameAr}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+    body { font-family: 'Cairo', system-ui, sans-serif; margin: 0; padding: 32px; background: #fff; color: #0f172a; direction: rtl; }
+    * { box-sizing: border-box; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #cbd5e1; padding: 8px; font-size: 12px; }
+    @media print { body { padding: 8px; } }
+  </style>
+</head>
+<body>
+  ${sheet.outerHTML}
+</body>
+</html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 400);
+  };
+
+  const handleDownload = () => {
+    const sheet = document.getElementById("printable-official-letter-sheet");
+    if (!sheet) return;
+    const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>${getDocTitle(currentDocType)}</title><style>@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap'); body { font-family: 'Cairo', system-ui, sans-serif; padding: 40px; background: #fff; direction: rtl; } table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #cbd5e1; padding: 8px; }</style></head><body>${sheet.outerHTML}</body></html>`;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${getDocTitle(currentDocType).replace(/\s+/g, "_")}_${employee.employeeNo || "وثيقة"}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`تم حفظ وتنزيل الخطاب الرسمي (${getDocTitle(currentDocType)}) على جهازك بنجاح!`);
   };
 
   const getDocTitle = (type: DocType) => {
@@ -103,6 +152,17 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
             </select>
 
             <Button
+              onClick={handleDownload}
+              size="sm"
+              variant="outline"
+              className="font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary rounded-full h-8 px-3 shadow-xs"
+              title="تنزيل الخطاب وحفظه على جهازك"
+            >
+              <Download className="h-3.5 w-3.5 text-emerald-600" />
+              تنزيل الملف
+            </Button>
+
+            <Button
               onClick={handlePrint}
               size="sm"
               className="font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-8 px-4 shadow-xs"
@@ -130,7 +190,10 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
         )}
 
         {/* Printable A4 Document Sheet */}
-        <div className="p-8 my-4 mx-auto bg-white text-slate-900 max-w-2xl rounded-2xl shadow-xl border border-slate-200 space-y-6 font-sans text-xs leading-relaxed print:m-0 print:p-8 print:shadow-none print:border-0 print:max-w-none">
+        <div
+          id="printable-official-letter-sheet"
+          className="p-8 my-4 mx-auto bg-white text-slate-900 max-w-2xl rounded-2xl shadow-xl border border-slate-200 space-y-6 font-sans text-xs leading-relaxed print:m-0 print:p-8 print:shadow-none print:border-0 print:max-w-none"
+        >
           {/* Header with Official Logo & Corporate Letterhead */}
           <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
             <div className="space-y-1">

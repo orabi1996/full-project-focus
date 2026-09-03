@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useState, useEffect } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type {
   Language,
   Direction,
@@ -134,6 +134,7 @@ import { actOnRequestServer } from "../business/approvals.functions";
 import { processAttendanceServer } from "../business/attendance.functions";
 import { accrueLeaveBalancesServer } from "../business/leave.functions";
 import { toast } from "sonner";
+import { executeReliableMutation } from "../data/reliable-mutation";
 
 interface AppContextType {
   // Localization
@@ -150,6 +151,9 @@ interface AppContextType {
   dataMode: "demo" | "live";
   isDataLoading: boolean;
   dataError: string | null;
+  isSaving: boolean;
+  pendingMutationCount: number;
+  lastSavedAt: string | null;
   refreshCoreData: () => Promise<void>;
 
   // State Collections
@@ -193,31 +197,42 @@ interface AppContextType {
   activeEmployeeModalId: string | null;
   openEmployeeProfile: (employeeOrId: string | Employee) => void;
   closeEmployeeProfile: () => void;
-  addEmployee: (emp: Omit<Employee, "id" | "completionScore">) => void;
-  updateEmployee: (id: string, updates: Partial<Employee>) => void;
-  updateCompany: (profile: CompanyProfile) => void;
-  addOrgUnit: (unit: Omit<OrgUnit, "id" | "employeeCount">) => void;
-  updateOrgUnit: (id: string, unit: Omit<OrgUnit, "id" | "employeeCount">) => void;
-  addSubsidiary: (subsidiary: Omit<Subsidiary, "id" | "employeeCount">) => void;
-  updateSubsidiary: (id: string, subsidiary: Omit<Subsidiary, "id" | "employeeCount">) => void;
-  addWorkLocation: (location: Omit<WorkLocation, "id">) => void;
-  updateWorkLocation: (id: string, location: Omit<WorkLocation, "id">) => void;
-  addCostCenter: (center: Omit<CostCenter, "id" | "employeeCount" | "managerName">) => void;
+  addEmployee: (emp: Omit<Employee, "id" | "completionScore">) => Promise<boolean>;
+  updateEmployee: (id: string, updates: Partial<Employee>) => Promise<boolean>;
+  updateCompany: (profile: CompanyProfile) => Promise<boolean>;
+  addOrgUnit: (unit: Omit<OrgUnit, "id" | "employeeCount">) => Promise<boolean>;
+  updateOrgUnit: (id: string, unit: Omit<OrgUnit, "id" | "employeeCount">) => Promise<boolean>;
+  addSubsidiary: (subsidiary: Omit<Subsidiary, "id" | "employeeCount">) => Promise<boolean>;
+  updateSubsidiary: (
+    id: string,
+    subsidiary: Omit<Subsidiary, "id" | "employeeCount">,
+  ) => Promise<boolean>;
+  addWorkLocation: (location: Omit<WorkLocation, "id">) => Promise<boolean>;
+  updateWorkLocation: (id: string, location: Omit<WorkLocation, "id">) => Promise<boolean>;
+  addCostCenter: (
+    center: Omit<CostCenter, "id" | "employeeCount" | "managerName">,
+  ) => Promise<boolean>;
   updateCostCenter: (
     id: string,
     center: Omit<CostCenter, "id" | "employeeCount" | "managerName">,
-  ) => void;
-  addJobPosition: (position: Omit<JobPosition, "id" | "filledHeadcount">) => void;
-  updateJobPosition: (id: string, position: Omit<JobPosition, "id" | "filledHeadcount">) => void;
+  ) => Promise<boolean>;
+  addJobPosition: (position: Omit<JobPosition, "id" | "filledHeadcount">) => Promise<boolean>;
+  updateJobPosition: (
+    id: string,
+    position: Omit<JobPosition, "id" | "filledHeadcount">,
+  ) => Promise<boolean>;
   addRole: (
     role: Omit<RoleDefinition, "id" | "userCount" | "permissions"> & { dataScope: DataScope },
   ) => RoleDefinition;
 
   // Requests & Workflow
-  submitRequest: (req: { type: RequestCategory; payload: ServiceRequest["payload"] }) => void;
-  approveRequest: (requestId: string, note?: string) => void;
-  rejectRequest: (requestId: string, note?: string) => void;
-  returnRequest: (requestId: string, note?: string) => void;
+  submitRequest: (req: {
+    type: RequestCategory;
+    payload: ServiceRequest["payload"];
+  }) => Promise<boolean>;
+  approveRequest: (requestId: string, note?: string) => Promise<boolean>;
+  rejectRequest: (requestId: string, note?: string) => Promise<boolean>;
+  returnRequest: (requestId: string, note?: string) => Promise<boolean>;
   addApprovalChain: (chain: Omit<ApprovalChain, "id">) => void;
   deleteApprovalChain: (id: string) => void;
   addDelegationRule: (rule: Omit<DelegationRule, "id" | "createdAt" | "status">) => void;
@@ -230,7 +245,7 @@ interface AppContextType {
     endDate: string;
     totalDays: number;
     reason: string;
-  }) => boolean;
+  }) => Promise<boolean>;
   addLeaveType: (input: { nameAr: string; maxDaysPerYear: number; isPaid: boolean }) => void;
   adjustLeaveBalance: (
     employeeId: string,
@@ -244,7 +259,7 @@ interface AppContextType {
   punchInOut: (
     type: "in" | "out",
     coords?: { lat: number; lng: number },
-  ) => { success: boolean; message: string; geofenceValid: boolean };
+  ) => Promise<{ success: boolean; message: string; geofenceValid: boolean }>;
   submitAttendanceCorrection: (payload: {
     workDate: string;
     correctIn?: string;
@@ -328,6 +343,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const dataMode: "demo" | "live" = session && !isDemo ? "live" : "demo";
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
+  const [pendingMutationCount, setPendingMutationCount] = useState(0);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const activeMutationKeys = useRef(new Set<string>());
+  const isSaving = pendingMutationCount > 0;
 
   // State variables
   const [company, setCompany] = useState<CompanyProfile>(mockCompany);
@@ -426,7 +445,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setNotifications(operational.notifications);
       setAccountingJournals(operational.accountingJournals);
     } catch (error) {
-      setDataError(error instanceof Error ? error.message : "تعذر تحميل بيانات النظام");
+      const normalizedError =
+        error instanceof Error ? error : new Error("تعذر تحميل بيانات النظام");
+      setDataError(normalizedError.message);
+      throw normalizedError;
     } finally {
       setIsDataLoading(false);
     }
@@ -434,7 +456,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     if (dataMode === "live") {
-      void refreshCoreData();
+      void refreshCoreData().catch(() => undefined);
       return;
     }
     setEmployees(mockEmployees);
@@ -490,14 +512,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setLanguage = (lang: Language) => setLanguageState(lang);
   const toggleLanguage = () => setLanguageState((prev) => (prev === "ar" ? "en" : "ar"));
 
-  const persistLiveChange = (operation: () => Promise<void>) => {
-    if (dataMode !== "live") return;
+  const persistLiveChange = (operation: () => Promise<void>, mutationKey?: string) => {
+    if (dataMode === "live" && mutationKey && activeMutationKeys.current.has(mutationKey)) {
+      const error = new Error("عملية حفظ مماثلة قيد التنفيذ");
+      toast.info("عملية الحفظ نفسها قيد التنفيذ بالفعل");
+      return Promise.resolve({ ok: false, error });
+    }
+
+    if (dataMode === "live" && mutationKey) activeMutationKeys.current.add(mutationKey);
     setDataError(null);
-    void operation()
-      .then(refreshCoreData)
-      .catch((error) =>
-        setDataError(error instanceof Error ? error.message : "تعذر حفظ التغييرات"),
-      );
+    return executeReliableMutation({
+      mode: dataMode,
+      operation,
+      refresh: refreshCoreData,
+      onPendingChange: (pending) =>
+        setPendingMutationCount((count) => Math.max(0, count + (pending ? 1 : -1))),
+      onCommitted: () => {
+        if (dataMode === "live") setLastSavedAt(new Date().toISOString());
+      },
+      onRejected: (error) => {
+        setDataError(error.message);
+        toast.error("تعذر حفظ التغييرات. تمت استعادة آخر بيانات مؤكدة من الخادم.");
+      },
+    }).finally(() => {
+      if (mutationKey) activeMutationKeys.current.delete(mutationKey);
+    });
   };
 
   const logAuditEvent = (
@@ -535,111 +574,179 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       completionScore: 90,
     };
     setEmployees((prev) => [newEmployee, ...prev]);
-    persistLiveChange(() => createEmployeeRecord(newEmployee));
-    logAuditEvent(
-      "إضافة موظف جديد",
-      "Employee",
-      newId,
-      `${empData.firstNameAr} ${empData.lastNameAr}`,
-      "تم تسجيل الموظف الجديد بنجاح في المنظومة",
-    );
+    return persistLiveChange(
+      () => createEmployeeRecord(newEmployee),
+      `employee:create:${newEmployee.email.toLowerCase()}`,
+    ).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent(
+          "إضافة موظف جديد",
+          "Employee",
+          newId,
+          `${empData.firstNameAr} ${empData.lastNameAr}`,
+          "تم تسجيل الموظف الجديد بنجاح في المنظومة",
+        );
+      }
+      return ok;
+    });
   };
 
   const updateEmployee = (id: string, updates: Partial<Employee>) => {
     setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, ...updates } : e)));
-    persistLiveChange(() => updateEmployeeRecord(id, updates));
-    logAuditEvent("تحديث بيانات موظف", "Employee", id, id, "تم تعديل البيانات الوظيفية أو الشخصية");
+    return persistLiveChange(() => updateEmployeeRecord(id, updates), `employee:update:${id}`).then(
+      ({ ok }) => {
+        if (ok) {
+          logAuditEvent(
+            "تحديث بيانات موظف",
+            "Employee",
+            id,
+            id,
+            "تم تعديل البيانات الوظيفية أو الشخصية",
+          );
+        }
+        return ok;
+      },
+    );
   };
 
   const updateCompany = (profile: CompanyProfile) => {
     setCompany(profile);
-    persistLiveChange(() => updateCompanyRecord(profile));
-    logAuditEvent(
-      "تحديث بيانات المنشأة",
-      "Company",
-      profile.id,
-      profile.legalNameAr,
-      "تم تحديث الملف النظامي وبيانات التواصل للمنشأة",
-    );
+    return persistLiveChange(
+      () => updateCompanyRecord(profile),
+      `company:update:${profile.id}`,
+    ).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent(
+          "تحديث بيانات المنشأة",
+          "Company",
+          profile.id,
+          profile.legalNameAr,
+          "تم تحديث الملف النظامي وبيانات التواصل للمنشأة",
+        );
+      }
+      return ok;
+    });
   };
 
   const addOrgUnit = (unit: Omit<OrgUnit, "id" | "employeeCount">) => {
     const newUnit: OrgUnit = { ...unit, id: `dept-${Date.now()}`, employeeCount: 0 };
     setOrgUnits((prev) => [newUnit, ...prev]);
-    persistLiveChange(() => createOrganizationUnitRecord(unit));
-    logAuditEvent(
-      "إضافة وحدة تنظيمية",
-      "OrgUnit",
-      newUnit.id,
-      newUnit.nameAr,
-      "تم تحديث الهيكل التنظيمي",
-    );
+    return persistLiveChange(
+      () => createOrganizationUnitRecord(unit),
+      `org-unit:create:${unit.code}`,
+    ).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent(
+          "إضافة وحدة تنظيمية",
+          "OrgUnit",
+          newUnit.id,
+          newUnit.nameAr,
+          "تم تحديث الهيكل التنظيمي",
+        );
+      }
+      return ok;
+    });
   };
 
   const updateOrgUnit = (id: string, unit: Omit<OrgUnit, "id" | "employeeCount">) => {
     setOrgUnits((prev) => prev.map((item) => (item.id === id ? { ...item, ...unit } : item)));
-    persistLiveChange(() => updateOrganizationUnitRecord(id, unit));
-    logAuditEvent(
-      "تحديث وحدة تنظيمية",
-      "OrgUnit",
-      id,
-      unit.nameAr,
-      "تم تعديل الوحدة في الهيكل التنظيمي",
-    );
+    return persistLiveChange(
+      () => updateOrganizationUnitRecord(id, unit),
+      `org-unit:update:${id}`,
+    ).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent(
+          "تحديث وحدة تنظيمية",
+          "OrgUnit",
+          id,
+          unit.nameAr,
+          "تم تعديل الوحدة في الهيكل التنظيمي",
+        );
+      }
+      return ok;
+    });
   };
 
   const addSubsidiary = (subsidiary: Omit<Subsidiary, "id" | "employeeCount">) => {
     const newSubsidiary: Subsidiary = { ...subsidiary, id: `sub-${Date.now()}`, employeeCount: 0 };
     setSubsidiaries((prev) => [newSubsidiary, ...prev]);
-    persistLiveChange(() => createSubsidiaryRecord(subsidiary));
-    logAuditEvent(
-      "إضافة شركة فرعية",
-      "Subsidiary",
-      newSubsidiary.id,
-      newSubsidiary.nameAr,
-      "تم إنشاء الشركة الفرعية",
-    );
+    return persistLiveChange(
+      () => createSubsidiaryRecord(subsidiary),
+      `subsidiary:create:${subsidiary.code}`,
+    ).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent(
+          "إضافة شركة فرعية",
+          "Subsidiary",
+          newSubsidiary.id,
+          newSubsidiary.nameAr,
+          "تم إنشاء الشركة الفرعية",
+        );
+      }
+      return ok;
+    });
   };
 
   const updateSubsidiary = (id: string, subsidiary: Omit<Subsidiary, "id" | "employeeCount">) => {
     setSubsidiaries((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...subsidiary } : item)),
     );
-    persistLiveChange(() => updateSubsidiaryRecord(id, subsidiary));
-    logAuditEvent(
-      "تحديث شركة تابعة",
-      "Subsidiary",
-      id,
-      subsidiary.nameAr,
-      "تم تعديل بيانات الكيان التابع",
-    );
+    return persistLiveChange(
+      () => updateSubsidiaryRecord(id, subsidiary),
+      `subsidiary:update:${id}`,
+    ).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent(
+          "تحديث شركة تابعة",
+          "Subsidiary",
+          id,
+          subsidiary.nameAr,
+          "تم تعديل بيانات الكيان التابع",
+        );
+      }
+      return ok;
+    });
   };
 
   const addWorkLocation = (location: Omit<WorkLocation, "id">) => {
     const newLocation: WorkLocation = { ...location, id: `loc-${Date.now()}` };
     setWorkLocations((prev) => [newLocation, ...prev]);
-    persistLiveChange(() => createWorkLocationRecord(location));
-    logAuditEvent(
-      "إضافة موقع عمل",
-      "WorkLocation",
-      newLocation.id,
-      newLocation.nameAr,
-      "تم إعداد الموقع والسياج الجغرافي",
-    );
+    return persistLiveChange(
+      () => createWorkLocationRecord(location),
+      `work-location:create:${location.code}`,
+    ).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent(
+          "إضافة موقع عمل",
+          "WorkLocation",
+          newLocation.id,
+          newLocation.nameAr,
+          "تم إعداد الموقع والسياج الجغرافي",
+        );
+      }
+      return ok;
+    });
   };
 
   const updateWorkLocation = (id: string, location: Omit<WorkLocation, "id">) => {
     setWorkLocations((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...location } : item)),
     );
-    persistLiveChange(() => updateWorkLocationRecord(id, location));
-    logAuditEvent(
-      "تحديث موقع عمل",
-      "WorkLocation",
-      id,
-      location.nameAr,
-      "تم تعديل بيانات الموقع والسياج الجغرافي",
-    );
+    return persistLiveChange(
+      () => updateWorkLocationRecord(id, location),
+      `work-location:update:${id}`,
+    ).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent(
+          "تحديث موقع عمل",
+          "WorkLocation",
+          id,
+          location.nameAr,
+          "تم تعديل بيانات الموقع والسياج الجغرافي",
+        );
+      }
+      return ok;
+    });
   };
 
   const addCostCenter = (center: Omit<CostCenter, "id" | "employeeCount" | "managerName">) => {
@@ -651,14 +758,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       managerName: manager ? `${manager.firstNameAr} ${manager.lastNameAr}` : undefined,
     };
     setCostCenters((prev) => [newCenter, ...prev]);
-    persistLiveChange(() => createCostCenterRecord(center));
-    logAuditEvent(
-      "إضافة مركز تكلفة",
-      "CostCenter",
-      newCenter.id,
-      center.nameAr,
-      "تم إنشاء مركز تكلفة تنظيمي",
-    );
+    return persistLiveChange(
+      () => createCostCenterRecord(center),
+      `cost-center:create:${center.code}`,
+    ).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent(
+          "إضافة مركز تكلفة",
+          "CostCenter",
+          newCenter.id,
+          center.nameAr,
+          "تم إنشاء مركز تكلفة تنظيمي",
+        );
+      }
+      return ok;
+    });
   };
 
   const updateCostCenter = (
@@ -677,8 +791,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : item,
       ),
     );
-    persistLiveChange(() => updateCostCenterRecord(id, center));
-    logAuditEvent("تحديث مركز تكلفة", "CostCenter", id, center.nameAr, "تم تعديل مركز التكلفة");
+    return persistLiveChange(
+      () => updateCostCenterRecord(id, center),
+      `cost-center:update:${id}`,
+    ).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent("تحديث مركز تكلفة", "CostCenter", id, center.nameAr, "تم تعديل مركز التكلفة");
+      }
+      return ok;
+    });
   };
 
   const addJobPosition = (position: Omit<JobPosition, "id" | "filledHeadcount">) => {
@@ -688,28 +809,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       filledHeadcount: 0,
     };
     setJobPositions((prev) => [newPosition, ...prev]);
-    persistLiveChange(() => createJobPositionRecord(position));
-    logAuditEvent(
-      "إضافة منصب وظيفي",
-      "JobPosition",
-      newPosition.id,
-      position.titleAr,
-      "تم إنشاء منصب داخل الهيكل",
-    );
+    return persistLiveChange(
+      () => createJobPositionRecord(position),
+      `job-position:create:${position.code}`,
+    ).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent(
+          "إضافة منصب وظيفي",
+          "JobPosition",
+          newPosition.id,
+          position.titleAr,
+          "تم إنشاء منصب داخل الهيكل",
+        );
+      }
+      return ok;
+    });
   };
 
   const updateJobPosition = (id: string, position: Omit<JobPosition, "id" | "filledHeadcount">) => {
     setJobPositions((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...position } : item)),
     );
-    persistLiveChange(() => updateJobPositionRecord(id, position));
-    logAuditEvent(
-      "تحديث منصب وظيفي",
-      "JobPosition",
-      id,
-      position.titleAr,
-      "تم تعديل المنصب والعدد المخطط",
-    );
+    return persistLiveChange(
+      () => updateJobPositionRecord(id, position),
+      `job-position:update:${id}`,
+    ).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent(
+          "تحديث منصب وظيفي",
+          "JobPosition",
+          id,
+          position.titleAr,
+          "تم تعديل المنصب والعدد المخطط",
+        );
+      }
+      return ok;
+    });
   };
 
   const addRole = (
@@ -767,14 +902,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setRequests((prev) => [newReq, ...prev]);
-    persistLiveChange(() => createRequestRecord(currentUser.id, req.type, req.payload));
-    logAuditEvent(
-      "تقديم طلب خدمة ذاتية",
-      "ServiceRequest",
-      newReq.id,
-      ref,
-      `نوع الطلب: ${req.type}`,
-    );
+    return persistLiveChange(
+      () => createRequestRecord(currentUser.id, req.type, req.payload),
+      `request:create:${currentUser.id}:${req.type}`,
+    ).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent(
+          "تقديم طلب خدمة ذاتية",
+          "ServiceRequest",
+          newReq.id,
+          ref,
+          `نوع الطلب: ${req.type}`,
+        );
+      }
+      return ok;
+    });
   };
 
   const approveRequest = (requestId: string, note?: string) => {
@@ -807,10 +949,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }),
     );
-    persistLiveChange(async () => {
+    return persistLiveChange(async () => {
       await actOnRequestServer({ data: { requestId, decision: "approved", note } });
+    }, `request:decision:${requestId}`).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent("اعتماد طلب", "ServiceRequest", requestId, requestId, note || "موافقة");
+      }
+      return ok;
     });
-    logAuditEvent("اعتماد طلب", "ServiceRequest", requestId, requestId, note || "موافقة");
   };
 
   const rejectRequest = (requestId: string, note?: string) => {
@@ -837,10 +983,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }),
     );
-    persistLiveChange(async () => {
+    return persistLiveChange(async () => {
       await actOnRequestServer({ data: { requestId, decision: "rejected", note } });
+    }, `request:decision:${requestId}`).then(({ ok }) => {
+      if (ok) logAuditEvent("رفض طلب", "ServiceRequest", requestId, requestId, note || "تم الرفض");
+      return ok;
     });
-    logAuditEvent("رفض طلب", "ServiceRequest", requestId, requestId, note || "تم الرفض");
   };
 
   const returnRequest = (requestId: string, note?: string) => {
@@ -867,10 +1015,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }),
     );
-    persistLiveChange(async () => {
+    return persistLiveChange(async () => {
       await actOnRequestServer({ data: { requestId, decision: "returned", note } });
+    }, `request:decision:${requestId}`).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent("إعادة طلب للتصحيح", "ServiceRequest", requestId, requestId, note || "إعادة");
+      }
+      return ok;
     });
-    logAuditEvent("إعادة طلب للتصحيح", "ServiceRequest", requestId, requestId, note || "إعادة");
   };
 
   const addApprovalChain = (chain: Omit<ApprovalChain, "id">) => {
@@ -915,13 +1067,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Leaves
-  const applyLeave = (payload: {
+  const applyLeave = async (payload: {
     leaveTypeId: string;
     startDate: string;
     endDate: string;
     totalDays: number;
     reason: string;
-  }): boolean => {
+  }): Promise<boolean> => {
     const balance = leaveBalances.find((b) => b.leaveTypeId === payload.leaveTypeId);
     if (!balance || balance.availableBalance < payload.totalDays) {
       return false;
@@ -941,14 +1093,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     const leaveType = leaveTypes.find((lt) => lt.id === payload.leaveTypeId);
-    submitRequest({
+    return submitRequest({
       type: "leave",
       payload: {
         ...payload,
         leaveTypeNameAr: leaveType?.nameAr || "إجازة",
       },
     });
-    return true;
   };
 
   const addLeaveType = (input: { nameAr: string; maxDaysPerYear: number; isPaid: boolean }) => {
@@ -1020,7 +1171,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Attendance Punch
-  const punchInOut = (type: "in" | "out", coords?: { lat: number; lng: number }) => {
+  const punchInOut = async (type: "in" | "out", coords?: { lat: number; lng: number }) => {
     const todayStr = new Date().toISOString().split("T")[0];
     const timeStr = new Date().toLocaleTimeString("en-US", {
       hour: "2-digit",
@@ -1076,19 +1227,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
-    persistLiveChange(() => recordAttendance(currentUser.id, type, todayStr, timeStr));
-
-    logAuditEvent(
-      type === "in" ? "تسجيل حضور (Check-in)" : "تسجيل انصراف (Check-out)",
-      "AttendanceRecord",
-      currentUser.id,
-      `${currentUser.firstNameAr} ${currentUser.lastNameAr}`,
-      `الوقت: ${timeStr} | السياج الجغرافي: ${geofenceValid ? "صحيح داخل النطاق" : "خارج النطاق"}`,
+    const { ok } = await persistLiveChange(
+      () => recordAttendance(currentUser.id, type, todayStr, timeStr),
+      `attendance:punch:${currentUser.id}:${todayStr}:${type}`,
     );
 
+    if (ok) {
+      logAuditEvent(
+        type === "in" ? "تسجيل حضور (Check-in)" : "تسجيل انصراف (Check-out)",
+        "AttendanceRecord",
+        currentUser.id,
+        `${currentUser.firstNameAr} ${currentUser.lastNameAr}`,
+        `الوقت: ${timeStr} | السياج الجغرافي: ${geofenceValid ? "صحيح داخل النطاق" : "خارج النطاق"}`,
+      );
+    }
+
     return {
-      success: true,
-      message: type === "in" ? "تم تسجيل حضورك بنجاح" : "تم تسجيل انصرافك بنجاح",
+      success: ok,
+      message: ok
+        ? type === "in"
+          ? "تم تسجيل حضورك بنجاح"
+          : "تم تسجيل انصرافك بنجاح"
+        : "تعذر تأكيد عملية الحضور على الخادم",
       geofenceValid,
     };
   };
@@ -1730,6 +1890,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dataMode,
         isDataLoading,
         dataError,
+        isSaving,
+        pendingMutationCount,
+        lastSavedAt,
         refreshCoreData,
         company,
         subsidiaries,

@@ -83,6 +83,7 @@ export const EmployeesView: React.FC = () => {
     currentRole,
     language,
     t,
+    isSaving,
   } = useApp();
   const canManage = canManageModule(currentRole, "employees");
 
@@ -158,7 +159,8 @@ export const EmployeesView: React.FC = () => {
       e.nationality.toLowerCase().includes("saudi"),
   ).length;
   const expatEmployees = totalEmployees - saudiEmployees;
-  const saudizationRate = totalEmployees > 0 ? Math.round((saudiEmployees / totalEmployees) * 100) : 0;
+  const saudizationRate =
+    totalEmployees > 0 ? Math.round((saudiEmployees / totalEmployees) * 100) : 0;
   const probationCount = employees.filter((e) => e.status === "probation").length;
   const onLeaveCount = employees.filter((e) => e.status === "on_leave").length;
   const expiringDocsCount = employees.filter(
@@ -314,8 +316,8 @@ export const EmployeesView: React.FC = () => {
       "الاسم الكامل": `${e.firstNameAr} ${e.lastNameAr}`,
       "الاسم بالإنجليزية": `${e.firstNameEn} ${e.lastNameEn}`,
       "الهوية / الإقامة": e.nationalIdOrIqama,
-      "الجنسية": e.nationality,
-      "الإدارة": e.departmentName,
+      الجنسية: e.nationality,
+      الإدارة: e.departmentName,
       "المسمى الوظيفي": e.jobTitleAr,
       "الدرجة الوظيفية": e.jobGrade || "L3",
       "الفرع ومقر العمل": e.workLocationName,
@@ -325,7 +327,7 @@ export const EmployeesView: React.FC = () => {
       "إجمالي الراتب": e.totalSalary,
       "البريد الإلكتروني": e.email,
       "رقم الجوال": e.phone,
-      "الحالة":
+      الحالة:
         e.status === "active"
           ? "نشط"
           : e.status === "probation"
@@ -341,17 +343,21 @@ export const EmployeesView: React.FC = () => {
     toast.success(`تم تصدير كشف (${listToExport.length}) موظفاً بنجاح!`);
   };
 
-  const handleBulkStatusUpdate = (newStatus: EmployeeStatus) => {
-    if (selectedIds.length === 0) return;
-    selectedIds.forEach((id) => {
-      updateEmployee(id, { status: newStatus });
-    });
-    toast.success(`تم تحديث حالة (${selectedIds.length}) موظفاً إلى (${newStatus === "active" ? "نشط" : newStatus === "probation" ? "تحت التجربة" : "موقوف"}) بنجاح!`);
+  const handleBulkStatusUpdate = async (newStatus: EmployeeStatus) => {
+    if (selectedIds.length === 0 || isSaving) return;
+    const results = await Promise.all(
+      selectedIds.map((id) => updateEmployee(id, { status: newStatus })),
+    );
+    if (results.some((saved) => !saved)) return;
+    toast.success(
+      `تم تحديث حالة (${selectedIds.length}) موظفاً إلى (${newStatus === "active" ? "نشط" : newStatus === "probation" ? "تحت التجربة" : "موقوف"}) بنجاح!`,
+    );
     setSelectedIds([]);
   };
 
   // Add Employee Submission
-  const handleCreateEmployee = () => {
+  const handleCreateEmployee = async () => {
+    if (isSaving) return;
     if (!newEmp.firstNameAr || !newEmp.lastNameAr || !newEmp.email || !newEmp.nationalIdOrIqama) {
       toast.error("يرجى استكمال الحقول الإلزامية للموظف");
       return;
@@ -420,7 +426,8 @@ export const EmployeesView: React.FC = () => {
       yearsOfService: 1,
     };
 
-    addEmployee(empData);
+    const saved = await addEmployee(empData);
+    if (!saved) return;
     toast.success(`تم تسجيل وتعيين الموظف (${newEmp.firstNameAr} ${newEmp.lastNameAr}) بنجاح!`);
     setIsAddWizardOpen(false);
     setWizardStep(1);
@@ -466,10 +473,7 @@ export const EmployeesView: React.FC = () => {
   // If Full Profile is active, render Full Profile Screen
   if (activeEmployeeModalId) {
     return (
-      <EmployeeFullProfileView
-        employeeId={activeEmployeeModalId}
-        onBack={closeEmployeeProfile}
-      />
+      <EmployeeFullProfileView employeeId={activeEmployeeModalId} onBack={closeEmployeeProfile} />
     );
   }
 
@@ -576,7 +580,9 @@ export const EmployeesView: React.FC = () => {
         <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">وثائق وإقامات قريبة</span>
-            <h4 className="text-xl font-black text-destructive mt-0.5">{expiringDocsCount} تنبيهات</h4>
+            <h4 className="text-xl font-black text-destructive mt-0.5">
+              {expiringDocsCount} تنبيهات
+            </h4>
             <span className="text-[10px] text-destructive font-bold">أقل من 60 يوماً</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-destructive/10 flex items-center justify-center text-destructive">
@@ -921,7 +927,11 @@ export const EmployeesView: React.FC = () => {
         <div className="rounded-3xl border border-border/80 bg-card overflow-hidden shadow-xs p-5 space-y-3">
           <div className="flex justify-between items-center px-1">
             <span className="text-xs font-bold text-muted-foreground">
-              عرض <span className="text-foreground font-black font-mono">{filteredEmployees.length}</span> موظفاً
+              عرض{" "}
+              <span className="text-foreground font-black font-mono">
+                {filteredEmployees.length}
+              </span>{" "}
+              موظفاً
             </span>
           </div>
 
@@ -1004,13 +1014,17 @@ export const EmployeesView: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="font-bold text-foreground block">{emp.departmentName}</span>
+                        <span className="font-bold text-foreground block">
+                          {emp.departmentName}
+                        </span>
                         <span className="text-[10px] text-muted-foreground">
                           {emp.subsidiaryName || "فوكس للتقنية"}
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="text-foreground font-semibold block">{emp.jobTitleAr}</span>
+                        <span className="text-foreground font-semibold block">
+                          {emp.jobTitleAr}
+                        </span>
                         <span className="text-[10px] text-muted-foreground font-bold">
                           {emp.workType === "remote"
                             ? "🌐 عن بعد"
@@ -1107,7 +1121,11 @@ export const EmployeesView: React.FC = () => {
         <div className="space-y-4">
           <div className="flex justify-between items-center px-1 text-xs">
             <span className="font-bold text-muted-foreground">
-              عرض <span className="text-foreground font-black font-mono">{filteredEmployees.length}</span> بطاقة موظف
+              عرض{" "}
+              <span className="text-foreground font-black font-mono">
+                {filteredEmployees.length}
+              </span>{" "}
+              بطاقة موظف
             </span>
             <button
               type="button"
@@ -1130,7 +1148,9 @@ export const EmployeesView: React.FC = () => {
                 <div
                   key={emp.id}
                   className={`rounded-3xl border bg-card p-5 shadow-xs transition-all duration-200 hover:shadow-md hover:border-primary/50 relative flex flex-col justify-between space-y-4 ${
-                    isSelected ? "border-primary ring-2 ring-primary/20 bg-primary/[0.02]" : "border-border/80"
+                    isSelected
+                      ? "border-primary ring-2 ring-primary/20 bg-primary/[0.02]"
+                      : "border-border/80"
                   }`}
                 >
                   {/* Top Bar with Checkbox & Status */}
@@ -1207,7 +1227,9 @@ export const EmployeesView: React.FC = () => {
                       <Badge variant="secondary" className="rounded-full px-2 font-mono font-bold">
                         {emp.employeeNo}
                       </Badge>
-                      <span className="text-primary font-bold">{emp.jobGrade || "L3 - اختصاصي"}</span>
+                      <span className="text-primary font-bold">
+                        {emp.jobGrade || "L3 - اختصاصي"}
+                      </span>
                     </div>
                   </div>
 

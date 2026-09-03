@@ -73,12 +73,13 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     openEmployeeProfile,
     approveRequest,
     rejectRequest,
+    isSaving,
   } = useApp();
 
   // Active Tab within Dashboard
-  const [dashboardTab, setDashboardTab] = useState<"overview" | "tasks" | "compliance" | "activity">(
-    "overview",
-  );
+  const [dashboardTab, setDashboardTab] = useState<
+    "overview" | "tasks" | "compliance" | "activity"
+  >("overview");
 
   // Search & Filter within Urgent Tasks tab
   const [taskSearch, setTaskSearch] = useState("");
@@ -119,7 +120,8 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
   }, [employees]);
 
   const expatriateEmployees = totalEmployees - saudiEmployees.length;
-  const saudizationRate = totalEmployees > 0 ? ((saudiEmployees.length / totalEmployees) * 100).toFixed(1) : "0";
+  const saudizationRate =
+    totalEmployees > 0 ? ((saudiEmployees.length / totalEmployees) * 100).toFixed(1) : "0";
 
   // Expiring Document Simulation
   const expiringDocsCount = 3; // 2 passports/iqamas expiring within 30 days + 1 expired
@@ -135,18 +137,23 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     });
   }, [pendingApprovals, taskSearch, taskCategoryFilter]);
 
-  const handleQuickPunch = (type: "in" | "out") => {
-    const res = punchInOut(type);
-    toast.success(res.message);
+  const handleQuickPunch = async (type: "in" | "out") => {
+    if (isSaving) return;
+    const res = await punchInOut(type);
+    if (res.success) toast.success(res.message);
   };
 
-  const handleDirectApprove = (id: string, requesterName: string) => {
-    approveRequest(id, "تم الاعتماد السريع عبر لوحة المتابعة التشغيلية");
+  const handleDirectApprove = async (id: string, requesterName: string) => {
+    if (isSaving) return;
+    const saved = await approveRequest(id, "تم الاعتماد السريع عبر لوحة المتابعة التشغيلية");
+    if (!saved) return;
     toast.success(`تم اعتماد طلب (${requesterName}) بنجاح`);
   };
 
-  const handleDirectReject = (id: string, requesterName: string) => {
-    rejectRequest(id, "تم الرفض عبر لوحة المتابعة لعدم استيفاء الشروط");
+  const handleDirectReject = async (id: string, requesterName: string) => {
+    if (isSaving) return;
+    const saved = await rejectRequest(id, "تم الرفض عبر لوحة المتابعة لعدم استيفاء الشروط");
+    if (!saved) return;
     toast.info(`تم رفض طلب (${requesterName})`);
   };
 
@@ -245,7 +252,9 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           className="group rounded-3xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:shadow-md cursor-pointer relative overflow-hidden"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-muted-foreground">{t.dashboard.totalEmployees}</span>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              {t.dashboard.totalEmployees}
+            </span>
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary text-primary group-hover:scale-110 transition-transform">
               <Users className="h-5 w-5" />
             </div>
@@ -265,7 +274,9 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           className="group rounded-3xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:shadow-md cursor-pointer relative overflow-hidden"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-muted-foreground">الانضباط والحضور اليوم</span>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              الانضباط والحضور اليوم
+            </span>
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 group-hover:scale-110 transition-transform">
               <UserCheck className="h-5 w-5" />
             </div>
@@ -289,7 +300,9 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           className="group rounded-3xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:shadow-md cursor-pointer relative overflow-hidden"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-muted-foreground">معدل التوطين (نطاقات)</span>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              معدل التوطين (نطاقات)
+            </span>
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 group-hover:scale-110 transition-transform">
               <ShieldCheck className="h-5 w-5" />
             </div>
@@ -311,7 +324,9 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           className="group rounded-3xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:shadow-md cursor-pointer relative overflow-hidden"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-muted-foreground">الطلبات بانتظار القرار</span>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              الطلبات بانتظار القرار
+            </span>
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 group-hover:scale-110 transition-transform">
               <AlertCircle className="h-5 w-5" />
             </div>
@@ -338,7 +353,8 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-2xl font-black text-foreground">
-              {currentPayroll ? (currentPayroll.totalNetSalary / 1000).toFixed(1) + "K" : "0"} {t.currency}
+              {currentPayroll ? (currentPayroll.totalNetSalary / 1000).toFixed(1) + "K" : "0"}{" "}
+              {t.currency}
             </span>
             <Badge
               variant="outline"
@@ -347,7 +363,9 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               جاهز للمراجعة
             </Badge>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground font-medium">مسير شهر 8 متوافق مع SIF</p>
+          <p className="mt-1 text-[11px] text-muted-foreground font-medium">
+            مسير شهر 8 متوافق مع SIF
+          </p>
         </div>
       </div>
 
@@ -542,12 +560,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip />
-                  <Bar
-                    dataKey="count"
-                    name="عدد الموظفين"
-                    fill="#0B57D0"
-                    radius={[8, 8, 0, 0]}
-                  />
+                  <Bar dataKey="count" name="عدد الموظفين" fill="#0B57D0" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -637,7 +650,9 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                         </span>
                       </td>
                       <td className="py-3 px-4 max-w-xs truncate text-muted-foreground font-medium">
-                        {String(req.payload.reason || req.payload.notes || "طلب معتمد في مسار الخدمة")}
+                        {String(
+                          req.payload.reason || req.payload.notes || "طلب معتمد في مسار الخدمة",
+                        )}
                       </td>
                       <td className="py-3 px-4 text-center font-mono text-[10px] text-muted-foreground">
                         {new Date(req.submittedAt).toLocaleDateString("ar-SA")}
@@ -667,7 +682,10 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                   ))}
                   {filteredPendingTasks.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="text-center py-8 text-muted-foreground font-medium">
+                      <td
+                        colSpan={5}
+                        className="text-center py-8 text-muted-foreground font-medium"
+                      >
                         🎉 لا توجد طلبات معلقة تطابق البحث حالياً
                       </td>
                     </tr>
@@ -705,11 +723,16 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="rounded-2xl border border-amber-300 bg-amber-500/10 p-4 space-y-2">
                 <div className="flex justify-between items-start">
-                  <span className="font-bold text-amber-800 text-xs">جواز سفر - د. طارق المنصور</span>
-                  <Badge className="bg-amber-600 text-white text-[9px] rounded-full">ينتهي قريباً</Badge>
+                  <span className="font-bold text-amber-800 text-xs">
+                    جواز سفر - د. طارق المنصور
+                  </span>
+                  <Badge className="bg-amber-600 text-white text-[9px] rounded-full">
+                    ينتهي قريباً
+                  </Badge>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  تاريخ الانتهاء: <strong className="font-mono text-foreground">2026-09-25</strong> (متبقي 22 يوماً)
+                  تاريخ الانتهاء: <strong className="font-mono text-foreground">2026-09-25</strong>{" "}
+                  (متبقي 22 يوماً)
                 </p>
                 <Button
                   size="sm"
@@ -723,11 +746,16 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
               <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 space-y-2">
                 <div className="flex justify-between items-start">
-                  <span className="font-bold text-destructive text-xs">شهادة فحص طبي - أ. هيفاء الشهري</span>
-                  <Badge variant="destructive" className="text-[9px] rounded-full">منتهية الصلاحية</Badge>
+                  <span className="font-bold text-destructive text-xs">
+                    شهادة فحص طبي - أ. هيفاء الشهري
+                  </span>
+                  <Badge variant="destructive" className="text-[9px] rounded-full">
+                    منتهية الصلاحية
+                  </Badge>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  تاريخ الانتهاء: <strong className="font-mono text-destructive">2026-08-01</strong> (منتهية)
+                  تاريخ الانتهاء: <strong className="font-mono text-destructive">2026-08-01</strong>{" "}
+                  (منتهية)
                 </p>
                 <Button
                   size="sm"
@@ -740,11 +768,16 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
               <div className="rounded-2xl border border-emerald-300 bg-emerald-500/10 p-4 space-y-2">
                 <div className="flex justify-between items-start">
-                  <span className="font-bold text-emerald-800 text-xs">عقد قوى - أ. نورة التميمي</span>
-                  <Badge className="bg-emerald-600 text-white text-[9px] rounded-full">موثق وسارٍ</Badge>
+                  <span className="font-bold text-emerald-800 text-xs">
+                    عقد قوى - أ. نورة التميمي
+                  </span>
+                  <Badge className="bg-emerald-600 text-white text-[9px] rounded-full">
+                    موثق وسارٍ
+                  </Badge>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  تاريخ الانتهاء: <strong className="font-mono text-foreground">2027-02-01</strong> (ساري المفعول)
+                  تاريخ الانتهاء: <strong className="font-mono text-foreground">2027-02-01</strong>{" "}
+                  (ساري المفعول)
                 </p>
                 <Button
                   size="sm"

@@ -48,6 +48,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     submitAttendanceCorrection,
     language,
     t,
+    isSaving,
   } = useApp();
 
   // Dialog States
@@ -73,20 +74,29 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
   const [corrReason, setCorrReason] = useState("");
 
   const handlePunch = (type: "in" | "out") => {
+    if (isSaving) return;
     if (typeof navigator !== "undefined" && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const res = punchInOut(type, { lat: pos.coords.latitude, lng: pos.coords.longitude });
-          toast.success(`${res.message} (GPS: ${res.geofenceValid ? "داخل نطاق مقر العمل" : "خارج النطاق"})`);
+        async (pos) => {
+          const res = await punchInOut(type, {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          });
+          if (res.success) {
+            toast.success(
+              `${res.message} (GPS: ${res.geofenceValid ? "داخل نطاق مقر العمل" : "خارج النطاق"})`,
+            );
+          }
         },
-        () => {
-          const res = punchInOut(type);
-          toast.success(res.message);
+        async () => {
+          const res = await punchInOut(type);
+          if (res.success) toast.success(res.message);
         },
       );
     } else {
-      const res = punchInOut(type);
-      toast.success(res.message);
+      void punchInOut(type).then((res) => {
+        if (res.success) toast.success(res.message);
+      });
     }
   };
 
@@ -97,12 +107,13 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     setIsCertificateModalOpen(false);
   };
 
-  const handleSubmitQuickLeave = () => {
+  const handleSubmitQuickLeave = async () => {
+    if (isSaving) return;
     if (!leaveReason.trim()) {
       toast.error("يرجى كتابة سبب الإجازة");
       return;
     }
-    const success = applyLeave({
+    const success = await applyLeave({
       leaveTypeId,
       startDate: leaveStart,
       endDate: leaveEnd,
@@ -133,7 +144,8 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
   const myPendingRequests = requests.filter((r) => r.requesterId === currentUser.id);
   const myPayroll = payrollDetails[0];
-  const annualBalance = leaveBalances.find((b) => b.leaveTypeId.includes("annual")) || leaveBalances[0];
+  const annualBalance =
+    leaveBalances.find((b) => b.leaveTypeId.includes("annual")) || leaveBalances[0];
 
   return (
     <div className="space-y-6">
@@ -141,11 +153,18 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
         <div>
           <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol name="smartphone" source="material" filled size={26} className="text-primary" />
+            <IconSymbol
+              name="smartphone"
+              source="material"
+              filled
+              size={26}
+              className="text-primary"
+            />
             بوابة الخدمة الذاتية وتطبيق الجوال الذكي (M07)
           </h1>
           <p className="text-xs text-muted-foreground font-medium mt-1">
-            تجربة الخدمة الذاتية الموحدة للموظف: تسجيل الحضور بالـ GPS، تقديم الإجازات، قسيمة الراتب، وشهادات التعريف
+            تجربة الخدمة الذاتية الموحدة للموظف: تسجيل الحضور بالـ GPS، تقديم الإجازات، قسيمة
+            الراتب، وشهادات التعريف
           </p>
         </div>
       </div>
@@ -214,7 +233,9 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           {/* Quick Leave Balance Pill */}
           <div className="rounded-2xl border border-border/70 bg-muted/30 p-3 flex justify-between items-center text-xs">
             <div>
-              <span className="text-muted-foreground text-[10px] block font-medium">رصيد إجازتك السنوية:</span>
+              <span className="text-muted-foreground text-[10px] block font-medium">
+                رصيد إجازتك السنوية:
+              </span>
               <span className="font-black text-foreground text-sm font-mono">
                 {annualBalance?.availableBalance ?? 21} يوم متاح
               </span>
@@ -519,12 +540,17 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-1.5 text-xs">
               <p className="font-bold text-foreground">بيانات الشهادة:</p>
               <p className="text-muted-foreground">
-                الموظف: <strong className="text-foreground">{currentUser.firstNameAr} {currentUser.lastNameAr}</strong>
+                الموظف:{" "}
+                <strong className="text-foreground">
+                  {currentUser.firstNameAr} {currentUser.lastNameAr}
+                </strong>
               </p>
               <p className="text-muted-foreground font-mono">
                 الراتب الأساسي: 12,000 ر.س • إجمالي الراتب: 16,000 ر.س
               </p>
-              <p className="text-muted-foreground font-mono">تاريخ المباشرة: {currentUser.hireDate}</p>
+              <p className="text-muted-foreground font-mono">
+                تاريخ المباشرة: {currentUser.hireDate}
+              </p>
             </div>
           </div>
 
@@ -563,7 +589,8 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                 <div className="flex justify-between text-emerald-600 font-bold">
                   <span>بدل السكن + النقل:</span>
                   <span>
-                    +{(myPayroll.housingAllowance + myPayroll.transportAllowance).toLocaleString()} ر.س
+                    +{(myPayroll.housingAllowance + myPayroll.transportAllowance).toLocaleString()}{" "}
+                    ر.س
                   </span>
                 </div>
                 {myPayroll.overtimeAmount > 0 && (
@@ -594,7 +621,10 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                   <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
                   <span>معتمد ومصادق إلكترونياً</span>
                 </div>
-                <Badge variant="outline" className="font-mono text-[9px] border-emerald-300 text-emerald-700">
+                <Badge
+                  variant="outline"
+                  className="font-mono text-[9px] border-emerald-300 text-emerald-700"
+                >
                   WPS VERIFIED
                 </Badge>
               </div>

@@ -12,6 +12,7 @@ export default defineConfig({
         "src/lib/auth/permissions.ts",
         "src/lib/auth/roles.ts",
         "src/lib/config/runtime-config.ts",
+        "src/lib/data/reliable-mutation.ts",
         "src/lib/utils/payroll-calculator.ts",
         "src/lib/utils/eosb-calculator.ts",
         "src/lib/utils/export-helpers.ts",

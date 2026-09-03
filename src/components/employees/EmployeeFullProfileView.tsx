@@ -50,13 +50,7 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "../ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 
 interface EmployeeFullProfileViewProps {
   employeeId: string;
@@ -88,6 +82,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
     leaveBalances,
     requests,
     updateEmployee,
+    isSaving,
     currentRole,
     language,
     t,
@@ -161,7 +156,11 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
         educationDegree: employee.educationDegree || "بكالوريوس علوم حاسب ونظم معلومات",
         university: employee.university || "جامعة الملك سعود",
         graduationYear: employee.graduationYear || 2015,
-        certifications: employee.certifications || ["PMP Certified", "AWS Solutions Architect", "Scrum Master"],
+        certifications: employee.certifications || [
+          "PMP Certified",
+          "AWS Solutions Architect",
+          "Scrum Master",
+        ],
         languages: employee.languages || ["العربية (اللغة الأم)", "الإنجليزية (طلاقة احترافية)"],
         nationalAddress: employee.nationalAddress || {
           buildingNo: "7214",
@@ -203,10 +202,12 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
         return;
       }
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         const result = reader.result as string;
+        if (isSaving) return;
+        const saved = await updateEmployee(employee.id, { avatarUrl: result });
+        if (!saved) return;
         setFormData((prev) => ({ ...prev, avatarUrl: result }));
-        updateEmployee(employee.id, { avatarUrl: result });
         setIsAvatarModalOpen(false);
         toast.success("تم تحديث صورة البروفايل بنجاح!");
       };
@@ -214,23 +215,27 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
     }
   };
 
-  const handleSelectPresetAvatar = (url: string) => {
+  const handleSelectPresetAvatar = async (url: string) => {
+    if (isSaving) return;
+    const saved = await updateEmployee(employee.id, { avatarUrl: url });
+    if (!saved) return;
     setFormData((prev) => ({ ...prev, avatarUrl: url }));
-    updateEmployee(employee.id, { avatarUrl: url });
     setIsAvatarModalOpen(false);
     toast.success("تم تعيين الصورة الرمزية للموظف بنجاح!");
   };
 
-  const handleSaveCustomAvatarUrl = () => {
-    if (!customAvatarUrl.trim()) return;
+  const handleSaveCustomAvatarUrl = async () => {
+    if (!customAvatarUrl.trim() || isSaving) return;
+    const saved = await updateEmployee(employee.id, { avatarUrl: customAvatarUrl });
+    if (!saved) return;
     setFormData((prev) => ({ ...prev, avatarUrl: customAvatarUrl }));
-    updateEmployee(employee.id, { avatarUrl: customAvatarUrl });
     setIsAvatarModalOpen(false);
     setCustomAvatarUrl("");
     toast.success("تم تحديث رابط الصورة بنجاح!");
   };
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
+    if (isSaving) return;
     if (!formData.firstNameAr || !formData.lastNameAr || !formData.email) {
       toast.error("يرجى التأكد من استكمال الحقول الأساسية");
       return;
@@ -262,13 +267,15 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
       gosiEmployerContribution: gosiComp,
       departmentName: selectedDept?.nameAr || formData.departmentName || employee.departmentName,
       subsidiaryName: selectedSub?.nameAr || formData.subsidiaryName || employee.subsidiaryName,
-      workLocationName: selectedLoc?.nameAr || formData.workLocationName || employee.workLocationName,
+      workLocationName:
+        selectedLoc?.nameAr || formData.workLocationName || employee.workLocationName,
       managerName: selectedMgr
         ? `${selectedMgr.firstNameAr} ${selectedMgr.lastNameAr}`
         : formData.managerName || employee.managerName,
     };
 
-    updateEmployee(employee.id, updates);
+    const saved = await updateEmployee(employee.id, updates);
+    if (!saved) return;
     toast.success(`تم حفظ وتحديث ملف الموظف (${updates.firstNameAr} ${updates.lastNameAr}) بنجاح!`);
     setIsEditing(false);
   };
@@ -295,7 +302,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
             <span>/</span>
             <span>الملف الموحد 360°</span>
             <span>/</span>
-            <span className="font-bold text-foreground">{employee.firstNameAr} {employee.lastNameAr}</span>
+            <span className="font-bold text-foreground">
+              {employee.firstNameAr} {employee.lastNameAr}
+            </span>
           </div>
         </div>
 
@@ -362,7 +371,10 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           {/* Avatar & Key Info */}
           <div className="flex items-center gap-5">
-            <div className="relative group cursor-pointer" onClick={() => setIsAvatarModalOpen(true)}>
+            <div
+              className="relative group cursor-pointer"
+              onClick={() => setIsAvatarModalOpen(true)}
+            >
               <img
                 src={
                   formData.avatarUrl ||
@@ -410,18 +422,31 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                       ? "فترة التجربة (90 يوم)"
                       : "في إجازة رسمية"}
                 </Badge>
-                <Badge variant="secondary" className="text-[11px] rounded-full px-3 py-0.5 font-bold">
+                <Badge
+                  variant="secondary"
+                  className="text-[11px] rounded-full px-3 py-0.5 font-bold"
+                >
                   {formData.jobGrade || employee.jobGrade || "L4 - اختصاصي أول"}
                 </Badge>
-                <Badge variant="outline" className="text-[11px] rounded-full px-3 py-0.5 font-bold border-primary/30 text-primary">
-                  {formData.workType === "remote" ? "🌐 عمل عن بعد" : formData.workType === "hybrid" ? "💼 عمل هجين" : "🏢 حضور مكتبي"}
+                <Badge
+                  variant="outline"
+                  className="text-[11px] rounded-full px-3 py-0.5 font-bold border-primary/30 text-primary"
+                >
+                  {formData.workType === "remote"
+                    ? "🌐 عمل عن بعد"
+                    : formData.workType === "hybrid"
+                      ? "💼 عمل هجين"
+                      : "🏢 حضور مكتبي"}
                 </Badge>
               </div>
 
               <p className="text-xs text-muted-foreground font-medium">
-                {formData.jobTitleAr || employee.jobTitleAr} • {formData.departmentName || employee.departmentName} •{" "}
+                {formData.jobTitleAr || employee.jobTitleAr} •{" "}
+                {formData.departmentName || employee.departmentName} •{" "}
                 <span className="font-mono font-bold text-foreground">{employee.employeeNo}</span> •{" "}
-                <span className="text-primary font-bold">{formData.costCenter || employee.costCenter || "CC-101"}</span>
+                <span className="text-primary font-bold">
+                  {formData.costCenter || employee.costCenter || "CC-101"}
+                </span>
               </p>
 
               <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
@@ -503,25 +528,46 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
       {/* Comprehensive 7-Tab Content */}
       <Tabs defaultValue="identity" className="w-full">
         <TabsList className="grid grid-cols-7 w-full bg-muted/60 p-1.5 rounded-full border border-border/60">
-          <TabsTrigger value="identity" className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="identity"
+            className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             الهوية والعنوان
           </TabsTrigger>
-          <TabsTrigger value="job" className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="job"
+            className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             الوظيفة والعقد
           </TabsTrigger>
-          <TabsTrigger value="compensation" className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="compensation"
+            className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             الأجور والتأمينات
           </TabsTrigger>
-          <TabsTrigger value="education" className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="education"
+            className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             المؤهلات والشهادات
           </TabsTrigger>
-          <TabsTrigger value="assets" className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="assets"
+            className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             العهد والأصول
           </TabsTrigger>
-          <TabsTrigger value="documents" className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="documents"
+            className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             الخزينة الرقمية
           </TabsTrigger>
-          <TabsTrigger value="activity" className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="activity"
+            className="rounded-full text-xs font-bold py-2.5 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             الإجازات والطلبات
           </TabsTrigger>
         </TabsList>
@@ -531,7 +577,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
           <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
             <div className="flex items-center gap-2 border-b border-border/60 pb-3">
               <User className="h-5 w-5 text-primary" />
-              <h3 className="font-black text-sm text-foreground">بيانات الهوية الشخصية، الأحوال المدنية، وجواز السفر</h3>
+              <h3 className="font-black text-sm text-foreground">
+                بيانات الهوية الشخصية، الأحوال المدنية، وجواز السفر
+              </h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
@@ -545,7 +593,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
-                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">{employee.firstNameAr}</p>
+                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.firstNameAr}
+                  </p>
                 )}
               </div>
 
@@ -559,7 +609,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
-                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">{employee.lastNameAr}</p>
+                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.lastNameAr}
+                  </p>
                 )}
               </div>
 
@@ -573,26 +625,36 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
-                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">{employee.firstNameEn} {employee.lastNameEn}</p>
+                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.firstNameEn} {employee.lastNameEn}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">رقم الهوية الوطنية / الإقامة *</label>
+                <label className="font-bold text-muted-foreground">
+                  رقم الهوية الوطنية / الإقامة *
+                </label>
                 {isEditing ? (
                   <input
                     type="text"
                     value={formData.nationalIdOrIqama || ""}
-                    onChange={(e) => setFormData({ ...formData, nationalIdOrIqama: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, nationalIdOrIqama: e.target.value })
+                    }
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
-                  <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">{employee.nationalIdOrIqama}</p>
+                  <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.nationalIdOrIqama}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">تاريخ انتهاء الهوية / الإقامة</label>
+                <label className="font-bold text-muted-foreground">
+                  تاريخ انتهاء الهوية / الإقامة
+                </label>
                 {isEditing ? (
                   <input
                     type="date"
@@ -601,7 +663,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
-                  <p className="font-mono font-bold text-emerald-600 bg-muted/20 p-2.5 rounded-2xl">{employee.nationalIdExpiry || "2030-05-15"}</p>
+                  <p className="font-mono font-bold text-emerald-600 bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.nationalIdExpiry || "2030-05-15"}
+                  </p>
                 )}
               </div>
 
@@ -615,7 +679,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
-                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">{employee.nationality}</p>
+                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.nationality}
+                  </p>
                 )}
               </div>
 
@@ -629,24 +695,33 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
-                  <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">{employee.passportNo || "KSA-99881122"}</p>
+                  <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.passportNo || "KSA-99881122"}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-1.5">
                 <label className="font-bold text-muted-foreground">فصيلة الدم</label>
-                <p className="font-bold text-primary bg-primary/10 p-2.5 rounded-2xl font-mono">{employee.bloodType || "O+"}</p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">الحالة الاجتماعية والمعالين</label>
-                <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                  {employee.maritalStatus === "married" ? "متزوج" : "أعزب"} • {employee.dependentsCount || 0} أفراد معالين
+                <p className="font-bold text-primary bg-primary/10 p-2.5 rounded-2xl font-mono">
+                  {employee.bloodType || "O+"}
                 </p>
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">البريد الإلكتروني الرسمي للعمل</label>
+                <label className="font-bold text-muted-foreground">
+                  الحالة الاجتماعية والمعالين
+                </label>
+                <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                  {employee.maritalStatus === "married" ? "متزوج" : "أعزب"} •{" "}
+                  {employee.dependentsCount || 0} أفراد معالين
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">
+                  البريد الإلكتروني الرسمي للعمل
+                </label>
                 {isEditing ? (
                   <input
                     type="email"
@@ -655,7 +730,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
-                  <p className="font-mono font-medium text-foreground bg-muted/20 p-2.5 rounded-2xl">{employee.email}</p>
+                  <p className="font-mono font-medium text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.email}
+                  </p>
                 )}
               </div>
 
@@ -669,7 +746,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
-                  <p className="font-mono font-medium text-foreground bg-muted/20 p-2.5 rounded-2xl">{employee.phone}</p>
+                  <p className="font-mono font-medium text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.phone}
+                  </p>
                 )}
               </div>
             </div>
@@ -680,24 +759,44 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
             <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
               <div className="flex items-center gap-2 border-b border-border/60 pb-3">
                 <Home className="h-5 w-5 text-emerald-600" />
-                <h4 className="font-black text-xs text-foreground">العنوان الوطني الموحد (Saudi Post SPL)</h4>
+                <h4 className="font-black text-xs text-foreground">
+                  العنوان الوطني الموحد (Saudi Post SPL)
+                </h4>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="bg-muted/20 p-3 rounded-2xl">
-                  <span className="text-[10px] text-muted-foreground font-bold block">المدينة والحي</span>
-                  <span className="font-bold text-foreground">{employee.nationalAddress?.city || "الرياض"} - {employee.nationalAddress?.district || "حي النخيل"}</span>
+                  <span className="text-[10px] text-muted-foreground font-bold block">
+                    المدينة والحي
+                  </span>
+                  <span className="font-bold text-foreground">
+                    {employee.nationalAddress?.city || "الرياض"} -{" "}
+                    {employee.nationalAddress?.district || "حي النخيل"}
+                  </span>
                 </div>
                 <div className="bg-muted/20 p-3 rounded-2xl">
-                  <span className="text-[10px] text-muted-foreground font-bold block">اسم الشارع</span>
-                  <span className="font-bold text-foreground">{employee.nationalAddress?.street || "شارع التخصصي"}</span>
+                  <span className="text-[10px] text-muted-foreground font-bold block">
+                    اسم الشارع
+                  </span>
+                  <span className="font-bold text-foreground">
+                    {employee.nationalAddress?.street || "شارع التخصصي"}
+                  </span>
                 </div>
                 <div className="bg-muted/20 p-3 rounded-2xl">
-                  <span className="text-[10px] text-muted-foreground font-bold block">رقم المبنى</span>
-                  <span className="font-mono font-black text-primary">{employee.nationalAddress?.buildingNo || "7214"}</span>
+                  <span className="text-[10px] text-muted-foreground font-bold block">
+                    رقم المبنى
+                  </span>
+                  <span className="font-mono font-black text-primary">
+                    {employee.nationalAddress?.buildingNo || "7214"}
+                  </span>
                 </div>
                 <div className="bg-muted/20 p-3 rounded-2xl">
-                  <span className="text-[10px] text-muted-foreground font-bold block">الرمز البريدي والإضافي</span>
-                  <span className="font-mono font-bold text-foreground">{employee.nationalAddress?.postalCode || "12383"} - {employee.nationalAddress?.additionalNo || "3310"}</span>
+                  <span className="text-[10px] text-muted-foreground font-bold block">
+                    الرمز البريدي والإضافي
+                  </span>
+                  <span className="font-mono font-bold text-foreground">
+                    {employee.nationalAddress?.postalCode || "12383"} -{" "}
+                    {employee.nationalAddress?.additionalNo || "3310"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -705,20 +804,28 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
             <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
               <div className="flex items-center gap-2 border-b border-border/60 pb-3">
                 <HeartPulse className="h-5 w-5 text-destructive" />
-                <h4 className="font-black text-xs text-foreground">جهة اتصال الطوارئ (Emergency Contact)</h4>
+                <h4 className="font-black text-xs text-foreground">
+                  جهة اتصال الطوارئ (Emergency Contact)
+                </h4>
               </div>
               <div className="space-y-2.5 text-xs">
                 <div className="flex justify-between bg-muted/20 p-3 rounded-2xl">
                   <span className="text-muted-foreground font-bold">اسم جهة الاتصال:</span>
-                  <span className="font-bold text-foreground">{employee.emergencyContact?.name || "سعود المهيري"}</span>
+                  <span className="font-bold text-foreground">
+                    {employee.emergencyContact?.name || "سعود المهيري"}
+                  </span>
                 </div>
                 <div className="flex justify-between bg-muted/20 p-3 rounded-2xl">
                   <span className="text-muted-foreground font-bold">صلة القرابة:</span>
-                  <span className="font-bold text-foreground">{employee.emergencyContact?.relation || "شقيق"}</span>
+                  <span className="font-bold text-foreground">
+                    {employee.emergencyContact?.relation || "شقيق"}
+                  </span>
                 </div>
                 <div className="flex justify-between bg-muted/20 p-3 rounded-2xl">
                   <span className="text-muted-foreground font-bold">رقم الهاتف المباشر:</span>
-                  <span className="font-mono font-bold text-primary">{employee.emergencyContact?.phone || "+966 50 111 2233"}</span>
+                  <span className="font-mono font-bold text-primary">
+                    {employee.emergencyContact?.phone || "+966 50 111 2233"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -730,7 +837,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
           <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
             <div className="flex items-center gap-2 border-b border-border/60 pb-3">
               <Briefcase className="h-5 w-5 text-primary" />
-              <h3 className="font-black text-sm text-foreground">الهيكل الوظيفي، عقد قوى الرقمي، ومسار الترقية</h3>
+              <h3 className="font-black text-sm text-foreground">
+                الهيكل الوظيفي، عقد قوى الرقمي، ومسار الترقية
+              </h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
@@ -744,12 +853,16 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
-                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">{employee.jobTitleAr}</p>
+                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.jobTitleAr}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">الدرجة الوظيفية (Job Grade)</label>
+                <label className="font-bold text-muted-foreground">
+                  الدرجة الوظيفية (Job Grade)
+                </label>
                 {isEditing ? (
                   <input
                     type="text"
@@ -758,13 +871,19 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
-                  <p className="font-bold text-primary bg-primary/10 p-2.5 rounded-2xl">{employee.jobGrade || "L5 - مدير تنفيذي أول"}</p>
+                  <p className="font-bold text-primary bg-primary/10 p-2.5 rounded-2xl">
+                    {employee.jobGrade || "L5 - مدير تنفيذي أول"}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">مركز التكلفة (Cost Center)</label>
-                <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">{employee.costCenter || "CC-101 - تقنية المعلومات"}</p>
+                <label className="font-bold text-muted-foreground">
+                  مركز التكلفة (Cost Center)
+                </label>
+                <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                  {employee.costCenter || "CC-101 - تقنية المعلومات"}
+                </p>
               </div>
 
               <div className="space-y-1.5">
@@ -782,7 +901,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     ))}
                   </select>
                 ) : (
-                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">{employee.departmentName}</p>
+                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.departmentName}
+                  </p>
                 )}
               </div>
 
@@ -801,7 +922,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     ))}
                   </select>
                 ) : (
-                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">{employee.subsidiaryName || "فوكس للتقنية"}</p>
+                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.subsidiaryName || "فوكس للتقنية"}
+                  </p>
                 )}
               </div>
 
@@ -820,7 +943,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     ))}
                   </select>
                 ) : (
-                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">{employee.workLocationName}</p>
+                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.workLocationName}
+                  </p>
                 )}
               </div>
 
@@ -849,14 +974,19 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">رقم العقد الموحد في قوى (QIWA ID)</label>
-                <p className="font-mono font-bold text-emerald-600 bg-muted/20 p-2.5 rounded-2xl">{employee.qiwaContractNo || "QIWA-2021-99812"}</p>
+                <label className="font-bold text-muted-foreground">
+                  رقم العقد الموحد في قوى (QIWA ID)
+                </label>
+                <p className="font-mono font-bold text-emerald-600 bg-muted/20 p-2.5 rounded-2xl">
+                  {employee.qiwaContractNo || "QIWA-2021-99812"}
+                </p>
               </div>
 
               <div className="space-y-1.5">
                 <label className="font-bold text-muted-foreground">تاريخ بداية العقد ونهايته</label>
                 <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                  {employee.contractStartDate || employee.hireDate} ➔ {employee.contractEndDate || "2027-03-01"}
+                  {employee.contractStartDate || employee.hireDate} ➔{" "}
+                  {employee.contractEndDate || "2027-03-01"}
                 </p>
               </div>
             </div>
@@ -868,7 +998,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
           <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
             <div className="flex items-center gap-2 border-b border-border/60 pb-3">
               <CreditCard className="h-5 w-5 text-primary" />
-              <h3 className="font-black text-sm text-foreground">تفاصيل هيكل الأجور، البدلات، والتأمينات الاجتماعية (WPS & GOSI)</h3>
+              <h3 className="font-black text-sm text-foreground">
+                تفاصيل هيكل الأجور، البدلات، والتأمينات الاجتماعية (WPS & GOSI)
+              </h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
@@ -882,7 +1014,13 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                       const b = Number(e.target.value);
                       const h = Math.round(b * 0.25);
                       const tr = Math.round(b * 0.08);
-                      setFormData({ ...formData, basicSalary: b, housingAllowance: h, transportAllowance: tr, totalSalary: b + h + tr });
+                      setFormData({
+                        ...formData,
+                        basicSalary: b,
+                        housingAllowance: h,
+                        transportAllowance: tr,
+                        totalSalary: b + h + tr,
+                      });
                     }}
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono font-black focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
@@ -896,31 +1034,47 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
               <div className="space-y-1.5">
                 <label className="font-bold text-muted-foreground">بدل السكن (25%)</label>
                 <p className="font-mono font-bold text-emerald-600 bg-muted/20 p-2.5 rounded-2xl">
-                  +{(employee.housingAllowance || Math.round(employee.basicSalary * 0.25)).toLocaleString()} ر.س
+                  +
+                  {(
+                    employee.housingAllowance || Math.round(employee.basicSalary * 0.25)
+                  ).toLocaleString()}{" "}
+                  ر.س
                 </p>
               </div>
 
               <div className="space-y-1.5">
                 <label className="font-bold text-muted-foreground">بدل النقل والمواصلات</label>
                 <p className="font-mono font-bold text-emerald-600 bg-muted/20 p-2.5 rounded-2xl">
-                  +{(employee.transportAllowance || Math.round(employee.basicSalary * 0.08)).toLocaleString()} ر.س
+                  +
+                  {(
+                    employee.transportAllowance || Math.round(employee.basicSalary * 0.08)
+                  ).toLocaleString()}{" "}
+                  ر.س
                 </p>
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">إجمالي الراتب الشهري (Gross)</label>
+                <label className="font-bold text-muted-foreground">
+                  إجمالي الراتب الشهري (Gross)
+                </label>
                 <p className="font-mono font-black text-primary bg-primary/10 p-2.5 rounded-2xl text-sm">
                   {employee.totalSalary.toLocaleString()} ر.س
                 </p>
               </div>
 
               <div className="space-y-1.5 sm:col-span-2">
-                <label className="font-bold text-muted-foreground">البنك المعتمد لتحويل الراتب</label>
-                <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">{employee.bankName || "مصرف الراجحي (Al Rajhi Bank)"}</p>
+                <label className="font-bold text-muted-foreground">
+                  البنك المعتمد لتحويل الراتب
+                </label>
+                <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                  {employee.bankName || "مصرف الراجحي (Al Rajhi Bank)"}
+                </p>
               </div>
 
               <div className="space-y-1.5 sm:col-span-2">
-                <label className="font-bold text-muted-foreground">رقم الآيبان الدولي (IBAN - نظام حماية الأجور)</label>
+                <label className="font-bold text-muted-foreground">
+                  رقم الآيبان الدولي (IBAN - نظام حماية الأجور)
+                </label>
                 <p className="font-mono font-black text-foreground bg-muted/20 p-2.5 rounded-2xl text-xs">
                   {employee.iban || "SA44 8000 0201 6080 1000 1234"}
                 </p>
@@ -931,27 +1085,50 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-emerald-800 flex items-center gap-1.5 text-xs">
                     <Shield className="h-4 w-4 text-emerald-600" />
-                    اشتراك المؤسسة العامة للتأمينات الاجتماعية (GOSI) - مسجل برقم: {employee.gosiNumber || "7788990011"}
+                    اشتراك المؤسسة العامة للتأمينات الاجتماعية (GOSI) - مسجل برقم:{" "}
+                    {employee.gosiNumber || "7788990011"}
                   </span>
-                  <Badge className="bg-emerald-600 text-white text-[10px] rounded-full">ساري ومطابق لنظام العمل</Badge>
+                  <Badge className="bg-emerald-600 text-white text-[10px] rounded-full">
+                    ساري ومطابق لنظام العمل
+                  </Badge>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
                   <div className="bg-card/80 p-3 rounded-2xl border border-border/50">
-                    <span className="text-muted-foreground block text-[10px]">استقطاع الموظف (9.75%)</span>
+                    <span className="text-muted-foreground block text-[10px]">
+                      استقطاع الموظف (9.75%)
+                    </span>
                     <span className="font-mono font-bold text-destructive text-sm">
-                      -{(employee.gosiEmployeeDeduction || Math.round(employee.basicSalary * 0.0975)).toLocaleString()} ر.س
+                      -
+                      {(
+                        employee.gosiEmployeeDeduction || Math.round(employee.basicSalary * 0.0975)
+                      ).toLocaleString()}{" "}
+                      ر.س
                     </span>
                   </div>
                   <div className="bg-card/80 p-3 rounded-2xl border border-border/50">
-                    <span className="text-muted-foreground block text-[10px]">مساهمة المنشأة (11.75%)</span>
+                    <span className="text-muted-foreground block text-[10px]">
+                      مساهمة المنشأة (11.75%)
+                    </span>
                     <span className="font-mono font-bold text-emerald-700 text-sm">
-                      +{(employee.gosiEmployerContribution || Math.round(employee.basicSalary * 0.1175)).toLocaleString()} ر.س
+                      +
+                      {(
+                        employee.gosiEmployerContribution ||
+                        Math.round(employee.basicSalary * 0.1175)
+                      ).toLocaleString()}{" "}
+                      ر.س
                     </span>
                   </div>
                   <div className="bg-card/80 p-3 rounded-2xl border border-border/50">
-                    <span className="text-muted-foreground block text-[10px]">صافي الراتب المحول للحساب</span>
+                    <span className="text-muted-foreground block text-[10px]">
+                      صافي الراتب المحول للحساب
+                    </span>
                     <span className="font-mono font-black text-primary text-sm">
-                      {(employee.totalSalary - (employee.gosiEmployeeDeduction || Math.round(employee.basicSalary * 0.0975))).toLocaleString()} ر.س
+                      {(
+                        employee.totalSalary -
+                        (employee.gosiEmployeeDeduction ||
+                          Math.round(employee.basicSalary * 0.0975))
+                      ).toLocaleString()}{" "}
+                      ر.س
                     </span>
                   </div>
                 </div>
@@ -969,33 +1146,61 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                 <h4 className="font-black text-xs text-foreground">المؤهل الأكاديمي والتعليمي</h4>
               </div>
               <div className="bg-muted/20 p-4 rounded-2xl space-y-1.5 text-xs">
-                <span className="font-black text-foreground block text-base">{employee.educationDegree || "ماجستير هندسة البرمجيات"}</span>
-                <p className="text-muted-foreground font-semibold">{employee.university || "جامعة الملك فهد للبترول والمعادن"}</p>
-                <span className="text-[10px] text-primary font-mono font-bold block">سنة التخرج: {employee.graduationYear || 2013}</span>
+                <span className="font-black text-foreground block text-base">
+                  {employee.educationDegree || "ماجستير هندسة البرمجيات"}
+                </span>
+                <p className="text-muted-foreground font-semibold">
+                  {employee.university || "جامعة الملك فهد للبترول والمعادن"}
+                </p>
+                <span className="text-[10px] text-primary font-mono font-bold block">
+                  سنة التخرج: {employee.graduationYear || 2013}
+                </span>
               </div>
             </div>
 
             <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
               <div className="flex items-center gap-2 border-b border-border/60 pb-3">
                 <Award className="h-5 w-5 text-amber-500" />
-                <h4 className="font-black text-xs text-foreground">الشهادات المهنية واللغات المتقنة</h4>
+                <h4 className="font-black text-xs text-foreground">
+                  الشهادات المهنية واللغات المتقنة
+                </h4>
               </div>
               <div className="space-y-3.5 text-xs">
                 <div>
-                  <span className="text-[10px] text-muted-foreground font-bold block mb-2">الشهادات المعتمدة:</span>
+                  <span className="text-[10px] text-muted-foreground font-bold block mb-2">
+                    الشهادات المعتمدة:
+                  </span>
                   <div className="flex flex-wrap gap-2">
-                    {(employee.certifications || ["PMP Certified", "AWS Solutions Architect", "Scrum Master"]).map((cert, idx) => (
-                      <Badge key={idx} variant="secondary" className="text-[11px] rounded-full px-3 py-1 font-bold">
+                    {(
+                      employee.certifications || [
+                        "PMP Certified",
+                        "AWS Solutions Architect",
+                        "Scrum Master",
+                      ]
+                    ).map((cert, idx) => (
+                      <Badge
+                        key={idx}
+                        variant="secondary"
+                        className="text-[11px] rounded-full px-3 py-1 font-bold"
+                      >
                         ✓ {cert}
                       </Badge>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground font-bold block mb-2">اللغات:</span>
+                  <span className="text-[10px] text-muted-foreground font-bold block mb-2">
+                    اللغات:
+                  </span>
                   <div className="flex flex-wrap gap-2">
-                    {(employee.languages || ["العربية (اللغة الأم)", "الإنجليزية (طلاقة احترافية)"]).map((lang, idx) => (
-                      <Badge key={idx} variant="outline" className="text-[11px] rounded-full px-3 py-1 font-bold border-primary/30 text-primary">
+                    {(
+                      employee.languages || ["العربية (اللغة الأم)", "الإنجليزية (طلاقة احترافية)"]
+                    ).map((lang, idx) => (
+                      <Badge
+                        key={idx}
+                        variant="outline"
+                        className="text-[11px] rounded-full px-3 py-1 font-bold border-primary/30 text-primary"
+                      >
                         🌐 {lang}
                       </Badge>
                     ))}
@@ -1012,22 +1217,46 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <div className="flex items-center gap-2">
                 <Laptop className="h-5 w-5 text-primary" />
-                <h3 className="font-black text-sm text-foreground">العهد والأجهزة المستلمة ({employee.assignedAssets?.length || 2})</h3>
+                <h3 className="font-black text-sm text-foreground">
+                  العهد والأجهزة المستلمة ({employee.assignedAssets?.length || 2})
+                </h3>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
-              {(employee.assignedAssets || [
-                { name: "MacBook Pro M3 Max 16-inch", type: "كمبيوتر محمول", serialNo: "APL-M3-99882", assignedDate: "2023-11-10" },
-                { name: "شاشة Dell UltraSharp 4K 27-inch", type: "شاشة مكتبية", serialNo: "DEL-4K-55410", assignedDate: "2023-11-10" },
-              ]).map((ast, idx) => (
-                <div key={idx} className="rounded-2xl border border-border/60 bg-muted/20 p-4 flex justify-between items-center">
+              {(
+                employee.assignedAssets || [
+                  {
+                    name: "MacBook Pro M3 Max 16-inch",
+                    type: "كمبيوتر محمول",
+                    serialNo: "APL-M3-99882",
+                    assignedDate: "2023-11-10",
+                  },
+                  {
+                    name: "شاشة Dell UltraSharp 4K 27-inch",
+                    type: "شاشة مكتبية",
+                    serialNo: "DEL-4K-55410",
+                    assignedDate: "2023-11-10",
+                  },
+                ]
+              ).map((ast, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-2xl border border-border/60 bg-muted/20 p-4 flex justify-between items-center"
+                >
                   <div className="space-y-1">
                     <span className="font-bold text-foreground block text-sm">{ast.name}</span>
-                    <span className="text-[10px] text-muted-foreground font-mono block">الرقم التسلسلي: {ast.serialNo}</span>
-                    <span className="text-[10px] text-primary font-mono block">تاريخ التسليم: {ast.assignedDate}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono block">
+                      الرقم التسلسلي: {ast.serialNo}
+                    </span>
+                    <span className="text-[10px] text-primary font-mono block">
+                      تاريخ التسليم: {ast.assignedDate}
+                    </span>
                   </div>
-                  <Badge variant="outline" className="text-[10px] rounded-full bg-emerald-500/10 text-emerald-700 border-emerald-200">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] rounded-full bg-emerald-500/10 text-emerald-700 border-emerald-200"
+                  >
                     مسندة وفي العهدة
                   </Badge>
                 </div>
@@ -1042,26 +1271,57 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <div className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-emerald-600" />
-                <h3 className="font-black text-sm text-foreground">الخزينة الرقمية والمستندات المعتمدة</h3>
+                <h3 className="font-black text-sm text-foreground">
+                  الخزينة الرقمية والمستندات المعتمدة
+                </h3>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
-              {(employee.documentsList || [
-                { type: "national_id", title: "الهوية الوطنية / الإقامة", docNo: employee.nationalIdOrIqama, expiryDate: "2030-05-15", status: "valid" },
-                { type: "contract", title: "عقد العمل الموحد (قوى)", docNo: employee.qiwaContractNo || "QIWA-2021-99812", expiryDate: "2027-03-01", status: "valid" },
-              ]).map((doc, idx) => (
-                <div key={idx} className="rounded-2xl border border-border/60 bg-muted/20 p-4 flex justify-between items-center">
+              {(
+                employee.documentsList || [
+                  {
+                    type: "national_id",
+                    title: "الهوية الوطنية / الإقامة",
+                    docNo: employee.nationalIdOrIqama,
+                    expiryDate: "2030-05-15",
+                    status: "valid",
+                  },
+                  {
+                    type: "contract",
+                    title: "عقد العمل الموحد (قوى)",
+                    docNo: employee.qiwaContractNo || "QIWA-2021-99812",
+                    expiryDate: "2027-03-01",
+                    status: "valid",
+                  },
+                ]
+              ).map((doc, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-2xl border border-border/60 bg-muted/20 p-4 flex justify-between items-center"
+                >
                   <div className="space-y-1">
                     <span className="font-bold text-foreground block text-sm">{doc.title}</span>
-                    <span className="text-[10px] text-muted-foreground font-mono block">رقم المستند: {doc.docNo}</span>
-                    <span className="text-[10px] text-muted-foreground font-mono block">تاريخ الانتهاء: {doc.expiryDate}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono block">
+                      رقم المستند: {doc.docNo}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono block">
+                      تاريخ الانتهاء: {doc.expiryDate}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={`text-[10px] rounded-full ${doc.status === "valid" ? "bg-emerald-500/10 text-emerald-700 border-emerald-200" : "bg-amber-500/10 text-amber-700 border-amber-200"}`}>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] rounded-full ${doc.status === "valid" ? "bg-emerald-500/10 text-emerald-700 border-emerald-200" : "bg-amber-500/10 text-amber-700 border-amber-200"}`}
+                    >
                       {doc.status === "valid" ? "ساري الصلاحية" : "ينتهي قريباً"}
                     </Badge>
-                    <Button size="sm" variant="outline" onClick={() => setDocModalType("salary_certificate")} className="h-8 rounded-full text-xs font-bold gap-1 px-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setDocModalType("salary_certificate")}
+                      className="h-8 rounded-full text-xs font-bold gap-1 px-3"
+                    >
                       <Eye className="h-3.5 w-3.5 text-primary" />
                       معاينة
                     </Button>
@@ -1077,7 +1337,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
           <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
             <div className="flex items-center gap-2 border-b border-border/60 pb-3">
               <Clock className="h-5 w-5 text-primary" />
-              <h3 className="font-black text-sm text-foreground">سجل طلبات الموظف والإجازات والاعتمادات السابقة</h3>
+              <h3 className="font-black text-sm text-foreground">
+                سجل طلبات الموظف والإجازات والاعتمادات السابقة
+              </h3>
             </div>
 
             {empRequests.length === 0 ? (
@@ -1093,7 +1355,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   >
                     <div>
                       <span className="font-bold text-foreground block text-sm">
-                        {req.payload.leaveTypeNameAr || req.payload.categoryNameAr || req.payload.reason}
+                        {req.payload.leaveTypeNameAr ||
+                          req.payload.categoryNameAr ||
+                          req.payload.reason}
                       </span>
                       <span className="text-[10px] text-muted-foreground font-mono">
                         {req.referenceNo} • {req.submittedAt.split("T")[0]}
@@ -1109,7 +1373,11 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                             : "bg-amber-500/10 text-amber-700 border-amber-200"
                       }`}
                     >
-                      {req.status === "approved" ? "معتمد بالكامل" : req.status === "rejected" ? "مرفوض" : "قيد المراجعة"}
+                      {req.status === "approved"
+                        ? "معتمد بالكامل"
+                        : req.status === "rejected"
+                          ? "مرفوض"
+                          : "قيد المراجعة"}
                     </Badge>
                   </div>
                 ))}
@@ -1135,7 +1403,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
           <div className="space-y-4 py-2">
             {/* Upload from PC */}
             <div className="space-y-2">
-              <span className="text-xs font-bold text-foreground block">1. رفع صورة من الجهاز:</span>
+              <span className="text-xs font-bold text-foreground block">
+                1. رفع صورة من الجهاز:
+              </span>
               <input
                 type="file"
                 ref={fileInputRef}
@@ -1155,7 +1425,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
 
             {/* Presets Gallery */}
             <div className="space-y-2 pt-2 border-t border-border/60">
-              <span className="text-xs font-bold text-foreground block">2. أو اختر صورة رمزية احترافية جاهزة:</span>
+              <span className="text-xs font-bold text-foreground block">
+                2. أو اختر صورة رمزية احترافية جاهزة:
+              </span>
               <div className="grid grid-cols-5 gap-2.5">
                 {PRESET_AVATARS.map((url, idx) => (
                   <button
@@ -1164,7 +1436,11 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     onClick={() => handleSelectPresetAvatar(url)}
                     className="relative rounded-full overflow-hidden border-2 border-border hover:border-primary hover:scale-105 transition-all aspect-square"
                   >
-                    <img src={url} alt={`Avatar ${idx + 1}`} className="h-full w-full object-cover" />
+                    <img
+                      src={url}
+                      alt={`Avatar ${idx + 1}`}
+                      className="h-full w-full object-cover"
+                    />
                   </button>
                 ))}
               </div>
@@ -1172,7 +1448,9 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
 
             {/* Direct Image URL */}
             <div className="space-y-2 pt-2 border-t border-border/60">
-              <span className="text-xs font-bold text-foreground block">3. أو أدخل رابط صورة خارجي مباشر:</span>
+              <span className="text-xs font-bold text-foreground block">
+                3. أو أدخل رابط صورة خارجي مباشر:
+              </span>
               <div className="flex gap-2">
                 <input
                   type="url"

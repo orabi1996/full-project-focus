@@ -44,6 +44,11 @@ import type {
   RequestCategory,
 } from "../../types";
 import {
+  type PermissionGroup,
+  type ScreenActionPermissions,
+  INITIAL_ENTERPRISE_GROUPS,
+} from "../auth/rbac-definitions";
+import {
   adjustLeaveBalanceRecord,
   acknowledgeDocumentRecord,
   assignAssetRecord,
@@ -317,6 +322,21 @@ interface AppContextType {
     entityName: string,
     changesSummary: string,
   ) => void;
+
+  // RBAC Permission Groups & User Overrides
+  permissionGroups: PermissionGroup[];
+  userPermissionOverrides: Record<string, Record<string, ScreenActionPermissions>>;
+  createPermissionGroup: (group: Omit<PermissionGroup, "id">) => PermissionGroup;
+  updatePermissionGroup: (groupId: string, updates: Partial<PermissionGroup>) => void;
+  deletePermissionGroup: (groupId: string) => boolean;
+  addUsersToGroup: (groupId: string, userIds: string[]) => void;
+  removeUserFromGroup: (groupId: string, userId: string) => void;
+  updateUserScreenPermissions: (
+    userId: string,
+    screenId: string,
+    actions: Partial<ScreenActionPermissions>,
+  ) => void;
+  resetUserScreenPermissions: (userId: string) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -357,6 +377,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [jobPositions, setJobPositions] = useState<JobPosition[]>(mockJobPositions);
   const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
   const [roles, setRoles] = useState<RoleDefinition[]>(mockRoles);
+  const [permissionGroups, setPermissionGroups] = useState<PermissionGroup[]>(() => {
+    try {
+      const stored = localStorage.getItem("focus_hrms_permission_groups");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_ENTERPRISE_GROUPS;
+  });
+
+  const [userPermissionOverrides, setUserPermissionOverrides] = useState<
+    Record<string, Record<string, ScreenActionPermissions>>
+  >(() => {
+    try {
+      const stored = localStorage.getItem("focus_hrms_user_perm_overrides");
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return {};
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("focus_hrms_permission_groups", JSON.stringify(permissionGroups));
+    } catch {}
+  }, [permissionGroups]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("focus_hrms_user_perm_overrides", JSON.stringify(userPermissionOverrides));
+    } catch {}
+  }, [userPermissionOverrides]);
   const [approvalChains, setApprovalChains] = useState<ApprovalChain[]>(mockApprovalChains);
   const [delegationRules, setDelegationRules] = useState<DelegationRule[]>(mockDelegationRules);
   const [requests, setRequests] = useState<ServiceRequest[]>(mockRequests);
@@ -879,6 +931,140 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       `نطاق البيانات: ${role.dataScope}`,
     );
     return newRole;
+  };
+
+  // RBAC Permission Groups & User Overrides Handlers
+  const createPermissionGroup = (groupData: Omit<PermissionGroup, "id">) => {
+    const newGroup: PermissionGroup = {
+      ...groupData,
+      id: `grp-${Date.now()}`,
+    };
+    setPermissionGroups((prev) => [newGroup, ...prev]);
+    logAuditEvent(
+      "إنشاء مجموعة صلاحيات",
+      "PermissionGroup",
+      newGroup.id,
+      newGroup.nameAr,
+      `تم إنشاء المجموعة بنطاق بيانات: ${newGroup.dataScope}`,
+    );
+    toast.success(`تم إنشاء المجموعة (${newGroup.nameAr}) بنجاح!`);
+    return newGroup;
+  };
+
+  const updatePermissionGroup = (groupId: string, updates: Partial<PermissionGroup>) => {
+    setPermissionGroups((prev) =>
+      prev.map((g) => (g.id === groupId ? { ...g, ...updates } : g)),
+    );
+    logAuditEvent(
+      "تحديث مجموعة صلاحيات",
+      "PermissionGroup",
+      groupId,
+      updates.nameAr || groupId,
+      "تم تحديث إعدادات أو مصفوفة صلاحيات المجموعة",
+    );
+  };
+
+  const deletePermissionGroup = (groupId: string): boolean => {
+    const target = permissionGroups.find((g) => g.id === groupId);
+    if (!target) return false;
+    if (target.isSystem && target.code === "super_admin") {
+      toast.error("لا يمكن حذف مجموعة مشرف النظام الأساسية (System Super Admin).");
+      return false;
+    }
+    setPermissionGroups((prev) => prev.filter((g) => g.id !== groupId));
+    logAuditEvent(
+      "حذف مجموعة صلاحيات",
+      "PermissionGroup",
+      groupId,
+      target.nameAr,
+      "تم حذف المجموعة وإلغاء ارتباط أعضائها",
+    );
+    toast.success(`تم حذف المجموعة (${target.nameAr}) بنجاح.`);
+    return true;
+  };
+
+  const addUsersToGroup = (groupId: string, userIds: string[]) => {
+    setPermissionGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        const currentSet = new Set(g.memberUserIds);
+        userIds.forEach((id) => currentSet.add(id));
+        return { ...g, memberUserIds: Array.from(currentSet) };
+      }),
+    );
+    logAuditEvent(
+      "تعيين أعضاء في مجموعة",
+      "PermissionGroup",
+      groupId,
+      groupId,
+      `تم تعيين ${userIds.length} مستخدم في المجموعة`,
+    );
+    toast.success(`تم إضافة ${userIds.length} مستخدم إلى المجموعة بنجاح.`);
+  };
+
+  const removeUserFromGroup = (groupId: string, userId: string) => {
+    setPermissionGroups((prev) =>
+      prev.map((g) =>
+        g.id === groupId
+          ? { ...g, memberUserIds: g.memberUserIds.filter((id) => id !== userId) }
+          : g,
+      ),
+    );
+    logAuditEvent(
+      "إزالة مستخدم من مجموعة",
+      "PermissionGroup",
+      groupId,
+      groupId,
+      `تم استبعاد المستخدم ${userId} من المجموعة`,
+    );
+    toast.info("تم استبعاد المستخدم من المجموعة بنجاح.");
+  };
+
+  const updateUserScreenPermissions = (
+    userId: string,
+    screenId: string,
+    actions: Partial<ScreenActionPermissions>,
+  ) => {
+    setUserPermissionOverrides((prev) => {
+      const userScreens = prev[userId] || {};
+      const current = userScreens[screenId] || {
+        view: false,
+        create: false,
+        edit: false,
+        delete: false,
+        approveExport: false,
+      };
+      return {
+        ...prev,
+        [userId]: {
+          ...userScreens,
+          [screenId]: { ...current, ...actions },
+        },
+      };
+    });
+    logAuditEvent(
+      "تخصيص صلاحيات شاشة لمستخدم",
+      "UserPermission",
+      userId,
+      userId,
+      `تعديل صلاحيات الشاشة: ${screenId}`,
+    );
+  };
+
+  const resetUserScreenPermissions = (userId: string) => {
+    setUserPermissionOverrides((prev) => {
+      const copy = { ...prev };
+      delete copy[userId];
+      return copy;
+    });
+    logAuditEvent(
+      "استعادة الصلاحيات الافتراضية لمستخدم",
+      "UserPermission",
+      userId,
+      userId,
+      "تم حذف الاستثناءات المباشرة واستعادة صلاحيات المجموعات الموروثة",
+    );
+    toast.success("تمت استعادة الصلاحيات الافتراضية الموروثة بنجاح.");
   };
 
   // Workflow Handlers
@@ -2001,6 +2187,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         acknowledgeDocument,
         markNotificationRead,
         logAuditEvent,
+        permissionGroups,
+        userPermissionOverrides,
+        createPermissionGroup,
+        updatePermissionGroup,
+        deletePermissionGroup,
+        addUsersToGroup,
+        removeUserFromGroup,
+        updateUserScreenPermissions,
+        resetUserScreenPermissions,
       }}
     >
       {children}

@@ -209,6 +209,7 @@ export const AppLayout: React.FC = () => {
         <AppHeader
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           onToggleMobileMenu={() => setMobileMenuOpen((open) => !open)}
+          onSelectTab={selectTab}
         />
 
         {/* Dynamic Page Body */}

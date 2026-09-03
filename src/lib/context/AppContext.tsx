@@ -494,11 +494,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDataError(null);
   }, [dataMode, refreshCoreData]);
 
-  // Active user representation based on role
+  // Active user representation based on role and auth identity
   const currentUser: Employee =
     (dataMode === "live"
-      ? employees.find((e) => e.customFields?.userId === session?.user.id)
+      ? employees.find(
+          (e) =>
+            (session?.user?.id && e.customFields?.userId === session.user.id) ||
+            (session?.user?.email &&
+              e.email &&
+              e.email.toLowerCase() === session.user.email.toLowerCase()),
+        )
       : employees.find((e) => {
+          if (
+            session?.user?.email &&
+            e.email &&
+            e.email.toLowerCase() === session.user.email.toLowerCase()
+          ) {
+            return true;
+          }
           if (currentRole === "super_admin" || currentRole === "hr_manager")
             return e.id === "emp-04"; // Sara (HR Lead)
           if (currentRole === "payroll_officer" || currentRole === "finance_officer")

@@ -16,6 +16,11 @@ import {
   LogOut,
   Database,
   Menu,
+  User,
+  Smartphone,
+  FileText,
+  ShieldCheck,
+  KeyRound,
 } from "lucide-react";
 import { useAuth } from "../../lib/auth/AuthContext";
 import { Button } from "../ui/button";
@@ -36,15 +41,18 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "../ui/sheet";
+import { AccountSecurityModal } from "./AccountSecurityModal";
 
 interface AppHeaderProps {
   onOpenCommandPalette?: () => void;
   onToggleMobileMenu?: () => void;
+  onSelectTab?: (tabId: string) => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
   onOpenCommandPalette,
   onToggleMobileMenu,
+  onSelectTab,
 }) => {
   const {
     currentUser,
@@ -54,6 +62,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     setLanguage,
     notifications,
     markNotificationRead,
+    openEmployeeProfile,
     t,
     dataMode,
     isDataLoading,
@@ -62,10 +71,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     pendingMutationCount,
     lastSavedAt,
   } = useApp();
-  const { isDemo, signOut, leaveDemo } = useAuth();
+  const { session, isDemo, signOut, leaveDemo } = useAuth();
 
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [liveTime, setLiveTime] = useState(new Date());
+  const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
 
   // Live Clock (AST / Riyadh Time)
   useEffect(() => {
@@ -291,38 +301,174 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </SheetContent>
         </Sheet>
 
-        {/* User Profile Chip */}
-        <div className="flex items-center gap-3 border-s border-border/80 ps-3.5">
-          <img
-            src={
-              currentUser.avatarUrl ||
-              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
-            }
-            alt={currentUser.firstNameAr}
-            className="h-10 w-10 rounded-full border-2 border-primary/40 object-cover shadow-xs"
-          />
-          <div className="hidden xl:block text-start">
-            <span className="text-xs font-black text-foreground block leading-tight">
-              {language === "ar"
-                ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
-                : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`}
-            </span>
-            <span className="text-[10px] text-muted-foreground font-semibold">
-              {currentUser.jobTitleAr}
-            </span>
-          </div>
-        </div>
+        {/* Interactive Enterprise User Account Dropdown Menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="group flex items-center gap-2.5 rounded-full border border-border/80 bg-card/90 py-1 pe-3 ps-1.5 hover:bg-muted/60 transition-all focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs cursor-pointer"
+            >
+              <div className="relative">
+                <img
+                  src={
+                    currentUser.avatarUrl ||
+                    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
+                  }
+                  alt={currentUser.firstNameAr}
+                  className="h-9 w-9 rounded-full border-2 border-primary/40 object-cover shadow-xs"
+                />
+                <span
+                  className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-card"
+                  title="متصل الآن"
+                />
+              </div>
 
-        {/* Sign out / Leave demo button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => (isDemo ? leaveDemo() : void signOut())}
-          className="h-10 w-10 rounded-full hover:bg-muted text-muted-foreground hover:text-destructive"
-          title={isDemo ? "إغلاق النسخة التجريبية" : "تسجيل الخروج"}
-        >
-          <LogOut className="h-4 w-4" />
-        </Button>
+              <div className="hidden xl:flex flex-col text-start leading-tight">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-black text-foreground">
+                    {language === "ar"
+                      ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
+                      : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`}
+                  </span>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                </div>
+                <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[160px]">
+                  {session?.user?.email || currentUser.email || "hr.admin@focus-hrms.sa"}
+                </span>
+              </div>
+            </button>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent
+            align={language === "ar" ? "start" : "end"}
+            className="w-80 rounded-3xl p-3 shadow-2xl border-border/80 space-y-2 animate-in fade-in zoom-in-95 duration-150"
+          >
+            {/* Header: User Identity Card */}
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-muted/40 border border-primary/15 space-y-2 text-start">
+              <div className="flex items-center gap-3">
+                <div className="relative shrink-0">
+                  <img
+                    src={
+                      currentUser.avatarUrl ||
+                      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
+                    }
+                    alt={currentUser.firstNameAr}
+                    className="h-12 w-12 rounded-2xl border-2 border-primary/40 object-cover shadow-sm"
+                  />
+                  <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-card" />
+                </div>
+                <div className="space-y-0.5 overflow-hidden">
+                  <h4 className="text-xs font-black text-foreground truncate">
+                    {language === "ar"
+                      ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
+                      : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`}
+                  </h4>
+                  <p className="text-[11px] font-mono text-primary font-bold truncate">
+                    {session?.user?.email || currentUser.email || "hr.admin@focus-hrms.sa"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground font-medium truncate">
+                    {currentUser.jobTitleAr}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1.5 border-t border-border/40 text-[10px]">
+                <span className="font-mono text-muted-foreground">
+                  رقم: {currentUser.employeeNo || "FOC-0001"}
+                </span>
+                <Badge variant="default" className="text-[9px] font-bold rounded-full px-2">
+                  {roleLabels[currentRole][language]}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Quick Actions Menu */}
+            <div className="space-y-0.5">
+              <DropdownMenuItem
+                onClick={() => openEmployeeProfile(currentUser.id)}
+                className="flex items-center gap-2.5 rounded-xl text-xs font-bold px-3 py-2 cursor-pointer hover:bg-secondary"
+              >
+                <User className="h-4 w-4 text-primary" />
+                <div className="flex flex-col text-start">
+                  <span>ملفي الشخصي 360°</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    عرض البيانات الوظيفية، العقد، والرواتب
+                  </span>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => onSelectTab?.("ess")}
+                className="flex items-center gap-2.5 rounded-xl text-xs font-bold px-3 py-2 cursor-pointer hover:bg-secondary"
+              >
+                <Smartphone className="h-4 w-4 text-emerald-600" />
+                <div className="flex flex-col text-start">
+                  <span>بوابة الخدمة الذاتية (ESS)</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    طلب إجازة، قسيمة الراتب، الحضور، والعهد
+                  </span>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => onSelectTab?.("documents")}
+                className="flex items-center gap-2.5 rounded-xl text-xs font-bold px-3 py-2 cursor-pointer hover:bg-secondary"
+              >
+                <FileText className="h-4 w-4 text-blue-600" />
+                <div className="flex flex-col text-start">
+                  <span>مستودع وثائقي وشهاداتي</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    استعراض وطباعة الوثائق والتعاريف الرسمية
+                  </span>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => onSelectTab?.("workflow")}
+                className="flex items-center gap-2.5 rounded-xl text-xs font-bold px-3 py-2 cursor-pointer hover:bg-secondary"
+              >
+                <Clock className="h-4 w-4 text-amber-600" />
+                <div className="flex flex-col text-start">
+                  <span>طلباتي واعتماداتي</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    متابعة سير الموافقات والقرارات الإدارية
+                  </span>
+                </div>
+              </DropdownMenuItem>
+            </div>
+
+            <DropdownMenuSeparator />
+
+            {/* Settings & Security */}
+            <div className="space-y-0.5">
+              <DropdownMenuItem
+                onClick={() => setIsSecurityModalOpen(true)}
+                className="flex items-center gap-2.5 rounded-xl text-xs font-bold px-3 py-2 cursor-pointer hover:bg-secondary"
+              >
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                <span>إعدادات الحساب والأمان وكلمة المرور</span>
+              </DropdownMenuItem>
+            </div>
+
+            <DropdownMenuSeparator />
+
+            {/* Sign out / Leave Demo */}
+            <DropdownMenuItem
+              onClick={() => (isDemo ? leaveDemo() : void signOut())}
+              className="flex items-center gap-2.5 rounded-xl text-xs font-bold px-3 py-2 cursor-pointer text-destructive hover:bg-destructive/10"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>{isDemo ? "إغلاق النسخة التجريبية" : "تسجيل الخروج من الحساب"}</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Account & Security Modal */}
+        <AccountSecurityModal
+          isOpen={isSecurityModalOpen}
+          onClose={() => setIsSecurityModalOpen(false)}
+          userEmail={session?.user?.email || currentUser.email || "hr.admin@focus-hrms.sa"}
+        />
       </div>
     </header>
   );

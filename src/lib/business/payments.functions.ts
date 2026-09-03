@@ -100,8 +100,9 @@ export const prepareRunPaymentsServer = createServerFn({ method: "POST" })
         .map((row: any) => row.employee_id),
     );
 
+    // Zero-net rows (system accounts, unpaid month) are not bank transfers.
     const rows = details
-      .filter((detail: any) => !settled.has(detail.employee_id))
+      .filter((detail: any) => !settled.has(detail.employee_id) && Number(detail.net_salary ?? 0) > 0)
       .map((detail: any) => ({
         payroll_run_id: data.runId,
         employee_id: detail.employee_id,

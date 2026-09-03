@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { exportToCSV } from "../../lib/utils/export-helpers";
+import { listPayrollReconciliationServer } from "../../lib/business/reconciliation.functions";
 import {
   disburseRunPaymentsServer,
   listRunPaymentsServer,
@@ -35,15 +36,28 @@ interface AccountRow {
 
 const money = (value: number) => `${Math.round(value).toLocaleString("ar-EG")} ر.س`;
 
-export const PayrollPaymentsPanel: React.FC<{ runId?: string; period?: string }> = ({
-  runId,
-  period,
-}) => {
+export const PayrollPaymentsPanel: React.FC = () => {
+  const [runs, setRuns] = useState<{ runId: string; label: string; status: string }[]>([]);
+  const [runId, setRunId] = useState<string | undefined>(undefined);
+  const period = runs.find((run) => run.runId === runId)?.label;
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [accountId, setAccountId] = useState("");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // Real payroll runs from the database (never local mock ids).
+  useEffect(() => {
+    void (async () => {
+      try {
+        const result: any = await listPayrollReconciliationServer();
+        setRuns(result.months.map((m: any) => ({ runId: m.runId, label: m.label, status: m.status })));
+        setRunId((previous) => previous ?? result.months[0]?.runId);
+      } catch (error: any) {
+        toast.error(error?.message ?? "تعذر قراءة المسيّرات");
+      }
+    })();
+  }, []);
 
   const load = useCallback(async () => {
     if (!runId) {
@@ -117,7 +131,7 @@ export const PayrollPaymentsPanel: React.FC<{ runId?: string; period?: string }>
   if (!runId) {
     return (
       <div className="rounded-2xl border border-border/60 bg-card p-8 text-center text-sm text-muted-foreground">
-        اختر مسيّر رواتب أولًا لعرض شاشة الدفع.
+        لا يوجد مسيّر رواتب محتسب بعد — شغّل المسيّر أو نفّذ التسوية الشهرية أولًا.
       </div>
     );
   }
@@ -136,6 +150,17 @@ export const PayrollPaymentsPanel: React.FC<{ runId?: string; period?: string }>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={runId}
+              onChange={(e) => setRunId(e.target.value)}
+              className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-bold"
+            >
+              {runs.map((run) => (
+                <option key={run.runId} value={run.runId}>
+                  مسيّر {run.label}
+                </option>
+              ))}
+            </select>
             <Button size="sm" variant="outline" disabled={busy} onClick={handlePrepare} className="rounded-xl gap-1.5">
               <ListChecks className="h-4 w-4" /> تجهيز الدفعات
             </Button>

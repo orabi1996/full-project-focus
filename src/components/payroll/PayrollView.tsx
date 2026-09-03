@@ -7,6 +7,7 @@ import { IconSymbol } from "../ui/IconSymbol";
 import { PayrollDistributionPanel } from "./PayrollDistributionPanel";
 import { SalaryFilesPanel } from "./SalaryFilesPanel";
 import { PayrollPaymentsPanel } from "./PayrollPaymentsPanel";
+import { PayrollReconciliationPanel } from "./PayrollReconciliationPanel";
 import {
   Wallet,
   DollarSign,
@@ -327,7 +328,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList
-          className={`grid max-w-4xl bg-muted/60 p-1 rounded-2xl border border-border/60 ${section === "payroll" ? "grid-cols-4" : "grid-cols-2"}`}
+          className={`grid max-w-4xl bg-muted/60 p-1 rounded-2xl border border-border/60 ${section === "payroll" ? "grid-cols-5" : "grid-cols-2"}`}
         >
           {section === "payroll" ? (
             <>
@@ -342,6 +343,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
               </TabsTrigger>
               <TabsTrigger value="payments" className="rounded-xl text-xs font-bold py-2">
                 دفع الرواتب
+              </TabsTrigger>
+              <TabsTrigger value="reconciliation" className="rounded-xl text-xs font-bold py-2">
+                تسويات الرواتب
               </TabsTrigger>
             </>
           ) : (
@@ -598,6 +602,11 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
         {/* Tab: Real salary files per employee */}
         <TabsContent value="salaryFiles" className="space-y-4 pt-4">
           <SalaryFilesPanel />
+        </TabsContent>
+
+        {/* Tab: Monthly reconciliation & per-employee points report */}
+        <TabsContent value="reconciliation" className="space-y-4 pt-4">
+          <PayrollReconciliationPanel />
         </TabsContent>
 
         {/* Tab: Monthly salary disbursement */}

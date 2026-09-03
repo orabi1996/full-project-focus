@@ -672,6 +672,11 @@ export const OrganizationView: React.FC = () => {
         <TabsContent value="cost-centers" className="space-y-4 pt-4">
           <CostCentersPanel />
         </TabsContent>
+
+        <TabsContent value="company" className="space-y-4 pt-4">
+          <CompanyProfilePanel />
+        </TabsContent>
+
       </Tabs>
 
       {/* Add Department Modal */}

@@ -135,6 +135,12 @@ import { processAttendanceServer } from "../business/attendance.functions";
 import { accrueLeaveBalancesServer } from "../business/leave.functions";
 import { toast } from "sonner";
 import { executeReliableMutation } from "../data/reliable-mutation";
+import {
+  createDelegationRuleRecord,
+  deleteApprovalChainRecord,
+  fetchDelegationRulesRecord,
+  revokeDelegationRuleRecord,
+} from "../data/workflow-repository";
 
 interface AppContextType {
   // Localization
@@ -415,7 +421,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setOrgUnits(snapshot.orgUnits);
       setAttendanceRecords(snapshot.attendanceRecords);
       setRequests(snapshot.requests);
-      const operational = await fetchOperationalSnapshot(snapshot.employees, snapshot.orgUnits);
+      const [operational, delegationSnapshot] = await Promise.all([
+        fetchOperationalSnapshot(snapshot.employees, snapshot.orgUnits),
+        fetchDelegationRulesRecord(snapshot.employees),
+      ]);
       if (operational.company) setCompany(operational.company);
       setSubsidiaries(operational.subsidiaries);
       setWorkLocations(operational.workLocations);
@@ -423,6 +432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setJobPositions(operational.jobPositions);
       setRoles(operational.roles);
       setApprovalChains(operational.approvalChains);
+      setDelegationRules(delegationSnapshot);
       setLeaveTypes(operational.leaveTypes);
       setLeaveBalances(operational.leaveBalances);
       setShifts(operational.shifts);
@@ -468,6 +478,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setJobPositions(mockJobPositions);
     setRoles(mockRoles);
     setApprovalChains(mockApprovalChains);
+    setDelegationRules(mockDelegationRules);
     setAttendanceRecords(mockAttendanceRecords);
     setRequests(mockRequests);
     setLeaveTypes(mockLeaveTypes);
@@ -1028,19 +1039,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addApprovalChain = (chain: Omit<ApprovalChain, "id">) => {
     const newChain: ApprovalChain = { ...chain, id: `chain-${Date.now()}` };
     setApprovalChains((prev) => [newChain, ...prev]);
-    persistLiveChange(() => createApprovalChainRecord(chain));
-    logAuditEvent(
-      "إنشاء مسار موافقات",
-      "ApprovalChain",
-      newChain.id,
-      newChain.nameAr,
-      `نوع الطلب: ${newChain.requestType}`,
-    );
+    void persistLiveChange(
+      () => createApprovalChainRecord(chain),
+      `approval-chain:create:${chain.requestType}:${chain.nameAr}`,
+    ).then(({ ok }) => {
+      if (!ok) return;
+      logAuditEvent(
+        "إنشاء مسار موافقات",
+        "ApprovalChain",
+        newChain.id,
+        newChain.nameAr,
+        `نوع الطلب: ${newChain.requestType}`,
+      );
+      toast.success("تم حفظ مسار الاعتماد بنجاح");
+    });
   };
 
   const deleteApprovalChain = (id: string) => {
-    setApprovalChains((prev) => prev.filter((c) => c.id !== id));
-    toast.success("تم حذف مسار الاعتماد بنجاح");
+    const target = approvalChains.find((chain) => chain.id === id);
+    setApprovalChains((prev) => prev.filter((chain) => chain.id !== id));
+    void persistLiveChange(
+      () => deleteApprovalChainRecord(id),
+      `approval-chain:delete:${id}`,
+    ).then(({ ok }) => {
+      if (!ok) return;
+      logAuditEvent(
+        "حذف مسار موافقات",
+        "ApprovalChain",
+        id,
+        target?.nameAr ?? id,
+        "تم حذف مسار الاعتماد من قاعدة البيانات",
+      );
+      toast.success("تم حذف مسار الاعتماد بنجاح");
+    });
   };
 
   const addDelegationRule = (rule: Omit<DelegationRule, "id" | "createdAt" | "status">) => {
@@ -1051,19 +1082,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setDelegationRules((prev) => [newRule, ...prev]);
-    toast.success(`تم تفعيل تفويض الصلاحيات لـ (${rule.delegateName}) بنجاح`);
-    logAuditEvent(
-      "تفعيل تفويض صلاحيات",
-      "DelegationRule",
-      newRule.id,
-      rule.delegatorName,
-      `المفوض له: ${rule.delegateName} | الفترة: ${rule.startDate} إلى ${rule.endDate}`,
-    );
+    void persistLiveChange(
+      () => createDelegationRuleRecord(rule),
+      `delegation:create:${rule.delegatorId}:${rule.delegateId}:${rule.startDate}:${rule.endDate}`,
+    ).then(({ ok }) => {
+      if (!ok) return;
+      logAuditEvent(
+        "تفعيل تفويض صلاحيات",
+        "DelegationRule",
+        newRule.id,
+        rule.delegatorName,
+        `المفوض له: ${rule.delegateName} | الفترة: ${rule.startDate} إلى ${rule.endDate}`,
+      );
+      toast.success(`تم تفعيل تفويض الصلاحيات لـ (${rule.delegateName}) بنجاح`);
+    });
   };
 
   const revokeDelegationRule = (id: string) => {
-    setDelegationRules((prev) => prev.map((r) => (r.id === id ? { ...r, status: "revoked" } : r)));
-    toast.info("تم إلغاء التفويض بنجاح");
+    const target = delegationRules.find((rule) => rule.id === id);
+    setDelegationRules((prev) =>
+      prev.map((rule) => (rule.id === id ? { ...rule, status: "revoked" } : rule)),
+    );
+    void persistLiveChange(
+      () => revokeDelegationRuleRecord(id),
+      `delegation:revoke:${id}`,
+    ).then(({ ok }) => {
+      if (!ok) return;
+      logAuditEvent(
+        "إلغاء تفويض صلاحيات",
+        "DelegationRule",
+        id,
+        target?.delegatorName ?? id,
+        target ? `تم إلغاء التفويض إلى: ${target.delegateName}` : "تم إلغاء التفويض",
+      );
+      toast.info("تم إلغاء التفويض بنجاح");
+    });
   };
 
   // Leaves

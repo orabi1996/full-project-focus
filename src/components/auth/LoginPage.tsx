@@ -14,9 +14,10 @@ import {
 import { useAuth } from "../../lib/auth/AuthContext";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { isDemoModeEnabled } from "../../lib/config/runtime-config";
 
 const platformFeatures = [
-  { icon: ShieldCheck, label: "صلاحيات مؤسسية محكمة وفق الأنظمة" },
+  { icon: ShieldCheck, label: "صلاحيات مؤسسية قابلة للتهيئة حسب الدور" },
   { icon: UsersRound, label: "إدارة مركزية موحدة 360° للموظفين" },
   { icon: BadgeCheck, label: "إجراءات واعتمادات إلكترونية موثقة" },
 ];
@@ -28,7 +29,10 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const demoEnabled = true;
+  const demoEnabled = isDemoModeEnabled(
+    import.meta.env["VITE_ENABLE_DEMO_MODE"],
+    import.meta.env.PROD,
+  );
 
   if (isLoading) {
     return (
@@ -81,7 +85,8 @@ export function LoginPage() {
               </div>
               <h1 className="text-3xl font-black tracking-tight">Focus HRMS</h1>
               <p className="text-xs text-white/80 leading-relaxed font-medium">
-                المنصة السحابية الموحدة لإدارة رأس المال البشري، الحضور والانصراف، مسيرات الرواتب، والخدمة الذاتية.
+                المنصة السحابية الموحدة لإدارة رأس المال البشري، الحضور والانصراف، مسيرات الرواتب،
+                والخدمة الذاتية.
               </p>
             </div>
           </div>
@@ -98,7 +103,7 @@ export function LoginPage() {
           </div>
 
           <div className="relative z-10 pt-4 border-t border-white/15 text-[11px] text-white/70">
-            معتمد ومتوافق بالكامل مع نظام العمل والتأمينات الاجتماعية السعودية
+            مصمم لدعم متطلبات الموارد البشرية، وتخضع إعدادات الامتثال لاعتماد المنشأة
           </div>
         </div>
 
@@ -106,7 +111,10 @@ export function LoginPage() {
         <div className="p-8 sm:p-12 flex flex-col justify-center bg-card">
           <div className="w-full max-w-md mx-auto space-y-6">
             <div className="space-y-2 text-start">
-              <Badge variant="secondary" className="rounded-full px-3 py-1 font-bold text-xs gap-1.5 mb-1 inline-flex">
+              <Badge
+                variant="secondary"
+                className="rounded-full px-3 py-1 font-bold text-xs gap-1.5 mb-1 inline-flex"
+              >
                 <LockKeyhole className="h-3.5 w-3.5 text-primary" />
                 بوابة الموظفين والمدراء الآمنة
               </Badge>
@@ -124,10 +132,7 @@ export function LoginPage() {
               )}
 
               <div className="space-y-1.5">
-                <label
-                  htmlFor="work-email"
-                  className="text-xs font-bold text-foreground block"
-                >
+                <label htmlFor="work-email" className="text-xs font-bold text-foreground block">
                   البريد الإلكتروني الوظيفي *
                 </label>
                 <input
@@ -143,10 +148,7 @@ export function LoginPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label
-                  htmlFor="login-password"
-                  className="text-xs font-bold text-foreground block"
-                >
+                <label htmlFor="login-password" className="text-xs font-bold text-foreground block">
                   كلمة المرور *
                 </label>
                 <div className="relative">
@@ -202,7 +204,7 @@ export function LoginPage() {
             )}
 
             <p className="text-center text-[10px] text-muted-foreground font-medium pt-2">
-              جميع العمليات ومحاولات الدخول تخضع لسجل التدقيق الأمني المشفر
+              يتم تأمين الوصول إلى البيانات وفق الدور والصلاحيات المعتمدة
             </p>
           </div>
         </div>

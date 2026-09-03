@@ -4,6 +4,7 @@ import { calculateEOSB, type SeparationType } from "../../lib/utils/eosb-calcula
 import { exportToCSV, generateWPSSIFFile } from "../../lib/utils/export-helpers";
 import type { EmployeePayrollDetail, FinalSettlementRecord } from "../../types";
 import { IconSymbol } from "../ui/IconSymbol";
+import { PayrollDistributionPanel } from "./PayrollDistributionPanel";
 import {
   Wallet,
   DollarSign,
@@ -55,6 +56,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
     loans,
     settlements,
     employees,
+    orgUnits,
     payrollGroups,
     company,
     currentRole,
@@ -323,14 +325,17 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList
-          className={`grid max-w-md bg-muted/60 p-1 rounded-2xl border border-border/60 ${
-            section === "payroll" ? "grid-cols-1" : "grid-cols-2"
-          }`}
+          className={`grid max-w-2xl bg-muted/60 p-1 rounded-2xl border border-border/60 grid-cols-2`}
         >
           {section === "payroll" ? (
-            <TabsTrigger value="runs" className="rounded-xl text-xs font-bold py-2">
-              مسيرات الرواتب الشهرية ({payrollRuns.length})
-            </TabsTrigger>
+            <>
+              <TabsTrigger value="runs" className="rounded-xl text-xs font-bold py-2">
+                مسيرات الرواتب الشهرية ({payrollRuns.length})
+              </TabsTrigger>
+              <TabsTrigger value="distribution" className="rounded-xl text-xs font-bold py-2">
+                توزيع الرواتب حسب الإدارة
+              </TabsTrigger>
+            </>
           ) : (
             <>
               <TabsTrigger value="loans" className="rounded-xl text-xs font-bold py-2">
@@ -568,6 +573,20 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
             </div>
           )}
         </TabsContent>
+
+        {/* Tab: Payroll distribution by organizational unit */}
+        <TabsContent value="distribution" className="space-y-4 pt-4">
+          <PayrollDistributionPanel
+            orgUnits={orgUnits}
+            employees={employees}
+            details={selectedRunDetails}
+            periodLabel={
+              selectedRun ? `${selectedRun.periodMonth}-${selectedRun.periodYear}` : "تقديري"
+            }
+            isEstimate={selectedRunDetails.length === 0}
+          />
+        </TabsContent>
+
 
         {/* Tab 2: Loans & Advances with Visual Repayment Progress */}
         <TabsContent value="loans" className="space-y-4 pt-4">

@@ -2,6 +2,8 @@
 // Data Export Utilities (CSV, Excel-compatible, WPS SIF generator)
 // ============================================================================
 
+import { toast } from "sonner";
+
 export function formatCsvCell(value: unknown) {
   let cell =
     value === null || value === undefined
@@ -16,7 +18,7 @@ export function formatCsvCell(value: unknown) {
 
 export function exportToCSV<T extends object>(filename: string, rows: T[]) {
   if (!rows || !rows.length) {
-    alert("لا توجد بيانات متاحة للتصدير");
+    toast.error("لا توجد بيانات متاحة للتصدير");
     return;
   }
 

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
 import { canManageModule } from "../../lib/auth/permissions";
-import type { Employee, ContractType, Gender, MaritalStatus } from "../../types";
+import type { Employee, ContractType, Gender, MaritalStatus, EmployeeStatus } from "../../types";
 import { IconSymbol } from "../ui/IconSymbol";
 import { OfficialDocumentModal, type DocType } from "../documents/OfficialDocumentModal";
 import {
@@ -32,6 +32,16 @@ import {
   RotateCcw,
   BadgePercent,
   AlertTriangle,
+  LayoutGrid,
+  List,
+  CheckSquare,
+  Square,
+  FileSpreadsheet,
+  Mail,
+  Phone,
+  ArrowRight,
+  ShieldCheck,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
@@ -47,7 +57,17 @@ import {
 
 import { EmployeeFullProfileView } from "./EmployeeFullProfileView";
 
-type QuickPreset = "all" | "saudi" | "expat" | "probation" | "expiring_docs" | "remote_hybrid" | "complete_profile";
+type QuickPreset =
+  | "all"
+  | "saudi"
+  | "expat"
+  | "probation"
+  | "on_leave"
+  | "expiring_docs"
+  | "remote_hybrid"
+  | "complete_profile";
+
+type ViewMode = "table" | "cards";
 
 export const EmployeesView: React.FC = () => {
   const {
@@ -58,12 +78,19 @@ export const EmployeesView: React.FC = () => {
     subsidiaries,
     workLocations,
     addEmployee,
+    updateEmployee,
     openEmployeeProfile,
     currentRole,
     language,
     t,
   } = useApp();
   const canManage = canManageModule(currentRole, "employees");
+
+  // View Mode: Table vs Smart Cards
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
+
+  // Selection & Bulk Actions
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState("");
@@ -77,15 +104,16 @@ export const EmployeesView: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedContractType, setSelectedContractType] = useState("all");
   const [selectedGender, setSelectedGender] = useState("all");
+  const [selectedNationality, setSelectedNationality] = useState("all");
   const [minSalary, setMinSalary] = useState<number | "">("");
   const [maxSalary, setMaxSalary] = useState<number | "">("");
   const [onlyExpiringDocs, setOnlyExpiringDocs] = useState(false);
 
-  // Wizard state
+  // Add Employee Wizard state
   const [isAddWizardOpen, setIsAddWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [newEmp, setNewEmp] = useState({
-    employeeNo: `FOC-${Math.floor(1000 + Math.random() * 9000)}`,
+    employeeNo: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
     firstNameAr: "",
     lastNameAr: "",
     firstNameEn: "",
@@ -123,12 +151,20 @@ export const EmployeesView: React.FC = () => {
 
   // KPI Calculations
   const totalEmployees = employees.length;
-  const saudiEmployees = employees.filter((e) => e.nationality === "سعودي" || e.nationality === "سعودية").length;
+  const saudiEmployees = employees.filter(
+    (e) =>
+      e.nationality.includes("سعود") ||
+      e.nationalIdOrIqama?.startsWith("1") ||
+      e.nationality.toLowerCase().includes("saudi"),
+  ).length;
   const expatEmployees = totalEmployees - saudiEmployees;
   const saudizationRate = totalEmployees > 0 ? Math.round((saudiEmployees / totalEmployees) * 100) : 0;
   const probationCount = employees.filter((e) => e.status === "probation").length;
+  const onLeaveCount = employees.filter((e) => e.status === "on_leave").length;
   const expiringDocsCount = employees.filter(
-    (e) => e.documentsList?.some((d) => d.status === "expiring" || d.status === "expired") || e.status === "probation"
+    (e) =>
+      e.documentsList?.some((d) => d.status === "expiring" || d.status === "expired") ||
+      e.status === "probation",
   ).length;
 
   // Active Filters Count
@@ -140,6 +176,7 @@ export const EmployeesView: React.FC = () => {
     if (selectedStatus !== "all") count++;
     if (selectedContractType !== "all") count++;
     if (selectedGender !== "all") count++;
+    if (selectedNationality !== "all") count++;
     if (minSalary !== "") count++;
     if (maxSalary !== "") count++;
     if (onlyExpiringDocs) count++;
@@ -152,6 +189,7 @@ export const EmployeesView: React.FC = () => {
     selectedStatus,
     selectedContractType,
     selectedGender,
+    selectedNationality,
     minSalary,
     maxSalary,
     onlyExpiringDocs,
@@ -165,11 +203,13 @@ export const EmployeesView: React.FC = () => {
     setSelectedStatus("all");
     setSelectedContractType("all");
     setSelectedGender("all");
+    setSelectedNationality("all");
     setMinSalary("");
     setMaxSalary("");
     setOnlyExpiringDocs(false);
     setQuickPreset("all");
     setSearchTerm("");
+    setSelectedIds([]);
   };
 
   // Filter Logic
@@ -190,11 +230,18 @@ export const EmployeesView: React.FC = () => {
 
       if (!matchesSearch) return false;
 
+      const isSaudi =
+        emp.nationality.includes("سعود") ||
+        emp.nationalIdOrIqama?.startsWith("1") ||
+        emp.nationality.toLowerCase().includes("saudi");
+
       // Quick Preset Pills
-      if (quickPreset === "saudi" && !(emp.nationality === "سعودي" || emp.nationality === "سعودية")) return false;
-      if (quickPreset === "expat" && (emp.nationality === "سعودي" || emp.nationality === "سعودية")) return false;
+      if (quickPreset === "saudi" && !isSaudi) return false;
+      if (quickPreset === "expat" && isSaudi) return false;
       if (quickPreset === "probation" && emp.status !== "probation") return false;
-      if (quickPreset === "remote_hybrid" && emp.workType !== "remote" && emp.workType !== "hybrid") return false;
+      if (quickPreset === "on_leave" && emp.status !== "on_leave") return false;
+      if (quickPreset === "remote_hybrid" && emp.workType !== "remote" && emp.workType !== "hybrid")
+        return false;
       if (quickPreset === "complete_profile" && emp.completionScore < 95) return false;
       if (
         quickPreset === "expiring_docs" &&
@@ -210,8 +257,10 @@ export const EmployeesView: React.FC = () => {
       if (selectedStatus !== "all" && emp.status !== selectedStatus) return false;
       if (selectedContractType !== "all" && emp.contractType !== selectedContractType) return false;
       if (selectedGender !== "all" && emp.gender !== selectedGender) return false;
-      if (minSalary !== "" && emp.basicSalary < Number(minSalary)) return false;
-      if (maxSalary !== "" && emp.basicSalary > Number(maxSalary)) return false;
+      if (selectedNationality === "saudi" && !isSaudi) return false;
+      if (selectedNationality === "expat" && isSaudi) return false;
+      if (minSalary !== "" && emp.basicSalary < minSalary) return false;
+      if (maxSalary !== "" && emp.basicSalary > maxSalary) return false;
       if (
         onlyExpiringDocs &&
         !emp.documentsList?.some((d) => d.status === "expiring" || d.status === "expired")
@@ -230,46 +279,183 @@ export const EmployeesView: React.FC = () => {
     selectedStatus,
     selectedContractType,
     selectedGender,
+    selectedNationality,
     minSalary,
     maxSalary,
     onlyExpiringDocs,
   ]);
 
-  const handleExportEmployees = () => {
-    const dataToExport = filteredEmployees.map((e) => ({
+  // Bulk Selection Handlers
+  const isAllSelected =
+    filteredEmployees.length > 0 && selectedIds.length === filteredEmployees.length;
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredEmployees.map((e) => e.id));
+    }
+  };
+
+  const handleToggleSelectOne = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
+
+  const handleExportSelectedOrAll = () => {
+    const listToExport =
+      selectedIds.length > 0
+        ? filteredEmployees.filter((e) => selectedIds.includes(e.id))
+        : filteredEmployees;
+
+    const exportData = listToExport.map((e) => ({
       "الرقم الوظيفي": e.employeeNo,
-      "الاسم بالعربية": `${e.firstNameAr} ${e.lastNameAr}`,
+      "الاسم الكامل": `${e.firstNameAr} ${e.lastNameAr}`,
       "الاسم بالإنجليزية": `${e.firstNameEn} ${e.lastNameEn}`,
       "الهوية / الإقامة": e.nationalIdOrIqama,
-      الجنسية: e.nationality,
-      "البريد الإلكتروني": e.email,
-      الجوال: e.phone,
-      القسم: e.departmentName,
+      "الجنسية": e.nationality,
+      "الإدارة": e.departmentName,
       "المسمى الوظيفي": e.jobTitleAr,
       "الدرجة الوظيفية": e.jobGrade || "L3",
-      "مركز التكلفة": e.costCenter || "CC-101",
+      "الفرع ومقر العمل": e.workLocationName,
       "الراتب الأساسي": e.basicSalary,
       "بدل السكن": e.housingAllowance || 0,
       "بدل النقل": e.transportAllowance || 0,
       "إجمالي الراتب": e.totalSalary,
-      "الحساب البنكي": e.bankName || "الراجحي",
-      "رقم الآيبان": e.iban || "SA...",
-      "تاريخ المباشرة": e.hireDate,
-      "رقم عقد قوى": e.qiwaContractNo || "QIWA...",
-      الحالة: e.status === "active" ? "نشط" : e.status === "probation" ? "تحت التجربة" : "في إجازة",
+      "البريد الإلكتروني": e.email,
+      "رقم الجوال": e.phone,
+      "الحالة":
+        e.status === "active"
+          ? "نشط"
+          : e.status === "probation"
+            ? "تحت التجربة"
+            : e.status === "on_leave"
+              ? "في إجازة"
+              : "موقوف",
+      "تاريخ التعيين": e.hireDate,
+      "عقد قوى": e.qiwaContractNo || "موثق",
     }));
-    exportToCSV(`Employees_Enterprise_List_${new Date().toISOString().split("T")[0]}`, dataToExport);
+
+    exportToCSV(`دليل_الموظفين_${new Date().toISOString().slice(0, 10)}`, exportData);
+    toast.success(`تم تصدير كشف (${listToExport.length}) موظفاً بنجاح!`);
   };
 
+  const handleBulkStatusUpdate = (newStatus: EmployeeStatus) => {
+    if (selectedIds.length === 0) return;
+    selectedIds.forEach((id) => {
+      updateEmployee(id, { status: newStatus });
+    });
+    toast.success(`تم تحديث حالة (${selectedIds.length}) موظفاً إلى (${newStatus === "active" ? "نشط" : newStatus === "probation" ? "تحت التجربة" : "موقوف"}) بنجاح!`);
+    setSelectedIds([]);
+  };
+
+  // Add Employee Submission
   const handleCreateEmployee = () => {
-    if (!newEmp.firstNameAr || !newEmp.lastNameAr || !newEmp.email) {
-      toast.error("يرجى استكمال الحقول الإلزامية");
+    if (!newEmp.firstNameAr || !newEmp.lastNameAr || !newEmp.email || !newEmp.nationalIdOrIqama) {
+      toast.error("يرجى استكمال الحقول الإلزامية للموظف");
       return;
     }
-    addEmployee(newEmp);
+
+    const dept = orgUnits.find((u) => u.id === newEmp.departmentId);
+    const sub = subsidiaries.find((s) => s.id === newEmp.subsidiaryId);
+    const loc = workLocations.find((l) => l.id === newEmp.workLocationId);
+
+    const b = Number(newEmp.basicSalary) || 10000;
+    const h = Number(newEmp.housingAllowance) || Math.round(b * 0.25);
+    const tr = Number(newEmp.transportAllowance) || Math.round(b * 0.08);
+    const total = b + h + tr;
+
+    const isSaudi =
+      newEmp.nationality.includes("سعود") ||
+      newEmp.nationalIdOrIqama.startsWith("1") ||
+      newEmp.nationality.toLowerCase().includes("saudi");
+
+    const empData: Omit<Employee, "id" | "completionScore"> = {
+      employeeNo: newEmp.employeeNo,
+      firstNameAr: newEmp.firstNameAr,
+      lastNameAr: newEmp.lastNameAr,
+      firstNameEn: newEmp.firstNameEn || newEmp.firstNameAr,
+      lastNameEn: newEmp.lastNameEn || newEmp.lastNameAr,
+      email: newEmp.email,
+      phone: newEmp.phone || "+966 50 000 0000",
+      nationalIdOrIqama: newEmp.nationalIdOrIqama,
+      nationalIdExpiry: "2030-05-15",
+      passportNo: "KSA-88992211",
+      passportExpiry: "2029-10-10",
+      nationality: newEmp.nationality,
+      gender: newEmp.gender,
+      birthDate: newEmp.birthDate,
+      maritalStatus: newEmp.maritalStatus,
+      dependentsCount: 1,
+      bloodType: "O+",
+      subsidiaryId: newEmp.subsidiaryId || "sub-1",
+      subsidiaryName: sub?.nameAr || "فوكس للتقنية",
+      departmentId: newEmp.departmentId || "dept-tech",
+      departmentName: dept?.nameAr || "تقنية المعلومات",
+      jobTitleAr: newEmp.jobTitleAr || "اختصاصي تقنية",
+      jobTitleEn: newEmp.jobTitleEn || "Specialist",
+      jobGrade: newEmp.jobGrade,
+      costCenter: newEmp.costCenter,
+      workType: newEmp.workType,
+      workLocationId: newEmp.workLocationId || "loc-riyadh",
+      workLocationName: loc?.nameAr || "المقر الرئيسي - الرياض",
+      hireDate: newEmp.hireDate,
+      contractStartDate: newEmp.hireDate,
+      contractEndDate: "2027-12-31",
+      contractType: newEmp.contractType,
+      status: newEmp.status,
+      basicSalary: b,
+      housingAllowance: h,
+      transportAllowance: tr,
+      otherAllowances: 0,
+      totalSalary: total,
+      gosiDeductionPercentage: isSaudi ? 9.75 : 0,
+      isGosiEnrolled: true,
+      bankName: "مصرف الراجحي",
+      iban: "SA0000000000000000000000",
+      shiftId: "shift-general",
+      avatarUrl: `https://images.unsplash.com/photo-${1534528741775 + Math.floor(Math.random() * 500)}?w=200`,
+      qiwaContractNo: `QIWA-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
+      yearsOfService: 1,
+    };
+
+    addEmployee(empData);
+    toast.success(`تم تسجيل وتعيين الموظف (${newEmp.firstNameAr} ${newEmp.lastNameAr}) بنجاح!`);
     setIsAddWizardOpen(false);
     setWizardStep(1);
-    toast.success("تمت إضافة الموظف بنجاح في سجلات المنظومة");
+    setNewEmp({
+      employeeNo: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+      firstNameAr: "",
+      lastNameAr: "",
+      firstNameEn: "",
+      lastNameEn: "",
+      email: "",
+      phone: "",
+      nationalIdOrIqama: "",
+      nationality: "سعودي",
+      gender: "male",
+      birthDate: "1995-01-01",
+      maritalStatus: "single",
+      subsidiaryId: subsidiaries[0]?.id || "",
+      subsidiaryName: subsidiaries[0]?.nameAr || "",
+      departmentId: orgUnits[0]?.id || "",
+      departmentName: orgUnits[0]?.nameAr || "",
+      jobTitleAr: "",
+      jobTitleEn: "",
+      jobGrade: "L3 - اختصاصي",
+      costCenter: "CC-101",
+      workType: "on_site",
+      workLocationId: workLocations[0]?.id || "",
+      workLocationName: workLocations[0]?.nameAr || "",
+      hireDate: new Date().toISOString().split("T")[0],
+      contractType: "full_time",
+      status: "active",
+      basicSalary: 10000,
+      housingAllowance: 2500,
+      transportAllowance: 800,
+      totalSalary: 13300,
+    });
   };
 
   const openDocumentModal = (emp: Employee, type: DocType) => {
@@ -277,7 +463,7 @@ export const EmployeesView: React.FC = () => {
     setDocModalType(type);
   };
 
-  // Render Full Page Profile View when an employee is selected
+  // If Full Profile is active, render Full Profile Screen
   if (activeEmployeeModalId) {
     return (
       <EmployeeFullProfileView
@@ -293,43 +479,48 @@ export const EmployeesView: React.FC = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
         <div>
           <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol name="badge" source="material" filled size={24} className="text-primary" />
-            {t.employees.directory} ({totalEmployees})
+            <IconSymbol name="badge" source="material" filled size={26} className="text-primary" />
+            دليل وملفات الموظفين الموحد (Employee Directory)
           </h1>
           <p className="text-xs text-muted-foreground font-medium mt-1">
-            سجل الموظفين المركزي، الملفات الموحدة 360°، العقود والمستندات، والتصفية المتقدمة للكوادر
+            سجلات الموظفين الشاملة، العقود الموثقة بقوى، الهيكل الوظيفي، وبطاقات التعديل 360°
           </p>
         </div>
-        <div className="flex flex-wrap gap-2.5">
+
+        <div className="flex flex-wrap items-center gap-2.5">
           <Button
-            onClick={handleExportEmployees}
+            onClick={handleExportSelectedOrAll}
             variant="outline"
             size="sm"
             className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
           >
-            <Download className="h-4 w-4 text-primary" />
-            {t.export} كشف الموظفين الشامل
+            <Download className="h-4 w-4 text-emerald-600" />
+            تصدير كشف الموظفين (CSV)
           </Button>
+
           {canManage && (
             <Button
-              onClick={() => setIsAddWizardOpen(true)}
+              onClick={() => {
+                setWizardStep(1);
+                setIsAddWizardOpen(true);
+              }}
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-4"
+              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-5"
             >
               <UserPlus className="h-4 w-4" />
-              {t.employees.addEmployee}
+              إضافة موظف جديد
             </Button>
           )}
         </div>
       </div>
 
-      {/* KPI Overview Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Primary KPI Stats Summary Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
         <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">إجمالي القوى العاملة</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5">{totalEmployees} موظفاً</h4>
-            <span className="text-[10px] text-emerald-600 font-bold">100% مسجلون بالتأمينات</span>
+            <span className="text-[11px] font-bold text-muted-foreground">إجمالي الموظفين</span>
+            <h4 className="text-xl font-black text-foreground mt-0.5">{totalEmployees}</h4>
+            <span className="text-[10px] text-emerald-600 font-bold">100% عقود سارية</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center text-primary">
             <Users className="h-5 w-5" />
@@ -338,12 +529,25 @@ export const EmployeesView: React.FC = () => {
 
         <div className="rounded-2xl border border-emerald-300 bg-emerald-500/10 p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-emerald-800">نسبة التوطين (نطاقات)</span>
-            <h4 className="text-xl font-black text-emerald-700 mt-0.5">{saudizationRate}%</h4>
-            <span className="text-[10px] text-emerald-700 font-bold">النطاق البلاتيني المرتفع</span>
+            <span className="text-[11px] font-bold text-emerald-800">🇸🇦 الكوادر الوطنية</span>
+            <h4 className="text-xl font-black text-emerald-700 mt-0.5">
+              {saudiEmployees} ({saudizationRate}%)
+            </h4>
+            <span className="text-[10px] text-emerald-700 font-bold">نطاق بلاتيني معتمد</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-emerald-600/20 flex items-center justify-center text-emerald-700">
-            <BadgePercent className="h-5 w-5" />
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-muted-foreground">🌍 الكوادر المقيمة</span>
+            <h4 className="text-xl font-black text-foreground mt-0.5">{expatEmployees}</h4>
+            <span className="text-[10px] text-muted-foreground font-bold">إقامات مهنية موثقة</span>
+          </div>
+          <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+            <Building className="h-5 w-5" />
           </div>
         </div>
 
@@ -358,9 +562,20 @@ export const EmployeesView: React.FC = () => {
           </div>
         </div>
 
+        <div className="rounded-2xl border border-blue-300 bg-blue-500/10 p-4 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-blue-800">في إجازة رسمية</span>
+            <h4 className="text-xl font-black text-blue-700 mt-0.5">{onLeaveCount} موظف</h4>
+            <span className="text-[10px] text-blue-700 font-bold">إجازات سنوية معتمدة</span>
+          </div>
+          <div className="h-10 w-10 rounded-2xl bg-blue-600/20 flex items-center justify-center text-blue-700">
+            <UserCheck className="h-5 w-5" />
+          </div>
+        </div>
+
         <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">وثائق وإقامات قريبة الانتهاء</span>
+            <span className="text-[11px] font-bold text-muted-foreground">وثائق وإقامات قريبة</span>
             <h4 className="text-xl font-black text-destructive mt-0.5">{expiringDocsCount} تنبيهات</h4>
             <span className="text-[10px] text-destructive font-bold">أقل من 60 يوماً</span>
           </div>
@@ -418,29 +633,29 @@ export const EmployeesView: React.FC = () => {
               : "bg-card border border-border/80 text-muted-foreground hover:bg-secondary"
           }`}
         >
-          ⏳ فترة التجربة ({probationCount})
+          ⏳ تحت التجربة ({probationCount})
         </button>
         <button
           type="button"
-          onClick={() => setQuickPreset("expiring_docs")}
+          onClick={() => setQuickPreset("on_leave")}
           className={`rounded-full px-3.5 py-1.5 font-bold transition-all whitespace-nowrap ${
-            quickPreset === "expiring_docs"
-              ? "bg-destructive text-white shadow-xs"
+            quickPreset === "on_leave"
+              ? "bg-blue-600 text-white shadow-xs"
               : "bg-card border border-border/80 text-muted-foreground hover:bg-secondary"
           }`}
         >
-          ⚠️ وثائق تنتهي قريباً ({expiringDocsCount})
+          🏖️ في إجازة ({onLeaveCount})
         </button>
         <button
           type="button"
           onClick={() => setQuickPreset("remote_hybrid")}
           className={`rounded-full px-3.5 py-1.5 font-bold transition-all whitespace-nowrap ${
             quickPreset === "remote_hybrid"
-              ? "bg-indigo-600 text-white shadow-xs"
+              ? "bg-primary text-primary-foreground shadow-xs"
               : "bg-card border border-border/80 text-muted-foreground hover:bg-secondary"
           }`}
         >
-          💻 العمل عن بعد / هجين
+          🌐 عمل عن بعد وهجين
         </button>
         <button
           type="button"
@@ -451,36 +666,87 @@ export const EmployeesView: React.FC = () => {
               : "bg-card border border-border/80 text-muted-foreground hover:bg-secondary"
           }`}
         >
-          ⭐ مكتمل 100%
+          ⭐ ملفات مكتملة (95%+)
+        </button>
+        <button
+          type="button"
+          onClick={() => setQuickPreset("expiring_docs")}
+          className={`rounded-full px-3.5 py-1.5 font-bold transition-all whitespace-nowrap ${
+            quickPreset === "expiring_docs"
+              ? "bg-destructive text-white shadow-xs"
+              : "bg-card border border-border/80 text-muted-foreground hover:bg-secondary"
+          }`}
+        >
+          ⚠️ وثائق قاربت الانتهاء ({expiringDocsCount})
         </button>
       </div>
 
-      {/* Main Search & Advanced Filter Toggle */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-        <div className="relative w-full sm:w-96">
-          <Search className="absolute right-3.5 top-3 h-4 w-4 text-muted-foreground" />
+      {/* Main Filter & Search Toolbar */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+        {/* Search input */}
+        <div className="relative w-full md:w-96">
+          <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="بحث بالاسم، الرقم الوظيفي، الهوية، المسمى، البريد..."
+            placeholder="بحث بالاسم، الرقم الوظيفي، الهوية، المسمى، أو البريد..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-10 w-full rounded-2xl border border-border/80 bg-card pr-10 pl-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 font-medium"
+            className="w-full h-10 rounded-full border border-border/80 bg-muted/40 pr-9 pl-4 text-xs font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm("")}
+              className="absolute left-3 top-2.5 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
-        <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+        {/* View Switcher & Advanced Filter Toggles */}
+        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
+          {/* View Mode Toggle: Table vs Cards */}
+          <div className="flex items-center bg-muted/60 p-0.5 rounded-full border border-border/80">
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${
+                viewMode === "table"
+                  ? "bg-card text-primary shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <List className="h-3.5 w-3.5" />
+              جدول
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("cards")}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${
+                viewMode === "cards"
+                  ? "bg-card text-primary shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              بطاقات
+            </button>
+          </div>
+
+          {/* Advanced Filters Button */}
           <Button
             variant={isFilterPanelOpen ? "default" : "outline"}
             size="sm"
             onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-            className={`rounded-full text-xs font-bold gap-2 h-10 px-4 transition-all ${
-              activeFiltersCount > 0 && !isFilterPanelOpen ? "border-primary text-primary" : ""
+            className={`rounded-full text-xs font-bold gap-1.5 h-10 px-4 shadow-xs ${
+              isFilterPanelOpen ? "bg-primary text-primary-foreground" : "border-border/80"
             }`}
           >
             <SlidersHorizontal className="h-4 w-4" />
-            الفلاتر المتقدمة
+            تصفية متقدمة
             {activeFiltersCount > 0 && (
-              <Badge className="h-5 px-1.5 text-[10px] rounded-full bg-primary-foreground text-primary font-black">
+              <Badge className="bg-primary-foreground text-primary text-[10px] rounded-full h-5 px-1.5 font-bold">
                 {activeFiltersCount}
               </Badge>
             )}
@@ -491,10 +757,10 @@ export const EmployeesView: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={handleResetFilters}
-              className="rounded-full text-xs font-bold gap-1 text-muted-foreground hover:text-foreground h-10 px-3"
+              className="rounded-full text-xs font-bold text-destructive hover:bg-destructive/10 h-10 px-3"
             >
-              <RotateCcw className="h-3.5 w-3.5" />
-              إعادة تعيين
+              <RotateCcw className="h-3.5 w-3.5 mr-1" />
+              إعادة ضبط
             </Button>
           )}
         </div>
@@ -597,6 +863,20 @@ export const EmployeesView: React.FC = () => {
               </select>
             </div>
 
+            {/* Nationality Filter */}
+            <div className="space-y-1.5">
+              <label className="font-bold text-muted-foreground">الجنسية والتوطين</label>
+              <select
+                value={selectedNationality}
+                onChange={(e) => setSelectedNationality(e.target.value)}
+                className="w-full h-9 rounded-2xl border border-border/80 bg-muted/30 px-3 font-semibold text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+              >
+                <option value="all">كافة الجنسيات</option>
+                <option value="saudi">🇸🇦 مواطن سعودي</option>
+                <option value="expat">🌍 مقيم</option>
+              </select>
+            </div>
+
             {/* Gender Filter */}
             <div className="space-y-1.5">
               <label className="font-bold text-muted-foreground">الجنس</label>
@@ -612,12 +892,12 @@ export const EmployeesView: React.FC = () => {
             </div>
 
             {/* Basic Salary Range */}
-            <div className="space-y-1.5 sm:col-span-2">
+            <div className="space-y-1.5">
               <label className="font-bold text-muted-foreground">نطاق الراتب الأساسي (ر.س)</label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
-                  placeholder="الحد الأدنى (مثال: 10000)"
+                  placeholder="من"
                   value={minSalary}
                   onChange={(e) => setMinSalary(e.target.value ? Number(e.target.value) : "")}
                   className="w-full h-9 rounded-2xl border border-border/80 bg-muted/30 px-3 font-mono text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -625,7 +905,7 @@ export const EmployeesView: React.FC = () => {
                 <span className="text-muted-foreground font-bold">-</span>
                 <input
                   type="number"
-                  placeholder="الحد الأقصى (مثال: 30000)"
+                  placeholder="إلى"
                   value={maxSalary}
                   onChange={(e) => setMaxSalary(e.target.value ? Number(e.target.value) : "")}
                   className="w-full h-9 rounded-2xl border border-border/80 bg-muted/30 px-3 font-mono text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -636,142 +916,394 @@ export const EmployeesView: React.FC = () => {
         </div>
       )}
 
-      {/* Employees Table Grid */}
-      <div className="rounded-3xl border border-border/80 bg-card overflow-hidden shadow-xs p-5 space-y-3">
-        <div className="flex justify-between items-center px-1">
-          <span className="text-xs font-bold text-muted-foreground">
-            عرض <span className="text-foreground font-black font-mono">{filteredEmployees.length}</span> موظفاً
-          </span>
-        </div>
+      {/* VIEW 1: TABLE VIEW */}
+      {viewMode === "table" && (
+        <div className="rounded-3xl border border-border/80 bg-card overflow-hidden shadow-xs p-5 space-y-3">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-xs font-bold text-muted-foreground">
+              عرض <span className="text-foreground font-black font-mono">{filteredEmployees.length}</span> موظفاً
+            </span>
+          </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-border/60">
-          <table className="w-full text-xs">
-            <thead className="border-b border-border/60 bg-muted/40 font-bold text-muted-foreground">
-              <tr>
-                <th className="py-3 px-4 text-start">الموظف والبيانات الشخصية</th>
-                <th className="py-3 px-4 text-start">الرقم الوظيفي والدرجة</th>
-                <th className="py-3 px-4 text-start">القسم والكيان التابع</th>
-                <th className="py-3 px-4 text-start">المسمى وبيئة العمل</th>
-                <th className="py-3 px-4 text-start">الراتب الأساسي والإجمالي</th>
-                <th className="py-3 px-4 text-start">الحالة وسنوات الخدمة</th>
-                <th className="py-3 px-4 text-start">اكتمال الملف</th>
-                <th className="py-3 px-4 text-center">إجراءات والملف 360°</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {filteredEmployees.map((emp) => (
-                <tr key={emp.id} className="hover:bg-muted/20 transition-colors group">
-                  <td className="py-3 px-4">
-                    <div
-                      onClick={() => openEmployeeProfile(emp)}
-                      className="flex items-center gap-3 cursor-pointer hover:opacity-85"
+          <div className="overflow-x-auto rounded-2xl border border-border/60">
+            <table className="w-full text-xs">
+              <thead className="border-b border-border/60 bg-muted/40 font-bold text-muted-foreground">
+                <tr>
+                  <th className="py-3 px-3 text-center w-10">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      onChange={handleToggleSelectAll}
+                      className="rounded accent-primary cursor-pointer h-4 w-4"
+                    />
+                  </th>
+                  <th className="py-3 px-4 text-start">الموظف والبيانات الشخصية</th>
+                  <th className="py-3 px-4 text-start">الرقم الوظيفي والدرجة</th>
+                  <th className="py-3 px-4 text-start">القسم والكيان التابع</th>
+                  <th className="py-3 px-4 text-start">المسمى وبيئة العمل</th>
+                  <th className="py-3 px-4 text-start">الراتب الأساسي والإجمالي</th>
+                  <th className="py-3 px-4 text-start">الحالة وسنوات الخدمة</th>
+                  <th className="py-3 px-4 text-start">اكتمال الملف</th>
+                  <th className="py-3 px-4 text-center">إجراءات والملف 360°</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {filteredEmployees.map((emp) => {
+                  const isSelected = selectedIds.includes(emp.id);
+                  return (
+                    <tr
+                      key={emp.id}
+                      className={`hover:bg-muted/20 transition-colors group ${
+                        isSelected ? "bg-primary/5" : ""
+                      }`}
                     >
+                      <td className="py-3 px-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectOne(emp.id)}
+                          className="rounded accent-primary cursor-pointer h-4 w-4"
+                        />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div
+                          onClick={() => openEmployeeProfile(emp)}
+                          className="flex items-center gap-3 cursor-pointer hover:opacity-85"
+                        >
+                          <img
+                            src={
+                              emp.avatarUrl ||
+                              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
+                            }
+                            alt={emp.firstNameAr}
+                            className="h-11 w-11 rounded-full border-2 border-primary/20 object-cover shadow-xs group-hover:ring-2 group-hover:ring-primary/50 transition-all"
+                          />
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-black text-foreground group-hover:text-primary group-hover:underline transition-colors block text-sm">
+                                {language === "ar"
+                                  ? `${emp.firstNameAr} ${emp.lastNameAr}`
+                                  : `${emp.firstNameEn} ${emp.lastNameEn}`}
+                              </span>
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                {emp.nationality}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                              {emp.email}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-mono font-bold text-foreground block">
+                          {emp.employeeNo}
+                        </span>
+                        <span className="text-[10px] text-primary font-bold">
+                          {emp.jobGrade || "L3 - اختصاصي"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-bold text-foreground block">{emp.departmentName}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {emp.subsidiaryName || "فوكس للتقنية"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-foreground font-semibold block">{emp.jobTitleAr}</span>
+                        <span className="text-[10px] text-muted-foreground font-bold">
+                          {emp.workType === "remote"
+                            ? "🌐 عن بعد"
+                            : emp.workType === "hybrid"
+                              ? "💼 هجين"
+                              : "🏢 حضوري"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-black text-primary font-mono block text-sm">
+                          {emp.totalSalary.toLocaleString()} {t.currency}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          أساسي: {emp.basicSalary.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] rounded-full px-2.5 font-bold block w-fit mb-1 ${
+                            emp.status === "active"
+                              ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
+                              : emp.status === "probation"
+                                ? "bg-amber-500/10 text-amber-700 border-amber-200"
+                                : emp.status === "on_leave"
+                                  ? "bg-blue-500/10 text-blue-700 border-blue-200"
+                                  : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {emp.status === "active"
+                            ? "نشط"
+                            : emp.status === "probation"
+                              ? "تحت التجربة"
+                              : emp.status === "on_leave"
+                                ? "في إجازة"
+                                : "موقوف"}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {emp.yearsOfService || 3} سنوات خدمة
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-14 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full bg-emerald-500 rounded-full"
+                              style={{ width: `${emp.completionScore}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-mono font-bold text-muted-foreground">
+                            {emp.completionScore}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Button
+                            size="sm"
+                            onClick={() => openEmployeeProfile(emp)}
+                            className="rounded-full h-8 text-xs font-bold text-primary bg-primary/10 hover:bg-primary hover:text-primary-foreground gap-1 transition-all px-3.5"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            الملف 360°
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openDocumentModal(emp, "salary_certificate")}
+                            className="rounded-full h-8 text-xs font-bold gap-1 border-border/80 hover:bg-secondary px-3"
+                          >
+                            <Printer className="h-3 w-3 text-primary" />
+                            شهادة راتب
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredEmployees.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="text-center py-12 text-muted-foreground font-medium">
+                      لا توجد نتائج مطابقة لبحثك أو الفلاتر المحددة
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW 2: SMART CARDS GRID VIEW */}
+      {viewMode === "cards" && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center px-1 text-xs">
+            <span className="font-bold text-muted-foreground">
+              عرض <span className="text-foreground font-black font-mono">{filteredEmployees.length}</span> بطاقة موظف
+            </span>
+            <button
+              type="button"
+              onClick={handleToggleSelectAll}
+              className="text-xs text-primary font-bold hover:underline"
+            >
+              {isAllSelected ? "إلغاء تحديد الكل" : "تحديد كافة الموظفين"}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredEmployees.map((emp) => {
+              const isSelected = selectedIds.includes(emp.id);
+              const isSaudi =
+                emp.nationality.includes("سعود") ||
+                emp.nationalIdOrIqama?.startsWith("1") ||
+                emp.nationality.toLowerCase().includes("saudi");
+
+              return (
+                <div
+                  key={emp.id}
+                  className={`rounded-3xl border bg-card p-5 shadow-xs transition-all duration-200 hover:shadow-md hover:border-primary/50 relative flex flex-col justify-between space-y-4 ${
+                    isSelected ? "border-primary ring-2 ring-primary/20 bg-primary/[0.02]" : "border-border/80"
+                  }`}
+                >
+                  {/* Top Bar with Checkbox & Status */}
+                  <div className="flex items-center justify-between">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleToggleSelectOne(emp.id)}
+                      className="rounded accent-primary cursor-pointer h-4 w-4"
+                    />
+
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        {isSaudi ? "🇸🇦 سعودي" : "🌍 مقيم"}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] rounded-full px-2.5 font-bold ${
+                          emp.status === "active"
+                            ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
+                            : emp.status === "probation"
+                              ? "bg-amber-500/10 text-amber-700 border-amber-200"
+                              : emp.status === "on_leave"
+                                ? "bg-blue-500/10 text-blue-700 border-blue-200"
+                                : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {emp.status === "active"
+                          ? "نشط"
+                          : emp.status === "probation"
+                            ? "تحت التجربة"
+                            : emp.status === "on_leave"
+                              ? "في إجازة"
+                              : "موقوف"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Centered Avatar & Names */}
+                  <div
+                    onClick={() => openEmployeeProfile(emp)}
+                    className="text-center space-y-2 cursor-pointer group"
+                  >
+                    <div className="relative inline-block">
                       <img
                         src={
                           emp.avatarUrl ||
                           "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
                         }
                         alt={emp.firstNameAr}
-                        className="h-11 w-11 rounded-full border-2 border-primary/20 object-cover shadow-xs group-hover:ring-2 group-hover:ring-primary/50 transition-all"
+                        className="h-16 w-16 rounded-full border-2 border-card object-cover shadow-sm ring-2 ring-primary/20 group-hover:scale-105 transition-transform mx-auto"
                       />
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-black text-foreground group-hover:text-primary group-hover:underline transition-colors block text-sm">
-                            {language === "ar"
-                              ? `${emp.firstNameAr} ${emp.lastNameAr}`
-                              : `${emp.firstNameEn} ${emp.lastNameEn}`}
-                          </span>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-                            {emp.nationality}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{emp.email}</p>
-                      </div>
+                      <div
+                        className={`absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-card ${
+                          emp.status === "active"
+                            ? "bg-emerald-500"
+                            : emp.status === "probation"
+                              ? "bg-amber-500"
+                              : "bg-blue-500"
+                        }`}
+                      />
                     </div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="font-mono font-bold text-foreground block">{emp.employeeNo}</span>
-                    <span className="text-[10px] text-primary font-bold">{emp.jobGrade || "L3 - اختصاصي"}</span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="font-bold text-foreground block">{emp.departmentName}</span>
-                    <span className="text-[10px] text-muted-foreground">{emp.subsidiaryName || "فوكس للتقنية"}</span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="text-foreground font-semibold block">{emp.jobTitleAr}</span>
-                    <span className="text-[10px] text-muted-foreground font-bold">
-                      {emp.workType === "remote" ? "🌐 عن بعد" : emp.workType === "hybrid" ? "💼 هجين" : "🏢 حضوري"}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="font-black text-primary font-mono block text-sm">
-                      {emp.totalSalary.toLocaleString()} {t.currency}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      أساسي: {emp.basicSalary.toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] rounded-full px-2.5 font-bold block w-fit mb-1 ${
-                        emp.status === "active"
-                          ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
-                          : emp.status === "probation"
-                            ? "bg-amber-500/10 text-amber-700 border-amber-200"
-                            : "bg-blue-500/10 text-blue-700 border-blue-200"
-                      }`}
-                    >
-                      {emp.status === "active"
-                        ? "نشط"
-                        : emp.status === "probation"
-                          ? "تحت التجربة"
-                          : "في إجازة"}
-                    </Badge>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      {emp.yearsOfService || 3} سنوات خدمة
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-14 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full bg-emerald-500 rounded-full"
-                          style={{ width: `${emp.completionScore}%` }}
-                        />
-                      </div>
-                      <span className="text-[10px] font-mono font-bold text-muted-foreground">
-                        {emp.completionScore}%
+
+                    <div>
+                      <h3 className="font-black text-sm text-foreground group-hover:text-primary group-hover:underline transition-colors">
+                        {emp.firstNameAr} {emp.lastNameAr}
+                      </h3>
+                      <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                        {emp.firstNameEn} {emp.lastNameEn}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-center gap-1.5 text-[10px]">
+                      <Badge variant="secondary" className="rounded-full px-2 font-mono font-bold">
+                        {emp.employeeNo}
+                      </Badge>
+                      <span className="text-primary font-bold">{emp.jobGrade || "L3 - اختصاصي"}</span>
+                    </div>
+                  </div>
+
+                  {/* Job & Department Details */}
+                  <div className="rounded-2xl bg-muted/20 border border-border/60 p-3 space-y-1.5 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground text-[11px]">المسمى:</span>
+                      <span className="font-bold text-foreground text-start truncate max-w-[140px]">
+                        {emp.jobTitleAr}
                       </span>
                     </div>
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <Button
-                        size="sm"
-                        onClick={() => openEmployeeProfile(emp)}
-                        className="rounded-full h-8 text-xs font-bold text-primary bg-primary/10 hover:bg-primary hover:text-primary-foreground gap-1 transition-all px-3"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        عرض وتعديل 360°
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openDocumentModal(emp, "salary_certificate")}
-                        className="rounded-full h-8 text-xs font-bold gap-1 border-border/80 hover:bg-secondary px-3"
-                      >
-                        <Printer className="h-3 w-3 text-primary" />
-                        شهادة راتب
-                      </Button>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground text-[11px]">الإدارة:</span>
+                      <span className="font-semibold text-foreground truncate max-w-[140px]">
+                        {emp.departmentName}
+                      </span>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground text-[11px]">الراتب الإجمالي:</span>
+                      <span className="font-mono font-black text-primary">
+                        {emp.totalSalary.toLocaleString()} ر.س
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      onClick={() => openEmployeeProfile(emp)}
+                      className="flex-1 rounded-full text-xs font-bold gap-1 bg-primary hover:bg-primary/90 text-primary-foreground h-8 shadow-xs"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      الملف 360°
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openDocumentModal(emp, "salary_certificate")}
+                      className="rounded-full text-xs font-bold h-8 w-8 p-0 border-border/80 hover:bg-secondary"
+                      title="طباعة تعريف راتب"
+                    >
+                      <Printer className="h-3.5 w-3.5 text-primary" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Floating Bulk Actions Bar */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-full bg-foreground text-background px-6 py-3 shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
+          <span className="text-xs font-black">
+            تم تحديد <span className="text-primary font-mono">{selectedIds.length}</span> موظفاً
+          </span>
+
+          <div className="h-4 w-px bg-background/30" />
+
+          <Button
+            size="sm"
+            onClick={handleExportSelectedOrAll}
+            className="rounded-full text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white h-8 px-3.5 shadow-xs"
+          >
+            <Download className="h-3.5 w-3.5" />
+            تصدير المحدد (CSV)
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => handleBulkStatusUpdate("active")}
+            className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground h-8 px-3.5 shadow-xs"
+          >
+            تفعيل كـ "نشط"
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleBulkStatusUpdate("probation")}
+            className="rounded-full text-xs font-bold text-background border-background/40 hover:bg-background/20 h-8 px-3"
+          >
+            تحت التجربة
+          </Button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedIds([])}
+            className="text-xs font-bold text-muted-foreground hover:text-background transition-colors mr-2"
+          >
+            إلغاء
+          </button>
+        </div>
+      )}
 
       {/* 3-Step Add Employee Wizard Modal */}
       <Dialog open={isAddWizardOpen} onOpenChange={setIsAddWizardOpen}>
@@ -810,6 +1342,26 @@ export const EmployeesView: React.FC = () => {
                 />
               </div>
               <div className="space-y-1.5">
+                <label className="font-bold">الاسم الأول بالإنجليزية</label>
+                <input
+                  type="text"
+                  value={newEmp.firstNameEn}
+                  onChange={(e) => setNewEmp({ ...newEmp, firstNameEn: e.target.value })}
+                  placeholder="Ahmed"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="font-bold">اسم العائلة بالإنجليزية</label>
+                <input
+                  type="text"
+                  value={newEmp.lastNameEn}
+                  onChange={(e) => setNewEmp({ ...newEmp, lastNameEn: e.target.value })}
+                  placeholder="Al-Saeed"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <div className="space-y-1.5">
                 <label className="font-bold">البريد الإلكتروني للعمل *</label>
                 <input
                   type="email"
@@ -820,7 +1372,7 @@ export const EmployeesView: React.FC = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold">رقم الهوية الوطنية / الإقامة *</label>
+                <label className="font-bold">رقم الهوية الوطنية / الإقامة (10 أرقام) *</label>
                 <input
                   type="text"
                   value={newEmp.nationalIdOrIqama}
@@ -886,7 +1438,7 @@ export const EmployeesView: React.FC = () => {
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold">موقع العمل</label>
+                <label className="font-bold">موقع وفرع العمل</label>
                 <select
                   value={newEmp.workLocationId}
                   onChange={(e) => {
@@ -930,7 +1482,13 @@ export const EmployeesView: React.FC = () => {
                     const b = Number(e.target.value);
                     const h = Math.round(b * 0.25);
                     const tr = Math.round(b * 0.08);
-                    setNewEmp({ ...newEmp, basicSalary: b, housingAllowance: h, transportAllowance: tr, totalSalary: b + h + tr });
+                    setNewEmp({
+                      ...newEmp,
+                      basicSalary: b,
+                      housingAllowance: h,
+                      transportAllowance: tr,
+                      totalSalary: b + h + tr,
+                    });
                   }}
                   className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />

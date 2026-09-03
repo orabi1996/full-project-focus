@@ -38,6 +38,8 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import type { OvertimeRecord } from "../../types";
+import { Fingerprint } from "lucide-react";
+import { BiometricTerminalPanel } from "./BiometricTerminalPanel";
 
 export const AttendanceView: React.FC = () => {
   const {
@@ -68,7 +70,7 @@ export const AttendanceView: React.FC = () => {
     "operations_manager",
   ].includes(currentRole);
 
-  const [activeTab, setActiveTab] = useState<"timesheet" | "overtime" | "corrections" | "policies">(
+  const [activeTab, setActiveTab] = useState<"timesheet" | "overtime" | "corrections" | "biometric" | "policies">(
     "timesheet",
   );
 
@@ -416,7 +418,7 @@ export const AttendanceView: React.FC = () => {
         </TabsList>
 
         <TabsContent value="biometric" className="space-y-4">
-          <BiometricTerminalPanel onChanged={() => processAttendance?.()} />
+          <BiometricTerminalPanel />
         </TabsContent>
 
 

@@ -271,7 +271,8 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
       totalDeductions: round2(totals.deductions),
       totalEmployerGosi: round2(totals.employerGosi),
     };
-  });
+}
+
 
 /**
  * Locks or pays a payroll run and advances loan installments on payment.

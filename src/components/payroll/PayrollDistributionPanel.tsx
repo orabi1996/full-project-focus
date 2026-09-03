@@ -175,17 +175,14 @@ export const PayrollDistributionPanel: React.FC<Props> = ({
   }, [orgUnits, employees, details, rollUp]);
 
   const totals = useMemo(() => {
-    const leaves = rows.filter((row) => row.level !== "division" || !rollUp);
+    const parentById = new Map(orgUnits.map((unit) => [unit.id, unit.parentId ?? null]));
+    const visible = new Set(rows.map((row) => row.unitId));
     const base = rollUp
-      ? rows.filter(
-          (row) =>
-            !orgUnits.find((unit) => unit.id === row.unitId)?.parentId ||
-            !rows.some(
-              (other) =>
-                other.unitId === orgUnits.find((unit) => unit.id === row.unitId)?.parentId,
-            ),
-        )
-      : leaves;
+      ? rows.filter((row) => {
+          const parentId = parentById.get(row.unitId);
+          return !parentId || !visible.has(parentId);
+        })
+      : rows;
     return base.reduce(
       (sum, row) => ({
         headcount: sum.headcount + row.headcount,

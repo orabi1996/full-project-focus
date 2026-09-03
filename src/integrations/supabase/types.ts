@@ -1843,6 +1843,7 @@ export type Database = {
       }
       punches: {
         Row: {
+          approval_status: string
           created_at: string
           device_id: string | null
           employee_id: string | null
@@ -1856,6 +1857,7 @@ export type Database = {
           work_location_id: string | null
         }
         Insert: {
+          approval_status?: string
           created_at?: string
           device_id?: string | null
           employee_id?: string | null
@@ -1869,6 +1871,7 @@ export type Database = {
           work_location_id?: string | null
         }
         Update: {
+          approval_status?: string
           created_at?: string
           device_id?: string | null
           employee_id?: string | null

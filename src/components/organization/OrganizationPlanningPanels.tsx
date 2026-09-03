@@ -47,8 +47,15 @@ function statusBadge(status: "active" | "inactive") {
 }
 
 export function CostCentersPanel() {
-  const { company, costCenters, employees, currentRole, addCostCenter, updateCostCenter } =
-    useApp();
+  const {
+    company,
+    costCenters,
+    employees,
+    currentRole,
+    addCostCenter,
+    updateCostCenter,
+    isSaving,
+  } = useApp();
   const canManage = canManageModule(currentRole, "organization");
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -87,13 +94,14 @@ export function CostCentersPanel() {
     setOpen(true);
   };
 
-  const save = () => {
+  const save = async () => {
+    if (isSaving) return;
     if (!draft.code.trim() || !draft.nameAr.trim() || !draft.nameEn.trim()) {
       toast.error("أكمل الرمز والاسم العربي والإنجليزي لمركز التكلفة");
       return;
     }
-    if (editingId) updateCostCenter(editingId, draft);
-    else addCostCenter(draft);
+    const saved = editingId ? await updateCostCenter(editingId, draft) : await addCostCenter(draft);
+    if (!saved) return;
     toast.success(editingId ? "تم تحديث مركز التكلفة" : "تم إنشاء مركز التكلفة");
     setOpen(false);
     reset();
@@ -258,6 +266,7 @@ export function JobPositionsPanel() {
     currentRole,
     addJobPosition,
     updateJobPosition,
+    isSaving,
   } = useApp();
   const canManage = canManageModule(currentRole, "organization");
   const [open, setOpen] = useState(false);
@@ -294,13 +303,16 @@ export function JobPositionsPanel() {
     setOpen(true);
   };
 
-  const save = () => {
+  const save = async () => {
+    if (isSaving) return;
     if (!draft.code.trim() || !draft.titleAr.trim() || !draft.titleEn.trim() || !draft.orgUnitId) {
       toast.error("أكمل الرمز والمسمى والوحدة التنظيمية للمنصب");
       return;
     }
-    if (editingId) updateJobPosition(editingId, draft);
-    else addJobPosition(draft);
+    const saved = editingId
+      ? await updateJobPosition(editingId, draft)
+      : await addJobPosition(draft);
+    if (!saved) return;
     toast.success(editingId ? "تم تحديث المنصب" : "تم إنشاء المنصب");
     setOpen(false);
     reset();

@@ -58,6 +58,7 @@ export const AttendanceView: React.FC = () => {
     openEmployeeProfile,
     language,
     t,
+    isSaving,
   } = useApp();
 
   const canManageAttendance = [
@@ -162,31 +163,36 @@ export const AttendanceView: React.FC = () => {
 
   const handleProcessAttendance = () => {
     const today = new Date();
-    const from = new Date(today.getFullYear(), today.getMonth(), 1)
-      .toISOString()
-      .slice(0, 10);
+    const from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
     const to = today.toISOString().slice(0, 10);
     processAttendance(from, to);
     toast.success("تمت معالجة واحتساب ساعات الحضور الإجمالية والتأخيرات لشهر سبتمبر 2026 بنجاح");
   };
 
   const handlePunch = (type: "in" | "out") => {
+    if (isSaving) return;
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const res = punchInOut(type, { lat: pos.coords.latitude, lng: pos.coords.longitude });
-          toast.success(
-            `${res.message} • ${res.geofenceValid ? "داخل السياج الجغرافي للمقر" : "خارج النطاق الجغرافي"}`,
-          );
+        async (pos) => {
+          const res = await punchInOut(type, {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          });
+          if (res.success) {
+            toast.success(
+              `${res.message} • ${res.geofenceValid ? "داخل السياج الجغرافي للمقر" : "خارج النطاق الجغرافي"}`,
+            );
+          }
         },
-        () => {
-          const res = punchInOut(type);
-          toast.success(res.message);
+        async () => {
+          const res = await punchInOut(type);
+          if (res.success) toast.success(res.message);
         },
       );
     } else {
-      const res = punchInOut(type);
-      toast.success(res.message);
+      void punchInOut(type).then((res) => {
+        if (res.success) toast.success(res.message);
+      });
     }
   };
 
@@ -259,11 +265,18 @@ export const AttendanceView: React.FC = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
         <div>
           <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol name="schedule" source="material" filled size={26} className="text-primary" />
+            <IconSymbol
+              name="schedule"
+              source="material"
+              filled
+              size={26}
+              className="text-primary"
+            />
             نظام إدارة الحضور والورديات والعمل الإضافي (M07)
           </h1>
           <p className="text-xs text-muted-foreground font-medium mt-1">
-            البصمة الذكية GPS، السياج الجغرافي، واحتساب الساعات الإضافية وفق المادة 107 من نظام العمل السعودي
+            البصمة الذكية GPS، السياج الجغرافي، واحتساب الساعات الإضافية وفق المادة 107 من نظام
+            العمل السعودي
           </p>
         </div>
 
@@ -309,7 +322,9 @@ export const AttendanceView: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">نسبة الانضباط والالتزام</span>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              نسبة الانضباط والالتزام
+            </span>
             <p className="text-2xl font-black text-emerald-600 mt-0.5">{attendanceRate}%</p>
             <span className="text-[10px] text-muted-foreground font-bold">
               {presentCount} حاضر من {totalEmployeesCount}
@@ -322,9 +337,12 @@ export const AttendanceView: React.FC = () => {
 
         <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">العمل الإضافي المعتمد</span>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              العمل الإضافي المعتمد
+            </span>
             <p className="text-2xl font-black text-foreground mt-0.5">
-              {totalOvertimeApprovedHours} <span className="text-xs font-normal text-muted-foreground">ساعة</span>
+              {totalOvertimeApprovedHours}{" "}
+              <span className="text-xs font-normal text-muted-foreground">ساعة</span>
             </p>
             <span className="text-[10px] text-primary font-bold">
               {totalOvertimeApprovedAmount.toLocaleString()} ر.س مخصص شهري
@@ -337,7 +355,9 @@ export const AttendanceView: React.FC = () => {
 
         <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">حالات التأخير والانصراف المبكر</span>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              حالات التأخير والانصراف المبكر
+            </span>
             <p className="text-2xl font-black text-amber-600 mt-0.5">{lateCount}</p>
             <span className="text-[10px] text-amber-600 font-bold">ضمن فترة السماح القانونية</span>
           </div>
@@ -350,7 +370,9 @@ export const AttendanceView: React.FC = () => {
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">طلبات تصحيح البصمة</span>
             <p className="text-2xl font-black text-indigo-600 mt-0.5">{pendingCorrectionsCount}</p>
-            <span className="text-[10px] text-muted-foreground font-bold">بانتظار اعتماد المشرفين</span>
+            <span className="text-[10px] text-muted-foreground font-bold">
+              بانتظار اعتماد المشرفين
+            </span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
             <FileCheck className="h-6 w-6" />
@@ -577,9 +599,15 @@ export const AttendanceView: React.FC = () => {
                                   : "تعديل إداري"}
                           </span>
                           {rec.geofenceValid ? (
-                            <span className="h-2 w-2 rounded-full bg-emerald-500" title="داخل السياج" />
+                            <span
+                              className="h-2 w-2 rounded-full bg-emerald-500"
+                              title="داخل السياج"
+                            />
                           ) : (
-                            <span className="h-2 w-2 rounded-full bg-amber-500" title="خارج السياج" />
+                            <span
+                              className="h-2 w-2 rounded-full bg-amber-500"
+                              title="خارج السياج"
+                            />
                           )}
                         </div>
                       </td>
@@ -604,7 +632,10 @@ export const AttendanceView: React.FC = () => {
                   ))}
                   {filteredRecords.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="text-center py-10 text-muted-foreground font-medium">
+                      <td
+                        colSpan={9}
+                        className="text-center py-10 text-muted-foreground font-medium"
+                      >
                         لا توجد سجلات حضور تطابق معايير الفلترة المحددة
                       </td>
                     </tr>
@@ -625,7 +656,8 @@ export const AttendanceView: React.FC = () => {
                   محرك احتساب وإدارة العمل الإضافي (Overtime Engine)
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  وفقاً لنظام العمل السعودي: يُحسب أجر الساعة الإضافية بمعدل 150% (ساعة ونصف) وساعات العطل والأعياد بمعدل 200%.
+                  وفقاً لنظام العمل السعودي: يُحسب أجر الساعة الإضافية بمعدل 150% (ساعة ونصف) وساعات
+                  العطل والأعياد بمعدل 200%.
                 </p>
               </div>
 
@@ -691,7 +723,10 @@ export const AttendanceView: React.FC = () => {
                       <td className="py-3 px-4 text-center font-mono font-black text-emerald-600">
                         {ot.totalAmount.toLocaleString()} ر.س
                       </td>
-                      <td className="py-3 px-4 max-w-xs truncate text-muted-foreground font-medium" title={ot.reason}>
+                      <td
+                        className="py-3 px-4 max-w-xs truncate text-muted-foreground font-medium"
+                        title={ot.reason}
+                      >
                         {ot.reason}
                       </td>
                       <td className="py-3 px-4 text-center">
@@ -740,7 +775,10 @@ export const AttendanceView: React.FC = () => {
                   ))}
                   {overtimeRecords.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="text-center py-10 text-muted-foreground font-medium">
+                      <td
+                        colSpan={10}
+                        className="text-center py-10 text-muted-foreground font-medium"
+                      >
                         لا توجد طلبات عمل إضافي مسجلة حالياً
                       </td>
                     </tr>
@@ -761,7 +799,8 @@ export const AttendanceView: React.FC = () => {
                   طلبات تصحيح وتبرير البصمات (Punch Regularization)
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  معالجة البصمات المنسية أو الأعطال الفنية؛ عند الاعتماد يتم تحديث سجل الحضور وساعات العمل فوراً.
+                  معالجة البصمات المنسية أو الأعطال الفنية؛ عند الاعتماد يتم تحديث سجل الحضور وساعات
+                  العمل فوراً.
                 </p>
               </div>
 
@@ -858,7 +897,10 @@ export const AttendanceView: React.FC = () => {
                   ))}
                   {attendanceCorrections.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="text-center py-10 text-muted-foreground font-medium">
+                      <td
+                        colSpan={8}
+                        className="text-center py-10 text-muted-foreground font-medium"
+                      >
                         لا توجد طلبات تصحيح بصمة حالياً
                       </td>
                     </tr>
@@ -883,21 +925,27 @@ export const AttendanceView: React.FC = () => {
                   <span className="font-bold text-foreground block mb-1">
                     المادة 98 (ساعات العمل الفعلية):
                   </span>
-                  لا يجوز تشغيل العامل تشغيلاً فعلياً أكثر من 8 ساعات في اليوم الواحد إذا اعتمد صاحب العمل المعيار اليومي، أو أكثر من 48 ساعة في الأسبوع إذا اعتمد المعيار الأسبوعي. وتخفض ساعات العمل خلال شهر رمضان للمسلمين بحيث لا تزيد على 6 ساعات يومياً أو 36 ساعة أسبوعياً.
+                  لا يجوز تشغيل العامل تشغيلاً فعلياً أكثر من 8 ساعات في اليوم الواحد إذا اعتمد صاحب
+                  العمل المعيار اليومي، أو أكثر من 48 ساعة في الأسبوع إذا اعتمد المعيار الأسبوعي.
+                  وتخفض ساعات العمل خلال شهر رمضان للمسلمين بحيث لا تزيد على 6 ساعات يومياً أو 36
+                  ساعة أسبوعياً.
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60">
                   <span className="font-bold text-foreground block mb-1">
                     المادة 107 (أجر الساعات الإضافية):
                   </span>
-                  يجب على صاحب العمل أن يدفع للعامل عن ساعات العمل الإضافية أجراً يوازي أجر الساعة مضافاً إليه 50% من أجره الأساسي. وإذا كان التشغيل في أيام الأعياد أو العطلات الأسبوعية، تكون جميع الساعات إضافية بأجر مضاعف.
+                  يجب على صاحب العمل أن يدفع للعامل عن ساعات العمل الإضافية أجراً يوازي أجر الساعة
+                  مضافاً إليه 50% من أجره الأساسي. وإذا كان التشغيل في أيام الأعياد أو العطلات
+                  الأسبوعية، تكون جميع الساعات إضافية بأجر مضاعف.
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60">
                   <span className="font-bold text-foreground block mb-1">
                     المادة 101 (فترات الراحة والصلاة):
                   </span>
-                  لا يعمل العامل أكثر من 5 ساعات متتالية دون فترة للراحة والصلاة وتناول الطعام لا تقل عن نصف ساعة في المرة الواحدة.
+                  لا يعمل العامل أكثر من 5 ساعات متتالية دون فترة للراحة والصلاة وتناول الطعام لا
+                  تقل عن نصف ساعة في المرة الواحدة.
                 </div>
               </div>
             </div>
@@ -911,7 +959,9 @@ export const AttendanceView: React.FC = () => {
               <div className="space-y-3 text-xs">
                 <div className="p-4 rounded-2xl border border-border/60 bg-muted/40 flex items-center justify-between">
                   <div>
-                    <span className="font-bold text-foreground block">مقر الرياض - الإدارة العامة</span>
+                    <span className="font-bold text-foreground block">
+                      مقر الرياض - الإدارة العامة
+                    </span>
                     <span className="text-[11px] text-muted-foreground font-mono">
                       خط العرض: 24.7136 | خط الطول: 46.6753
                     </span>
@@ -923,7 +973,9 @@ export const AttendanceView: React.FC = () => {
 
                 <div className="p-4 rounded-2xl border border-border/60 bg-muted/40 flex items-center justify-between">
                   <div>
-                    <span className="font-bold text-foreground block">فرع جدة والمنطقة الغربية</span>
+                    <span className="font-bold text-foreground block">
+                      فرع جدة والمنطقة الغربية
+                    </span>
                     <span className="text-[11px] text-muted-foreground font-mono">
                       خط العرض: 21.5433 | خط الطول: 39.1728
                     </span>
@@ -935,7 +987,9 @@ export const AttendanceView: React.FC = () => {
 
                 <div className="p-4 rounded-2xl border border-border/60 bg-muted/40 flex items-center justify-between">
                   <div>
-                    <span className="font-bold text-foreground block">فرع الخبر والمنطقة الشرقية</span>
+                    <span className="font-bold text-foreground block">
+                      فرع الخبر والمنطقة الشرقية
+                    </span>
                     <span className="text-[11px] text-muted-foreground font-mono">
                       خط العرض: 26.2172 | خط الطول: 50.1971
                     </span>
@@ -948,7 +1002,8 @@ export const AttendanceView: React.FC = () => {
                 <div className="p-3.5 rounded-2xl bg-secondary/50 border border-primary/20 flex items-start gap-2 text-foreground">
                   <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                   <p className="text-[11px] leading-relaxed">
-                    يتم التحقق من موقع الموظف آلياً عند استخدام تطبيق الجوال؛ في حال كانت البصمة خارج النطاق، يُسجل الحضور مع إشعار بالخروج عن السياج للمشرف.
+                    يتم التحقق من موقع الموظف آلياً عند استخدام تطبيق الجوال؛ في حال كانت البصمة
+                    خارج النطاق، يُسجل الحضور مع إشعار بالخروج عن السياج للمشرف.
                   </p>
                 </div>
               </div>

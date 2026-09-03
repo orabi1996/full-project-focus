@@ -26,6 +26,15 @@ describe("client-side security contracts", () => {
     expect(login).toContain("تخضع إعدادات الامتثال لاعتماد المنشأة");
   });
 
+  it("routes live writes through the reliable mutation coordinator", () => {
+    const context = source("../lib/context/AppContext.tsx");
+    expect(context).toContain("executeReliableMutation");
+    expect(context).not.toMatch(/void\s+operation\(\)\s*\.then\(refreshCoreData\)/);
+    expect(context).toContain("تمت استعادة آخر بيانات مؤكدة من الخادم");
+    expect(context).toContain("activeMutationKeys");
+    expect(context).toContain("عملية الحفظ نفسها قيد التنفيذ بالفعل");
+  });
+
   it("never embeds a Supabase service-role credential in public config", () => {
     const config = source("../integrations/supabase/public-config.ts");
     expect(config).not.toMatch(/SUPABASE_SERVICE_ROLE_KEY\s*=/);

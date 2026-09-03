@@ -52,6 +52,7 @@ export const OrganizationView: React.FC = () => {
     currentRole,
     language,
     t,
+    isSaving,
   } = useApp();
   const canManage = canManageModule(currentRole, "organization");
   const [activeTab, setActiveTab] = useState("orgchart");
@@ -150,12 +151,13 @@ export const OrganizationView: React.FC = () => {
     };
   }, [orgUnits, company, employees.length]);
 
-  const handleCreateDept = () => {
+  const handleCreateDept = async () => {
+    if (isSaving) return;
     if (!newDept.nameAr) {
       toast.error("يرجى كتابة اسم الإدارة / القسم");
       return;
     }
-    addOrgUnit({
+    const saved = await addOrgUnit({
       companyId: company.id,
       parentId: newDept.parentId || null,
       nameAr: newDept.nameAr,
@@ -166,6 +168,7 @@ export const OrganizationView: React.FC = () => {
       managerName: newDept.managerName || "غير معين",
       status: "active",
     });
+    if (!saved) return;
     toast.success("تمت إضافة الإدارة / القسم بنجاح في الهيكل التنظيمي");
     setIsAddDeptOpen(false);
     setNewDept({
@@ -179,12 +182,13 @@ export const OrganizationView: React.FC = () => {
     });
   };
 
-  const handleCreateSub = () => {
+  const handleCreateSub = async () => {
+    if (isSaving) return;
     if (!newSub.nameAr) {
       toast.error("يرجى كتابة اسم الشركة الفرعية");
       return;
     }
-    addSubsidiary({
+    const saved = await addSubsidiary({
       companyId: company.id,
       nameAr: newSub.nameAr,
       nameEn: newSub.nameEn || newSub.nameAr,
@@ -193,6 +197,7 @@ export const OrganizationView: React.FC = () => {
       managerName: newSub.managerName || "غير معين",
       status: "active",
     });
+    if (!saved) return;
     toast.success("تمت إضافة الشركة التابعة بنجاح");
     setIsAddSubOpen(false);
     setNewSub({
@@ -204,12 +209,13 @@ export const OrganizationView: React.FC = () => {
     });
   };
 
-  const handleCreateLoc = () => {
+  const handleCreateLoc = async () => {
+    if (isSaving) return;
     if (!newLoc.nameAr) {
       toast.error("يرجى كتابة اسم الموقع الجغرافي");
       return;
     }
-    addWorkLocation({
+    const saved = await addWorkLocation({
       companyId: company.id,
       nameAr: newLoc.nameAr,
       nameEn: newLoc.nameEn || newLoc.nameAr,
@@ -220,6 +226,7 @@ export const OrganizationView: React.FC = () => {
       radiusMeters: newLoc.radiusMeters,
       status: "active",
     });
+    if (!saved) return;
     toast.success("تمت إضافة الموقع الجغرافي ونطاق السياج بنجاح");
     setIsAddLocOpen(false);
     setNewLoc({
@@ -243,7 +250,8 @@ export const OrganizationView: React.FC = () => {
             {t.org.companyProfile} والهيكل التنظيمي (M02)
           </h1>
           <p className="text-xs text-muted-foreground font-medium mt-1">
-            إدارة المنشأة الرئيسية، الشركات التابعة، شجرة الهيكل التنظيمي SVG، والمواقع الجغرافية بنطاق السياج الذكي (Geofencing)
+            إدارة المنشأة الرئيسية، الشركات التابعة، شجرة الهيكل التنظيمي SVG، والمواقع الجغرافية
+            بنطاق السياج الذكي (Geofencing)
           </p>
         </div>
         {canManage && (
@@ -282,8 +290,12 @@ export const OrganizationView: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">المنشأة والشركات التابعة</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5">{subsidiaries.length + 1} كيانات قانونية</h4>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              المنشأة والشركات التابعة
+            </span>
+            <h4 className="text-xl font-black text-foreground mt-0.5">
+              {subsidiaries.length + 1} كيانات قانونية
+            </h4>
             <span className="text-[10px] text-primary font-bold">سجلات تجارية مستقلة</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center text-primary">
@@ -294,7 +306,9 @@ export const OrganizationView: React.FC = () => {
         <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">الإدارات والأقسام</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5">{orgUnits.length} إدارات عامة</h4>
+            <h4 className="text-xl font-black text-foreground mt-0.5">
+              {orgUnits.length} إدارات عامة
+            </h4>
             <span className="text-[10px] text-emerald-600 font-bold">هيكل إداري موحد</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
@@ -304,8 +318,12 @@ export const OrganizationView: React.FC = () => {
 
         <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">فروع العمل وسياج GPS</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5">{workLocations.length} مواقع معتمدة</h4>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              فروع العمل وسياج GPS
+            </span>
+            <h4 className="text-xl font-black text-foreground mt-0.5">
+              {workLocations.length} مواقع معتمدة
+            </h4>
             <span className="text-[10px] text-amber-600 font-bold">نصف قطر 150م - 300م</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
@@ -315,8 +333,12 @@ export const OrganizationView: React.FC = () => {
 
         <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">إجمالي القوى العاملة</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5">{employees.length} موظف مسجل</h4>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              إجمالي القوى العاملة
+            </span>
+            <h4 className="text-xl font-black text-foreground mt-0.5">
+              {employees.length} موظف مسجل
+            </h4>
             <span className="text-[10px] text-purple-600 font-bold">100% عقود موثقة (قوى)</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-600">
@@ -328,22 +350,40 @@ export const OrganizationView: React.FC = () => {
       {/* Tabs Menu (Google M3 Segmented / Primary Tabs) */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-3xl border border-border/60 bg-muted/60 p-1 sm:grid-cols-3 xl:grid-cols-6">
-          <TabsTrigger value="orgchart" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="orgchart"
+            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             {t.org.orgChart} الشجري SVG
           </TabsTrigger>
-          <TabsTrigger value="structure" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="structure"
+            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             {t.org.departments} ({orgUnits.length})
           </TabsTrigger>
-          <TabsTrigger value="subsidiaries" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="subsidiaries"
+            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             {t.org.subsidiaries} ({subsidiaries.length})
           </TabsTrigger>
-          <TabsTrigger value="locations" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="locations"
+            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             {t.org.locations} ({workLocations.length})
           </TabsTrigger>
-          <TabsTrigger value="positions" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="positions"
+            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             المناصب ({jobPositions.length})
           </TabsTrigger>
-          <TabsTrigger value="cost-centers" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="cost-centers"
+            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             مراكز التكلفة ({costCenters.length})
           </TabsTrigger>
         </TabsList>
@@ -370,9 +410,21 @@ export const OrganizationView: React.FC = () => {
 
                 {!selectedUnit ? (
                   <div className="space-y-2.5 text-xs text-muted-foreground">
-                    <p className="font-bold text-foreground text-sm">{company.legalNameAr || "شركة فوكس القابضة"}</p>
-                    <p>السجل التجاري: <span className="font-mono font-bold text-foreground">{company.crNumber || "1010892341"}</span></p>
-                    <p>الرقم الضريبي: <span className="font-mono font-bold text-foreground">{company.taxNumber || "310298374600003"}</span></p>
+                    <p className="font-bold text-foreground text-sm">
+                      {company.legalNameAr || "شركة فوكس القابضة"}
+                    </p>
+                    <p>
+                      السجل التجاري:{" "}
+                      <span className="font-mono font-bold text-foreground">
+                        {company.crNumber || "1010892341"}
+                      </span>
+                    </p>
+                    <p>
+                      الرقم الضريبي:{" "}
+                      <span className="font-mono font-bold text-foreground">
+                        {company.taxNumber || "310298374600003"}
+                      </span>
+                    </p>
                     <p>{company.headquartersAddress || "الرياض - طريق الملك فهد - برج فوكس"}</p>
                     <div className="pt-2">
                       <Badge variant="outline" className="text-[10px] rounded-full">
@@ -395,15 +447,21 @@ export const OrganizationView: React.FC = () => {
                     </div>
                     <div className="flex justify-between border-t border-border/60 pt-2.5">
                       <span className="text-muted-foreground">المستوى التنظيمي:</span>
-                      <span className="font-bold text-primary">{unitTypeLabel[selectedUnit.type]}</span>
+                      <span className="font-bold text-primary">
+                        {unitTypeLabel[selectedUnit.type]}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">المدير المسؤول:</span>
-                      <span className="font-bold text-foreground">{selectedUnit.managerName || "غير معين"}</span>
+                      <span className="font-bold text-foreground">
+                        {selectedUnit.managerName || "غير معين"}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">إجمالي القوى العاملة:</span>
-                      <span className="font-black text-foreground">{selectedUnit.employeeCount} موظف</span>
+                      <span className="font-black text-foreground">
+                        {selectedUnit.employeeCount} موظف
+                      </span>
                     </div>
 
                     <div className="border-t border-border/60 pt-2.5 space-y-1.5">
@@ -421,11 +479,16 @@ export const OrganizationView: React.FC = () => {
                               <span className="font-bold text-foreground group-hover:text-primary group-hover:underline">
                                 {employee.firstNameAr} {employee.lastNameAr}
                               </span>
-                              <span className="text-muted-foreground text-[10px]">{employee.jobTitleAr}</span>
+                              <span className="text-muted-foreground text-[10px]">
+                                {employee.jobTitleAr}
+                              </span>
                             </div>
                           ))}
-                        {employees.filter((employee) => employee.departmentId === selectedUnit.id).length === 0 && (
-                          <p className="text-[11px] text-muted-foreground">لا يوجد موظفون مسكنون حالياً.</p>
+                        {employees.filter((employee) => employee.departmentId === selectedUnit.id)
+                          .length === 0 && (
+                          <p className="text-[11px] text-muted-foreground">
+                            لا يوجد موظفون مسكنون حالياً.
+                          </p>
                         )}
                       </div>
                     </div>
@@ -502,9 +565,15 @@ export const OrganizationView: React.FC = () => {
         <TabsContent value="subsidiaries" className="space-y-4 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {subsidiaries.map((sub) => (
-              <div key={sub.id} className="rounded-2xl border border-border/80 bg-card p-6 shadow-xs space-y-3.5 hover:border-primary/50 transition-all">
+              <div
+                key={sub.id}
+                className="rounded-2xl border border-border/80 bg-card p-6 shadow-xs space-y-3.5 hover:border-primary/50 transition-all"
+              >
                 <div className="flex items-center justify-between">
-                  <Badge variant="secondary" className="text-xs font-mono font-bold rounded-full px-2.5">
+                  <Badge
+                    variant="secondary"
+                    className="text-xs font-mono font-bold rounded-full px-2.5"
+                  >
                     {sub.code}
                   </Badge>
                   <Badge
@@ -540,7 +609,10 @@ export const OrganizationView: React.FC = () => {
         <TabsContent value="locations" className="space-y-4 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {workLocations.map((loc) => (
-              <div key={loc.id} className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-3.5 hover:border-primary/50 transition-all">
+              <div
+                key={loc.id}
+                className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-3.5 hover:border-primary/50 transition-all"
+              >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="h-8 w-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
@@ -634,9 +706,7 @@ export const OrganizationView: React.FC = () => {
                 <label className="font-bold">المستوى التنظيمي</label>
                 <select
                   value={newDept.type}
-                  onChange={(e) =>
-                    setNewDept({ ...newDept, type: e.target.value as OrgUnitType })
-                  }
+                  onChange={(e) => setNewDept({ ...newDept, type: e.target.value as OrgUnitType })}
                   className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                   <option value="division">قطاع تنفيذي</option>
@@ -670,9 +740,7 @@ export const OrganizationView: React.FC = () => {
                   setNewDept({
                     ...newDept,
                     managerEmployeeId: e.target.value,
-                    managerName: employee
-                      ? `${employee.firstNameAr} ${employee.lastNameAr}`
-                      : "",
+                    managerName: employee ? `${employee.firstNameAr} ${employee.lastNameAr}` : "",
                   });
                 }}
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -688,7 +756,11 @@ export const OrganizationView: React.FC = () => {
           </div>
 
           <DialogFooter className="mt-3">
-            <Button size="sm" onClick={handleCreateDept} className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9">
+            <Button
+              size="sm"
+              onClick={handleCreateDept}
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
+            >
               إضافة الإدارة للهيكل
             </Button>
           </DialogFooter>
@@ -741,7 +813,11 @@ export const OrganizationView: React.FC = () => {
           </div>
 
           <DialogFooter className="mt-3">
-            <Button size="sm" onClick={handleCreateSub} className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9">
+            <Button
+              size="sm"
+              onClick={handleCreateSub}
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
+            >
               تسجيل الشركة التابعة
             </Button>
           </DialogFooter>

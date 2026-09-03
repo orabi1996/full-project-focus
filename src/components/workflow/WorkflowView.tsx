@@ -68,6 +68,7 @@ export const WorkflowView: React.FC = () => {
     openEmployeeProfile,
     language,
     t,
+    isSaving,
   } = useApp();
 
   const canApprove = canManageModule(currentRole, "workflow");
@@ -143,7 +144,9 @@ export const WorkflowView: React.FC = () => {
 
   const activeDelegation = useMemo(() => {
     return delegationRules.find(
-      (d) => d.status === "active" && (d.delegatorId === currentUser.id || d.delegateId === currentUser.id),
+      (d) =>
+        d.status === "active" &&
+        (d.delegatorId === currentUser.id || d.delegateId === currentUser.id),
     );
   }, [delegationRules, currentUser.id]);
 
@@ -162,47 +165,63 @@ export const WorkflowView: React.FC = () => {
     );
   };
 
-  const handleBulkApprove = () => {
+  const handleBulkApprove = async () => {
+    if (isSaving) return;
     if (selectedRequestIds.length === 0) {
       toast.error("يرجى تحديد طلب واحد على الأقل للاعتماد");
       return;
     }
-    selectedRequestIds.forEach((id) => {
-      approveRequest(id, "تم الاعتماد السريع ضمن دفعة الاعتمادات المجمعة");
-    });
+    const results = await Promise.all(
+      selectedRequestIds.map((id) =>
+        approveRequest(id, "تم الاعتماد السريع ضمن دفعة الاعتمادات المجمعة"),
+      ),
+    );
+    if (results.some((saved) => !saved)) return;
     toast.success(`تم اعتماد ${selectedRequestIds.length} طلبات بنجاح`);
     setSelectedRequestIds([]);
   };
 
-  const handleApprove = (id: string) => {
-    approveRequest(id, decisionNote || "تمت الموافقة والاعتماد الإلكتروني");
+  const handleApprove = async (id: string) => {
+    if (isSaving) return;
+    const saved = await approveRequest(id, decisionNote || "تمت الموافقة والاعتماد الإلكتروني");
+    if (!saved) return;
     setSelectedRequest(null);
     setDecisionNote("");
   };
 
-  const handleReject = (id: string) => {
-    rejectRequest(id, decisionNote || "تم الرفض لعدم استيفاء الشروط");
+  const handleReject = async (id: string) => {
+    if (isSaving) return;
+    const saved = await rejectRequest(id, decisionNote || "تم الرفض لعدم استيفاء الشروط");
+    if (!saved) return;
     setSelectedRequest(null);
     setDecisionNote("");
   };
 
-  const handleReturn = (id: string) => {
-    returnRequest(id, decisionNote || "يرجى استكمال المستندات الداعمة والمراجعة");
+  const handleReturn = async (id: string) => {
+    if (isSaving) return;
+    const saved = await returnRequest(
+      id,
+      decisionNote || "يرجى استكمال المستندات الداعمة والمراجعة",
+    );
+    if (!saved) return;
     setSelectedRequest(null);
     setDecisionNote("");
   };
 
-  const handleCreateNewRequest = () => {
+  const handleCreateNewRequest = async () => {
+    if (isSaving) return;
     if (!reqReason.trim()) {
       toast.error("يرجى كتابة تفاصيل ومبررات الطلب");
       return;
     }
-    submitRequest({
+    const saved = await submitRequest({
       type: reqType,
       payload: {
         reason: reqReason,
       },
     });
+    if (!saved) return;
+    toast.success("تم إرسال الطلب لمسار الاعتماد بنجاح");
     setIsNewRequestOpen(false);
     setReqReason("");
   };
@@ -303,7 +322,13 @@ export const WorkflowView: React.FC = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
         <div>
           <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol name="approval" source="material" filled size={26} className="text-primary" />
+            <IconSymbol
+              name="approval"
+              source="material"
+              filled
+              size={26}
+              className="text-primary"
+            />
             محرك الطلبات ومسارات الاعتماد الذكية (M05)
           </h1>
           <p className="text-xs text-muted-foreground font-medium mt-1">
@@ -333,7 +358,9 @@ export const WorkflowView: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">صندوق الوارد (بانتظار الاعتماد)</span>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              صندوق الوارد (بانتظار الاعتماد)
+            </span>
             <p className="text-2xl font-black text-amber-600 mt-0.5">{pendingInbox.length}</p>
             <span className="text-[10px] text-muted-foreground font-bold">تتطلب اتخاذ قرار</span>
           </div>
@@ -358,11 +385,15 @@ export const WorkflowView: React.FC = () => {
 
         <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">سلاسل الاعتماد النشطة</span>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              سلاسل الاعتماد النشطة
+            </span>
             <p className="text-2xl font-black text-indigo-600 mt-0.5">
               {approvalChains.filter((c) => c.status === "active").length}
             </p>
-            <span className="text-[10px] text-muted-foreground font-bold">تغطي كافة أقسام المنشأة</span>
+            <span className="text-[10px] text-muted-foreground font-bold">
+              تغطي كافة أقسام المنشأة
+            </span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
             <Layers className="h-6 w-6" />
@@ -371,11 +402,15 @@ export const WorkflowView: React.FC = () => {
 
         <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">قواعد تفويض الصلاحيات</span>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              قواعد تفويض الصلاحيات
+            </span>
             <p className="text-2xl font-black text-emerald-600 mt-0.5">
               {delegationRules.filter((d) => d.status === "active").length}
             </p>
-            <span className="text-[10px] text-muted-foreground font-bold">سارية المفعول حالياً</span>
+            <span className="text-[10px] text-muted-foreground font-bold">
+              سارية المفعول حالياً
+            </span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
             <UserCheck className="h-6 w-6" />
@@ -471,7 +506,8 @@ export const WorkflowView: React.FC = () => {
                           onClick={handleToggleSelectAll}
                           className="text-muted-foreground hover:text-foreground"
                         >
-                          {selectedRequestIds.length === filteredInbox.length && filteredInbox.length > 0 ? (
+                          {selectedRequestIds.length === filteredInbox.length &&
+                          filteredInbox.length > 0 ? (
                             <CheckSquare className="h-4 w-4 text-primary" />
                           ) : (
                             <Square className="h-4 w-4" />
@@ -506,8 +542,13 @@ export const WorkflowView: React.FC = () => {
                         </td>
                       )}
                       <td className="py-3 px-4">
-                        <span className="font-mono font-bold text-primary block">{req.referenceNo}</span>
-                        <Badge variant="outline" className="text-[10px] rounded-full border-border/80">
+                        <span className="font-mono font-bold text-primary block">
+                          {req.referenceNo}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] rounded-full border-border/80"
+                        >
                           {categoryLabels[req.type] || req.type}
                         </Badge>
                       </td>
@@ -554,7 +595,10 @@ export const WorkflowView: React.FC = () => {
                   ))}
                   {filteredInbox.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center py-10 text-muted-foreground font-medium">
+                      <td
+                        colSpan={7}
+                        className="text-center py-10 text-muted-foreground font-medium"
+                      >
                         رائع! لا توجد طلبات معلقة بانتظار اعتمادك حالياً 🎉
                       </td>
                     </tr>
@@ -651,7 +695,10 @@ export const WorkflowView: React.FC = () => {
                   ))}
                   {myRequests.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center py-10 text-muted-foreground font-medium">
+                      <td
+                        colSpan={7}
+                        className="text-center py-10 text-muted-foreground font-medium"
+                      >
                         لم تقم بتقديم أي طلبات حتى الآن
                       </td>
                     </tr>
@@ -705,7 +752,8 @@ export const WorkflowView: React.FC = () => {
                         )}
                       </div>
                       <span className="text-[11px] text-muted-foreground font-medium block mt-0.5">
-                        نوع الطلب: {categoryLabels[chain.requestType] || chain.requestType} • النطاق:{" "}
+                        نوع الطلب: {categoryLabels[chain.requestType] || chain.requestType} •
+                        النطاق:{" "}
                         {chain.scopeType === "all_employees" ? "كافة الموظفين" : chain.scopeType}
                       </span>
                     </div>
@@ -739,7 +787,10 @@ export const WorkflowView: React.FC = () => {
                           <span className="font-bold text-foreground flex-1 truncate">
                             {step.stepNameAr}
                           </span>
-                          <Badge variant="outline" className="text-[9px] font-mono rounded-full shrink-0">
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] font-mono rounded-full shrink-0"
+                          >
                             {step.resolverType === "direct_manager"
                               ? "المدير المباشر"
                               : step.resolverType === "hr_manager"
@@ -768,7 +819,8 @@ export const WorkflowView: React.FC = () => {
                   قواعد تفويض الصلاحيات (Delegation of Authority & Out of Office)
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  تمكين المدراء من تفويض صلاحيات اتخاذ القرار والاعتمادات لموظف بديل أثناء الإجازات والانتدابات
+                  تمكين المدراء من تفويض صلاحيات اتخاذ القرار والاعتمادات لموظف بديل أثناء الإجازات
+                  والانتدابات
                 </p>
               </div>
 
@@ -815,7 +867,10 @@ export const WorkflowView: React.FC = () => {
                           {del.scope === "all_requests" ? "كافة الطلبات والمعاملات" : del.scope}
                         </Badge>
                       </td>
-                      <td className="py-3 px-4 max-w-xs truncate text-muted-foreground font-medium" title={del.reason}>
+                      <td
+                        className="py-3 px-4 max-w-xs truncate text-muted-foreground font-medium"
+                        title={del.reason}
+                      >
                         {del.reason}
                       </td>
                       <td className="py-3 px-4 text-center">
@@ -851,7 +906,10 @@ export const WorkflowView: React.FC = () => {
                   ))}
                   {delegationRules.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center py-10 text-muted-foreground font-medium">
+                      <td
+                        colSpan={7}
+                        className="text-center py-10 text-muted-foreground font-medium"
+                      >
                         لا توجد قواعد تفويض مسجلة حالياً
                       </td>
                     </tr>
@@ -878,7 +936,9 @@ export const WorkflowView: React.FC = () => {
                 </DialogDescription>
               </div>
               <Badge variant="outline" className="rounded-full text-xs font-mono">
-                {selectedRequest ? categoryLabels[selectedRequest.type] || selectedRequest.type : ""}
+                {selectedRequest
+                  ? categoryLabels[selectedRequest.type] || selectedRequest.type
+                  : ""}
               </Badge>
             </div>
           </DialogHeader>
@@ -926,8 +986,9 @@ export const WorkflowView: React.FC = () => {
                         }`}
                       />
                       <span className="font-bold text-foreground block">
-                        المرحلة {evt.stepNumber}: {evt.action === "approved" ? "موافقة" : evt.action} •{" "}
-                        {evt.actorName} ({evt.actorRole})
+                        المرحلة {evt.stepNumber}:{" "}
+                        {evt.action === "approved" ? "موافقة" : evt.action} • {evt.actorName} (
+                        {evt.actorRole})
                       </span>
                       {evt.note && (
                         <p className="text-[11px] text-muted-foreground italic mt-0.5">
@@ -1102,7 +1163,9 @@ export const WorkflowView: React.FC = () => {
             {/* Dynamic Step Builder */}
             <div className="space-y-2 pt-2 border-t border-border/60">
               <div className="flex justify-between items-center">
-                <label className="font-bold">مستويات الاعتماد المتسلسلة ({chainSteps.length}):</label>
+                <label className="font-bold">
+                  مستويات الاعتماد المتسلسلة ({chainSteps.length}):
+                </label>
                 <Button
                   type="button"
                   size="sm"

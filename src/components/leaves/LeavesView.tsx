@@ -44,6 +44,7 @@ export const LeavesView: React.FC = () => {
     currentRole,
     language,
     t,
+    isSaving,
   } = useApp();
   const canManage = canManageModule(currentRole, "leaves");
   const [activeTab, setActiveTab] = useState("balances");
@@ -72,12 +73,13 @@ export const LeavesView: React.FC = () => {
 
   const selectedBalance = leaveBalances.find((b) => b.leaveTypeId === selectedTypeId);
 
-  const handleApply = () => {
+  const handleApply = async () => {
+    if (isSaving) return;
     if (!reason) {
       toast.error("يرجى كتابة سبب الإجازة");
       return;
     }
-    const success = applyLeave({
+    const success = await applyLeave({
       leaveTypeId: selectedTypeId,
       startDate,
       endDate,
@@ -85,7 +87,7 @@ export const LeavesView: React.FC = () => {
       reason,
     });
     if (success) {
-      toast.success("تم تقديم طلب الإجازة وحجز الرصيد بنجاح وتحويله لمسار الموافقات الإلكتروني");
+      toast.success("تم تقديم طلب الإجازة بنجاح وتحويله لمسار الموافقات الإلكتروني");
       setIsApplyModalOpen(false);
       setReason("");
     } else {
@@ -124,11 +126,18 @@ export const LeavesView: React.FC = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
         <div>
           <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol name="event_available" source="material" filled size={24} className="text-primary" />
+            <IconSymbol
+              name="event_available"
+              source="material"
+              filled
+              size={24}
+              className="text-primary"
+            />
             {t.leaves.balance} وإدارة العطلات (M06)
           </h1>
           <p className="text-xs text-muted-foreground font-medium mt-1">
-            إدارة أرصدة الإجازات السنوية والمرضية، التقديم، وحجز الرصيد وفق معايير نظام العمل السعودي
+            إدارة أرصدة الإجازات السنوية والمرضية، التقديم، وحجز الرصيد وفق معايير نظام العمل
+            السعودي
           </p>
         </div>
 
@@ -186,7 +195,10 @@ export const LeavesView: React.FC = () => {
               <span className="font-black text-xs text-foreground">
                 {language === "ar" ? bal.leaveTypeNameAr : bal.leaveTypeNameEn}
               </span>
-              <div className="h-3.5 w-3.5 rounded-full shadow-xs" style={{ backgroundColor: bal.color || "#0B57D0" }} />
+              <div
+                className="h-3.5 w-3.5 rounded-full shadow-xs"
+                style={{ backgroundColor: bal.color || "#0B57D0" }}
+              />
             </div>
 
             <div className="flex items-baseline gap-2">
@@ -215,13 +227,22 @@ export const LeavesView: React.FC = () => {
       {/* Tabs Layout (Google M3 Tabs) */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3 max-w-lg bg-muted/60 p-1 rounded-full border border-border/60">
-          <TabsTrigger value="balances" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="balances"
+            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             التقويم والجدولة
           </TabsTrigger>
-          <TabsTrigger value="types" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="types"
+            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             أنواع وسياسات الإجازات
           </TabsTrigger>
-          <TabsTrigger value="law" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger
+            value="law"
+            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
             نظام العمل السعودي (قوى)
           </TabsTrigger>
         </TabsList>
@@ -291,10 +312,19 @@ export const LeavesView: React.FC = () => {
                 قواعد احتساب الإجازات
               </h2>
               <div className="space-y-3 text-xs text-muted-foreground font-medium leading-relaxed">
-                <p>• الإجازة السنوية تخصم من أيام العمل الفعلية فقط مع استبعاد عطلات نهاية الأسبوع والأعياد الرسمية.</p>
+                <p>
+                  • الإجازة السنوية تخصم من أيام العمل الفعلية فقط مع استبعاد عطلات نهاية الأسبوع
+                  والأعياد الرسمية.
+                </p>
                 <p>• يتم حجز الرصيد فور تقديم الطلب لمنع تكرار التقديم أو تجاوزه.</p>
-                <p>• الإجازات المرضية تخضع لشرائح نظام العمل السعودي (أول 30 يوم بأجر كامل، 60 يوم بثلاثة أرباع الأجر).</p>
-                <p>• الحد الأقصى لترحيل الإجازة السنوية للعام القادم هو 10 أيام عمل بموافقة صاحب العمل.</p>
+                <p>
+                  • الإجازات المرضية تخضع لشرائح نظام العمل السعودي (أول 30 يوم بأجر كامل، 60 يوم
+                  بثلاثة أرباع الأجر).
+                </p>
+                <p>
+                  • الحد الأقصى لترحيل الإجازة السنوية للعام القادم هو 10 أيام عمل بموافقة صاحب
+                  العمل.
+                </p>
               </div>
             </div>
           </div>
@@ -304,7 +334,10 @@ export const LeavesView: React.FC = () => {
         <TabsContent value="types" className="space-y-4 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {leaveTypes.map((type) => (
-              <div key={type.id} className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-3 hover:border-primary/40 transition-all">
+              <div
+                key={type.id}
+                className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-3 hover:border-primary/40 transition-all"
+              >
                 <div className="flex items-center justify-between">
                   <h3 className="font-black text-xs text-foreground">{type.nameAr}</h3>
                   <Badge
@@ -337,30 +370,42 @@ export const LeavesView: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-1.5">
-                <span className="font-black text-foreground block">1. الإجازة السنوية (المادة 109)</span>
+                <span className="font-black text-foreground block">
+                  1. الإجازة السنوية (المادة 109)
+                </span>
                 <p className="text-muted-foreground leading-relaxed">
-                  21 يوماً مدفوعة الأجر تزداد إلى 30 يوماً متى أمضى العامل في خدمة صاحب العمل 5 سنوات متصلة.
+                  21 يوماً مدفوعة الأجر تزداد إلى 30 يوماً متى أمضى العامل في خدمة صاحب العمل 5
+                  سنوات متصلة.
                 </p>
               </div>
 
               <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-1.5">
-                <span className="font-black text-foreground block">2. الإجازة المرضية (المادة 117)</span>
+                <span className="font-black text-foreground block">
+                  2. الإجازة المرضية (المادة 117)
+                </span>
                 <p className="text-muted-foreground leading-relaxed">
-                  أول 30 يوماً بأجر كامل، الـ 60 يوماً التالية بثلاثة أرباع الأجر، والـ 30 يوماً التي تليها بدون أجر خلال السنة الواحدة.
+                  أول 30 يوماً بأجر كامل، الـ 60 يوماً التالية بثلاثة أرباع الأجر، والـ 30 يوماً
+                  التي تليها بدون أجر خلال السنة الواحدة.
                 </p>
               </div>
 
               <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-1.5">
-                <span className="font-black text-foreground block">3. إجازات المناسبات الاجتماعية (المادة 113)</span>
+                <span className="font-black text-foreground block">
+                  3. إجازات المناسبات الاجتماعية (المادة 113)
+                </span>
                 <p className="text-muted-foreground leading-relaxed">
-                  5 أيام بأجر كامل عند زواج العامل أو وفاة الزوج أو أحد الأصول والفروع، و3 أيام عند ولادة مولود جديد (أبوة).
+                  5 أيام بأجر كامل عند زواج العامل أو وفاة الزوج أو أحد الأصول والفروع، و3 أيام عند
+                  ولادة مولود جديد (أبوة).
                 </p>
               </div>
 
               <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-1.5">
-                <span className="font-black text-foreground block">4. إجازة الحج والامتحانات (المادة 114 و 115)</span>
+                <span className="font-black text-foreground block">
+                  4. إجازة الحج والامتحانات (المادة 114 و 115)
+                </span>
                 <p className="text-muted-foreground leading-relaxed">
-                  إجازة حج من 10 إلى 15 يوماً بأجر كامل لمرة واحدة طوال مدة الخدمة (بشرط إمضاء عامين)، وإجازة مدفوعة لأداء الامتحانات.
+                  إجازة حج من 10 إلى 15 يوماً بأجر كامل لمرة واحدة طوال مدة الخدمة (بشرط إمضاء
+                  عامين)، وإجازة مدفوعة لأداء الامتحانات.
                 </p>
               </div>
             </div>
@@ -452,7 +497,11 @@ export const LeavesView: React.FC = () => {
           </div>
 
           <DialogFooter className="mt-3">
-            <Button size="sm" onClick={handleApply} className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9">
+            <Button
+              size="sm"
+              onClick={handleApply}
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
+            >
               تأكيد وإرسال الطلب
             </Button>
           </DialogFooter>

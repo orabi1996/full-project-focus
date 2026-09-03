@@ -58,6 +58,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     dataMode,
     isDataLoading,
     dataError,
+    isSaving,
+    pendingMutationCount,
+    lastSavedAt,
   } = useApp();
   const { isDemo, signOut, leaveDemo } = useAuth();
 
@@ -125,10 +128,23 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <Badge
           variant={dataError ? "destructive" : dataMode === "live" ? "default" : "secondary"}
           className="hidden md:inline-flex h-8 gap-1.5 rounded-full px-3 text-[10px] font-bold shadow-xs"
-          title={dataError || undefined}
+          title={
+            dataError ||
+            (lastSavedAt
+              ? `آخر حفظ مؤكد: ${new Date(lastSavedAt).toLocaleTimeString("ar-SA")}`
+              : undefined)
+          }
         >
-          <Database className={`h-3 w-3 ${isDataLoading ? "animate-pulse" : ""}`} />
-          {dataError ? "خطأ في الاتصال" : dataMode === "live" ? "بيانات حية مباشرة" : "نسخة تجريبية"}
+          <Database className={`h-3 w-3 ${isDataLoading || isSaving ? "animate-pulse" : ""}`} />
+          {dataError
+            ? "خطأ في الحفظ أو الاتصال"
+            : dataMode === "live"
+              ? isSaving
+                ? `جارٍ حفظ ${pendingMutationCount > 1 ? `${pendingMutationCount} عمليات` : "التغييرات"}`
+                : lastSavedAt
+                  ? "تم الحفظ والتأكيد"
+                  : "بيانات حية مباشرة"
+              : "نسخة تجريبية"}
         </Badge>
 
         {/* Live Saudi Clock Pill */}
@@ -159,7 +175,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 <ChevronDown className="h-3.5 w-3.5 opacity-60" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64 rounded-2xl p-2 shadow-xl border-border/80">
+            <DropdownMenuContent
+              align="end"
+              className="w-64 rounded-2xl p-2 shadow-xl border-border/80"
+            >
               <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1.5">
                 تبديل الدور لمحاكاة الصلاحيات:
               </DropdownMenuLabel>
@@ -211,7 +230,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         {/* Notifications Sheet Button */}
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full hover:bg-muted">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative h-10 w-10 rounded-full hover:bg-muted"
+            >
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
                 <span className="absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-black text-destructive-foreground ring-2 ring-card">
@@ -220,7 +243,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               )}
             </Button>
           </SheetTrigger>
-          <SheetContent side={language === "ar" ? "left" : "right"} className="w-80 sm:w-96 rounded-3xl sm:m-3 p-5 shadow-2xl border-border">
+          <SheetContent
+            side={language === "ar" ? "left" : "right"}
+            className="w-80 sm:w-96 rounded-3xl sm:m-3 p-5 shadow-2xl border-border"
+          >
             <SheetHeader>
               <SheetTitle className="text-base font-black flex items-center justify-between">
                 <span>{language === "ar" ? "التنبيهات" : "Notifications"}</span>
@@ -251,7 +277,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   >
                     <div className="flex items-center justify-between font-black">
                       <span>{language === "ar" ? n.titleAr : n.titleEn}</span>
-                      <span className="text-[10px] text-muted-foreground font-normal">منذ قليل</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        منذ قليل
+                      </span>
                     </div>
                     <p className="mt-1 text-[11px] leading-relaxed">
                       {language === "ar" ? n.messageAr : n.messageEn}
@@ -279,7 +307,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
                 : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`}
             </span>
-            <span className="text-[10px] text-muted-foreground font-semibold">{currentUser.jobTitleAr}</span>
+            <span className="text-[10px] text-muted-foreground font-semibold">
+              {currentUser.jobTitleAr}
+            </span>
           </div>
         </div>
 

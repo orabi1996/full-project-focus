@@ -8,7 +8,6 @@ const REPORT_ROLES = [
   "hr_manager",
   "payroll_officer",
   "finance_officer",
-  "auditor",
 ] as const;
 
 /** One-shot monthly pack: payroll settlement, loans, attendance and payroll by department. */

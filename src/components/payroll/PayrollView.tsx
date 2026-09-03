@@ -332,7 +332,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList
-          className={`grid max-w-4xl bg-muted/60 p-1 rounded-2xl border border-border/60 ${section === "payroll" ? "grid-cols-5" : "grid-cols-2"}`}
+          className={`grid h-auto w-full max-w-6xl gap-1 bg-muted/60 p-1 rounded-2xl border border-border/60 ${section === "payroll" ? "grid-cols-4 sm:grid-cols-5 lg:grid-cols-9" : "grid-cols-2"}`}
         >
           {section === "payroll" ? (
             <>

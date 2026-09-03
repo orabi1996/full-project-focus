@@ -811,7 +811,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                         {log.entityName || log.entityId}
                       </td>
                       <td className="py-3 px-4 text-muted-foreground font-medium max-w-xs truncate">
-                        {log.details || "إجراء نظامي موثق"}
+                        {log.details || log.changesSummary || "إجراء نظامي موثق"}
                       </td>
                       <td className="py-3 px-4 text-center font-mono text-[10px] text-muted-foreground">
                         {new Date(log.timestamp).toLocaleTimeString("ar-SA", {

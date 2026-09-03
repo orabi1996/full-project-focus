@@ -235,6 +235,8 @@ export interface Employee {
   gosiNumber?: string;
   gosiEmployeeDeduction?: number;
   gosiEmployerContribution?: number;
+  gosiDeductionPercentage?: number;
+  isGosiEnrolled?: boolean;
 
   // Identity & Civil
   passportNo?: string;
@@ -266,6 +268,8 @@ export interface Employee {
   qiwaContractNo?: string;
   yearsOfService?: number;
   workType?: "on_site" | "hybrid" | "remote";
+  shiftId?: string;
+  joiningDate?: string;
 
   // Education & Skills
   educationDegree?: string;
@@ -880,6 +884,7 @@ export interface AuditLogEntry {
   timestamp: string;
   ipAddress?: string;
   changesSummary?: string;
+  details?: string;
 }
 
 export interface AppNotification {

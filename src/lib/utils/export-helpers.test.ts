@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-
+import { toast } from "sonner";
 import { escapeSifField, exportToCSV, formatCsvCell, generateWPSSIFFile } from "./export-helpers";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 function installDownloadDom() {
   const attributes = new Map<string, string>();
@@ -38,10 +41,9 @@ describe("export helpers", () => {
   });
 
   it("warns instead of exporting an empty dataset", () => {
-    const alert = vi.fn();
-    vi.stubGlobal("alert", alert);
+    const toastSpy = vi.spyOn(toast, "error").mockImplementation(() => "" as any);
     exportToCSV("employees", []);
-    expect(alert).toHaveBeenCalledWith("لا توجد بيانات متاحة للتصدير");
+    expect(toastSpy).toHaveBeenCalledWith("لا توجد بيانات متاحة للتصدير");
   });
 
   it("creates a safe CSV download with the requested filename", () => {

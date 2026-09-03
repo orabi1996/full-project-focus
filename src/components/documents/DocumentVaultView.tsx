@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { IconSymbol } from "../ui/IconSymbol";
 import { OfficialDocumentModal, type DocType } from "./OfficialDocumentModal";
@@ -468,6 +468,68 @@ export const DocumentVaultView: React.FC = () => {
     notes: "",
   });
 
+  // Local File Upload Ref & State
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
+  const [selectedUploadFileSize, setSelectedUploadFileSize] = useState<string>("");
+  const [isDragging, setIsDragging] = useState(false);
+
+  const processSelectedFile = (file: File) => {
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error("حجم الملف يجب ألا يتجاوز 25 ميغابايت");
+      return;
+    }
+    const sizeStr =
+      file.size > 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${Math.round(file.size / 1024)} KB`;
+
+    setSelectedUploadFile(file);
+    setSelectedUploadFileSize(sizeStr);
+
+    const cleanTitle = file.name
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[_-]/g, " ")
+      .trim();
+
+    setNewDoc((prev) => ({
+      ...prev,
+      fileName: file.name,
+      title: prev.title.trim() ? prev.title : cleanTitle,
+    }));
+
+    toast.success(`تم اختيار الملف بنجاح: ${file.name} (${sizeStr})`);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processSelectedFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processSelectedFile(file);
+    }
+  };
+
   // Request Form State
   const [newRequest, setNewRequest] = useState({
     employeeId: employees[0]?.id || "",
@@ -669,8 +731,10 @@ export const DocumentVaultView: React.FC = () => {
       category: newDoc.category,
       docNumber: newDoc.docNumber || `DOC-${Math.floor(100000 + Math.random() * 900000)}`,
       issuingAuthority: newDoc.issuingAuthority || "الجهة المعتمدة",
-      fileName: newDoc.fileName || `${newDoc.title.toLowerCase().replace(/\s+/g, "_")}.pdf`,
-      fileSize: "1.4 MB",
+      fileName: selectedUploadFile
+        ? selectedUploadFile.name
+        : (newDoc.fileName || `${newDoc.title.toLowerCase().replace(/\s+/g, "_")}.pdf`),
+      fileSize: selectedUploadFileSize || "1.4 MB",
       uploadDate: new Date().toISOString().split("T")[0],
       expiryDate: newDoc.expiryDate || undefined,
       status:
@@ -692,6 +756,9 @@ export const DocumentVaultView: React.FC = () => {
     setDocuments([docItem, ...documents]);
     toast.success(`تمت أرشفة وحفظ (${newDoc.title}) في الخزينة السحابية بنجاح!`);
     setIsUploadModalOpen(false);
+    setSelectedUploadFile(null);
+    setSelectedUploadFileSize("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
     setNewDoc({
       employeeId: employees[0]?.id || "company-hq",
       title: "",
@@ -2502,13 +2569,68 @@ export const DocumentVaultView: React.FC = () => {
               </select>
             </div>
 
-            {/* Drag & Drop Simulation */}
-            <div className="rounded-2xl border-2 border-dashed border-primary/30 bg-secondary/20 p-4 text-center space-y-1.5 cursor-pointer hover:bg-secondary/40 transition-colors">
-              <Upload className="mx-auto h-6 w-6 text-primary" />
-              <p className="font-bold text-foreground text-xs">اسحب الملف هنا أو اضغط للاختيار من جهازك</p>
-              <p className="text-[10px] text-muted-foreground font-mono">
-                يدعم ملفات PDF, PNG, JPG بحد أقصى 25MB مشفرة
-              </p>
+            {/* Real Interactive Drag & Drop File Upload */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileInputChange}
+              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+              className="hidden"
+            />
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`rounded-2xl border-2 border-dashed p-4 text-center space-y-2 cursor-pointer transition-all ${
+                isDragging
+                  ? "border-primary bg-primary/10 scale-[1.01]"
+                  : selectedUploadFile
+                    ? "border-emerald-500/60 bg-emerald-500/5"
+                    : "border-primary/40 bg-secondary/20 hover:bg-secondary/40"
+              }`}
+            >
+              {selectedUploadFile ? (
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-card border border-emerald-300 shadow-xs">
+                  <div className="flex items-center gap-2.5 text-start">
+                    <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                      <FileCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-xs text-foreground block truncate max-w-[220px]">
+                        {selectedUploadFile.name}
+                      </span>
+                      <span className="text-[10px] text-emerald-700 font-bold font-mono">
+                        {selectedUploadFileSize} • ✓ جاهز للأرشفة والتشفير
+                      </span>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedUploadFile(null);
+                      setSelectedUploadFileSize("");
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                    className="h-7 px-2.5 text-[11px] text-destructive hover:bg-destructive/10 rounded-full font-bold"
+                  >
+                    تغيير الملف
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Upload className="mx-auto h-7 w-7 text-primary" />
+                  <p className="font-bold text-foreground text-xs">
+                    اسحب الملف هنا أو اضغط للاختيار من جهازك
+                  </p>
+                  <p className="text-[10px] text-muted-foreground font-mono">
+                    يدعم ملفات PDF, PNG, JPG, DOCX بحد أقصى 25MB مشفرة
+                  </p>
+                </>
+              )}
             </div>
           </div>
 

@@ -26,15 +26,21 @@ export const runPayrollServer = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const supabase = context.supabase as any;
-    const userId = context.userId;
-    await assertRole(supabase, userId, [
+    await assertRole(supabase, context.userId, [
       "super_admin",
       "org_admin",
       "hr_manager",
       "payroll_officer",
       "finance_officer",
     ]);
+    return computePayrollRun(supabase, data);
+  });
 
+/**
+ * Shared payroll computation, reused by the manual run and by attendance settlement.
+ * Re-running a draft period replaces the previous draft instead of duplicating it.
+ */
+export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
     const { year, month } = data;
     const periodDays = daysInMonth(year, month);
     const periodStart = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -49,6 +55,11 @@ export const runPayrollServer = createServerFn({ method: "POST" })
     if (existing && existing.status !== "draft") {
       throw new Error("مسيّر هذا الشهر مُقفل بالفعل ولا يمكن إعادة تشغيله");
     }
+    if (existing) {
+      await supabase.from("payroll_details").delete().eq("payroll_run_id", existing.id);
+      await supabase.from("payroll_runs").delete().eq("id", existing.id);
+    }
+
 
     let employeeQuery = supabase
       .from("employees")

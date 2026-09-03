@@ -26,16 +26,24 @@ export const runPayrollServer = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const supabase = context.supabase as any;
-    const userId = context.userId;
-    await assertRole(supabase, userId, [
+    await assertRole(supabase, context.userId, [
       "super_admin",
       "org_admin",
       "hr_manager",
       "payroll_officer",
       "finance_officer",
     ]);
+    return computePayrollRun(supabase, data);
+  });
 
+/**
+ * Core payroll computation shared by the manual payroll run and by the
+ * automatic run triggered when an attendance period is settled.
+ * Pay is prorated on the employee's actual worked days for the period.
+ */
+export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
     const { year, month } = data;
+
     const periodDays = daysInMonth(year, month);
     const periodStart = `${year}-${String(month).padStart(2, "0")}-01`;
     const periodEnd = `${year}-${String(month).padStart(2, "0")}-${String(periodDays).padStart(2, "0")}`;
@@ -49,6 +57,12 @@ export const runPayrollServer = createServerFn({ method: "POST" })
     if (existing && existing.status !== "draft") {
       throw new Error("مسيّر هذا الشهر مُقفل بالفعل ولا يمكن إعادة تشغيله");
     }
+    if (existing) {
+      // Re-running the same month replaces the previous draft.
+      await supabase.from("payroll_details").delete().eq("payroll_run_id", existing.id);
+      await supabase.from("payroll_runs").delete().eq("id", existing.id);
+    }
+
 
     let employeeQuery = supabase
       .from("employees")
@@ -63,7 +77,7 @@ export const runPayrollServer = createServerFn({ method: "POST" })
 
     const employeeIds = employees.map((e: any) => e.id);
 
-    const [salaryRes, attendanceRes, loanRes] = await Promise.all([
+    const [salaryRes, attendanceRes, loanRes, scheduleRes] = await Promise.all([
       supabase
         .from("salary_profiles")
         .select(
@@ -85,6 +99,12 @@ export const runPayrollServer = createServerFn({ method: "POST" })
         )
         .in("employee_id", employeeIds)
         .eq("status", "active"),
+      supabase
+        .from("schedule_assignments")
+        .select("employee_id, work_date, is_rest_day")
+        .in("employee_id", employeeIds)
+        .gte("work_date", periodStart)
+        .lte("work_date", periodEnd),
     ]);
 
     const latestSalary = new Map<string, any>();
@@ -92,23 +112,39 @@ export const runPayrollServer = createServerFn({ method: "POST" })
       if (!latestSalary.has(row.employee_id)) latestSalary.set(row.employee_id, row);
     }
 
+    // Expected working days per employee from the published schedule (rest days excluded).
+    const expectedDays = new Map<string, number>();
+    for (const row of scheduleRes.data ?? []) {
+      if (row.is_rest_day) continue;
+      expectedDays.set(row.employee_id, (expectedDays.get(row.employee_id) ?? 0) + 1);
+    }
+
     const attendanceAgg = new Map<
       string,
-      { absentDays: number; leaveDays: number; lateMinutes: number; overtimeMinutes: number }
+      {
+        absentDays: number;
+        leaveDays: number;
+        workedDays: number;
+        lateMinutes: number;
+        overtimeMinutes: number;
+      }
     >();
     for (const row of attendanceRes.data ?? []) {
       const agg = attendanceAgg.get(row.employee_id) ?? {
         absentDays: 0,
         leaveDays: 0,
+        workedDays: 0,
         lateMinutes: 0,
         overtimeMinutes: 0,
       };
       if (row.status === "absent") agg.absentDays += 1;
       if (row.status === "leave") agg.leaveDays += 1;
+      if (["present", "late", "remote"].includes(row.status)) agg.workedDays += 1;
       agg.lateMinutes += row.late_minutes ?? 0;
       agg.overtimeMinutes += row.overtime_minutes ?? 0;
       attendanceAgg.set(row.employee_id, agg);
     }
+
 
     const loansByEmployee = new Map<string, any[]>();
     for (const loan of loanRes.data ?? []) {
@@ -137,9 +173,21 @@ export const runPayrollServer = createServerFn({ method: "POST" })
       const agg = attendanceAgg.get(employee.id) ?? {
         absentDays: 0,
         leaveDays: 0,
+        workedDays: 0,
         lateMinutes: 0,
         overtimeMinutes: 0,
       };
+      // Actual working days drive the pay: scheduled days not covered by an
+      // attended or paid-leave record are treated as unpaid absence.
+      const scheduledDays = expectedDays.get(employee.id) ?? 0;
+      const trackedDays = agg.workedDays + agg.leaveDays + agg.absentDays;
+      const absenceDays =
+        scheduledDays > 0
+          ? Math.max(0, scheduledDays - agg.workedDays - agg.leaveDays)
+          : agg.absentDays;
+      const workedDays =
+        trackedDays > 0 ? Math.max(0, periodDays - absenceDays) : periodDays;
+
       const loans = loansByEmployee.get(employee.id) ?? [];
       const loanInstallment = round2(
         loans.reduce(
@@ -158,7 +206,7 @@ export const runPayrollServer = createServerFn({ method: "POST" })
         otherAllowances: other,
         calculationBasis: "fixed_30_days",
         daysInMonth: periodDays,
-        absenceDays: agg.absentDays,
+        absenceDays: absenceDays,
         lateMinutes: agg.lateMinutes,
         overtimeHours,
         loanInstallment,
@@ -195,8 +243,8 @@ export const runPayrollServer = createServerFn({ method: "POST" })
         total_deductions: result.totalDeductions,
         gross_salary: result.totalEarnings,
         net_salary: result.netSalary,
-        working_days: periodDays - agg.absentDays,
-        absent_days: agg.absentDays,
+        working_days: workedDays,
+        absent_days: absenceDays,
       });
     }
 
@@ -229,7 +277,8 @@ export const runPayrollServer = createServerFn({ method: "POST" })
       totalDeductions: round2(totals.deductions),
       totalEmployerGosi: round2(totals.employerGosi),
     };
-  });
+}
+
 
 /**
  * Locks or pays a payroll run and advances loan installments on payment.

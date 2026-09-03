@@ -444,7 +444,7 @@ export const settleAttendancePeriodServer = createServerFn({ method: "POST" })
       const uniqueDays = new Set(
         pending.map((p: any) => `${p.employee_id}|${String(p.punch_time).slice(0, 10)}`),
       );
-      for (const key of uniqueDays) {
+      for (const key of Array.from(uniqueDays) as string[]) {
         const [employeeId, day] = key.split("|");
         await recomputeDay(supabase, employeeId!, day!);
       }

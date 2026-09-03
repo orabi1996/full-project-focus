@@ -71,7 +71,7 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
 
     const employeeIds = employees.map((e: any) => e.id);
 
-    const [salaryRes, attendanceRes, loanRes] = await Promise.all([
+    const [salaryRes, attendanceRes, loanRes, scheduleRes] = await Promise.all([
       supabase
         .from("salary_profiles")
         .select(
@@ -93,6 +93,12 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
         )
         .in("employee_id", employeeIds)
         .eq("status", "active"),
+      supabase
+        .from("schedule_assignments")
+        .select("employee_id, work_date, is_rest_day")
+        .in("employee_id", employeeIds)
+        .gte("work_date", periodStart)
+        .lte("work_date", periodEnd),
     ]);
 
     const latestSalary = new Map<string, any>();
@@ -100,23 +106,39 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
       if (!latestSalary.has(row.employee_id)) latestSalary.set(row.employee_id, row);
     }
 
+    // Expected working days per employee from the published schedule (rest days excluded).
+    const expectedDays = new Map<string, number>();
+    for (const row of scheduleRes.data ?? []) {
+      if (row.is_rest_day) continue;
+      expectedDays.set(row.employee_id, (expectedDays.get(row.employee_id) ?? 0) + 1);
+    }
+
     const attendanceAgg = new Map<
       string,
-      { absentDays: number; leaveDays: number; lateMinutes: number; overtimeMinutes: number }
+      {
+        absentDays: number;
+        leaveDays: number;
+        workedDays: number;
+        lateMinutes: number;
+        overtimeMinutes: number;
+      }
     >();
     for (const row of attendanceRes.data ?? []) {
       const agg = attendanceAgg.get(row.employee_id) ?? {
         absentDays: 0,
         leaveDays: 0,
+        workedDays: 0,
         lateMinutes: 0,
         overtimeMinutes: 0,
       };
       if (row.status === "absent") agg.absentDays += 1;
       if (row.status === "leave") agg.leaveDays += 1;
+      if (["present", "late", "remote"].includes(row.status)) agg.workedDays += 1;
       agg.lateMinutes += row.late_minutes ?? 0;
       agg.overtimeMinutes += row.overtime_minutes ?? 0;
       attendanceAgg.set(row.employee_id, agg);
     }
+
 
     const loansByEmployee = new Map<string, any[]>();
     for (const loan of loanRes.data ?? []) {

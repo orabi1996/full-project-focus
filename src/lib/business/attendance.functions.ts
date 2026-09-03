@@ -298,7 +298,7 @@ export const listPunchesServer = createServerFn({ method: "POST" })
   });
 
 /** Rebuilds one employee's attendance record for a single day from approved punches. */
-async function recomputeDay(supabase: any, employeeId: string, day: string) {
+export async function recomputeDay(supabase: any, employeeId: string, day: string) {
   const { data: punches } = await supabase
     .from("punches")
     .select("punch_time, punch_type")

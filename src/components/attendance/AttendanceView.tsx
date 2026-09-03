@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
 import { BiometricTerminalPanel } from "./BiometricTerminalPanel";
+import { BiometricDevicesPanel } from "./BiometricDevicesPanel";
 import { IconSymbol } from "../ui/IconSymbol";
 import {
   Clock,
@@ -1018,6 +1019,7 @@ export const AttendanceView: React.FC = () => {
 
         {/* TAB: Biometric devices, punches & settlement */}
         <TabsContent value="biometric" className="space-y-4">
+          <BiometricDevicesPanel />
           <BiometricTerminalPanel />
         </TabsContent>
       </Tabs>

@@ -19,8 +19,9 @@ const attendanceStatusLabel: Record<string, string> = {
   present: "حاضر",
   late: "متأخر",
   absent: "غائب",
-  leave: "إجازة",
-  remote: "عن بُعد",
+  on_leave: "إجازة",
+  early_departure: "خروج مبكر",
+  missing_punch: "بصمة ناقصة",
   holiday: "عطلة",
   rest_day: "راحة",
 };
@@ -35,9 +36,25 @@ export const Employee360Summary: React.FC<{ employeeId: string }> = ({ employeeI
   const employee = employees.find((e) => e.id === employeeId);
 
   const unit = useMemo(
-    () => orgUnits.find((u: any) => u.id === employee?.departmentId),
+    () => orgUnits.find((u) => u.id === employee?.departmentId),
     [orgUnits, employee?.departmentId],
   );
+
+  // Depth of the unit inside the organization tree (1 = top level).
+  const unitLevel = useMemo(() => {
+    if (!unit) return null;
+    let level = 1;
+    let current = unit;
+    const seen = new Set<string>([current.id]);
+    while (current.parentId) {
+      const parent = orgUnits.find((u) => u.id === current.parentId);
+      if (!parent || seen.has(parent.id)) break;
+      seen.add(parent.id);
+      current = parent;
+      level += 1;
+    }
+    return level;
+  }, [orgUnits, unit]);
 
   const myAttendance = useMemo(
     () =>
@@ -50,10 +67,10 @@ export const Employee360Summary: React.FC<{ employeeId: string }> = ({ employeeI
   const attendanceSummary = useMemo(() => {
     const sum = { present: 0, late: 0, absent: 0, leave: 0, overtimeHours: 0, lateMinutes: 0 };
     for (const record of myAttendance) {
-      if (record.status === "present" || record.status === "remote") sum.present += 1;
+      if (record.status === "present") sum.present += 1;
       if (record.status === "late") sum.late += 1;
       if (record.status === "absent") sum.absent += 1;
-      if (record.status === "leave") sum.leave += 1;
+      if (record.status === "on_leave") sum.leave += 1;
       sum.overtimeHours += record.overtimeHours ?? 0;
       sum.lateMinutes += record.lateMinutes ?? 0;
     }
@@ -91,9 +108,9 @@ export const Employee360Summary: React.FC<{ employeeId: string }> = ({ employeeI
             <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <Building2 className="h-3 w-3" />
               {unit?.nameAr ?? employee.departmentName ?? "—"}
-              {unit?.level != null && (
+              {unitLevel != null && (
                 <Badge variant="secondary" className="rounded-full text-[10px]">
-                  المستوى {unit.level}
+                  المستوى {unitLevel}
                 </Badge>
               )}
             </div>

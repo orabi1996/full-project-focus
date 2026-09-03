@@ -611,10 +611,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
 
         {/* Tab: Monthly salary disbursement */}
         <TabsContent value="payments" className="space-y-4 pt-4">
-          <PayrollPaymentsPanel
-            runId={selectedRun?.id}
-            period={selectedRun ? `${selectedRun.periodMonth}/${selectedRun.periodYear}` : undefined}
-          />
+          <PayrollPaymentsPanel />
         </TabsContent>
 
 

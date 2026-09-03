@@ -26,16 +26,24 @@ export const runPayrollServer = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const supabase = context.supabase as any;
-    const userId = context.userId;
-    await assertRole(supabase, userId, [
+    await assertRole(supabase, context.userId, [
       "super_admin",
       "org_admin",
       "hr_manager",
       "payroll_officer",
       "finance_officer",
     ]);
+    return computePayrollRun(supabase, data);
+  });
 
+/**
+ * Core payroll computation shared by the manual payroll run and by the
+ * automatic run triggered when an attendance period is settled.
+ * Pay is prorated on the employee's actual worked days for the period.
+ */
+export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
     const { year, month } = data;
+
     const periodDays = daysInMonth(year, month);
     const periodStart = `${year}-${String(month).padStart(2, "0")}-01`;
     const periodEnd = `${year}-${String(month).padStart(2, "0")}-${String(periodDays).padStart(2, "0")}`;

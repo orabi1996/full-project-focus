@@ -272,42 +272,47 @@ export const updatePayrollRunStatusServer = createServerFn({ method: "POST" })
     if (error) throw new Error(`تعذر تحديث حالة المسيّر: ${error.message}`);
 
     if (data.status === "paid") {
-      const { data: rows } = await supabase
-        .from("payroll_details")
-        .select("employee_id, loan_deduction")
-        .eq("payroll_run_id", data.runId);
-
-      for (const row of rows ?? []) {
-        const deduction = Number(row.loan_deduction ?? 0);
-        if (deduction <= 0) continue;
-        const { data: loans } = await supabase
-          .from("loans")
-          .select(
-            "id, remaining_balance, outstanding_amount, installments_paid, paid_installments, total_paid, installments_total, total_installments",
-          )
-          .eq("employee_id", row.employee_id)
-          .eq("status", "active");
-
-        for (const loan of loans ?? []) {
-          const remaining = Math.max(
-            0,
-            round2(Number(loan.outstanding_amount ?? loan.remaining_balance ?? 0) - deduction),
-          );
-          const paid = Number(loan.installments_paid ?? loan.paid_installments ?? 0) + 1;
-          await supabase
-            .from("loans")
-            .update({
-              remaining_balance: remaining,
-              outstanding_amount: remaining,
-              installments_paid: paid,
-              paid_installments: paid,
-              total_paid: round2(Number(loan.total_paid ?? 0) + deduction),
-              status: remaining <= 0 ? "closed" : "active",
-            })
-            .eq("id", loan.id);
-        }
-      }
+      await advanceLoansForRun(supabase, data.runId);
     }
 
     return { ok: true };
   });
+
+/** Advances active loan installments once a payroll run is actually paid. */
+export async function advanceLoansForRun(supabase: any, runId: string) {
+  const { data: rows } = await supabase
+    .from("payroll_details")
+    .select("employee_id, loan_deduction")
+    .eq("payroll_run_id", runId);
+
+  for (const row of rows ?? []) {
+    const deduction = Number(row.loan_deduction ?? 0);
+    if (deduction <= 0) continue;
+    const { data: loans } = await supabase
+      .from("loans")
+      .select(
+        "id, remaining_balance, outstanding_amount, installments_paid, paid_installments, total_paid",
+      )
+      .eq("employee_id", row.employee_id)
+      .eq("status", "active");
+
+    for (const loan of loans ?? []) {
+      const remaining = Math.max(
+        0,
+        round2(Number(loan.outstanding_amount ?? loan.remaining_balance ?? 0) - deduction),
+      );
+      const paid = Number(loan.installments_paid ?? loan.paid_installments ?? 0) + 1;
+      await supabase
+        .from("loans")
+        .update({
+          remaining_balance: remaining,
+          outstanding_amount: remaining,
+          installments_paid: paid,
+          paid_installments: paid,
+          total_paid: round2(Number(loan.total_paid ?? 0) + deduction),
+          status: remaining <= 0 ? "closed" : "active",
+        })
+        .eq("id", loan.id);
+    }
+  }
+}

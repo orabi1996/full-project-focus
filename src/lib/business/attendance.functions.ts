@@ -51,8 +51,10 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
       .select("employee_id, punch_time, punch_type")
       .gte("punch_time", `${data.fromDate}T00:00:00Z`)
       .lte("punch_time", `${data.toDate}T23:59:59Z`)
+      .neq("approval_status", "rejected")
       .order("punch_time");
     if (data.employeeId) punchQuery = punchQuery.eq("employee_id", data.employeeId);
+
 
     const [punchRes, scheduleRes, shiftRes] = await Promise.all([
       punchQuery,

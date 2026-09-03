@@ -119,8 +119,8 @@ export const prepareRunPaymentsServer = createServerFn({ method: "POST" })
 
     return {
       prepared: rows.length,
-      missingIban: rows.filter((row) => !row.iban).length,
-      totalNet: round2(rows.reduce((sum, row) => sum + row.net_amount, 0)),
+      missingIban: rows.filter((row: any) => !row.iban).length,
+      totalNet: round2(rows.reduce((sum: number, row: any) => sum + row.net_amount, 0)),
     };
   });
 

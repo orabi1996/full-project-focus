@@ -154,20 +154,17 @@ export const SalaryFilesPanel: React.FC = () => {
               variant="outline"
               className="rounded-xl gap-1.5"
               onClick={() =>
-                exportToCSV(
-                  [
-                    {
-                      employee_no: "EMP-0142",
-                      effective_from: new Date().toISOString().slice(0, 8) + "01",
-                      basic_salary: 18500,
-                      housing_allowance: 4625,
-                      transport_allowance: 1850,
-                      other_allowances: 0,
-                      gosi_registered: 1,
-                    },
-                  ],
-                  "salary-file-template",
-                )
+                exportToCSV("salary-file-template", [
+                  {
+                    employee_no: "EMP-0142",
+                    effective_from: new Date().toISOString().slice(0, 8) + "01",
+                    basic_salary: 18500,
+                    housing_allowance: 4625,
+                    transport_allowance: 1850,
+                    other_allowances: 0,
+                    gosi_registered: 1,
+                  },
+                ])
               }
             >
               <Download className="h-4 w-4" /> نموذج الملف

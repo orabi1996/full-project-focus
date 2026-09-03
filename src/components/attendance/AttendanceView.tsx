@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
+import { BiometricTerminalPanel } from "./BiometricTerminalPanel";
 import { IconSymbol } from "../ui/IconSymbol";
 import {
   Clock,
@@ -68,7 +69,7 @@ export const AttendanceView: React.FC = () => {
     "operations_manager",
   ].includes(currentRole);
 
-  const [activeTab, setActiveTab] = useState<"timesheet" | "overtime" | "corrections" | "policies">(
+  const [activeTab, setActiveTab] = useState<"timesheet" | "biometric" | "overtime" | "corrections" | "policies">(
     "timesheet",
   );
 
@@ -386,6 +387,10 @@ export const AttendanceView: React.FC = () => {
           <TabsTrigger value="timesheet" className="rounded-xl text-xs font-bold gap-1.5">
             <Clock className="h-3.5 w-3.5" />
             سجل الدوام والتايم شيت اليومي
+          </TabsTrigger>
+          <TabsTrigger value="biometric" className="rounded-xl text-xs font-bold gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+            أجهزة البصمة والاعتماد
           </TabsTrigger>
           <TabsTrigger value="overtime" className="rounded-xl text-xs font-bold gap-1.5">
             <Zap className="h-3.5 w-3.5 text-amber-500" />
@@ -1009,6 +1014,11 @@ export const AttendanceView: React.FC = () => {
               </div>
             </div>
           </div>
+        </TabsContent>
+
+        {/* TAB: Biometric devices, punches & settlement */}
+        <TabsContent value="biometric" className="space-y-4">
+          <BiometricTerminalPanel />
         </TabsContent>
       </Tabs>
 

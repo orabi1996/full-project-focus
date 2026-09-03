@@ -294,6 +294,56 @@ export type Database = {
         }
         Relationships: []
       }
+      biometric_devices: {
+        Row: {
+          auto_approve: boolean
+          created_at: string
+          device_id: string
+          device_token: string
+          id: string
+          last_seen_at: string | null
+          name_ar: string
+          status: string
+          total_punches: number
+          updated_at: string
+          work_location_id: string | null
+        }
+        Insert: {
+          auto_approve?: boolean
+          created_at?: string
+          device_id: string
+          device_token: string
+          id?: string
+          last_seen_at?: string | null
+          name_ar: string
+          status?: string
+          total_punches?: number
+          updated_at?: string
+          work_location_id?: string | null
+        }
+        Update: {
+          auto_approve?: boolean
+          created_at?: string
+          device_id?: string
+          device_token?: string
+          id?: string
+          last_seen_at?: string | null
+          name_ar?: string
+          status?: string
+          total_punches?: number
+          updated_at?: string
+          work_location_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "biometric_devices_work_location_id_fkey"
+            columns: ["work_location_id"]
+            isOneToOne: false
+            referencedRelation: "work_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidate_stages: {
         Row: {
           candidate_id: string
@@ -440,6 +490,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      company_bank_accounts: {
+        Row: {
+          account_name: string
+          bank_name: string
+          created_at: string
+          currency: string
+          current_balance: number
+          iban: string
+          id: string
+          is_primary: boolean
+          updated_at: string
+        }
+        Insert: {
+          account_name: string
+          bank_name: string
+          created_at?: string
+          currency?: string
+          current_balance?: number
+          iban: string
+          id?: string
+          is_primary?: boolean
+          updated_at?: string
+        }
+        Update: {
+          account_name?: string
+          bank_name?: string
+          created_at?: string
+          currency?: string
+          current_balance?: number
+          iban?: string
+          id?: string
+          is_primary?: boolean
+          updated_at?: string
+        }
+        Relationships: []
       }
       company_documents: {
         Row: {
@@ -638,6 +724,7 @@ export type Database = {
       }
       employees: {
         Row: {
+          bank_name: string | null
           basic_salary: number
           birth_date: string | null
           company_id: string | null
@@ -653,6 +740,7 @@ export type Database = {
           full_name: string
           gender: string | null
           hire_date: string
+          iban: string | null
           id: string
           job_title: string
           last_name_ar: string | null
@@ -677,6 +765,7 @@ export type Database = {
           work_location_id: string | null
         }
         Insert: {
+          bank_name?: string | null
           basic_salary?: number
           birth_date?: string | null
           company_id?: string | null
@@ -692,6 +781,7 @@ export type Database = {
           full_name: string
           gender?: string | null
           hire_date?: string
+          iban?: string | null
           id?: string
           job_title?: string
           last_name_ar?: string | null
@@ -716,6 +806,7 @@ export type Database = {
           work_location_id?: string | null
         }
         Update: {
+          bank_name?: string | null
           basic_salary?: number
           birth_date?: string | null
           company_id?: string | null
@@ -731,6 +822,7 @@ export type Database = {
           full_name?: string
           gender?: string | null
           hire_date?: string
+          iban?: string | null
           id?: string
           job_title?: string
           last_name_ar?: string | null
@@ -1621,6 +1713,82 @@ export type Database = {
         }
         Relationships: []
       }
+      payroll_payments: {
+        Row: {
+          bank_account_id: string | null
+          bank_name: string | null
+          batch_no: string | null
+          created_at: string
+          employee_id: string
+          failure_reason: string | null
+          iban: string | null
+          id: string
+          net_amount: number
+          paid_at: string | null
+          payroll_run_id: string
+          reference: string | null
+          sent_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          bank_account_id?: string | null
+          bank_name?: string | null
+          batch_no?: string | null
+          created_at?: string
+          employee_id: string
+          failure_reason?: string | null
+          iban?: string | null
+          id?: string
+          net_amount?: number
+          paid_at?: string | null
+          payroll_run_id: string
+          reference?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          bank_account_id?: string | null
+          bank_name?: string | null
+          batch_no?: string | null
+          created_at?: string
+          employee_id?: string
+          failure_reason?: string | null
+          iban?: string | null
+          id?: string
+          net_amount?: number
+          paid_at?: string | null
+          payroll_run_id?: string
+          reference?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_payments_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "company_bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_payments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_payments_payroll_run_id_fkey"
+            columns: ["payroll_run_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_runs: {
         Row: {
           created_at: string
@@ -1843,6 +2011,7 @@ export type Database = {
       }
       punches: {
         Row: {
+          approval_status: string
           created_at: string
           device_id: string | null
           employee_id: string | null
@@ -1856,6 +2025,7 @@ export type Database = {
           work_location_id: string | null
         }
         Insert: {
+          approval_status?: string
           created_at?: string
           device_id?: string | null
           employee_id?: string | null
@@ -1869,6 +2039,7 @@ export type Database = {
           work_location_id?: string | null
         }
         Update: {
+          approval_status?: string
           created_at?: string
           device_id?: string | null
           employee_id?: string | null

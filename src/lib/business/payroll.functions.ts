@@ -200,7 +200,7 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
         otherAllowances: other,
         calculationBasis: "fixed_30_days",
         daysInMonth: periodDays,
-        absenceDays: agg.absentDays,
+        absenceDays: absenceDays,
         lateMinutes: agg.lateMinutes,
         overtimeHours,
         loanInstallment,
@@ -237,8 +237,8 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
         total_deductions: result.totalDeductions,
         gross_salary: result.totalEarnings,
         net_salary: result.netSalary,
-        working_days: periodDays - agg.absentDays,
-        absent_days: agg.absentDays,
+        working_days: workedDays,
+        absent_days: absenceDays,
       });
     }
 

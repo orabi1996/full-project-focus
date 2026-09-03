@@ -167,9 +167,21 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
       const agg = attendanceAgg.get(employee.id) ?? {
         absentDays: 0,
         leaveDays: 0,
+        workedDays: 0,
         lateMinutes: 0,
         overtimeMinutes: 0,
       };
+      // Actual working days drive the pay: scheduled days not covered by an
+      // attended or paid-leave record are treated as unpaid absence.
+      const scheduledDays = expectedDays.get(employee.id) ?? 0;
+      const trackedDays = agg.workedDays + agg.leaveDays + agg.absentDays;
+      const absenceDays =
+        scheduledDays > 0
+          ? Math.max(0, scheduledDays - agg.workedDays - agg.leaveDays)
+          : agg.absentDays;
+      const workedDays =
+        trackedDays > 0 ? Math.max(0, periodDays - absenceDays) : periodDays;
+
       const loans = loansByEmployee.get(employee.id) ?? [];
       const loanInstallment = round2(
         loans.reduce(

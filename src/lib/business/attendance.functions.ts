@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertRole, round2 } from "./guards";
+import { computePayrollRun } from "./payroll.functions";
+
 
 interface ProcessInput {
   fromDate: string; // YYYY-MM-DD

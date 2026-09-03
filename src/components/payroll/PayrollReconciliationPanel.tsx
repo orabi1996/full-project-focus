@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Scale, RefreshCw, Download, Wallet } from "lucide-react";
+import { Scale, RefreshCw, Download, Wallet, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { exportToCSV } from "../../lib/utils/export-helpers";
+import { openMonthlyPayrollPdf } from "../../lib/utils/payroll-pdf";
 import {
   listEmployeeReconciliationServer,
   listPayrollReconciliationServer,
@@ -186,6 +187,32 @@ export const PayrollReconciliationPanel: React.FC = () => {
             }
           >
             <Download className="h-4 w-4" /> تصدير
+          </Button>
+          <Button
+            size="sm"
+            className="rounded-xl gap-1.5"
+            disabled={!rows.length || !selected}
+            onClick={() => {
+              try {
+                openMonthlyPayrollPdf(
+                  {
+                    period: selected!.label,
+                    status: statusLabel[selected!.status] ?? selected!.status,
+                    employees: selected!.employees,
+                    net: selected!.net,
+                    loansPaid: selected!.loansPaid,
+                    paidOut: selected!.paidOut,
+                    pendingOut: selected!.pendingOut,
+                    companyBalance: balance,
+                  },
+                  rows,
+                );
+              } catch (error) {
+                toast.error((error as Error).message);
+              }
+            }}
+          >
+            <FileText className="h-4 w-4" /> تقرير PDF
           </Button>
         </div>
         <table className="w-full text-xs">

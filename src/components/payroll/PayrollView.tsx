@@ -8,6 +8,7 @@ import { PayrollDistributionPanel } from "./PayrollDistributionPanel";
 import { SalaryFilesPanel } from "./SalaryFilesPanel";
 import { PayrollPaymentsPanel } from "./PayrollPaymentsPanel";
 import { PayrollReconciliationPanel } from "./PayrollReconciliationPanel";
+import { LoansTreasuryPanel } from "./LoansTreasuryPanel";
 import {
   Wallet,
   DollarSign,
@@ -611,15 +612,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
 
         {/* Tab: Monthly salary disbursement */}
         <TabsContent value="payments" className="space-y-4 pt-4">
-          <PayrollPaymentsPanel
-            runId={selectedRun?.id}
-            period={selectedRun ? `${selectedRun.periodMonth}/${selectedRun.periodYear}` : undefined}
-          />
+          <PayrollPaymentsPanel />
         </TabsContent>
 
 
         {/* Tab 2: Loans & Advances with Visual Repayment Progress */}
         <TabsContent value="loans" className="space-y-4 pt-4">
+          <LoansTreasuryPanel />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {loans.map((l) => {
               const progressPercent = Math.min(

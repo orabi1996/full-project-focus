@@ -463,3 +463,53 @@ export const settleAttendancePeriodServer = createServerFn({ method: "POST" })
       employees: payroll.employees,
     };
   });
+
+/** Updates a registered biometric device (name, status, auto-approve). */
+export const updateBiometricDeviceServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: {
+      id: string;
+      nameAr?: string;
+      status?: string;
+      autoApprove?: boolean;
+      rotateToken?: boolean;
+    }) => {
+      if (!input?.id) throw new Error("معرّف الجهاز مطلوب");
+      return input;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as any;
+    await assertRole(supabase, context.userId, ["super_admin", "org_admin", "hr_manager"]);
+
+    const payload: Record<string, unknown> = {};
+    if (data.nameAr?.trim()) payload["name_ar"] = data.nameAr.trim();
+    if (data.status) payload["status"] = data.status;
+    if (typeof data.autoApprove === "boolean") payload["auto_approve"] = data.autoApprove;
+    let token: string | null = null;
+    if (data.rotateToken) {
+      token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+      payload["device_token"] = token;
+    }
+    if (!Object.keys(payload).length) throw new Error("لا يوجد تغيير للحفظ");
+
+    const { error } = await supabase.from("biometric_devices").update(payload).eq("id", data.id);
+    if (error) throw new Error(`تعذر تحديث الجهاز: ${error.message}`);
+    return { id: data.id, token };
+  });
+
+/** Removes a device; its historical punches (and payroll effect) stay intact. */
+export const deleteBiometricDeviceServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string }) => {
+    if (!input?.id) throw new Error("معرّف الجهاز مطلوب");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as any;
+    await assertRole(supabase, context.userId, ["super_admin", "org_admin", "hr_manager"]);
+    const { error } = await supabase.from("biometric_devices").delete().eq("id", data.id);
+    if (error) throw new Error(`تعذر حذف الجهاز: ${error.message}`);
+    return { ok: true };
+  });

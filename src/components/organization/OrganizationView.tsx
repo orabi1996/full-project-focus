@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { OrgChartSvg, type OrgChartNodeData, defaultCompanyTree } from "./OrgChartSvg";
 import { CostCentersPanel, JobPositionsPanel } from "./OrganizationPlanningPanels";
+import { CompanyProfilePanel } from "./CompanyProfilePanel";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
 import {
@@ -349,7 +350,13 @@ export const OrganizationView: React.FC = () => {
 
       {/* Tabs Menu (Google M3 Segmented / Primary Tabs) */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-3xl border border-border/60 bg-muted/60 p-1 sm:grid-cols-3 xl:grid-cols-6">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-3xl border border-border/60 bg-muted/60 p-1 sm:grid-cols-4 xl:grid-cols-7">
+          <TabsTrigger
+            value="company"
+            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+          >
+            بيانات المنشأة
+          </TabsTrigger>
           <TabsTrigger
             value="orgchart"
             className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
@@ -666,6 +673,11 @@ export const OrganizationView: React.FC = () => {
         <TabsContent value="cost-centers" className="space-y-4 pt-4">
           <CostCentersPanel />
         </TabsContent>
+
+        <TabsContent value="company" className="space-y-4 pt-4">
+          <CompanyProfilePanel />
+        </TabsContent>
+
       </Tabs>
 
       {/* Add Department Modal */}

@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { supabase } from "../../integrations/supabase/client";
+import { isDemoModeEnabled } from "../config/runtime-config";
 import { resolvePrimaryRole, type AuthRole } from "./roles";
 
 export type { AuthRole } from "./roles";
@@ -27,6 +28,11 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+const demoModeEnabled = isDemoModeEnabled(
+  import.meta.env["VITE_ENABLE_DEMO_MODE"],
+  import.meta.env.PROD,
+);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -90,7 +96,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isDemo,
       signIn,
       signOut,
-      enterDemo: () => setIsDemo(true),
+      enterDemo: () => {
+        if (demoModeEnabled) setIsDemo(true);
+      },
       leaveDemo: () => setIsDemo(false),
     }),
     [session, role, isLoading, isDemo, signIn, signOut],

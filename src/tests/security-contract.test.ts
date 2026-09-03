@@ -12,6 +12,20 @@ describe("client-side security contracts", () => {
     expect(login).toContain('type={showPassword ? "text" : "password"}');
   });
 
+  it("never hardcodes demo access on the login page", () => {
+    const login = source("../components/auth/LoginPage.tsx");
+    const auth = source("../lib/auth/AuthContext.tsx");
+    expect(login).not.toMatch(/const\s+demoEnabled\s*=\s*true/);
+    expect(login).toContain("VITE_ENABLE_DEMO_MODE");
+    expect(auth).toContain("isDemoModeEnabled");
+  });
+
+  it("does not claim unverified legal compliance on the login page", () => {
+    const login = source("../components/auth/LoginPage.tsx");
+    expect(login).not.toContain("معتمد ومتوافق بالكامل");
+    expect(login).toContain("تخضع إعدادات الامتثال لاعتماد المنشأة");
+  });
+
   it("never embeds a Supabase service-role credential in public config", () => {
     const config = source("../integrations/supabase/public-config.ts");
     expect(config).not.toMatch(/SUPABASE_SERVICE_ROLE_KEY\s*=/);

@@ -20,7 +20,7 @@ CREATE TABLE payroll_details(
  employee_id uuid NOT NULL REFERENCES employees,basic_salary numeric NOT NULL DEFAULT 0,housing_allowance numeric NOT NULL DEFAULT 0,
  transport_allowance numeric NOT NULL DEFAULT 0,other_allowances numeric NOT NULL DEFAULT 0,overtime_hours numeric NOT NULL DEFAULT 0,
  overtime_amount numeric NOT NULL DEFAULT 0,bonus_amount numeric NOT NULL DEFAULT 0,unpaid_leave_deduction numeric NOT NULL DEFAULT 0,
- absence_late_deduction numeric NOT NULL DEFAULT 0,loan_deduction numeric NOT NULL DEFAULT 0,gosi_employee_deduction numeric NOT NULL DEFAULT 0,
+ absence_late_deduction numeric NOT NULL DEFAULT 0,loan_deduction numeric NOT NULL DEFAULT 0,salary_advance_deduction numeric NOT NULL DEFAULT 0,gosi_employee_deduction numeric NOT NULL DEFAULT 0,
  other_deductions numeric NOT NULL DEFAULT 0,gross_salary numeric NOT NULL DEFAULT 0,total_deductions numeric NOT NULL DEFAULT 0,net_salary numeric NOT NULL DEFAULT 0,
  UNIQUE(payroll_run_id,employee_id)
 );

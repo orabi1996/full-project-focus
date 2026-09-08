@@ -63,6 +63,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
     loans,
     settlements,
     employees,
+    leaveBalances,
     orgUnits,
     payrollGroups,
     company,
@@ -72,6 +73,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
     markPayrollAsPaid,
     createLoan,
     createSettlement,
+    updateSettlementStatus,
     openEmployeeProfile,
     language,
     t,
@@ -106,11 +108,21 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
   const [settlementEmpId, setSettlementEmpId] = useState(employees[0]?.id || "");
   const [terminationDate, setTerminationDate] = useState("2026-08-31");
   const [separationType, setSeparationType] = useState<SeparationType>("contract_expiration");
+  const [pendingSalaryAmount, setPendingSalaryAmount] = useState(0);
+  const [noticePeriodServed, setNoticePeriodServed] = useState(false);
+  const [assetClearanceComplete, setAssetClearanceComplete] = useState(false);
 
   const selectedRun = payrollRuns.find((r) => r.id === selectedRunId) || payrollRuns[0];
   const selectedRunDetails = selectedRun
     ? payrollDetails.filter((detail) => detail.payrollRunId === selectedRun.id)
     : [];
+
+  const settlementStatusLabel: Record<FinalSettlementRecord["status"], string> = {
+    draft: "مسودة",
+    pending_approval: "بانتظار الاعتماد",
+    approved: "معتمدة للصرف",
+    paid: "تم الصرف",
+  };
 
   const filteredRunDetails = useMemo(() => {
     return selectedRunDetails.filter((item) => {
@@ -228,7 +240,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
     setLoanReason("");
   };
 
-  const handleCalculateAndSaveSettlement = () => {
+  const handleCalculateAndSaveSettlement = async () => {
     const emp = employees.find((e) => e.id === settlementEmpId);
     if (!emp) return;
 
@@ -248,28 +260,39 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
       separationType,
     });
 
-    const leavePayout = Math.round((emp.basicSalary / 30) * 15);
-    const netTotal = eosbCalc.finalEOSBAmount + leavePayout;
+    const leavePayoutDays = leaveBalances
+      .filter((balance) => balance.employeeId === emp.id)
+      .reduce((sum, balance) => sum + balance.availableBalance, 0);
+    const leavePayout = Math.round((emp.totalSalary / 30) * leavePayoutDays);
+    const netTotal = Math.max(0, eosbCalc.finalEOSBAmount + leavePayout + pendingSalaryAmount);
 
-    createSettlement({
-      employeeId: emp.id,
-      employeeName: `${emp.firstNameAr} ${emp.lastNameAr}`,
-      terminationDate,
-      serviceYears,
-      serviceMonths,
-      eosbAmount: eosbCalc.finalEOSBAmount,
-      leaveBalancePayoutDays: 15,
-      leaveBalancePayoutAmount: leavePayout,
-      pendingSalaryAmount: 0,
-      loanDeductionAmount: 0,
-      noticePeriodServed: true,
-      assetClearanceComplete: false,
-      netSettlementAmount: netTotal,
-      eosbNotes: `مدة الخدمة المحتسبة ${eosbCalc.totalServiceYearsDecimal} سنة بنسبة استحقاق ${eosbCalc.resignationMultiplier}%`,
-      status: "draft",
-    });
+    const saved = await createSettlement(
+      {
+        employeeId: emp.id,
+        employeeName: `${emp.firstNameAr} ${emp.lastNameAr}`,
+        terminationDate,
+        serviceYears,
+        serviceMonths,
+        eosbAmount: eosbCalc.finalEOSBAmount,
+        leaveBalancePayoutDays: leavePayoutDays,
+        leaveBalancePayoutAmount: leavePayout,
+        pendingSalaryAmount,
+        loanDeductionAmount: 0,
+        noticePeriodServed,
+        assetClearanceComplete,
+        netSettlementAmount: netTotal,
+        eosbNotes: `مدة الخدمة المحتسبة ${eosbCalc.totalServiceYearsDecimal} سنة بنسبة استحقاق ${eosbCalc.resignationMultiplier}%`,
+        status: "draft",
+      },
+      separationType,
+    );
 
-    setIsSettlementModalOpen(false);
+    if (saved) {
+      setIsSettlementModalOpen(false);
+      setPendingSalaryAmount(0);
+      setNoticePeriodServed(false);
+      setAssetClearanceComplete(false);
+    }
   };
 
   return (
@@ -732,7 +755,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                     variant="outline"
                     className="text-emerald-700 bg-emerald-50 text-[10px] rounded-full px-2.5 font-bold"
                   >
-                    معتمدة ومصادقة
+                    {settlementStatusLabel[s.status] ?? s.status}
                   </Badge>
                 </div>
 
@@ -761,7 +784,52 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-border/60 flex justify-end">
+                <div className="pt-2 border-t border-border/60 flex flex-wrap justify-end gap-2">
+                  {s.status === "draft" && (
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        const ok = await updateSettlementStatus(s.id, "pending_approval");
+                        if (ok) toast.success("تم إرسال المخالصة لمسار الاعتماد");
+                      }}
+                      className="h-8 text-xs font-bold rounded-full bg-primary text-primary-foreground px-3"
+                    >
+                      إرسال للاعتماد
+                    </Button>
+                  )}
+                  {s.status === "pending_approval" && (
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        const ok = await updateSettlementStatus(s.id, "approved");
+                        if (ok) toast.success("تم اعتماد المخالصة وأصبحت جاهزة للصرف");
+                      }}
+                      className="h-8 text-xs font-bold rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-3"
+                    >
+                      اعتماد المخالصة
+                    </Button>
+                  )}
+                  {s.status === "approved" && (
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        if (!s.assetClearanceComplete) {
+                          toast.error("أكمل إخلاء طرف الأصول قبل تسجيل الصرف");
+                          return;
+                        }
+                        const reference = window.prompt("أدخل مرجع صرف المخالصة من البنك");
+                        if (!reference?.trim()) return;
+                        const ok = await updateSettlementStatus(s.id, "paid", {
+                          paymentReference: reference,
+                          assetClearanceComplete: true,
+                        });
+                        if (ok) toast.success("تم تسجيل صرف المخالصة بنجاح");
+                      }}
+                      className="h-8 text-xs font-bold rounded-full bg-amber-600 hover:bg-amber-700 text-white px-3"
+                    >
+                      تسجيل الصرف
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="outline"
@@ -1219,6 +1287,42 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                 <option value="resignation">استقالة العامل (م85 - متدرجة حسب مدة الخدمة)</option>
                 <option value="force_majeure">قوة قاهرة أو ترك العمل لظروف استثنائية (كاملة)</option>
               </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold" htmlFor="pending-salary-amount">
+                راتب أو مستحقات غير مصروفة (اختياري)
+              </label>
+              <input
+                id="pending-salary-amount"
+                type="number"
+                min={0}
+                step="0.01"
+                value={pendingSalaryAmount}
+                onChange={(e) => setPendingSalaryAmount(Math.max(0, Number(e.target.value) || 0))}
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <label className="flex items-center gap-2 rounded-2xl border border-border/70 bg-muted/30 px-3 py-2 font-semibold">
+                <input
+                  type="checkbox"
+                  checked={noticePeriodServed}
+                  onChange={(e) => setNoticePeriodServed(e.target.checked)}
+                  className="accent-primary"
+                />
+                تم تنفيذ فترة الإشعار
+              </label>
+              <label className="flex items-center gap-2 rounded-2xl border border-border/70 bg-muted/30 px-3 py-2 font-semibold">
+                <input
+                  type="checkbox"
+                  checked={assetClearanceComplete}
+                  onChange={(e) => setAssetClearanceComplete(e.target.checked)}
+                  className="accent-primary"
+                />
+                إخلاء طرف الأصول مكتمل
+              </label>
             </div>
           </div>
 

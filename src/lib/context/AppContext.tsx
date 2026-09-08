@@ -141,8 +141,12 @@ import {
   updateRequestDecision,
 } from "../data/hrms-repository";
 import { calculateEmployeePayroll } from "../utils/payroll-calculator";
+import type { SeparationType } from "../utils/eosb-calculator";
 import { runPayrollServer, updatePayrollRunStatusServer } from "../business/payroll.functions";
-import { createSettlementServer } from "../business/settlement.functions";
+import {
+  createSettlementServer,
+  updateSettlementStatusServer,
+} from "../business/settlement.functions";
 import { actOnRequestServer } from "../business/approvals.functions";
 import { processAttendanceServer } from "../business/attendance.functions";
 import { accrueLeaveBalancesServer } from "../business/leave.functions";
@@ -297,7 +301,15 @@ interface AppContextType {
     totalInstallments: number;
     reason: string;
   }) => void;
-  createSettlement: (settlement: Omit<FinalSettlementRecord, "id">) => void;
+  createSettlement: (
+    settlement: Omit<FinalSettlementRecord, "id">,
+    separationType?: SeparationType,
+  ) => Promise<boolean>;
+  updateSettlementStatus: (
+    settlementId: string,
+    status: FinalSettlementRecord["status"],
+    options?: { paymentReference?: string; assetClearanceComplete?: boolean },
+  ) => Promise<boolean>;
 
   // Expenses
   addExpenseClaim: (claim: Omit<ExpenseClaim, "id" | "status" | "policyWarningTriggered">) => void;
@@ -1929,21 +1941,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const createSettlement = (settlementData: Omit<FinalSettlementRecord, "id">) => {
+  const createSettlement = async (
+    settlementData: Omit<FinalSettlementRecord, "id">,
+    separationType: SeparationType = "termination_by_employer",
+  ): Promise<boolean> => {
+    if (dataMode === "live") {
+      let serverSettlement: Awaited<ReturnType<typeof createSettlementServer>> | undefined;
+      const persisted = await persistLiveChange(
+        async () => {
+          serverSettlement = await createSettlementServer({
+            data: {
+              employeeId: settlementData.employeeId,
+              terminationDate: settlementData.terminationDate,
+              separationType,
+              pendingSalaryAmount: settlementData.pendingSalaryAmount,
+              noticePeriodServed: settlementData.noticePeriodServed,
+              assetClearanceComplete: settlementData.assetClearanceComplete,
+              eosbNotes: settlementData.eosbNotes,
+            },
+          });
+        },
+        `settlement:create:${settlementData.employeeId}:${settlementData.terminationDate}`,
+      );
+      if (!persisted.ok || !serverSettlement?.settlementId) return false;
+
+      const savedSettlement: FinalSettlementRecord = {
+        ...settlementData,
+        id: serverSettlement.settlementId,
+        eosbAmount: serverSettlement.eosbAmount,
+        leaveBalancePayoutDays: serverSettlement.leavePayoutDays,
+        leaveBalancePayoutAmount: serverSettlement.leavePayout,
+        pendingSalaryAmount: serverSettlement.pendingSalaryAmount,
+        loanDeductionAmount: serverSettlement.loanBalance,
+        netSettlementAmount: serverSettlement.netSettlement,
+        status: "draft",
+      };
+      setSettlements((prev) => [savedSettlement, ...prev]);
+      logAuditEvent(
+        "إنشاء مخالصة نهاية خدمة",
+        "FinalSettlement",
+        savedSettlement.id,
+        savedSettlement.employeeName,
+        `صافي المستحق: ${savedSettlement.netSettlementAmount} ر.س`,
+      );
+      return true;
+    }
+
     const newSettlement: FinalSettlementRecord = {
       ...settlementData,
       id: `set-${Date.now()}`,
     };
     setSettlements((prev) => [newSettlement, ...prev]);
-    persistLiveChange(async () => {
-      await createSettlementServer({
-        data: {
-          employeeId: settlementData.employeeId,
-          terminationDate: settlementData.terminationDate,
-          separationType: "termination_by_employer",
-        },
-      });
-    });
     logAuditEvent(
       "إنشاء مخالصة نهاية خدمة",
       "FinalSettlement",
@@ -1951,6 +1999,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       newSettlement.employeeName,
       `صافي المستحق: ${newSettlement.netSettlementAmount} ر.س`,
     );
+    return true;
+  };
+
+  const updateSettlementStatus = async (
+    settlementId: string,
+    status: FinalSettlementRecord["status"],
+    options: { paymentReference?: string; assetClearanceComplete?: boolean } = {},
+  ): Promise<boolean> => {
+    const target = settlements.find((item) => item.id === settlementId);
+    if (!target) return false;
+
+    if (dataMode === "live") {
+      const persisted = await persistLiveChange(
+        () =>
+          updateSettlementStatusServer({
+            data: {
+              settlementId,
+              status,
+              paymentReference: options.paymentReference,
+              assetClearanceComplete: options.assetClearanceComplete,
+            },
+          }) as unknown as Promise<void>,
+        `settlement:status:${settlementId}:${status}`,
+      );
+      if (!persisted.ok) return false;
+    }
+
+    setSettlements((prev) =>
+      prev.map((item) =>
+        item.id === settlementId
+          ? {
+              ...item,
+              status,
+              assetClearanceComplete:
+                options.assetClearanceComplete ?? item.assetClearanceComplete,
+            }
+          : item,
+      ),
+    );
+    logAuditEvent(
+      status === "pending_approval"
+        ? "إرسال مخالصة للاعتماد"
+        : status === "approved"
+          ? "اعتماد مخالصة نهاية الخدمة"
+          : status === "paid"
+            ? "تسجيل صرف مخالصة نهاية الخدمة"
+            : "تحديث حالة مخالصة",
+      "FinalSettlement",
+      settlementId,
+      target.employeeName,
+      options.paymentReference ? `مرجع الصرف: ${options.paymentReference}` : `الحالة: ${status}`,
+    );
+    return true;
   };
 
   // Expenses
@@ -2273,6 +2374,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         accrueLeaveBalances,
         createLoan,
         createSettlement,
+        updateSettlementStatus,
         addExpenseClaim,
         addExpenseCategory,
         addPerformanceCycle,

@@ -310,10 +310,21 @@ export interface SettlementRow extends Record<string, unknown> {
   service_years: number;
   service_months: number;
   eosb_amount: number;
+  notice_period_served: boolean | null;
+  leave_payout_days: number | null;
   leave_payout_amount: number;
+  pending_salary_amount: number | null;
+  loan_deduction_amount: number | null;
+  asset_clearance_complete: boolean | null;
+  eosb_notes: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  paid_at: string | null;
+  payment_reference: string | null;
   net_settlement_amount: number;
   status: string;
   created_at: string;
+  updated_at: string;
 }
 export interface ExpenseCategoryRow extends Record<string, unknown> {
   id: string;

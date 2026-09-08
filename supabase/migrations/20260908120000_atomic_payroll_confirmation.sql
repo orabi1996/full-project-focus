@@ -83,7 +83,7 @@ BEGIN
       gross_salary, total_deductions, net_salary, working_days, absent_days
     ) SELECT v_id, d.employee_id, d.basic_salary, d.housing_allowance, d.transport_allowance,
       d.other_allowances, d.overtime_hours, d.overtime_amount, d.bonus_amount, d.unpaid_leave_deduction,
-      d.absence_late_deduction, d.loan_deduction, d.salary_advance_deduction, d.gosi_employee_deduction, d.other_deductions,
+      d.absence_late_deduction, d.loan_deduction, coalesce(d.salary_advance_deduction, 0), d.gosi_employee_deduction, d.other_deductions,
       d.gross_salary, d.total_deductions, d.net_salary, d.working_days, d.absent_days
       FROM jsonb_populate_record(NULL::public.payroll_details, v_detail) d;
   END LOOP;

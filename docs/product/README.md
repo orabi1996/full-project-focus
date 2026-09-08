@@ -24,6 +24,8 @@
 16. [Screen Inventory](SCREEN_INVENTORY.draft.json): كتالوج آلي مبدئي كامل للشاشات وحالاتها؛ غير مفعّل بإضافة routes أو permissions.
 17. [PART 8 — UI/UX Design System](PART_08_UI_UX_DESIGN_SYSTEM.ar.md): tokens للهوية والألوان والخطوط والمسافات والمكونات والحالات والتجاوب وRTL/accessibility.
 18. [Design Tokens](DESIGN_TOKENS.draft.json): كتالوج آلي مبدئي لنظام التصميم؛ غير مفعّل لتغيير CSS أو theme تلقائيًا.
+19. [PART 9 — Business Workflows](PART_09_BUSINESS_WORKFLOWS.ar.md): حالات الانتقال والاعتمادات والـjobs والإشعارات والفشل للحضور والإجازة والرواتب والدفع والسلف والمخالصة والتكامل.
+20. [Workflow Catalog](WORKFLOW_CATALOG.draft.json): كتالوج آلي مبدئي لـ16 workflow وضوابطها؛ غير مفعّل تشغيليًا.
 
 **الحالة:** اكتمل الاكتشاف المكتبي وأدوات البحث، وأُعدت استراتيجية المنتج ونطاق MVP والباقات كقرارات عمل مبدئية. لا توجد حتى الآن نتائج مقابلات أو تجارب مدفوعة أو أسعار معتمدة ضمن هذه المخرجات. مرحلة التوثيق لا تعني اعتماد الإطلاق أو تطبيق ترحيلات قاعدة البيانات.
 
@@ -39,7 +41,7 @@
 | 6     | Information Architecture  | مكتمل كمواصفات مبدئية؛ تنفيذ routes/guards معلق                      |
 | 7     | Complete Screen Inventory | مكتمل كمواصفات مبدئية؛ اعتماد subset وربط routes معلق                |
 | 8     | UI/UX Design System       | مكتمل كمواصفات مبدئية؛ تحويل tokens إلى components معلق              |
-| 9     | Workflows                 | مخطط                                                                 |
+| 9     | Workflows                 | مكتمل كمواصفات مبدئية؛ ربط commands/jobs معلق                        |
 | 10    | Database                  | مخطط                                                                 |
 | 11    | API                       | مخطط                                                                 |
 | 12    | Security                  | مخطط؛ متطلبات الحماية تدخل القرارات السابقة أيضًا                    |

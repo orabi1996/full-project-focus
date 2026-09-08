@@ -1,0 +1,599 @@
+{
+  "schema_version": "0.1.0",
+  "catalog_version": "draft-2026-09-08",
+  "status": "proposal",
+  "runtime_enabled": false,
+  "description_ar": "كتالوج مبدئي لمسارات الأعمال؛ المرجع النصي يشرح القواعد ولا يفعّل runtime.",
+  "states": [
+    {
+      "id": "draft",
+      "terminal": false,
+      "description_ar": "مسودة لم تُرسل"
+    },
+    {
+      "id": "submitted",
+      "terminal": false,
+      "description_ar": "أُرسلت وتجاوزت التحقق الأولي"
+    },
+    {
+      "id": "pending_approval",
+      "terminal": false,
+      "description_ar": "تنتظر موافقة"
+    },
+    {
+      "id": "approved",
+      "terminal": false,
+      "description_ar": "اكتملت الموافقات"
+    },
+    {
+      "id": "processing",
+      "terminal": false,
+      "description_ar": "قيد التنفيذ"
+    },
+    {
+      "id": "completed",
+      "terminal": true,
+      "description_ar": "اكتمل الأثر والمطابقة"
+    },
+    {
+      "id": "returned",
+      "terminal": false,
+      "description_ar": "أعيدت للمُنشئ"
+    },
+    {
+      "id": "rejected",
+      "terminal": true,
+      "description_ar": "رُفض نهائيًا"
+    },
+    {
+      "id": "failed_retryable",
+      "terminal": false,
+      "description_ar": "فشل مؤقت قابل لإعادة المحاولة"
+    },
+    {
+      "id": "failed_terminal",
+      "terminal": true,
+      "description_ar": "فشل يحتاج تدخلًا"
+    },
+    {
+      "id": "cancelled",
+      "terminal": true,
+      "description_ar": "أُلغي قبل الأثر غير القابل للعكس"
+    },
+    {
+      "id": "expired",
+      "terminal": false,
+      "description_ar": "انتهت مهلة SLA"
+    },
+    {
+      "id": "locked",
+      "terminal": false,
+      "description_ar": "مقفل أثناء التسوية"
+    }
+  ],
+  "common_guards": [
+    {
+      "id": "tenant_context",
+      "rule": "tenant_id من session/token ويُفرض في كل query وRLS"
+    },
+    {
+      "id": "effective_date",
+      "rule": "لا تعديل على فترة مقفلة؛ التصحيح adjustment أو reversal"
+    },
+    {
+      "id": "rbac_sod",
+      "rule": "تطبيق role scope وSoD ومنع self approval"
+    },
+    {
+      "id": "optimistic_lock",
+      "rule": "version check يمنع الكتابة فوق تعديل متزامن"
+    },
+    {
+      "id": "idempotency",
+      "rule": "مفتاح مركب tenant/actor/business_reference/operation"
+    },
+    {
+      "id": "outbox_inbox",
+      "rule": "نشر الأحداث من outbox وإزالة التكرار عبر event_id"
+    },
+    {
+      "id": "privacy",
+      "rule": "الإشعار رابط وملخص عام؛ التفاصيل في جلسة مصادق عليها"
+    },
+    {
+      "id": "time_locale",
+      "rule": "التخزين UTC وعرض timezone المؤسسة واللغة المختارة"
+    },
+    {
+      "id": "break_glass",
+      "rule": "وصول مؤقت بسبب وموافقة وأثر تدقيق"
+    }
+  ],
+  "approval_contract": {
+    "type": "versioned_chain",
+    "role_scope_effective_date": true,
+    "self_approval_default": false,
+    "delegation_requires_end_date": true,
+    "wildcard_approver_allowed": false,
+    "missing_approver_state": "blocked_no_approver",
+    "decision_comment_required_by_policy": true,
+    "decision_idempotent": true
+  },
+  "workflows": [
+    {
+      "participants": ["org_owner", "org_admin", "commerce_service"],
+      "preconditions": ["legal_name", "timezone", "locale", "policy_baseline"],
+      "steps": [
+        "create_tenant",
+        "create_owner_membership",
+        "validate_baseline",
+        "emit_onboarding_events"
+      ],
+      "success_state": "completed",
+      "failure_codes": ["duplicate_domain", "missing_required_setup", "commerce_timeout"],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": ["activation_rate", "time_to_first_employee", "setup_completion_rate"],
+      "id": "WF-01",
+      "domain": "organization",
+      "slug": "tenant-onboarding",
+      "trigger": "org_owner submits setup checklist",
+      "primary_role": "org_owner"
+    },
+    {
+      "participants": ["org_admin", "hr_operator", "employee_or_org_member"],
+      "preconditions": ["email_normalized", "role_allowed", "invitation_not_active"],
+      "steps": ["create_invite", "accept_once", "create_membership", "link_or_create_employee"],
+      "success_state": "completed",
+      "failure_codes": ["duplicate_membership", "expired_invite", "archived_employee_conflict"],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": ["invite_accept_rate", "link_conflict_rate", "time_to_accept"],
+      "id": "WF-02",
+      "domain": "people",
+      "slug": "invitation-membership-link",
+      "trigger": "admin sends invitation",
+      "primary_role": "org_admin"
+    },
+    {
+      "participants": ["hr_manager", "line_manager", "employee_or_org_member"],
+      "preconditions": ["employee_exists", "effective_date_valid", "documents_policy_valid"],
+      "steps": [
+        "create_employment_version",
+        "route_approval_if_sensitive",
+        "update_access_projection"
+      ],
+      "success_state": "completed",
+      "failure_codes": ["period_locked", "missing_manager", "invalid_effective_date"],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": ["active_headcount", "change_cycle_time", "document_completion"],
+      "id": "WF-03",
+      "domain": "people",
+      "slug": "employee-lifecycle",
+      "trigger": "hr submits employment change",
+      "primary_role": "hr_manager"
+    },
+    {
+      "participants": ["attendance_officer", "attendance_device", "integration_service"],
+      "preconditions": ["file_schema_or_device_mapping", "date_window", "tenant_timezone"],
+      "steps": [
+        "create_import_batch",
+        "persist_raw_punches",
+        "queue_normalization",
+        "publish_reject_report"
+      ],
+      "success_state": "completed",
+      "failure_codes": [
+        "duplicate_row",
+        "unknown_employee",
+        "invalid_timestamp",
+        "provider_timeout"
+      ],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": ["accepted_rows", "rejected_rows", "normalization_latency", "device_sync_health"],
+      "id": "WF-04",
+      "domain": "attendance",
+      "slug": "attendance-import",
+      "trigger": "file/device sync arrives",
+      "primary_role": "attendance_officer"
+    },
+    {
+      "participants": [
+        "employee_or_org_member",
+        "line_manager",
+        "attendance_officer",
+        "payroll_officer"
+      ],
+      "preconditions": ["period_not_locked_or_adjustment_allowed", "reason", "punch_or_evidence"],
+      "steps": [
+        "create_adjustment",
+        "route_manager_approval",
+        "calculate_policy_effect",
+        "publish_payroll_projection"
+      ],
+      "success_state": "completed",
+      "failure_codes": [
+        "self_approval",
+        "period_locked",
+        "overtime_limit_exceeded",
+        "duplicate_adjustment"
+      ],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": ["correction_cycle_time", "late_minutes", "overtime_hours", "exception_rate"],
+      "id": "WF-05",
+      "domain": "attendance",
+      "slug": "attendance-adjustment-overtime",
+      "trigger": "employee or manager requests correction",
+      "primary_role": "attendance_officer"
+    },
+    {
+      "participants": ["employee_or_org_member", "line_manager", "hr_manager"],
+      "preconditions": ["leave_type", "balance", "no_overlap", "notice_policy"],
+      "steps": [
+        "reserve_balance_on_approval",
+        "route_chain",
+        "post_ledger_entry",
+        "update_calendar"
+      ],
+      "success_state": "completed",
+      "failure_codes": ["insufficient_balance", "overlap", "missing_approver", "expired_sla"],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": ["request_to_decision", "approval_rate", "balance_accuracy", "cancellation_rate"],
+      "id": "WF-06",
+      "domain": "leave",
+      "slug": "leave-request",
+      "trigger": "employee submits leave",
+      "primary_role": "employee"
+    },
+    {
+      "participants": ["payroll_officer", "finance_officer", "org_owner", "payroll_engine"],
+      "preconditions": [
+        "period_nonoverlap",
+        "contracts_complete",
+        "attendance_exceptions_resolved",
+        "policy_version"
+      ],
+      "steps": [
+        "snapshot_inputs",
+        "calculate_run",
+        "review_exceptions",
+        "approve_totals",
+        "lock_run",
+        "create_payslip_snapshot"
+      ],
+      "success_state": "completed",
+      "failure_codes": [
+        "missing_contract",
+        "unresolved_exception",
+        "calculation_failure",
+        "concurrent_lock"
+      ],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": ["calculation_duration", "exception_count", "net_pay_total", "on_time_close_rate"],
+      "id": "WF-07",
+      "domain": "payroll",
+      "slug": "payroll-run",
+      "trigger": "payroll officer opens period",
+      "primary_role": "payroll_officer"
+    },
+    {
+      "participants": ["finance_officer", "payment_provider", "reconciliation_service"],
+      "preconditions": ["run_locked", "totals_match", "beneficiary_active", "provider_account"],
+      "steps": [
+        "create_payment_batch",
+        "maker_checker_approval",
+        "submit_idempotently",
+        "query_or_receive_callback",
+        "reconcile_statement"
+      ],
+      "success_state": "completed",
+      "failure_codes": [
+        "provider_timeout",
+        "unknown_callback",
+        "amount_mismatch",
+        "duplicate_batch"
+      ],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": [
+        "payment_success_rate",
+        "reconciliation_age",
+        "exception_amount",
+        "provider_latency"
+      ],
+      "id": "WF-08",
+      "domain": "payments",
+      "slug": "payment-reconciliation",
+      "trigger": "locked payroll creates batch",
+      "primary_role": "finance_officer"
+    },
+    {
+      "participants": [
+        "employee_or_org_member",
+        "line_manager",
+        "finance_officer",
+        "payment_provider"
+      ],
+      "preconditions": ["eligibility", "limit", "open_advances", "deduction_capacity"],
+      "steps": [
+        "create_advance_case",
+        "approve_by_value",
+        "disburse_principal",
+        "create_installment_ledger"
+      ],
+      "success_state": "completed",
+      "failure_codes": [
+        "limit_exceeded",
+        "duplicate_open_advance",
+        "disbursement_failed",
+        "deduction_collision"
+      ],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": [
+        "approval_cycle_time",
+        "outstanding_principal",
+        "on_time_installment_rate",
+        "default_rate"
+      ],
+      "id": "WF-09",
+      "domain": "finance",
+      "slug": "advance-installment",
+      "trigger": "employee requests salary advance",
+      "primary_role": "employee"
+    },
+    {
+      "participants": ["employee_or_org_member", "line_manager", "finance_officer", "ocr_service"],
+      "preconditions": [
+        "receipt_or_reason",
+        "category_policy",
+        "duplicate_hash_check",
+        "cash_impact"
+      ],
+      "steps": [
+        "validate_claim",
+        "optional_ocr",
+        "approve_chain",
+        "create_reimbursement_or_offset"
+      ],
+      "success_state": "completed",
+      "failure_codes": [
+        "duplicate_receipt",
+        "outside_policy",
+        "missing_cost_center",
+        "payment_failed"
+      ],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": ["claim_cycle_time", "rejection_rate", "duplicate_rate", "early_payout_volume"],
+      "id": "WF-10",
+      "domain": "finance",
+      "slug": "expense-early-payout",
+      "trigger": "claim or early payout submitted",
+      "primary_role": "employee"
+    },
+    {
+      "participants": ["hr_manager", "line_manager", "finance_officer", "employee_or_org_member"],
+      "preconditions": [
+        "last_day",
+        "notice_rule",
+        "assets_and_advances_reviewed",
+        "payroll_cutoff"
+      ],
+      "steps": [
+        "open_exit_case",
+        "snapshot_entitlements",
+        "calculate_settlement",
+        "approve_statement",
+        "collect_acknowledgment",
+        "create_payment_or_hold"
+      ],
+      "success_state": "completed",
+      "failure_codes": [
+        "missing_returned_asset",
+        "unreconciled_advance",
+        "statement_changed_after_sign",
+        "payment_hold"
+      ],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": ["time_to_settle", "hold_rate", "amendment_rate", "settlement_accuracy"],
+      "id": "WF-11",
+      "domain": "people-finance",
+      "slug": "exit-settlement",
+      "trigger": "termination notice is opened",
+      "primary_role": "hr_manager"
+    },
+    {
+      "participants": ["recruiter", "hr_manager", "candidate", "notification_service"],
+      "preconditions": ["consent", "offer_version", "dedupe_check", "approved_headcount"],
+      "steps": [
+        "advance_candidate_stage",
+        "approve_offer",
+        "accept_once",
+        "create_employee_and_onboarding"
+      ],
+      "success_state": "completed",
+      "failure_codes": [
+        "duplicate_candidate",
+        "offer_expired",
+        "headcount_not_approved",
+        "webhook_duplicate"
+      ],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": ["time_to_hire", "offer_acceptance", "onboarding_start_rate", "candidate_dropoff"],
+      "id": "WF-12",
+      "domain": "recruitment",
+      "slug": "recruit-to-hire",
+      "trigger": "candidate accepts offer",
+      "primary_role": "recruiter"
+    },
+    {
+      "participants": ["performance_lead", "line_manager", "employee_or_org_member"],
+      "preconditions": ["goals_template", "review_window", "manager_mapping"],
+      "steps": [
+        "open_cycle",
+        "self_review",
+        "manager_review",
+        "calibration",
+        "acknowledge_and_lock"
+      ],
+      "success_state": "completed",
+      "failure_codes": ["missing_goal", "manager_conflict", "late_review", "unauthorized_feedback"],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": ["cycle_completion", "review_latency", "acknowledgment_rate", "calibration_delta"],
+      "id": "WF-13",
+      "domain": "performance",
+      "slug": "performance-cycle",
+      "trigger": "performance lead opens cycle",
+      "primary_role": "performance_lead"
+    },
+    {
+      "participants": ["asset_manager", "employee_or_org_member", "line_manager"],
+      "preconditions": ["asset_available", "employee_active", "serial_unique"],
+      "steps": [
+        "create_assignment",
+        "employee_accept_or_dispute",
+        "return_inspection",
+        "close_or_escalate"
+      ],
+      "success_state": "completed",
+      "failure_codes": [
+        "asset_unavailable",
+        "serial_duplicate",
+        "return_damage",
+        "employee_exited"
+      ],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": ["acceptance_rate", "return_cycle_time", "loss_rate", "dispute_rate"],
+      "id": "WF-14",
+      "domain": "assets",
+      "slug": "asset-custody",
+      "trigger": "asset assignment requested",
+      "primary_role": "asset_manager"
+    },
+    {
+      "participants": ["org_admin", "support_agent", "integration_service", "report_service"],
+      "preconditions": ["connection_valid", "scope_allowed", "template_version"],
+      "steps": ["create_job", "run_with_cursor", "persist_artifact", "notify_with_expiry_link"],
+      "success_state": "completed",
+      "failure_codes": ["provider_timeout", "page_failed", "artifact_expired", "scope_violation"],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": ["job_success_rate", "last_sync_age", "export_latency", "dead_letter_count"],
+      "id": "WF-15",
+      "domain": "integrations",
+      "slug": "sync-report-job",
+      "trigger": "scheduled sync or report is due",
+      "primary_role": "org_admin"
+    },
+    {
+      "participants": [
+        "org_owner",
+        "billing_admin",
+        "support_agent",
+        "security_function",
+        "commerce_service"
+      ],
+      "preconditions": ["entitlement_policy", "ticket_scope", "break_glass_reason_and_expiry"],
+      "steps": [
+        "create_case",
+        "provider_or_approval_action",
+        "project_entitlement",
+        "expire_access_and_audit"
+      ],
+      "success_state": "completed",
+      "failure_codes": [
+        "payment_failed",
+        "plan_conflict",
+        "break_glass_expired",
+        "unauthorized_read"
+      ],
+      "idempotency_key": "tenant_id:workflow_id:subject_id:operation",
+      "sla": {
+        "decision_target": "business_defined",
+        "escalation": "owner_then_queue"
+      },
+      "metrics": ["mrr", "grace_period_recovery", "ticket_sla", "break_glass_reads"],
+      "id": "WF-16",
+      "domain": "commerce-support",
+      "slug": "subscription-support-break-glass",
+      "trigger": "plan, ticket, or emergency access change occurs",
+      "primary_role": "org_owner"
+    }
+  ],
+  "notification_defaults": {
+    "channels": ["in_app", "email", "sms_optional", "push_optional"],
+    "no_sensitive_values": true,
+    "event_idempotent": true,
+    "retry_policy": "dead_letter_after_policy_limit",
+    "template_version_required": true
+  },
+  "failure_policy": {
+    "retryable_requires_reference": true,
+    "terminal_creates_incident": true,
+    "manual_replay_requires_reason": true,
+    "compensation_never_deletes_audit": true,
+    "timeout_queries_provider_before_retry": true
+  },
+  "open_decisions": [
+    "country_specific_payroll_policy",
+    "approval_sla_calendar",
+    "payment_provider_callbacks",
+    "queue_runtime",
+    "break_glass_second_approver"
+  ]
+}

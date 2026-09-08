@@ -36,6 +36,7 @@ import {
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { toast } from "sonner";
+import { AppLogo } from "../common/AppLogo";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
   AreaChart,
@@ -191,11 +192,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
         {/* Subtle Ambient Glow and Logo Watermark */}
         <div className="absolute top-[-25%] right-[10%] w-80 h-80 bg-[#00B5FF]/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -left-10 -bottom-10 opacity-15 pointer-events-none hidden sm:block">
-          <img
-            src="/classera-pulse-logo.png"
-            alt=""
-            className="h-48 w-auto object-contain brightness-0 invert"
-          />
+          <AppLogo height={160} className="brightness-0 invert" />
         </div>
 
         <div className="relative z-10 flex flex-col justify-between gap-5 md:flex-row md:items-center">

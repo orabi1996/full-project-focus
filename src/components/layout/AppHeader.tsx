@@ -25,6 +25,7 @@ import {
 import { useAuth } from "../../lib/auth/AuthContext";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { AppLogo, BrandLogoSwitcher } from "../common/AppLogo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -119,11 +120,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
         {/* Mobile Brand Logo */}
         <div className="md:hidden flex items-center shrink-0 bg-white rounded-xl px-1.5 py-1 border border-border/60 shadow-2xs">
-          <img
-            src="/classera-pulse-logo.png"
-            alt="Classera Pulse"
-            className="h-6 w-auto max-w-[100px] object-contain"
-          />
+          <AppLogo height={24} />
         </div>
 
         {/* Google M3 Unified Pill Search */}
@@ -165,6 +162,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   : "بيانات حية مباشرة"
               : "نسخة تجريبية"}
         </Badge>
+
+        {/* Brand Logo Live Switcher */}
+        <BrandLogoSwitcher compact className="hidden xl:inline-flex" />
 
         {/* Live Saudi Clock Pill */}
         <div className="hidden lg:flex items-center gap-2 rounded-full border border-border/80 bg-muted/40 px-3.5 py-1.5 text-xs font-mono font-bold text-foreground shadow-xs">

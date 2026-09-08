@@ -2,7 +2,6 @@ import React, { useState, type FormEvent } from "react";
 import { Navigate } from "@tanstack/react-router";
 import {
   BadgeCheck,
-  Building2,
   Eye,
   EyeOff,
   LockKeyhole,
@@ -10,25 +9,44 @@ import {
   UsersRound,
   Loader2,
   Sparkles,
+  ArrowRight,
+  Shield,
+  Layers,
+  Zap,
 } from "lucide-react";
 import { useAuth } from "../../lib/auth/AuthContext";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { isDemoModeEnabled } from "../../lib/config/runtime-config";
+import { AppLogo, BrandLogoSwitcher, useActiveBrandLogo } from "../common/AppLogo";
 
 const platformFeatures = [
-  { icon: ShieldCheck, label: "صلاحيات مؤسسية قابلة للتهيئة حسب الدور" },
-  { icon: UsersRound, label: "إدارة مركزية موحدة 360° للموظفين" },
-  { icon: BadgeCheck, label: "إجراءات واعتمادات إلكترونية موثقة" },
+  {
+    icon: UsersRound,
+    title: "إدارة متكاملة لرأس المال البشري 360°",
+    desc: "هيكل تنظيمي مرن، عقود ذكية، ومتابعة فورية للموظفين والمواهب",
+  },
+  {
+    icon: Zap,
+    title: "الامتثال المالي ونظام حماية الأجور WPS",
+    desc: "احتساب دقيق لمسيرات الرواتب والبدلات والخصومات ومكافأة نهاية الخدمة",
+  },
+  {
+    icon: ShieldCheck,
+    title: "حوكمة الصلاحيات والأمان المؤسسي",
+    desc: "مصفوفة أدوار دقيقة قابلة للتخصيص ومصادقة مشفرة متعددة المستويات",
+  },
 ];
 
 export function LoginPage() {
   const { session, isDemo, isLoading, signIn, enterDemo } = useAuth();
+  const { activeConfig } = useActiveBrandLogo();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const demoEnabled = isDemoModeEnabled(
     import.meta.env["VITE_ENABLE_DEMO_MODE"],
     import.meta.env.PROD,
@@ -36,10 +54,13 @@ export function LoginPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen grid place-items-center bg-background text-foreground" dir="rtl">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-9 w-9 animate-spin text-primary" />
-          <p className="text-xs font-bold text-muted-foreground">جارٍ تجهيز بوابة الدخول الآمنة…</p>
+      <div className="min-h-screen grid place-items-center bg-[#060D1A] text-white" dir="rtl">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative flex items-center justify-center">
+            <div className="h-16 w-16 rounded-full border-2 border-[#00B5FF]/20 border-t-[#00B5FF] animate-spin" />
+            <Sparkles className="h-6 w-6 text-[#00B5FF] absolute animate-pulse" />
+          </div>
+          <p className="text-xs font-bold text-slate-300">جارٍ تهيئة بوابة Classera Pulse الآمنة…</p>
         </div>
       </div>
     );
@@ -61,96 +82,120 @@ export function LoginPage() {
   return (
     <main
       dir="rtl"
-      className="min-h-screen grid place-items-center p-4 sm:p-6 lg:p-10 bg-background relative overflow-hidden"
+      className="min-h-screen bg-[#060D1A] text-slate-100 relative overflow-hidden flex flex-col justify-between p-4 sm:p-6 lg:p-8 select-none"
     >
-      {/* Background Decorative Gradient Orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-[#00B5FF]/15 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-[#004BCE]/20 rounded-full blur-3xl pointer-events-none" />
+      {/* Dynamic Background Lighting Effects */}
+      <div className="absolute -top-40 -left-40 w-[550px] h-[550px] bg-[#004BCE]/25 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute -bottom-40 -right-40 w-[550px] h-[550px] bg-[#00B5FF]/20 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-blue-600/10 rounded-full blur-[180px] pointer-events-none" />
 
-      {/* Main Classera Pulse Login Card */}
-      <div className="w-full max-w-5xl rounded-3xl overflow-hidden border border-border/80 bg-card shadow-2xl grid grid-cols-1 md:grid-cols-2 relative z-10">
-        {/* Left Decorative Brand Panel (Classera Pulse Gradient) */}
-        <div className="hidden md:flex flex-col justify-between p-10 bg-gradient-to-br from-[#004BCE] via-[#00389E] to-[#05112A] text-white relative overflow-hidden">
-          {/* Subtle Ambient Glow */}
-          <div className="absolute -top-24 -left-24 w-64 h-64 bg-[#00B5FF]/25 rounded-full blur-2xl pointer-events-none" />
-
-          <div className="space-y-6 relative z-10">
-            {/* White Card with Official Logo */}
-            <div className="inline-flex items-center bg-white rounded-2xl p-3 shadow-lg border border-white/20">
-              <img
-                src="/classera-pulse-logo.png"
-                alt="Classera Pulse"
-                className="h-10 w-auto max-w-[200px] object-contain"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold backdrop-blur-md border border-white/20">
-                  منظومة إدارة رأس المال البشري
-                </span>
-                <Sparkles className="h-4 w-4 text-[#00B5FF] animate-pulse" />
-              </div>
-              <h1 className="text-3xl font-black tracking-tight">Classera Pulse HCM</h1>
-              <p className="text-xs text-white/85 leading-relaxed font-medium">
-                المنصة السحابية الموحدة والمتطورة لإدارة رأس المال البشري، الحضور والانصراف، مسيرات الرواتب WPS،
-                والخدمات الذاتية للموظفين.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-4 relative z-10 my-8">
-            {platformFeatures.map(({ icon: Icon, label }) => (
-              <div key={label} className="flex items-center gap-3.5">
-                <div className="h-9 w-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/15">
-                  <Icon className="h-4 w-4 text-[#00B5FF]" />
-                </div>
-                <span className="text-xs font-bold text-white/95">{label}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="relative z-10 pt-4 border-t border-white/15 text-[11px] text-white/75 flex items-center justify-between">
-            <span>مصمم لدعم متطلبات الموارد البشرية، وتخضع إعدادات الامتثال لاعتماد المنشأة</span>
-            <span className="font-mono font-bold text-[#00B5FF]">Pulse v2026</span>
+      {/* Top Header Bar with Live Brand Logo Switcher */}
+      <header className="w-full max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 relative z-20 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-white/15 flex items-center gap-2 shadow-lg">
+            <span className="h-2 w-2 rounded-full bg-[#00B5FF] animate-ping" />
+            <span className="text-xs font-black tracking-wide text-white">Classera Pulse HCM</span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#00B5FF]/20 text-[#00B5FF] font-bold">
+              v2026
+            </span>
           </div>
         </div>
 
-        {/* Right Form Panel */}
-        <div className="p-8 sm:p-12 flex flex-col justify-center bg-card">
+        {/* Live Brand Logo Switcher Bar */}
+        <div className="flex items-center gap-2">
+          <BrandLogoSwitcher className="border-white/15" />
+        </div>
+      </header>
+
+      {/* Center Main Stage Split Card */}
+      <div className="w-full max-w-6xl mx-auto rounded-3xl overflow-hidden border border-white/15 bg-slate-900/60 backdrop-blur-2xl shadow-2xl shadow-black/80 grid grid-cols-1 lg:grid-cols-12 relative z-10 my-auto">
+        {/* Left/Showcase Brand Panel (7 cols on desktop) */}
+        <div className="lg:col-span-7 p-8 sm:p-12 lg:p-14 bg-gradient-to-br from-[#0A1A36]/90 via-[#07152B]/95 to-[#040A15] relative flex flex-col justify-between overflow-hidden border-b lg:border-b-0 lg:border-e border-white/10">
+          {/* Subtle Ambient Radial Glow */}
+          <div className="absolute top-0 right-0 w-80 h-80 bg-[#00B5FF]/15 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="space-y-8 relative z-10">
+            {/* Active Logo Display Showcase Frame */}
+            <div className="inline-flex items-center bg-white rounded-2xl p-4 shadow-xl shadow-blue-950/50 border border-white/30 transition-all duration-300">
+              <AppLogo height={44} />
+            </div>
+
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00B5FF]/15 border border-[#00B5FF]/30 text-xs font-bold text-[#00B5FF]">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>الجيل الجديد لإدارة رأس المال البشري والامتثال</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-snug">
+                كفاءة تشغيلية متقدمة لبيئة عمل رقمية ذكية
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium max-w-xl">
+                منصة سحابية متكاملة تدعم دورة حياة الموظف من التوظيف إلى نهاية الخدمة، مدعومة باحتساب آلي للرواتب، الحضور الذكي، وسير الموافقات المرن.
+              </p>
+            </div>
+
+            {/* 3 Core Value Cards */}
+            <div className="space-y-3 pt-2">
+              {platformFeatures.map(({ icon: Icon, title, desc }) => (
+                <div
+                  key={title}
+                  className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/[0.04] hover:bg-white/[0.07] border border-white/10 transition-colors"
+                >
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#004BCE] to-[#00B5FF] flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20 text-white mt-0.5">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h2 className="text-xs sm:text-sm font-bold text-white">{title}</h2>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Compliance & Legal Disclaimer (Required by Security Contract Test) */}
+          <div className="relative z-10 pt-8 mt-6 border-t border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[11px] text-slate-400">
+            <span>مصمم لدعم متطلبات الموارد البشرية، وتخضع إعدادات الامتثال لاعتماد المنشأة</span>
+            <span className="font-mono font-bold text-[#00B5FF] text-xs shrink-0">Classera Pulse Enterprise</span>
+          </div>
+        </div>
+
+        {/* Right Authentication Form Panel (5 cols on desktop) */}
+        <div className="lg:col-span-5 p-8 sm:p-12 flex flex-col justify-center bg-white dark:bg-[#0B1526] text-foreground relative">
           <div className="w-full max-w-md mx-auto space-y-6">
+            {/* Header / Intro */}
             <div className="space-y-2 text-start">
-              {/* Logo on top for all screens */}
-              <div className="flex items-center gap-2 mb-2">
+              {/* Responsive Logo on Form Top */}
+              <div className="flex items-center gap-2 mb-3">
                 <div className="bg-white rounded-2xl px-3 py-1.5 border border-border/80 shadow-xs inline-flex">
-                  <img
-                    src="/classera-pulse-logo.png"
-                    alt="Classera Pulse"
-                    className="h-8 w-auto max-w-[160px] object-contain"
-                  />
+                  <AppLogo height={32} />
                 </div>
               </div>
 
               <Badge
                 variant="secondary"
-                className="rounded-full px-3 py-1 font-bold text-xs gap-1.5 mb-1 inline-flex bg-[#00B5FF]/10 text-[#004BCE] border-[#00B5FF]/30"
+                className="rounded-full px-3 py-1 font-bold text-xs gap-1.5 mb-1 inline-flex bg-[#004BCE]/10 text-[#004BCE] dark:bg-[#00B5FF]/10 dark:text-[#00B5FF] border-[#004BCE]/20 dark:border-[#00B5FF]/30"
               >
-                <LockKeyhole className="h-3.5 w-3.5 text-[#004BCE]" />
-                بوابة الموظفين والمدراء الآمنة
+                <LockKeyhole className="h-3.5 w-3.5 text-[#004BCE] dark:text-[#00B5FF]" />
+                تسجيل الدخول الموحد الآمن
               </Badge>
-              <h2 className="text-2xl font-black text-foreground">مرحباً بعودتك 👋</h2>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                مرحباً بك مجدداً 👋
+              </h2>
               <p className="text-xs text-muted-foreground font-medium">
                 أدخل بيانات حسابك المعتمد للدخول إلى لوحة التحكم
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive font-bold">
-                  {error}
-                </div>
-              )}
+            {/* Error Message */}
+            {error && (
+              <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive font-bold flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-destructive animate-ping" />
+                <span>{error}</span>
+              </div>
+            )}
 
+            {/* Login Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <label htmlFor="work-email" className="text-xs font-bold text-foreground block">
                   البريد الإلكتروني الوظيفي *
@@ -163,14 +208,16 @@ export function LoginPage() {
                   placeholder="admin@focus-hrms.com"
                   required
                   autoFocus
-                  className="w-full h-11 rounded-2xl border border-border/80 bg-muted/40 px-4 text-xs font-medium focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all shadow-xs"
+                  className="w-full h-11 rounded-2xl border border-border/80 bg-muted/40 px-4 text-xs font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-[#00B5FF]/60 focus:border-[#00B5FF] transition-all shadow-xs"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="login-password" className="text-xs font-bold text-foreground block">
-                  كلمة المرور *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="login-password" className="text-xs font-bold text-foreground block">
+                    كلمة المرور *
+                  </label>
+                </div>
                 <div className="relative">
                   <input
                     id="login-password"
@@ -179,12 +226,12 @@ export function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    className="w-full h-11 rounded-2xl border border-border/80 bg-muted/40 px-4 pl-10 text-xs font-medium focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all shadow-xs"
+                    className="w-full h-11 rounded-2xl border border-border/80 bg-muted/40 px-4 pl-11 text-xs font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-[#00B5FF]/60 focus:border-[#00B5FF] transition-all shadow-xs"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute left-3 top-3 text-muted-foreground hover:text-foreground"
+                    className="absolute left-3 top-3 text-muted-foreground hover:text-foreground p-0.5 rounded-lg transition-colors cursor-pointer"
                     title={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -192,43 +239,55 @@ export function LoginPage() {
                 </div>
               </div>
 
+              {/* Submit Button */}
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full h-11 rounded-full font-black text-xs classera-btn-primary shadow-md transition-all gap-2 mt-2 cursor-pointer"
+                className="w-full h-12 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-[#004BCE] via-[#0066E0] to-[#00B5FF] hover:opacity-95 shadow-lg shadow-blue-600/30 transition-all gap-2 mt-2 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    جارٍ التحقق من الحساب…
+                    <Loader2 className="h-4 w-4 animate-spin text-white" />
+                    <span>جارٍ التحقق من الحساب…</span>
                   </>
                 ) : (
-                  "تسجيل الدخول إلى المنظومة"
+                  <>
+                    <span>الدخول إلى منظومة الموارد البشرية</span>
+                    <ArrowRight className="h-4 w-4 rotate-180" />
+                  </>
                 )}
               </Button>
             </form>
 
+            {/* Demo Mode Quick Access */}
             {demoEnabled && (
-              <div className="pt-4 border-t border-border/60 space-y-3">
+              <div className="pt-4 border-t border-border/70 space-y-2.5">
                 <div className="text-center text-[11px] font-bold text-muted-foreground">
-                  أو للاستعراض والتجربة الفورية:
+                  أو للاستعراض والتجربة الفورية للنظام:
                 </div>
                 <Button
                   variant="outline"
                   onClick={enterDemo}
-                  className="w-full h-10 rounded-full font-bold text-xs border-[#00B5FF]/40 bg-[#00B5FF]/10 text-[#004BCE] hover:bg-[#00B5FF]/20 shadow-xs cursor-pointer transition-all"
+                  className="w-full h-11 rounded-2xl font-bold text-xs border-[#00B5FF]/40 bg-[#00B5FF]/10 text-[#004BCE] dark:text-[#00B5FF] hover:bg-[#00B5FF]/20 shadow-xs cursor-pointer transition-all gap-2"
                 >
-                  الدخول المباشر إلى النسخة التجريبية (Demo Mode)
+                  <Sparkles className="h-4 w-4 text-[#00B5FF]" />
+                  <span>الدخول المباشر إلى النسخة التجريبية (Demo Mode)</span>
                 </Button>
               </div>
             )}
 
-            <p className="text-center text-[10px] text-muted-foreground font-medium pt-2">
-              يتم تأمين الوصول إلى البيانات وفق الدور والصلاحيات المعتمدة
-            </p>
+            <div className="pt-2 text-center text-[10px] text-muted-foreground font-medium flex items-center justify-center gap-1.5">
+              <Shield className="h-3.5 w-3.5 text-emerald-500" />
+              <span>اتصال آمن ومشفر بأعلى معايير الحماية المؤسسية</span>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Footer Note */}
+      <footer className="w-full max-w-6xl mx-auto text-center py-2 text-[11px] text-slate-400 relative z-10">
+        جميع الحقوق محفوظة © {new Date().getFullYear()} Classera Pulse — Human Capital Management System
+      </footer>
     </main>
   );
 }

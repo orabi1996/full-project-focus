@@ -4,6 +4,7 @@ import { IconSymbol, type IconSource } from "../ui/IconSymbol";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { canAccessModule } from "../../lib/auth/permissions";
+import { AppLogo } from "../common/AppLogo";
 
 interface AppSidebarProps {
   currentTab: string;
@@ -215,22 +216,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         {!collapsed && (
           <div className="flex items-center gap-2 overflow-hidden py-1">
             <div className="bg-white rounded-2xl px-2.5 py-1.5 shadow-xs border border-border/80 flex items-center justify-center">
-              <img
-                src="/classera-pulse-logo.png"
-                alt="Classera Pulse"
-                className="h-8 w-auto max-w-[170px] object-contain"
-              />
+              <AppLogo height={32} />
             </div>
           </div>
         )}
         {collapsed && (
-          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-white p-1 shadow-xs border border-border/80 overflow-hidden" title="Classera Pulse">
-            <img
-              src="/classera-pulse-logo.png"
-              alt="Classera Pulse"
-              className="h-full w-full object-cover object-left"
-              style={{ transform: "scale(2.3) translateX(16%)" }}
-            />
+          <div className="mx-auto" title="Classera Pulse">
+            <AppLogo variant="mark" />
           </div>
         )}
 

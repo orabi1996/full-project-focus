@@ -1,74 +1,153 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+
+export type BrandLogoId = 1 | 2 | 3 | 4;
+
+export interface BrandLogoConfig {
+  id: BrandLogoId;
+  titleAr: string;
+  titleEn: string;
+  subtitleAr: string;
+  path: string;
+  recommended?: boolean;
+}
+
+export const BRAND_LOGO_OPTIONS: BrandLogoConfig[] = [
+  {
+    id: 4,
+    titleAr: "رأس المال البشري",
+    titleEn: "Human Capital Synergy",
+    subtitleAr: "شعار ثلاثي يجسد فريق العمل وتكامل رأس المال البشري (موصى به)",
+    path: "/brand-options/logo-option-4-hcm-team.png",
+    recommended: true,
+  },
+  {
+    id: 2,
+    titleAr: "قوس C الديناميكي",
+    titleEn: "Dynamic C Arc",
+    subtitleAr: "أيقونة انسيابية حديثة تعبر عن الحركة والابتكار",
+    path: "/brand-options/logo-option-2-dynamic-c.png",
+  },
+  {
+    id: 3,
+    titleAr: "مونوغرام CP",
+    titleEn: "CP Monogram",
+    subtitleAr: "مونوغرام دائري متناسق يدمج حرفي C و P معاً",
+    path: "/brand-options/logo-option-3-cp-monogram.png",
+  },
+  {
+    id: 1,
+    titleAr: "حرف P النابض",
+    titleEn: "Typographic Pulse",
+    subtitleAr: "شعار نصي أفقي مميز مع دمج حرف P النابض وخط السيان",
+    path: "/brand-options/logo-option-1-pulse-p.png",
+  },
+];
+
+const STORAGE_KEY = "classera_active_logo_id";
+const EVENT_KEY = "classera-brand-logo-change";
+
+export function getActiveBrandLogoId(): BrandLogoId {
+  if (typeof window === "undefined") return 4;
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved && (saved === "1" || saved === "2" || saved === "3" || saved === "4")) {
+      return Number(saved) as BrandLogoId;
+    }
+  } catch {
+    // fallback if localStorage not accessible
+  }
+  return 4; // Recommended default: Human Capital Synergy
+}
+
+export function getActiveBrandLogoPath(): string {
+  const id = getActiveBrandLogoId();
+  const found = BRAND_LOGO_OPTIONS.find((o) => o.id === id);
+  return found?.path || "/classera-pulse-logo.png";
+}
+
+export function setActiveBrandLogoId(id: BrandLogoId) {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(id));
+      window.dispatchEvent(new CustomEvent(EVENT_KEY, { detail: id }));
+    } catch {
+      // ignore storage error
+    }
+  }
+}
+
+export function useActiveBrandLogo() {
+  const [activeId, setActiveId] = useState<BrandLogoId>(getActiveBrandLogoId);
+
+  useEffect(() => {
+    const handleCustom = (e: Event) => {
+      const customEvent = e as CustomEvent<BrandLogoId>;
+      if (customEvent.detail) {
+        setActiveId(customEvent.detail);
+      } else {
+        setActiveId(getActiveBrandLogoId());
+      }
+    };
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        setActiveId(Number(e.newValue) as BrandLogoId);
+      }
+    };
+
+    window.addEventListener(EVENT_KEY, handleCustom);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener(EVENT_KEY, handleCustom);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
+  const activeConfig =
+    BRAND_LOGO_OPTIONS.find((o) => o.id === activeId) || BRAND_LOGO_OPTIONS[0];
+
+  return {
+    activeId,
+    activeConfig,
+    setBrandLogo: setActiveBrandLogoId,
+    options: BRAND_LOGO_OPTIONS,
+  };
+}
 
 interface AppLogoProps {
   variant?: "full" | "mark" | "horizontal";
   className?: string;
   height?: number | string;
+  optionId?: BrandLogoId;
   showTagline?: boolean;
 }
-
-/**
- * Classera Pulse Official Vector Icon Mark
- * Two dynamic interlocking arcs (Royal Blue & Electric Cyan)
- */
-export const ClasseraPulseMark: React.FC<{ className?: string; size?: number }> = ({
-  className = "h-9 w-9",
-  size = 36,
-}) => {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 100 100"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-label="Classera Pulse Icon"
-    >
-      {/* Left Deep Royal Blue Arc */}
-      <path
-        d="M 50 12 C 29.01 12 12 29.01 12 50 C 12 70.99 29.01 88 50 88 C 43.5 83 38 74 38 64 C 38 52.95 44.5 43.5 53 38 C 47 38 41 35 36 29 C 40 18 45 13 50 12 Z"
-        fill="#004BCE"
-      />
-      {/* Dynamic interlocking flow */}
-      <path
-        d="M 52 14 C 31 14 14 31 14 52 C 14 73 31 90 52 90 C 42 82 34 68 34 52 C 34 36 42 22 52 14 Z"
-        fill="#004BCE"
-      />
-      {/* Right Bright Cyan Arc */}
-      <path
-        d="M 48 86 C 69 86 86 69 86 48 C 86 27 69 10 48 10 C 58 18 66 32 66 48 C 66 64 58 78 48 86 Z"
-        fill="#00B5FF"
-      />
-      {/* Interlocking Cyan Accent Tip */}
-      <circle cx="50" cy="50" r="14" fill="white" className="dark:fill-slate-900" />
-      <path
-        d="M 48 10 C 69 10 86 27 86 48 C 86 69 69 86 48 86 C 56 78 62 64 62 48 C 62 32 56 18 48 10 Z"
-        fill="#00B5FF"
-      />
-      <path
-        d="M 52 90 C 31 90 14 73 14 52 C 14 31 31 14 52 14 C 44 22 38 36 38 52 C 38 68 44 82 52 90 Z"
-        fill="#004BCE"
-      />
-    </svg>
-  );
-};
 
 export const AppLogo: React.FC<AppLogoProps> = ({
   variant = "full",
   className = "",
   height = 40,
-  showTagline = true,
+  optionId,
 }) => {
+  const { activeId, activeConfig } = useActiveBrandLogo();
+  const effectiveId = optionId || activeId;
+  const config = BRAND_LOGO_OPTIONS.find((o) => o.id === effectiveId) || activeConfig;
+
   if (variant === "mark") {
+    // Compact circular or rounded mark for collapsed sidebar & mobile avatars
     return (
       <div className={`relative flex items-center justify-center shrink-0 ${className}`}>
-        <div className="relative h-11 w-11 rounded-2xl bg-white p-1 shadow-md shadow-primary/15 border border-primary/20 flex items-center justify-center overflow-hidden">
+        <div className="relative h-11 w-11 rounded-2xl bg-white p-1.5 shadow-md shadow-primary/10 border border-border/80 flex items-center justify-center overflow-hidden transition-transform duration-200 hover:scale-105">
           <img
-            src="/classera-pulse-logo.png"
-            alt="Classera Pulse Icon"
-            className="h-full w-full object-cover object-left"
-            style={{ transform: "scale(2.2) translateX(16%)" }}
+            src={config.path}
+            alt={config.titleEn}
+            className="h-full w-full object-contain"
+            style={
+              effectiveId === 3
+                ? { transform: "scale(1.9) translateY(-14%)" }
+                : effectiveId === 1
+                  ? { transform: "scale(2.2) translateX(-18%)" }
+                  : { transform: "scale(2.3) translateX(18%)" }
+            }
           />
         </div>
       </div>
@@ -78,11 +157,58 @@ export const AppLogo: React.FC<AppLogoProps> = ({
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
       <img
-        src="/classera-pulse-logo.png"
+        src={config.path}
         alt="Classera Pulse - Human Capital Management"
-        className="h-10 w-auto max-w-[210px] object-contain transition-all hover:opacity-95"
+        className="h-10 w-auto max-w-[220px] object-contain transition-all duration-300 hover:opacity-95"
         style={{ height }}
       />
+    </div>
+  );
+};
+
+/**
+ * Interactive Brand Logo Switcher Component
+ * Enables live switching between all 4 Classera Pulse designs
+ */
+export const BrandLogoSwitcher: React.FC<{ compact?: boolean; className?: string }> = ({
+  compact = false,
+  className = "",
+}) => {
+  const { activeId, setBrandLogo, options } = useActiveBrandLogo();
+
+  return (
+    <div
+      className={`inline-flex items-center gap-1.5 p-1.5 rounded-2xl bg-white/10 dark:bg-card/80 backdrop-blur-md border border-white/20 dark:border-border/80 shadow-lg ${className}`}
+      dir="rtl"
+    >
+      <span className="text-[11px] font-bold text-white/90 dark:text-muted-foreground px-2 hidden sm:inline-block">
+        تصميم الهوية:
+      </span>
+      <div className="flex items-center gap-1">
+        {options.map((opt) => {
+          const isSelected = activeId === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setBrandLogo(opt.id)}
+              className={`relative px-2.5 py-1 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer select-none ${
+                isSelected
+                  ? "bg-gradient-to-r from-[#004BCE] to-[#00B5FF] text-white shadow-md shadow-blue-500/30 ring-1 ring-white/40"
+                  : "text-white/70 dark:text-muted-foreground hover:text-white dark:hover:text-foreground hover:bg-white/15 dark:hover:bg-muted"
+              }`}
+              title={`${opt.titleAr} - ${opt.subtitleAr}`}
+            >
+              <span>{compact ? `نموذج ${opt.id}` : opt.titleAr}</span>
+              {opt.recommended && !compact && (
+                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/30 text-emerald-300 font-mono">
+                  موصى به
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 };

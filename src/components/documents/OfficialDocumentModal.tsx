@@ -18,6 +18,7 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { toast } from "sonner";
+import { AppLogo } from "../common/AppLogo";
 
 export type DocType =
   | "salary_certificate"
@@ -197,11 +198,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
           {/* Header with Official Logo & Corporate Letterhead */}
           <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
             <div className="flex items-center gap-3">
-              <img
-                src="/classera-pulse-logo.png"
-                alt="Classera Pulse"
-                className="h-12 w-auto max-w-[170px] object-contain"
-              />
+              <AppLogo height={44} />
               <div className="space-y-0.5">
                 <h1 className="text-sm font-black text-slate-900">
                   كلاسيرا بالس لحلول رأس المال البشري

@@ -1,3 +1,5 @@
+import { getActiveBrandLogoPath } from "../../components/common/AppLogo";
+
 export interface ReportSection {
   title: string;
   columns: string[];
@@ -80,7 +82,7 @@ export function openArabicReportPdf(options: ArabicReportOptions) {
     <div class="sub">${options.subtitle ?? ""} — صدر في ${new Date().toLocaleString("ar-SA")}</div>
   </div>
   <div class="rep-brand">
-    <img src="${window.location.origin}/classera-pulse-logo.png" class="rep-logo" alt="Classera Pulse" onerror="this.style.display='none'" />
+    <img src="${window.location.origin}${getActiveBrandLogoPath()}" class="rep-logo" alt="Classera Pulse" onerror="this.style.display='none'" />
   </div>
 </div>
 ${cardsHtml ? `<div class="cards">${cardsHtml}</div>` : ""}

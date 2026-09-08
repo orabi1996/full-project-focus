@@ -69,40 +69,40 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.18 0.03 260);
   
-  /* Google Signature Material Blue */
-  --primary: oklch(0.48 0.22 260);             /* M3 Primary (#0B57D0 / #1A73E8) */
-  --primary-foreground: oklch(0.99 0.005 260); /* M3 On-Primary */
+  /* Classera Pulse Official Brand Palette */
+  --primary: oklch(0.44 0.25 262);             /* Classera Royal Blue (#004BCE) */
+  --primary-foreground: oklch(0.99 0.005 260); /* White */
   
-  --secondary: oklch(0.92 0.04 255);           /* M3 Primary Container (#D3E3FD) */
-  --secondary-foreground: oklch(0.22 0.12 260);/* M3 On-Primary Container (#041E49) */
+  --secondary: oklch(0.93 0.05 225);           /* Classera Pulse Cyan Tint (#E0F5FF) */
+  --secondary-foreground: oklch(0.20 0.14 260);/* Deep Royal Navy (#002878) */
   
-  --muted: oklch(0.945 0.012 250);             /* M3 Surface Container (#F0F4F9) */
+  --muted: oklch(0.95 0.012 250);              /* Surface Container (#F0F4F9) */
   --muted-foreground: oklch(0.45 0.04 255);    /* M3 On-Surface Variant (#444746) */
   
-  --accent: oklch(0.93 0.03 250);              /* M3 Tonal Surface Hover */
-  --accent-foreground: oklch(0.22 0.12 260);
+  --accent: oklch(0.93 0.04 230);              /* Pulse Cyan Tint Hover */
+  --accent-foreground: oklch(0.20 0.14 260);
   
   --destructive: oklch(0.55 0.22 25);          /* M3 Error Red (#BA1A1A) */
   --destructive-foreground: oklch(0.99 0.005 25);
   
   --border: oklch(0.89 0.015 250);             /* M3 Outline Variant (#E0E2EC) */
   --input: oklch(0.89 0.015 250);
-  --ring: oklch(0.48 0.22 260);
+  --ring: oklch(0.44 0.25 262);                /* Classera Royal Blue Focus Ring */
   
-  --chart-1: oklch(0.48 0.22 260);
-  --chart-2: oklch(0.65 0.18 155);
-  --chart-3: oklch(0.70 0.19 75);
-  --chart-4: oklch(0.60 0.22 300);
+  --chart-1: oklch(0.44 0.25 262);             /* Royal Blue */
+  --chart-2: oklch(0.72 0.18 225);             /* Electric Cyan */
+  --chart-3: oklch(0.65 0.18 155);
+  --chart-4: oklch(0.70 0.19 75);
   --chart-5: oklch(0.62 0.21 25);
   
   --sidebar: oklch(0.985 0.005 250);           /* M3 Navigation Rail Surface */
   --sidebar-foreground: oklch(0.18 0.03 260);
-  --sidebar-primary: oklch(0.48 0.22 260);
+  --sidebar-primary: oklch(0.44 0.25 262);      /* Classera Royal Blue */
   --sidebar-primary-foreground: oklch(0.99 0.005 260);
-  --sidebar-accent: oklch(0.92 0.04 255);      /* M3 Pill Active Container */
-  --sidebar-accent-foreground: oklch(0.22 0.12 260);
+  --sidebar-accent: oklch(0.93 0.05 225);       /* Pulse Cyan Pill Active */
+  --sidebar-accent-foreground: oklch(0.20 0.14 260);
   --sidebar-border: oklch(0.90 0.01 250);
-  --sidebar-ring: oklch(0.48 0.22 260);
+  --sidebar-ring: oklch(0.44 0.25 262);
 }
 
 .dark {
@@ -114,16 +114,17 @@
   --popover: oklch(0.18 0.02 260);
   --popover-foreground: oklch(0.93 0.01 250);
   
-  --primary: oklch(0.75 0.14 255);             /* M3 Dark Primary (#A8C7FA) */
-  --primary-foreground: oklch(0.18 0.12 260);  /* M3 Dark On-Primary (#062E6F) */
+  /* Classera Pulse Dark Theme Palette */
+  --primary: oklch(0.72 0.18 225);             /* Electric Pulse Cyan (#00B5FF / #38BDF8) */
+  --primary-foreground: oklch(0.12 0.08 260);  /* Deep Navy */
   
-  --secondary: oklch(0.28 0.06 260);           /* M3 Dark Primary Container (#0842A0) */
-  --secondary-foreground: oklch(0.92 0.04 255);
+  --secondary: oklch(0.26 0.10 262);           /* Royal Navy Container (#0A2E70) */
+  --secondary-foreground: oklch(0.92 0.05 225);
   
   --muted: oklch(0.22 0.02 260);               /* M3 Dark Surface Container High */
   --muted-foreground: oklch(0.72 0.03 255);    /* M3 Dark On-Surface Variant */
   
-  --accent: oklch(0.24 0.03 260);
+  --accent: oklch(0.26 0.04 240);
   --accent-foreground: oklch(0.93 0.01 250);
   
   --destructive: oklch(0.72 0.18 25);
@@ -131,22 +132,22 @@
   
   --border: oklch(0.28 0.02 260);              /* M3 Dark Outline Variant */
   --input: oklch(0.28 0.02 260);
-  --ring: oklch(0.75 0.14 255);
+  --ring: oklch(0.72 0.18 225);                /* Pulse Cyan Ring */
   
-  --chart-1: oklch(0.75 0.14 255);
-  --chart-2: oklch(0.72 0.16 155);
-  --chart-3: oklch(0.78 0.17 75);
-  --chart-4: oklch(0.72 0.18 300);
+  --chart-1: oklch(0.72 0.18 225);
+  --chart-2: oklch(0.65 0.20 260);
+  --chart-3: oklch(0.72 0.16 155);
+  --chart-4: oklch(0.78 0.17 75);
   --chart-5: oklch(0.75 0.18 25);
   
   --sidebar: oklch(0.16 0.018 260);
   --sidebar-foreground: oklch(0.93 0.01 250);
-  --sidebar-primary: oklch(0.75 0.14 255);
-  --sidebar-primary-foreground: oklch(0.18 0.12 260);
-  --sidebar-accent: oklch(0.28 0.06 260);
-  --sidebar-accent-foreground: oklch(0.92 0.04 255);
+  --sidebar-primary: oklch(0.72 0.18 225);      /* Electric Pulse Cyan */
+  --sidebar-primary-foreground: oklch(0.12 0.08 260);
+  --sidebar-accent: oklch(0.26 0.10 262);       /* Royal Navy Active Pill */
+  --sidebar-accent-foreground: oklch(0.92 0.05 225);
   --sidebar-border: oklch(0.24 0.02 260);
-  --sidebar-ring: oklch(0.75 0.14 255);
+  --sidebar-ring: oklch(0.72 0.18 225);
 }
 
 @layer base {

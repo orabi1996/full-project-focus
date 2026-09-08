@@ -1,7 +1,7 @@
 export const ar = {
   // Global & Navigation
-  appName: "نظام إدارة الموارد البشرية المؤسسي",
-  appTagline: "HRMS Enterprise Solution",
+  appName: "كلاسيرا بالس | Classera Pulse",
+  appTagline: "إدارة رأس المال البشري (HCM)",
   searchPlaceholder: "بحث في الموظفين، الطلبات، السياسات، الأقسام...",
   notifications: "الإشعارات",
   role: "الدور الحالي",

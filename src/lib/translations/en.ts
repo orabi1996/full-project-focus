@@ -1,7 +1,7 @@
 export const en = {
   // Global & Navigation
-  appName: "HRMS Enterprise Solution",
-  appTagline: "Cloud Human Resources & Payroll Management",
+  appName: "Classera Pulse HCM",
+  appTagline: "Human Capital Management Platform",
   searchPlaceholder: "Search employees, requests, policies, departments...",
   notifications: "Notifications",
   role: "Current Role",

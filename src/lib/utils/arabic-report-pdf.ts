@@ -51,31 +51,44 @@ export function openArabicReportPdf(options: ArabicReportOptions) {
     .join("");
 
   win.document.write(`<!doctype html>
-<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${options.title}</title>
+<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${options.title} | Classera Pulse</title>
 <style>
   *{box-sizing:border-box}
   body{font-family:"Segoe UI",Tahoma,Arial,sans-serif;margin:22px;color:#1c1b1f}
-  h1{font-size:20px;margin:0 0 4px}
-  h2{font-size:14px;margin:20px 0 8px;padding-bottom:4px;border-bottom:2px solid #d9c9a3}
-  .sub{color:#666;font-size:12px;margin-bottom:14px}
-  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px}
-  .card{border:1px solid #e3ddd2;border-radius:12px;padding:9px 11px;background:#fbf8f2}
-  .card span{font-size:10px;color:#6b6b6b}
-  .card b{display:block;font-size:14px;margin-top:3px}
+  .rep-header{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #004BCE;padding-bottom:12px;margin-bottom:16px}
+  .rep-brand{display:flex;align-items:center;gap:12px}
+  .rep-logo{height:46px;max-width:180px;object-fit:contain}
+  h1{font-size:20px;margin:0 0 4px;color:#004BCE}
+  h2{font-size:14px;margin:20px 0 8px;padding-bottom:4px;border-bottom:2px solid #00B5FF;color:#004BCE}
+  .sub{color:#64748b;font-size:12px}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+  .card{border:1px solid #e2e8f0;border-radius:12px;padding:9px 11px;background:#f8fafc}
+  .card span{font-size:10px;color:#64748b}
+  .card b{display:block;font-size:14px;margin-top:3px;color:#004BCE}
   table{width:100%;border-collapse:collapse;font-size:11.5px}
-  th,td{border:1px solid #e3ddd2;padding:6px 8px;text-align:right}
-  th{background:#f6f2ea;font-weight:700}
-  tfoot td{background:#faf7f1;font-weight:700}
-  .empty{text-align:center;color:#999}
-  .note{font-size:10px;color:#777;margin:6px 0 0}
-  .foot{margin-top:18px;font-size:10px;color:#888;border-top:1px solid #eee;padding-top:8px}
+  th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:right}
+  th{background:#f1f5f9;color:#0f172a;font-weight:700}
+  tfoot td{background:#f8fafc;font-weight:700}
+  .empty{text-align:center;color:#94a3b8}
+  .note{font-size:10px;color:#64748b;margin:6px 0 0}
+  .foot{margin-top:18px;font-size:10px;color:#64748b;border-top:1px solid #e2e8f0;padding-top:8px;display:flex;justify-content:space-between}
   @media print{body{margin:10mm} h2{page-break-after:avoid} tr{page-break-inside:avoid}}
 </style></head><body>
-<h1>${options.title}</h1>
-<div class="sub">${options.subtitle ?? ""} — صدر في ${new Date().toLocaleString("ar-EG")}</div>
+<div class="rep-header">
+  <div>
+    <h1>${options.title}</h1>
+    <div class="sub">${options.subtitle ?? ""} — صدر في ${new Date().toLocaleString("ar-SA")}</div>
+  </div>
+  <div class="rep-brand">
+    <img src="${window.location.origin}/classera-pulse-logo.png" class="rep-logo" alt="Classera Pulse" onerror="this.style.display='none'" />
+  </div>
+</div>
 ${cardsHtml ? `<div class="cards">${cardsHtml}</div>` : ""}
 ${sectionsHtml}
-<div class="foot">${options.footer ?? "تقرير آلي مستخرج من قاعدة بيانات النظام — الأرقام مطابقة للسجلات الفعلية."}</div>
+<div class="foot">
+  <span>${options.footer ?? "تقرير آلي معتمد مستخرج من منصة كلاسيرا بالس لإدارة رأس المال البشري (Classera Pulse HCM)."}</span>
+  <span>Classera Pulse HCM © ${new Date().getFullYear()}</span>
+</div>
 <script>window.onload=()=>{window.focus();window.print();}<\/script>
 </body></html>`);
   win.document.close();

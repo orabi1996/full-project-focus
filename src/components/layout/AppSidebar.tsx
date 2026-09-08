@@ -213,24 +213,24 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       {/* Brand Header (Google Material 3 Style) */}
       <div className="flex h-20 items-center justify-between px-5 border-b border-border/60">
         {!collapsed && (
-          <div className="flex items-center gap-3 overflow-hidden">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-primary to-primary/80 text-primary-foreground font-black text-xl shadow-md shadow-primary/25">
-              HR
-            </div>
-            <div className="flex flex-col truncate">
-              <span className="text-sm font-black text-foreground tracking-tight truncate flex items-center gap-1.5">
-                {t.appName}
-                <Sparkles className="h-3 w-3 text-amber-500 fill-amber-500" />
-              </span>
-              <span className="text-[11px] text-muted-foreground font-medium truncate">
-                {t.appTagline}
-              </span>
+          <div className="flex items-center gap-2 overflow-hidden py-1">
+            <div className="bg-white rounded-2xl px-2.5 py-1.5 shadow-xs border border-border/80 flex items-center justify-center">
+              <img
+                src="/classera-pulse-logo.png"
+                alt="Classera Pulse"
+                className="h-8 w-auto max-w-[170px] object-contain"
+              />
             </div>
           </div>
         )}
         {collapsed && (
-          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-primary to-primary/80 text-primary-foreground font-black text-xl shadow-md shadow-primary/25">
-            HR
+          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-white p-1 shadow-xs border border-border/80 overflow-hidden" title="Classera Pulse">
+            <img
+              src="/classera-pulse-logo.png"
+              alt="Classera Pulse"
+              className="h-full w-full object-cover object-left"
+              style={{ transform: "scale(2.3) translateX(16%)" }}
+            />
           </div>
         )}
 

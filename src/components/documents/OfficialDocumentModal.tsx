@@ -196,14 +196,21 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
         >
           {/* Header with Official Logo & Corporate Letterhead */}
           <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
-            <div className="space-y-1">
-              <h1 className="text-base font-black text-slate-900">
-                شركة فوكس للتقنية وحلول الأعمال المتطورة
-              </h1>
-              <p className="text-[11px] text-slate-600 font-medium">
-                سجل تجاري: 1010789654 • الرقم الضريبي: 300098765400003 • رقم 700: 7001928374
-              </p>
-              <p className="text-[11px] text-slate-600">الرياض - المقر الرئيسي - المملكة العربية السعودية</p>
+            <div className="flex items-center gap-3">
+              <img
+                src="/classera-pulse-logo.png"
+                alt="Classera Pulse"
+                className="h-12 w-auto max-w-[170px] object-contain"
+              />
+              <div className="space-y-0.5">
+                <h1 className="text-sm font-black text-slate-900">
+                  كلاسيرا بالس لحلول رأس المال البشري
+                </h1>
+                <p className="text-[10px] text-slate-600 font-medium">
+                  سجل تجاري: 1010789654 • الرقم الضريبي: 300098765400003 • رقم 700: 7001928374
+                </p>
+                <p className="text-[10px] text-slate-600">الرياض - المقر الرئيسي - المملكة العربية السعودية</p>
+              </div>
             </div>
             <div className="text-end space-y-1 font-mono text-[11px]">
               <p className="font-bold text-slate-900">المرجع: {refNo}</p>
@@ -228,7 +235,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
             <div className="space-y-4 text-justify text-slate-800 text-xs leading-6">
               <p>
                 تحية طيبة وبعد ،،<br />
-                تشهد شركة فوكس للتقنية وحلول الأعمال بأن الموظف الموضحة بياناته أدناه يعمل لدينا
+                تشهد شركة كلاسيرا بالس لحلول رأس المال البشري بأن الموظف الموضحة بياناته أدناه يعمل لدينا
                 وتحت كفالتنا، وما زال على رأس العمل حتى تاريخ إصدار هذه الشهادة:
               </p>
 

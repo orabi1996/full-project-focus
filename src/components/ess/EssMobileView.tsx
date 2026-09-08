@@ -32,6 +32,7 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { toast } from "sonner";
+import { latestEmployeePayroll, employeeLeaveBalances } from "../../lib/utils/ess-records";
 
 export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = ({
   onNavigate,
@@ -43,6 +44,9 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     punchInOut,
     requests,
     payrollDetails,
+    payrollRuns,
+    dataMode,
+    submitRequest,
     company,
     applyLeave,
     submitAttendanceCorrection,
@@ -100,11 +104,14 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     }
   };
 
-  const handleRequestCertificate = () => {
-    toast.success(
-      `تم إصدار شهادة التعريف بالراتب الإلكترونية الموجهة إلى (${certificateDestination}) مع الختم الرقمي ورمز الاستجابة QR بنجاح!`,
-    );
-    setIsCertificateModalOpen(false);
+  const handleRequestCertificate = async () => {
+    if (isSaving) return;
+    if (!certificateDestination.trim()) { toast.error("أدخل الجهة الموجه إليها الخطاب"); return; }
+    const ok = await submitRequest({ type: "salary_certificate", payload: { destination: certificateDestination.trim() } });
+    if (ok) {
+      toast.success("تم حفظ طلب شهادة الراتب وإرساله للاعتماد");
+      setIsCertificateModalOpen(false);
+    }
   };
 
   const handleSubmitQuickLeave = async () => {
@@ -143,9 +150,13 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
   };
 
   const myPendingRequests = requests.filter((r) => r.requesterId === currentUser.id);
-  const myPayroll = payrollDetails[0];
-  const annualBalance =
-    leaveBalances.find((b) => b.leaveTypeId.includes("annual")) || leaveBalances[0];
+  const myPayroll = latestEmployeePayroll(currentUser.id, payrollDetails, payrollRuns);
+  const myRun = payrollRuns.find((run) => run.id === myPayroll?.payrollRunId);
+  const myBalances = employeeLeaveBalances(currentUser.id, leaveBalances, dataMode === "demo");
+  const annualType = leaveTypes.find((type) => /annual|سنوية/i.test(`${type.nameEn} ${type.nameAr}`));
+  const annualBalance = myBalances.find((balance) => balance.leaveTypeId === annualType?.id);
+
+  if (!currentUser.id) return <div className="rounded-xl border p-6">الحساب غير مرتبط بسجل موظف. تواصل مع مسؤول الموارد البشرية لربطه.</div>;
 
   return (
     <div className="space-y-6">
@@ -294,7 +305,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               >
                 <QrCode className="h-5 w-5 text-emerald-500 mb-1.5" />
                 <p className="text-xs font-black text-foreground">شهادة تعريف</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">مصدقة بـ QR</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">طلب للاعتماد</p>
               </button>
             </div>
           </div>
@@ -520,10 +531,10 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           <DialogHeader>
             <DialogTitle className="text-base font-black flex items-center gap-2">
               <QrCode className="h-5 w-5 text-primary" />
-              إصدار شهادة تعريف بالراتب فورية
+              طلب شهادة تعريف بالراتب
             </DialogTitle>
             <DialogDescription className="text-xs font-medium">
-              شهادة رسمية موثقة برمز الاستجابة السريع QR والختم المعتمد
+              يُحفظ الطلب ويرسل للجهة المختصة للمراجعة وإصدار الشهادة.
             </DialogDescription>
           </DialogHeader>
 
@@ -546,7 +557,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                 </strong>
               </p>
               <p className="text-muted-foreground font-mono">
-                الراتب الأساسي: 12,000 ر.س • إجمالي الراتب: 16,000 ر.س
+                الراتب الأساسي: {currentUser.basicSalary.toLocaleString()} ر.س • إجمالي الراتب: {currentUser.totalSalary.toLocaleString()} ر.س
               </p>
               <p className="text-muted-foreground font-mono">
                 تاريخ المباشرة: {currentUser.hireDate}
@@ -558,9 +569,10 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             <Button
               size="sm"
               onClick={handleRequestCertificate}
+              disabled={isSaving}
               className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
             >
-              توليد وتحميل الشهادة PDF
+              إرسال طلب الشهادة
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -573,10 +585,10 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             <DialogHeader>
               <DialogTitle className="text-base font-black flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                قسيمة الراتب الرقمية المعتمدة
+                قسيمة الراتب
               </DialogTitle>
               <DialogDescription className="text-xs font-medium">
-                {company.legalNameAr} • شهر أغسطس 2026
+                {company.legalNameAr} • {myRun?.periodMonth}/{myRun?.periodYear}
               </DialogDescription>
             </DialogHeader>
 
@@ -610,7 +622,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                   </div>
                 )}
                 <div className="border-t border-border/60 pt-2 flex justify-between font-black text-sm text-primary font-sans">
-                  <span>صافي الراتب المحول:</span>
+                  <span>صافي الراتب:</span>
                   <span className="font-mono">{myPayroll.netSalary.toLocaleString()} ر.س</span>
                 </div>
               </div>
@@ -619,13 +631,13 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               <div className="p-2.5 rounded-2xl bg-secondary/50 border border-primary/20 flex items-center justify-between text-[10px] font-sans">
                 <div className="flex items-center gap-1.5 text-foreground">
                   <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>معتمد ومصادق إلكترونياً</span>
+                  <span>مستخرج من بيانات المسيّر</span>
                 </div>
                 <Badge
                   variant="outline"
                   className="font-mono text-[9px] border-emerald-300 text-emerald-700"
                 >
-                  WPS VERIFIED
+                  {myRun?.status === "paid" ? "تم تسجيل الصرف" : "مسيّر معتمد"}
                 </Badge>
               </div>
             </div>

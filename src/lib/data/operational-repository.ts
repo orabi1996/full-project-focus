@@ -384,6 +384,7 @@ export async function fetchOperationalSnapshot(
       const reserved = numberValue(row.reserved_days);
       const carried = numberValue(row.carried_over_days);
       return {
+        employeeId: row.employee_id,
         leaveTypeId: row.leave_type_id,
         leaveTypeNameAr: type?.nameAr ?? "إجازة",
         leaveTypeNameEn: type?.nameEn ?? "Leave",
@@ -432,7 +433,7 @@ export async function fetchOperationalSnapshot(
         : "مجموعة الرواتب",
       periodYear: row.period_year,
       periodMonth: row.period_month,
-      status: row.status as PayrollRun["status"],
+      status: (row.status === "locked" ? "confirmed_locked" : row.status) as PayrollRun["status"],
       totalEmployees: row.total_employees,
       totalBasicSalary: numberValue(row.total_basic_salary),
       totalAllowances: numberValue(row.total_allowances),

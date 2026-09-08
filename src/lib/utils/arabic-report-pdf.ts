@@ -91,7 +91,7 @@ ${sectionsHtml}
   <span>${options.footer ?? "تقرير آلي معتمد مستخرج من منصة كلاسيرا بالس لإدارة رأس المال البشري (Classera Pulse HCM)."}</span>
   <span>Classera Pulse HCM © ${new Date().getFullYear()}</span>
 </div>
-<script>window.onload=()=>{window.focus();window.print();}<\/script>
+<script>window.onload=()=>{window.focus();window.print();}</script>
 </body></html>`);
   win.document.close();
 }

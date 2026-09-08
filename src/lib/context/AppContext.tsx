@@ -392,7 +392,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-    } catch {}
+    } catch {
+      // Storage may be unavailable or contain an invalid cached value.
+    }
     return INITIAL_ENTERPRISE_GROUPS;
   });
 
@@ -402,20 +404,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const stored = localStorage.getItem("focus_hrms_user_perm_overrides");
       if (stored) return JSON.parse(stored);
-    } catch {}
+    } catch {
+      // Storage may be unavailable or contain an invalid cached value.
+    }
     return {};
   });
 
   useEffect(() => {
     try {
       localStorage.setItem("focus_hrms_permission_groups", JSON.stringify(permissionGroups));
-    } catch {}
+    } catch {
+      // Storage may be unavailable or contain an invalid cached value.
+    }
   }, [permissionGroups]);
 
   useEffect(() => {
     try {
       localStorage.setItem("focus_hrms_user_perm_overrides", JSON.stringify(userPermissionOverrides));
-    } catch {}
+    } catch {
+      // Storage may be unavailable or contain an invalid cached value.
+    }
   }, [userPermissionOverrides]);
   const [approvalChains, setApprovalChains] = useState<ApprovalChain[]>(mockApprovalChains);
   const [delegationRules, setDelegationRules] = useState<DelegationRule[]>(mockDelegationRules);
@@ -579,8 +587,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (currentRole === "line_manager") return e.id === "emp-01"; // Khalid (Engineering Manager)
           return e.id === "emp-05"; // Mohammed (Employee ESS)
         })) ||
-    employees[0] ||
-    mockEmployees[0];
+    (dataMode === "demo" ? employees[0] || mockEmployees[0] : {
+      id: "", employeeNo: "", firstNameAr: "حساب غير مرتبط بموظف", lastNameAr: "", firstNameEn: "Unlinked account", lastNameEn: "",
+      email: session?.user?.email ?? "", phone: "", nationalIdOrIqama: "", nationality: "", gender: "male", birthDate: "", maritalStatus: "single",
+      subsidiaryId: "", departmentId: "", jobTitleAr: "", jobTitleEn: "", workLocationId: "", hireDate: "", contractType: "full_time", status: "draft",
+      completionScore: 0, basicSalary: 0, totalSalary: 0,
+    });
 
   const setLanguage = (lang: Language) => setLanguageState(lang);
   const toggleLanguage = () => setLanguageState((prev) => (prev === "ar" ? "en" : "ar"));
@@ -1077,6 +1089,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Workflow Handlers
   const submitRequest = (req: { type: RequestCategory; payload: ServiceRequest["payload"] }) => {
+    if (dataMode === "live" && !currentUser.id) {
+      toast.error("يجب ربط الحساب بسجل موظف قبل تقديم الطلبات");
+      return Promise.resolve(false);
+    }
     const ref = `REQ-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     const newReq: ServiceRequest = {
       id: `req-${Date.now()}`,
@@ -1744,42 +1760,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const lockAndConfirmPayrollRun = (runId: string) => {
-    setPayrollRuns((prev) =>
-      prev.map((r) =>
-        r.id === runId
-          ? { ...r, status: "confirmed_locked", lockedAt: new Date().toISOString() }
-          : r,
-      ),
-    );
-    persistLiveChange(async () => {
+  const lockAndConfirmPayrollRun = async (runId: string) => {
+    const { ok } = await persistLiveChange(async () => {
       await updatePayrollRunStatusServer({ data: { runId, status: "locked" } });
-    });
-    logAuditEvent(
-      "قفل وتأكيد مسير الرواتب",
-      "PayrollRun",
-      runId,
-      runId,
-      "تم قفل المسير بعد الاعتماد وتوليد قيود اليومية",
-    );
+    }, `payroll:lock:${runId}`);
+    if (!ok) return;
+    if (dataMode === "demo") setPayrollRuns((prev) => prev.map((run) =>
+      run.id === runId ? { ...run, status: "confirmed_locked", lockedAt: new Date().toISOString() } : run));
+    logAuditEvent("قفل وتأكيد مسير الرواتب", "PayrollRun", runId, runId, "تم تأكيد قفل المسيّر");
   };
 
-  const markPayrollAsPaid = (runId: string) => {
-    setPayrollRuns((prev) =>
-      prev.map((r) =>
-        r.id === runId ? { ...r, status: "paid", paidAt: new Date().toISOString() } : r,
-      ),
-    );
-    persistLiveChange(async () => {
-      await updatePayrollRunStatusServer({ data: { runId, status: "paid" } });
-    });
-    logAuditEvent(
-      "صرف الرواتب وتصدير WPS",
-      "PayrollRun",
-      runId,
-      runId,
-      "تم تأكيد تحويل الرواتب لحسابات الموظفين البنكية",
-    );
+  const markPayrollAsPaid = (_runId: string) => {
+    toast.info("افتح شاشة دفعات الرواتب، ثم أدخل مرجع التحويل المنفّذ لدى البنك لتسجيل التأكيد");
   };
 
   const processAttendance = (fromDate: string, toDate: string) => {

@@ -23,6 +23,9 @@ export const BankTransferPanel: React.FC = () => {
   const [file, setFile] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [bankReference, setBankReference] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  useEffect(() => { setBankReference(""); setConfirmed(false); }, [runId, accountId]);
 
   const loadRuns = useCallback(async () => {
     const result: any = await listPayrollReconciliationServer();
@@ -71,15 +74,17 @@ export const BankTransferPanel: React.FC = () => {
   const account = accounts.find((a) => a.id === accountId);
 
   const execute = async () => {
+    if (busy || !confirmed || !bankReference.trim()) return;
     setBusy(true);
     try {
-      await prepareRunPaymentsServer({ data: { runId } });
       const result: any = await disburseRunPaymentsServer({
-        data: { runId, bankAccountId: accountId },
+        data: { runId, bankAccountId: accountId, bankReference, confirmed },
       });
       toast.success(
-        `تم تنفيذ التحويل ${result.batchNo}: ${result.paid} تحويل بقيمة ${money(result.totalPaid)} — رصيد الآيبان ${money(result.remainingBalance)}`,
+        result.alreadyConfirmed ? "سبق تسجيل هذا التأكيد دون خصم إضافي" : `تم تسجيل تأكيد التحويل ${result.batchNo}: ${result.paid} دفعة بقيمة ${money(result.totalPaid)}`,
       );
+      setConfirmed(false);
+      setBankReference("");
       await loadFile(runId);
     } catch (error: any) {
       toast.error(error?.message ?? "تعذر تنفيذ التحويل البنكي");
@@ -88,11 +93,22 @@ export const BankTransferPanel: React.FC = () => {
     }
   };
 
+  const prepare = async () => {
+    if (busy || !runId) return;
+    setBusy(true);
+    try {
+      await prepareRunPaymentsServer({ data: { runId } });
+      await loadFile(runId);
+      toast.success("تم تجهيز الدفعات؛ لم يتم تنفيذ تحويل بنكي");
+    } catch (error) { toast.error((error as Error).message); }
+    finally { setBusy(false); }
+  };
+
   const downloadBankFile = () => {
     exportToCSV(
       `bank-transfer-${period || runId}`,
-      rows.map((row) => ({
-        debit_iban: file?.debitAccount?.iban ?? "",
+      pendingRows.map((row) => ({
+        debit_iban: account?.iban ?? "",
         beneficiary_name: row.employeeName,
         beneficiary_id: row.employeeNo,
         beneficiary_iban: row.iban,
@@ -113,7 +129,7 @@ export const BankTransferPanel: React.FC = () => {
         subtitle: `الحساب المدين: ${file?.debitAccount?.iban ?? "—"} (${file?.debitAccount?.bank_name ?? ""}) — مرجع الدفعة: ${file?.batchNo ?? "—"}`,
         cards: [
           { label: "عدد التحويلات", value: String(rows.length) },
-          { label: "المنفّذ فعليًا", value: reportMoney(paidRows.reduce((s, r) => s + r.amount, 0)) },
+          { label: "المؤكد حسب المرجع المسجل", value: reportMoney(paidRows.reduce((s, r) => s + r.amount, 0)) },
           {
             label: "المعلّق",
             value: reportMoney(pendingRows.reduce((s, r) => s + r.amount, 0)),
@@ -148,10 +164,9 @@ export const BankTransferPanel: React.FC = () => {
         <div className="flex items-center gap-2">
           <Landmark className="size-5 text-primary" />
           <div>
-            <h3 className="text-sm font-black text-foreground">التحويل البنكي الفعلي للرواتب</h3>
+            <h3 className="text-sm font-black text-foreground">تجهيز وتسجيل التحويلات البنكية</h3>
             <p className="text-xs text-muted-foreground">
-              ينفّذ التحويل من آيبان المنشأة، يخصم الرصيد في قاعدة البيانات، ويولّد ملف تحويل
-              بنكي (WPS) ومرجعًا لكل موظف.
+              جهّز ملف الدفعات ونفّذه لدى البنك، ثم سجّل مرجع التنفيذ لتحديث الرصيد الدفتري. هذه الشاشة لا تتصل بالبنك.
             </p>
           </div>
         </div>
@@ -191,12 +206,22 @@ export const BankTransferPanel: React.FC = () => {
         </label>
         <div className="rounded-xl bg-muted/40 px-3 py-2 text-xs font-bold">
           <Building2 className="mb-0.5 ml-1 inline size-3.5 text-primary" />
-          الرصيد: {money(account?.balance ?? 0)}
+          الرصيد الدفتري: {money(account?.balance ?? 0)}
         </div>
-        <Button size="sm" onClick={() => void execute()} disabled={busy || !runId || !accountId}>
-          <Send className="size-4" /> تنفيذ التحويل البنكي
+        <label className="flex flex-col gap-1 text-xs font-bold">
+              مرجع تنفيذ البنك
+              <input value={bankReference} onChange={(e) => setBankReference(e.target.value)} maxLength={120}
+                className="rounded-xl border border-border bg-background px-3 py-2" disabled={busy} />
+            </label>
+            <label className="flex items-center gap-2 text-xs">
+              <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} disabled={busy} />
+              أؤكد تنفيذ جميع دفعات هذا المسيّر لدى البنك ومطابقة الإجمالي
+            </label>
+            <Button size="sm" onClick={() => void execute()} disabled={busy || !runId || !accountId || !confirmed || !bankReference.trim()}>
+          <Send className="size-4" /> تسجيل تأكيد التحويل
         </Button>
-        <Button size="sm" variant="outline" onClick={downloadBankFile} disabled={!rows.length}>
+        <Button size="sm" variant="outline" onClick={() => void prepare()} disabled={busy || !runId}>تجهيز الدفعات</Button>
+        <Button size="sm" variant="outline" onClick={downloadBankFile} disabled={!pendingRows.length || !account}>
           <Download className="size-4" /> ملف البنك (CSV)
         </Button>
         <Button size="sm" variant="outline" onClick={printAdvice} disabled={!rows.length}>
@@ -247,7 +272,7 @@ export const BankTransferPanel: React.FC = () => {
             {!rows.length && (
               <tr>
                 <td colSpan={6} className="p-6 text-center text-muted-foreground">
-                  لا توجد دفعات — نفّذ التحويل لإنشاء دفعات المسيّر.
+                  لا توجد دفعات — اعتمد المسيّر ثم اضغط تجهيز الدفعات.
                 </td>
               </tr>
             )}

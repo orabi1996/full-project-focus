@@ -8,7 +8,25 @@ WHERE a.employee_id = b.employee_id
 ALTER TABLE public.attendance_records
   ADD CONSTRAINT attendance_records_employee_date_key UNIQUE (employee_id, work_date);
 
+-- Leave balances are annual records. These columns were present in the
+-- generated database contract but were missing from the original bootstrap
+-- table, so add them before the de-duplication below runs on a fresh install.
+ALTER TABLE public.leave_balances
+  ADD COLUMN IF NOT EXISTS year integer,
+  ADD COLUMN IF NOT EXISTS balance numeric(7,2);
+
 UPDATE public.leave_balances SET year = EXTRACT(YEAR FROM now())::int WHERE year IS NULL;
+UPDATE public.leave_balances
+SET balance = GREATEST(0, accrued_days + carried_over_days - used_days - reserved_days)
+WHERE balance IS NULL;
+
+ALTER TABLE public.leave_balances
+  ALTER COLUMN year SET DEFAULT EXTRACT(YEAR FROM CURRENT_DATE)::integer;
+
+-- The old two-column key prevented more than one annual balance per employee
+-- and leave type. Keep the annual key as the source of truth instead.
+ALTER TABLE public.leave_balances
+  DROP CONSTRAINT IF EXISTS leave_balances_employee_id_leave_type_id_key;
 
 DELETE FROM public.leave_balances a
 USING public.leave_balances b

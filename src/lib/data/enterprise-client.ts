@@ -184,6 +184,7 @@ export interface RequestExtendedRow extends Record<string, unknown> {
   reference: string;
   employee_id: string;
   type: "leave" | "attendance_fix" | "advance" | "expense";
+  leave_type_id: string | null;
   status: "draft" | "pending" | "approved" | "rejected" | "returned";
   start_date: string | null;
   end_date: string | null;
@@ -218,11 +219,13 @@ export interface LeaveBalanceRow extends Record<string, unknown> {
   id: string;
   employee_id: string;
   leave_type_id: string;
+  year: number | null;
   annual_entitlement: number;
   accrued_days: number;
   used_days: number;
   reserved_days: number;
   carried_over_days: number;
+  balance: number | null;
   updated_at: string;
 }
 export interface ShiftRow extends Record<string, unknown> {

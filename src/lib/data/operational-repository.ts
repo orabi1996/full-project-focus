@@ -33,6 +33,7 @@ import type {
   WorkforcePlan,
 } from "../../types";
 import { enterpriseSupabase } from "./enterprise-client";
+import { availableLeaveDays } from "../utils/settlement-calculator";
 
 export interface OperationalSnapshot {
   company: CompanyProfile | null;
@@ -149,7 +150,10 @@ export async function fetchOperationalSnapshot(
       .select("*")
       .order("created_at", { ascending: false }),
     enterpriseSupabase.from("leave_types").select("*").order("name_ar"),
-    enterpriseSupabase.from("leave_balances").select("*"),
+    enterpriseSupabase
+      .from("leave_balances")
+      .select("*")
+      .eq("year", new Date().getFullYear()),
     enterpriseSupabase.from("shifts").select("*").order("start_time"),
     enterpriseSupabase.from("payroll_groups").select("*"),
     enterpriseSupabase.from("payroll_runs").select("*").order("created_at", { ascending: false }),
@@ -404,7 +408,15 @@ export async function fetchOperationalSnapshot(
         usedDays: used,
         reservedDays: reserved,
         carriedOverDays: carried,
-        availableBalance: annual + accrued + carried - used - reserved,
+        // annual_entitlement is the policy ceiling; accrued_days already
+        // represents the portion earned in the selected year. Adding both
+        // would double-count the entitlement in ESS and payroll views.
+        availableBalance: availableLeaveDays({
+          accrued_days: accrued,
+          carried_over_days: carried,
+          used_days: used,
+          reserved_days: reserved,
+        }),
       };
     }),
     shifts: (shiftsResult.data ?? []).map((row) => ({
@@ -783,17 +795,23 @@ export async function adjustLeaveBalanceRecord(
 ) {
   const { data: existing, error: readError } = await enterpriseSupabase
     .from("leave_balances")
-    .select("id, accrued_days")
-    .eq("employee_id", employeeId)
-    .eq("leave_type_id", leaveTypeId)
-    .maybeSingle();
+    .select("id, accrued_days, used_days, reserved_days, carried_over_days")
+      .eq("employee_id", employeeId)
+      .eq("leave_type_id", leaveTypeId)
+      .eq("year", new Date().getFullYear())
+      .maybeSingle();
   if (readError) throw new Error(readError.message);
 
   if (existing) {
+    const accrued = numberValue(existing.accrued_days) + days;
+    const used = numberValue(existing.used_days);
+    const reserved = numberValue(existing.reserved_days);
+    const carried = numberValue(existing.carried_over_days);
     const { error } = await enterpriseSupabase
       .from("leave_balances")
       .update({
-        accrued_days: numberValue(existing.accrued_days) + days,
+        accrued_days: accrued,
+        balance: Math.max(0, accrued + carried - used - reserved),
         updated_at: new Date().toISOString(),
       })
       .eq("id", existing.id);
@@ -809,6 +827,8 @@ export async function adjustLeaveBalanceRecord(
     used_days: 0,
     reserved_days: 0,
     carried_over_days: 0,
+    year: new Date().getFullYear(),
+    balance: days,
     updated_at: new Date().toISOString(),
   });
   if (error) throw new Error(error.message);

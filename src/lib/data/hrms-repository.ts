@@ -273,6 +273,7 @@ function mapRequest(
     updatedAt: row.decided_at ?? row.created_at,
     payload: {
       reason: row.reason,
+      leaveTypeId: row.leave_type_id,
       startDate: row.start_date,
       endDate: row.end_date,
       totalDays: row.days,
@@ -522,35 +523,104 @@ export async function createRequestRecord(
           ? "expense"
           : "leave";
   const { data: userData } = await supabase.auth.getUser();
-  const { data: request, error } = await enterpriseSupabase
-    .from("requests")
-    .insert({
-      employee_id: employeeId,
-      type: dbType,
-      status: "pending",
-      start_date: typeof payload.startDate === "string" ? payload.startDate : null,
-      end_date: typeof payload.endDate === "string" ? payload.endDate : null,
-      days: typeof payload.totalDays === "number" ? payload.totalDays : null,
-      amount: typeof payload.amount === "number" ? payload.amount : null,
-      reason: typeof payload.reason === "string" ? payload.reason : null,
-      created_by: userData.user?.id ?? null,
-      current_step_index: 1,
-      total_steps: 2,
-      current_approver_role: "المدير المباشر",
-    })
-    .select("id")
-    .single();
-  if (error) throw new Error(error.message);
-  const { error: timelineError } = await enterpriseSupabase.from("request_timeline").insert({
-    request_id: request.id,
-    step_number: 1,
-    actor_id: userData.user?.id ?? null,
-    actor_name: String(userData.user?.user_metadata?.full_name ?? userData.user?.email ?? "موظف"),
-    actor_role: "employee",
-    action: "submitted",
-    note: "تم إرسال الطلب لمسار الاعتماد",
-  });
-  if (timelineError) throw new Error(timelineError.message);
+  const startDate = typeof payload.startDate === "string" ? payload.startDate : null;
+  const endDate = typeof payload.endDate === "string" ? payload.endDate : null;
+  const days = typeof payload.totalDays === "number" ? payload.totalDays : null;
+  const leaveTypeId = typeof payload.leaveTypeId === "string" ? payload.leaveTypeId : null;
+  const leaveYear = startDate ? Number(startDate.slice(0, 4)) : new Date().getFullYear();
+  let leaveReservation:
+    | { employeeId: string; leaveTypeId: string; year: number; days: number }
+    | undefined;
+
+  if (dbType === "leave") {
+    if (
+      !leaveTypeId ||
+      !startDate ||
+      !endDate ||
+      !days ||
+      days <= 0 ||
+      !Number.isInteger(leaveYear)
+    ) {
+      throw new Error("بيانات الإجازة غير مكتملة");
+    }
+
+    const { data: duplicate, error: duplicateError } = await enterpriseSupabase
+      .from("requests")
+      .select("id")
+      .eq("employee_id", employeeId)
+      .eq("type", "leave")
+      .eq("leave_type_id", leaveTypeId)
+      .eq("start_date", startDate)
+      .eq("end_date", endDate)
+      .eq("status", "pending")
+      .limit(1)
+      .maybeSingle();
+    if (duplicateError) throw new Error(duplicateError.message);
+    if (duplicate) throw new Error("يوجد طلب إجازة مماثل قيد الاعتماد بالفعل");
+
+    const { error: reservationError } = await (enterpriseSupabase as any).rpc(
+      "reserve_leave_balance_atomic",
+      {
+        p_employee_id: employeeId,
+        p_leave_type_id: leaveTypeId,
+        p_year: leaveYear,
+        p_days: days,
+      },
+    );
+    if (reservationError) throw new Error(`تعذر حجز رصيد الإجازة: ${reservationError.message}`);
+    leaveReservation = { employeeId, leaveTypeId, year: leaveYear, days };
+  }
+
+  const releaseReservation = async () => {
+    if (!leaveReservation) return;
+    const { error } = await (enterpriseSupabase as any).rpc("settle_leave_reservation_atomic", {
+      p_employee_id: leaveReservation.employeeId,
+      p_leave_type_id: leaveReservation.leaveTypeId,
+      p_year: leaveReservation.year,
+      p_days: leaveReservation.days,
+      p_outcome: "release",
+    });
+    if (error) {
+      console.error("[HRMS] failed to release leave reservation after request error", error);
+    }
+  };
+
+  try {
+    const { data: request, error } = await enterpriseSupabase
+      .from("requests")
+      .insert({
+        employee_id: employeeId,
+        type: dbType,
+        leave_type_id: dbType === "leave" ? leaveTypeId : null,
+        status: "pending",
+        start_date: startDate,
+        end_date: endDate,
+        days,
+        amount: typeof payload.amount === "number" ? payload.amount : null,
+        reason: typeof payload.reason === "string" ? payload.reason : null,
+        created_by: userData.user?.id ?? null,
+        current_step_index: 1,
+        total_steps: 2,
+        current_approver_role: "المدير المباشر",
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+
+    const { error: timelineError } = await enterpriseSupabase.from("request_timeline").insert({
+      request_id: request.id,
+      step_number: 1,
+      actor_id: userData.user?.id ?? null,
+      actor_name: String(userData.user?.user_metadata?.full_name ?? userData.user?.email ?? "موظف"),
+      actor_role: "employee",
+      action: "submitted",
+      note: "تم إرسال الطلب لمسار الاعتماد",
+    });
+    if (timelineError) throw new Error(timelineError.message);
+  } catch (error) {
+    await releaseReservation();
+    throw error instanceof Error ? error : new Error("تعذر إنشاء الطلب");
+  }
 }
 
 export async function recordAttendance(

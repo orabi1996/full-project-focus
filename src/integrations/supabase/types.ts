@@ -2160,6 +2160,7 @@ export type Database = {
           employee_id: string
           end_date: string | null
           id: string
+          leave_type_id: string | null
           reason: string | null
           reference: string
           start_date: string | null
@@ -2180,6 +2181,7 @@ export type Database = {
           employee_id: string
           end_date?: string | null
           id?: string
+          leave_type_id?: string | null
           reason?: string | null
           reference?: string
           start_date?: string | null
@@ -2200,6 +2202,7 @@ export type Database = {
           employee_id?: string
           end_date?: string | null
           id?: string
+          leave_type_id?: string | null
           reason?: string | null
           reference?: string
           start_date?: string | null

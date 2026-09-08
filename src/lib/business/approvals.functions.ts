@@ -329,3 +329,21 @@ export const actOnRequestServer = createServerFn({ method: "POST" })
 
     return { status: isFinal ? finalStatus : "pending", step: isFinal ? currentStep : nextStep };
   });
+
+/** Cancels an employee-owned pending request and releases leave reservations. */
+export const cancelRequestServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { requestId: string; note?: string }) => {
+    if (!input?.requestId) throw new Error("معرّف الطلب مطلوب");
+    if (input.note && input.note.length > 500) throw new Error("ملاحظة الإلغاء طويلة جدًا");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as any;
+    const { data: result, error } = await supabase.rpc("cancel_request_atomic", {
+      p_request_id: data.requestId,
+      p_note: data.note?.trim() || null,
+    });
+    if (error) throw new Error(`تعذر إلغاء الطلب: ${error.message}`);
+    return result;
+  });

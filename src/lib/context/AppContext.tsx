@@ -147,7 +147,7 @@ import {
   createSettlementServer,
   updateSettlementStatusServer,
 } from "../business/settlement.functions";
-import { actOnRequestServer } from "../business/approvals.functions";
+import { actOnRequestServer, cancelRequestServer } from "../business/approvals.functions";
 import { processAttendanceServer } from "../business/attendance.functions";
 import { accrueLeaveBalancesServer } from "../business/leave.functions";
 import { toast } from "sonner";
@@ -250,6 +250,7 @@ interface AppContextType {
   approveRequest: (requestId: string, note?: string) => Promise<boolean>;
   rejectRequest: (requestId: string, note?: string) => Promise<boolean>;
   returnRequest: (requestId: string, note?: string) => Promise<boolean>;
+  cancelRequest: (requestId: string, note?: string) => Promise<boolean>;
   addApprovalChain: (chain: Omit<ApprovalChain, "id">) => void;
   deleteApprovalChain: (id: string) => Promise<boolean>;
   addDelegationRule: (rule: Omit<DelegationRule, "id" | "createdAt" | "status">) => void;
@@ -1265,6 +1266,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, `request:decision:${requestId}`).then(({ ok }) => {
       if (ok) {
         logAuditEvent("إعادة طلب للتصحيح", "ServiceRequest", requestId, requestId, note || "إعادة");
+      }
+      return ok;
+    });
+  };
+
+  const cancelRequest = (requestId: string, note?: string): Promise<boolean> => {
+    const request = requests.find((item) => item.id === requestId);
+    if (!request || request.requesterId !== currentUser.id || request.status !== "pending_approval") {
+      return Promise.resolve(false);
+    }
+
+    const cancellationNote = note || "تم إلغاء الطلب من مقدم الطلب وإرجاع أي حجز مرتبط";
+    setRequests((prev) =>
+      prev.map((item) =>
+        item.id === requestId
+          ? {
+              ...item,
+              status: "cancelled",
+              updatedAt: new Date().toISOString(),
+              currentApproverRole: undefined,
+              timeline: [
+                ...item.timeline,
+                {
+                  id: `tl-${Date.now()}`,
+                  stepNumber: item.currentStepIndex,
+                  actorId: currentUser.id,
+                  actorName: `${currentUser.firstNameAr} ${currentUser.lastNameAr}`,
+                  actorRole: "مقدم الطلب",
+                  action: "cancelled",
+                  note: cancellationNote,
+                  timestamp: new Date().toISOString(),
+                },
+              ],
+            }
+          : item,
+      ),
+    );
+
+    return persistLiveChange(
+      async () => {
+        await cancelRequestServer({ data: { requestId, note: cancellationNote } });
+      },
+      `request:cancel:${requestId}`,
+    ).then(({ ok }) => {
+      if (ok) {
+        logAuditEvent("إلغاء طلب خدمة ذاتية", "ServiceRequest", requestId, request.referenceNo, cancellationNote);
       }
       return ok;
     });
@@ -2352,6 +2399,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         approveRequest,
         rejectRequest,
         returnRequest,
+        cancelRequest,
         addApprovalChain,
         deleteApprovalChain,
         addDelegationRule,

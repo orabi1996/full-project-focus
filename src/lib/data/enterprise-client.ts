@@ -185,7 +185,7 @@ export interface RequestExtendedRow extends Record<string, unknown> {
   employee_id: string;
   type: "leave" | "attendance_fix" | "advance" | "expense";
   leave_type_id: string | null;
-  status: "draft" | "pending" | "approved" | "rejected" | "returned";
+  status: "draft" | "pending" | "approved" | "rejected" | "returned" | "cancelled";
   start_date: string | null;
   end_date: string | null;
   days: number | null;

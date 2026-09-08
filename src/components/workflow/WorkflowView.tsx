@@ -60,6 +60,7 @@ export const WorkflowView: React.FC = () => {
     approveRequest,
     rejectRequest,
     returnRequest,
+    cancelRequest,
     submitRequest,
     addApprovalChain,
     deleteApprovalChain,
@@ -206,6 +207,15 @@ export const WorkflowView: React.FC = () => {
     if (!saved) return;
     setSelectedRequest(null);
     setDecisionNote("");
+  };
+
+  const handleCancel = async (id: string) => {
+    if (isSaving) return;
+    if (!window.confirm("هل تريد إلغاء هذا الطلب وإرجاع أي رصيد إجازة محجوز؟")) return;
+    const saved = await cancelRequest(id, "تم الإلغاء من مقدم الطلب");
+    if (!saved) return;
+    if (selectedRequest?.id === id) setSelectedRequest(null);
+    toast.success("تم إلغاء الطلب وإرجاع الحجز بنجاح");
   };
 
   const handleCreateNewRequest = async () => {
@@ -637,7 +647,7 @@ export const WorkflowView: React.FC = () => {
                     <th className="py-3 px-4 text-center">تقدم المسار</th>
                     <th className="py-3 px-4 text-center">تاريخ التقديم</th>
                     <th className="py-3 px-4 text-center">الحالة الحالية</th>
-                    <th className="py-3 px-4 text-center">التفاصيل والتتبع</th>
+                    <th className="py-3 px-4 text-center">التفاصيل والإجراء</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -669,7 +679,9 @@ export const WorkflowView: React.FC = () => {
                                 ? "bg-destructive/10 text-destructive border-destructive/30"
                                 : req.status === "returned"
                                   ? "bg-purple-500/10 text-purple-700 border-purple-300"
-                                  : "bg-amber-500/10 text-amber-700 border-amber-300"
+                                  : req.status === "cancelled"
+                                    ? "bg-slate-500/10 text-slate-700 border-slate-300"
+                                    : "bg-amber-500/10 text-amber-700 border-amber-300"
                           }`}
                         >
                           {req.status === "approved"
@@ -678,18 +690,32 @@ export const WorkflowView: React.FC = () => {
                               ? "مرفوض"
                               : req.status === "returned"
                                 ? "معاد للاستكمال"
-                                : "قيد المراجعة"}
+                                : req.status === "cancelled"
+                                  ? "ملغى من مقدم الطلب"
+                                  : "قيد المراجعة"}
                         </Badge>
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setSelectedRequest(req)}
-                          className="h-7 text-xs font-bold text-primary hover:bg-secondary rounded-full px-2.5"
-                        >
-                          عرض المسار الزمني
-                        </Button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setSelectedRequest(req)}
+                            className="h-7 text-xs font-bold text-primary hover:bg-secondary rounded-full px-2.5"
+                          >
+                            عرض المسار الزمني
+                          </Button>
+                          {req.status === "pending_approval" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleCancel(req.id)}
+                              className="h-7 text-[11px] font-bold text-destructive border-destructive/30 hover:bg-destructive/10 rounded-full px-2.5"
+                            >
+                              إلغاء الطلب
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -987,7 +1013,12 @@ export const WorkflowView: React.FC = () => {
                       />
                       <span className="font-bold text-foreground block">
                         المرحلة {evt.stepNumber}:{" "}
-                        {evt.action === "approved" ? "موافقة" : evt.action} • {evt.actorName} (
+                        {evt.action === "approved"
+                          ? "موافقة"
+                          : evt.action === "cancelled"
+                            ? "إلغاء الطلب"
+                            : evt.action}{" "}
+                        • {evt.actorName} (
                         {evt.actorRole})
                       </span>
                       {evt.note && (

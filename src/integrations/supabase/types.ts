@@ -2711,7 +2711,7 @@ export type Database = {
         | "auditor"
       attendance_status: "present" | "late" | "absent" | "leave" | "remote"
       employee_status: "active" | "on_leave" | "suspended" | "terminated"
-      request_status: "draft" | "pending" | "approved" | "rejected" | "returned"
+      request_status: "draft" | "pending" | "approved" | "rejected" | "returned" | "cancelled"
       request_type: "leave" | "attendance_fix" | "advance" | "expense"
     }
     CompositeTypes: {
@@ -2855,7 +2855,7 @@ export const Constants = {
       ],
       attendance_status: ["present", "late", "absent", "leave", "remote"],
       employee_status: ["active", "on_leave", "suspended", "terminated"],
-      request_status: ["draft", "pending", "approved", "rejected", "returned"],
+      request_status: ["draft", "pending", "approved", "rejected", "returned", "cancelled"],
       request_type: ["leave", "attendance_fix", "advance", "expense"],
     },
   },

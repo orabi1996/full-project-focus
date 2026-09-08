@@ -235,6 +235,7 @@ function mapRequestStatus(status: RequestRow["status"]): RequestStatus {
     approved: "approved",
     rejected: "rejected",
     returned: "returned",
+    cancelled: "cancelled",
   };
   return statuses[status];
 }

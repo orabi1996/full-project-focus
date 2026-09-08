@@ -385,7 +385,7 @@ export interface RequestTimelineEvent {
   actorId: string;
   actorName: string;
   actorRole: string;
-  action: "submitted" | "approved" | "rejected" | "returned" | "delegated";
+  action: "submitted" | "approved" | "rejected" | "returned" | "cancelled" | "delegated";
   note?: string;
   timestamp: string;
 }

@@ -182,8 +182,14 @@ BEGIN
     RAISE EXCEPTION 'عدد أيام الإجازة غير صالح';
   END IF;
   IF auth.role() <> 'service_role'
-     AND NOT public.current_user_has_any_role(
-       ARRAY['org_admin','super_admin','hr_manager','line_manager']
+     AND NOT (
+       (
+         p_outcome = 'release'
+         AND p_employee_id IS NOT DISTINCT FROM private_sec.current_employee_id()
+       )
+       OR public.current_user_has_any_role(
+         ARRAY['org_admin','super_admin','hr_manager','line_manager']
+       )
      ) THEN
     RAISE EXCEPTION 'غير مصرح بتسوية رصيد الإجازة';
   END IF;

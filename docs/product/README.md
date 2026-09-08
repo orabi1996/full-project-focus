@@ -18,6 +18,8 @@
 10. [كتالوج الأدوار والصلاحيات](ROLE_PERMISSION_CATALOG.draft.json): تمثيل آلي مبدئي غير مفعّل للأدوار والنطاقات وقواعد الرفض الافتراضية.
 11. [PART 5 — User Journeys](PART_05_USER_JOURNEYS.ar.md): رحلات الدخول والتهيئة والموظف والحضور والإجازة والرواتب والتوظيف والأداء والعهد والتكامل والدعم.
 12. [كتالوج رحلات المستخدم](USER_JOURNEY_CATALOG.draft.json): تمثيل آلي مبدئي للحالات والخطوات والحواجز ومؤشرات القياس؛ غير مفعّل تشغيليًا.
+13. [PART 6 — Information Architecture](PART_06_INFORMATION_ARCHITECTURE.ar.md): هرم المنتج، التنقل الهجين، route taxonomy، guards، البحث، Inbox، الإعدادات، responsive وRTL/LTR.
+14. [Information Architecture Manifest](INFORMATION_ARCHITECTURE_MANIFEST.draft.json): تمثيل آلي مبدئي للمجموعات والمسارات والـshell؛ غير مفعّل تشغيليًا.
 
 **الحالة:** اكتمل الاكتشاف المكتبي وأدوات البحث، وأُعدت استراتيجية المنتج ونطاق MVP والباقات كقرارات عمل مبدئية. لا توجد حتى الآن نتائج مقابلات أو تجارب مدفوعة أو أسعار معتمدة ضمن هذه المخرجات. مرحلة التوثيق لا تعني اعتماد الإطلاق أو تطبيق ترحيلات قاعدة البيانات.
 
@@ -30,7 +32,7 @@
 | 3     | Product Architecture      | مكتمل كمواصفات مبدئية؛ تنفيذ tenant/contracts معلق                   |
 | 4     | User Roles                | مكتمل كمواصفات مبدئية؛ تنفيذ catalog/RLS معلق                        |
 | 5     | User Journeys             | مكتمل كمواصفات مبدئية؛ تحويل الرحلات إلى routes/workflows معلق       |
-| 6     | Information Architecture  | مخطط                                                                 |
+| 6     | Information Architecture  | مكتمل كمواصفات مبدئية؛ تنفيذ routes/guards معلق                      |
 | 7     | Complete Screen Inventory | مخطط؛ العدد يتحدد من الوظائف والرحلات                                |
 | 8     | UI/UX Design System       | مخطط                                                                 |
 | 9     | Workflows                 | مخطط                                                                 |

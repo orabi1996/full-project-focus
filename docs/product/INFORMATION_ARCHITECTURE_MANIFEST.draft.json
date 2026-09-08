@@ -1,0 +1,206 @@
+{
+  "schema_version": "0.1.0",
+  "manifest_version": "draft-2026-09-08",
+  "status": "proposal",
+  "runtime_enabled": false,
+  "navigation_model": "hybrid_sidebar_header_mobile_actions",
+  "default_locale": "ar",
+  "supported_locales": ["ar", "en"],
+  "public_routes": [
+    "/",
+    "/login",
+    "/invite/:token",
+    "/verify",
+    "/mfa",
+    "/recovery",
+    "/legal/:document"
+  ],
+  "protected_roots": ["/app", "/platform"],
+  "groups": [
+    {
+      "id": "home",
+      "label_key": "nav.home",
+      "routes": ["/app", "/app/inbox", "/app/requests"]
+    },
+    {
+      "id": "workforce",
+      "label_key": "nav.workforce",
+      "routes": [
+        "/app/organization",
+        "/app/people/employees",
+        "/app/people/documents",
+        "/app/access"
+      ]
+    },
+    {
+      "id": "time",
+      "label_key": "nav.time",
+      "routes": [
+        "/app/time/requests",
+        "/app/time/leaves",
+        "/app/time/attendance",
+        "/app/time/shifts"
+      ]
+    },
+    {
+      "id": "payroll",
+      "label_key": "nav.payroll",
+      "routes": [
+        "/app/payroll/runs",
+        "/app/payroll/loans",
+        "/app/payroll/expenses",
+        "/app/payroll/settlements"
+      ]
+    },
+    {
+      "id": "talent",
+      "label_key": "nav.talent",
+      "routes": ["/app/talent/recruitment", "/app/talent/workforce", "/app/talent/performance"]
+    },
+    {
+      "id": "governance",
+      "label_key": "nav.governance",
+      "routes": [
+        "/app/governance/assets",
+        "/app/reports",
+        "/app/integrations",
+        "/app/governance/audit"
+      ]
+    },
+    {
+      "id": "ess",
+      "label_key": "nav.ess",
+      "routes": [
+        "/app/self-service",
+        "/app/self-service/attendance",
+        "/app/self-service/requests",
+        "/app/self-service/payslips",
+        "/app/self-service/documents"
+      ]
+    },
+    {
+      "id": "settings",
+      "label_key": "nav.settings",
+      "routes": [
+        "/app/settings/tenant",
+        "/app/settings/access",
+        "/app/settings/policies",
+        "/app/settings/notifications",
+        "/app/settings/integrations",
+        "/app/settings/billing",
+        "/app/settings/security",
+        "/app/settings/localization"
+      ]
+    }
+  ],
+  "platform_sections": [
+    "tenants",
+    "support",
+    "plans",
+    "feature_releases",
+    "billing_operations",
+    "system_health",
+    "security_audit",
+    "break_glass_reviews"
+  ],
+  "guard_order": [
+    "session",
+    "tenant_membership",
+    "released_feature",
+    "subscription_entitlement",
+    "role_permission",
+    "data_scope",
+    "entity_or_period_status",
+    "separation_of_duties",
+    "audit_requirement"
+  ],
+  "url_policy": {
+    "customer_prefix": "/app",
+    "platform_prefix": "/platform",
+    "resource_ids": "opaque_or_uuid",
+    "sensitive_query_values": false,
+    "safe_filter_keys": ["status", "from", "to", "department", "location", "page", "sort"],
+    "authorization_rechecked_on_open": true,
+    "canonical_hash_mapping": true
+  },
+  "role_landings": {
+    "super_admin": "/platform/system-health",
+    "support_agent": "/platform/support",
+    "billing_admin": "/platform/billing-operations",
+    "org_owner": "/app",
+    "org_admin": "/app",
+    "hr_manager": "/app/inbox",
+    "hr_operator": "/app/people/employees",
+    "payroll_officer": "/app/payroll/runs",
+    "finance_officer": "/app/payroll/settlements",
+    "attendance_officer": "/app/time/attendance",
+    "line_manager": "/app/inbox",
+    "recruiter": "/app/talent/recruitment",
+    "performance_lead": "/app/talent/performance",
+    "asset_manager": "/app/governance/assets",
+    "auditor": "/app/governance/audit",
+    "employee": "/app/self-service"
+  },
+  "shell": {
+    "regions": [
+      "skip_link",
+      "sidebar",
+      "header",
+      "context_bar",
+      "main",
+      "action_footer",
+      "status_surface"
+    ],
+    "desktop_sidebar_width_px": 288,
+    "collapsed_sidebar_width_px": 80,
+    "mobile_drawer": true,
+    "mobile_quick_actions": ["attendance", "leave", "expense", "payslip"],
+    "command_palette_shortcut": "CtrlOrCmd+K"
+  },
+  "responsive_breakpoints": {
+    "desktop_min_px": 1280,
+    "laptop_min_px": 1024,
+    "tablet_min_px": 768,
+    "mobile_max_px": 767,
+    "minimum_touch_target_px": 44
+  },
+  "search": {
+    "server_side": true,
+    "sections": ["screens", "employees", "requests", "payroll", "reports", "quick_actions"],
+    "permission_filter_before_ranking": true,
+    "sensitive_preview": "masked",
+    "query_analytics_raw_text": false
+  },
+  "notifications": {
+    "inbox_tabs": ["action_required", "my_requests", "information", "security", "expired"],
+    "deep_link_rechecks_authorization": true,
+    "bulk_financial_approval": false,
+    "read_state_separate_from_workflow": true
+  },
+  "accessibility": {
+    "target": "WCAG_2_2_AA_core_tasks",
+    "keyboard_navigation": true,
+    "focus_trap_for_modal": true,
+    "screen_reader_landmarks": true,
+    "color_not_only_signal": true,
+    "rtl_ltr_tested": true
+  },
+  "legacy_hash_mapping": {
+    "dashboard": "/app",
+    "employees": "/app/people/employees",
+    "attendance": "/app/time/attendance",
+    "leaves": "/app/time/leaves",
+    "payroll": "/app/payroll/runs",
+    "loans": "/app/payroll/loans",
+    "reports": "/app/reports",
+    "audit": "/app/governance/audit",
+    "ess": "/app/self-service"
+  },
+  "open_decisions": [
+    "public_landing_and_brand_authority",
+    "workspace_switcher_for_multi_membership",
+    "billing_admin_location_platform_or_customer",
+    "route_migration_release_flag",
+    "search_provider_for_large_tenants"
+  ]
+}

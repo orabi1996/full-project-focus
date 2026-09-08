@@ -45,6 +45,9 @@ export const PayrollPaymentsPanel: React.FC = () => {
   const [accountId, setAccountId] = useState("");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [bankReference, setBankReference] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  useEffect(() => { setBankReference(""); setConfirmed(false); }, [runId, accountId]);
 
   // Real payroll runs from the database (never local mock ids).
   useEffect(() => {
@@ -101,16 +104,19 @@ export const PayrollPaymentsPanel: React.FC = () => {
   };
 
   const handleDisburse = async () => {
+    if (busy || !confirmed || !bankReference.trim()) return;
     if (!runId || !accountId) {
       toast.error("اختر حساب المنشأة البنكي");
       return;
     }
     setBusy(true);
     try {
-      const result: any = await disburseRunPaymentsServer({ data: { runId, bankAccountId: accountId } });
+      const result: any = await disburseRunPaymentsServer({ data: { runId, bankAccountId: accountId, bankReference, confirmed } });
       toast.success(
-        `تم صرف ${result.paid} دفعة بإجمالي ${money(result.totalPaid)} — دفعة ${result.batchNo}`,
+        `تم تسجيل تأكيد ${result.paid} دفعة بإجمالي ${money(result.totalPaid)} — دفعة ${result.batchNo}`,
       );
+      setConfirmed(false);
+      setBankReference("");
       if (result.failed) toast.warning(`${result.failed} دفعة فشلت لعدم وجود آيبان`);
       await load();
     } catch (error: any) {
@@ -145,7 +151,7 @@ export const PayrollPaymentsPanel: React.FC = () => {
             <div>
               <h3 className="font-bold text-sm">دفع رواتب {period ?? "الشهر الحالي"}</h3>
               <p className="text-xs text-muted-foreground">
-                يُخصم إجمالي الصافي من حساب المنشأة ويُسجَّل مرجع تحويل لكل موظف.
+                تسجيل تحويل نُفّذ خارج النظام وتحديث الرصيد الدفتري؛ لا يرسل النظام أموالًا إلى البنك.
               </p>
             </div>
           </div>
@@ -175,8 +181,17 @@ export const PayrollPaymentsPanel: React.FC = () => {
                 </option>
               ))}
             </select>
-            <Button size="sm" disabled={busy || !payments.length} onClick={handleDisburse} className="rounded-xl gap-1.5 font-bold">
-              <Send className="h-4 w-4" /> صرف الرواتب
+            <label className="flex flex-col gap-1 text-xs font-bold">
+              مرجع تنفيذ البنك
+              <input value={bankReference} onChange={(e) => setBankReference(e.target.value)} maxLength={120}
+                className="rounded-xl border border-border bg-background px-3 py-2" disabled={busy} />
+            </label>
+            <label className="flex items-center gap-2 text-xs">
+              <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} disabled={busy} />
+              أؤكد تنفيذ جميع دفعات هذا المسيّر لدى البنك ومطابقة الإجمالي
+            </label>
+            <Button size="sm" disabled={busy || !payments.length || !confirmed || !bankReference.trim()} onClick={handleDisburse} className="rounded-xl gap-1.5 font-bold">
+              <Send className="h-4 w-4" /> تسجيل تأكيد التحويل
             </Button>
             <Button
               size="sm"
@@ -208,7 +223,7 @@ export const PayrollPaymentsPanel: React.FC = () => {
           <Stat label="عدد الدفعات" value={String(payments.length)} />
           <Stat label="إجمالي معلق" value={money(totalPending)} />
           <Stat label="إجمالي مدفوع" value={money(totalPaid)} />
-          <Stat label="رصيد حساب المنشأة" value={account ? money(account.balance) : "—"} />
+          <Stat label="الرصيد الدفتري للمنشأة" value={account ? money(account.balance) : "—"} />
         </div>
 
         {account && totalPending > account.balance && (

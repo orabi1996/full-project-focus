@@ -267,10 +267,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                       onMobileClose?.();
                     }}
                     title={collapsed ? item.label : undefined}
-                    className={`group relative flex w-full items-center gap-3 rounded-full px-4 py-2 text-xs font-bold transition-all duration-200 ${
+                    className={`group relative flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-xs font-bold transition-all duration-200 ${
                       isActive
-                        ? "bg-secondary text-secondary-foreground shadow-xs"
-                        : "text-foreground/75 hover:bg-muted hover:text-foreground"
+                        ? "bg-gradient-to-r from-[#004BCE] to-[#007CE8] text-white shadow-md shadow-blue-600/25 scale-[1.02]"
+                        : "text-foreground/75 hover:bg-muted/80 hover:text-foreground"
                     } ${collapsed ? "justify-center px-0 h-11 w-11 mx-auto" : ""}`}
                   >
                     <IconSymbol
@@ -279,14 +279,18 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                       filled={isActive}
                       size={20}
                       className={`shrink-0 transition-transform duration-200 group-hover:scale-110 ${
-                        isActive ? "text-primary font-black" : "text-muted-foreground"
+                        isActive ? "text-white font-black drop-shadow-xs" : "text-muted-foreground"
                       }`}
                     />
                     {!collapsed && <span className="flex-1 text-start truncate">{item.label}</span>}
                     {!collapsed && item.badge !== undefined && (
                       <Badge
                         variant={item.badgeVariant || "secondary"}
-                        className="h-5 px-2 text-[10px] font-black rounded-full shadow-xs"
+                        className={`h-5 px-2 text-[10px] font-black rounded-full shadow-xs ${
+                          isActive
+                            ? "bg-white/20 text-white border-white/30 backdrop-blur-xs"
+                            : ""
+                        }`}
                       >
                         {item.badge}
                       </Badge>
@@ -300,11 +304,14 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
       {/* Footer Status Badge */}
       {!collapsed && (
-        <div className="border-t border-border/60 p-4 bg-muted/20">
+        <div className="border-t border-border/60 p-4 bg-muted/15">
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span className="font-semibold">نظام الموارد المؤسسي M3</span>
+            <span className="font-bold flex items-center gap-1.5 text-foreground">
+              <span className="h-2 w-2 rounded-full bg-[#00B5FF] animate-pulse" />
+              Classera Pulse HCM
+            </span>
             <span className="font-mono bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full text-[10px]">
-              v2.0 (2026)
+              v2026
             </span>
           </div>
         </div>

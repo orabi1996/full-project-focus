@@ -64,29 +64,37 @@ export function LoginPage() {
       className="min-h-screen grid place-items-center p-4 sm:p-6 lg:p-10 bg-background relative overflow-hidden"
     >
       {/* Background Decorative Gradient Orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-secondary/30 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-[#00B5FF]/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-[#004BCE]/20 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Main Material 3 Login Card */}
+      {/* Main Classera Pulse Login Card */}
       <div className="w-full max-w-5xl rounded-3xl overflow-hidden border border-border/80 bg-card shadow-2xl grid grid-cols-1 md:grid-cols-2 relative z-10">
-        {/* Left Decorative Brand Panel (Material Gradient) */}
-        <div className="hidden md:flex flex-col justify-between p-10 bg-gradient-to-br from-primary via-primary/90 to-[#041E49] text-primary-foreground relative overflow-hidden">
+        {/* Left Decorative Brand Panel (Classera Pulse Gradient) */}
+        <div className="hidden md:flex flex-col justify-between p-10 bg-gradient-to-br from-[#004BCE] via-[#00389E] to-[#05112A] text-white relative overflow-hidden">
+          {/* Subtle Ambient Glow */}
+          <div className="absolute -top-24 -left-24 w-64 h-64 bg-[#00B5FF]/25 rounded-full blur-2xl pointer-events-none" />
+
           <div className="space-y-6 relative z-10">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 shadow-lg">
-              <Building2 className="h-7 w-7 text-white" />
+            {/* White Card with Official Logo */}
+            <div className="inline-flex items-center bg-white rounded-2xl p-3 shadow-lg border border-white/20">
+              <img
+                src="/classera-pulse-logo.png"
+                alt="Classera Pulse"
+                className="h-10 w-auto max-w-[200px] object-contain"
+              />
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold backdrop-blur-md border border-white/20">
-                  نظام الموارد البشرية المؤسسي
+                  منظومة إدارة رأس المال البشري
                 </span>
-                <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
+                <Sparkles className="h-4 w-4 text-[#00B5FF] animate-pulse" />
               </div>
-              <h1 className="text-3xl font-black tracking-tight">Focus HRMS</h1>
-              <p className="text-xs text-white/80 leading-relaxed font-medium">
-                المنصة السحابية الموحدة لإدارة رأس المال البشري، الحضور والانصراف، مسيرات الرواتب،
-                والخدمة الذاتية.
+              <h1 className="text-3xl font-black tracking-tight">Classera Pulse HCM</h1>
+              <p className="text-xs text-white/85 leading-relaxed font-medium">
+                المنصة السحابية الموحدة والمتطورة لإدارة رأس المال البشري، الحضور والانصراف، مسيرات الرواتب WPS،
+                والخدمات الذاتية للموظفين.
               </p>
             </div>
           </div>
@@ -95,15 +103,16 @@ export function LoginPage() {
             {platformFeatures.map(({ icon: Icon, label }) => (
               <div key={label} className="flex items-center gap-3.5">
                 <div className="h-9 w-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/15">
-                  <Icon className="h-4 w-4 text-white" />
+                  <Icon className="h-4 w-4 text-[#00B5FF]" />
                 </div>
                 <span className="text-xs font-bold text-white/95">{label}</span>
               </div>
             ))}
           </div>
 
-          <div className="relative z-10 pt-4 border-t border-white/15 text-[11px] text-white/70">
-            مصمم لدعم متطلبات الموارد البشرية، وتخضع إعدادات الامتثال لاعتماد المنشأة
+          <div className="relative z-10 pt-4 border-t border-white/15 text-[11px] text-white/75 flex items-center justify-between">
+            <span>مصمم لدعم متطلبات الموارد البشرية، وتخضع إعدادات الامتثال لاعتماد المنشأة</span>
+            <span className="font-mono font-bold text-[#00B5FF]">Pulse v2026</span>
           </div>
         </div>
 
@@ -111,11 +120,22 @@ export function LoginPage() {
         <div className="p-8 sm:p-12 flex flex-col justify-center bg-card">
           <div className="w-full max-w-md mx-auto space-y-6">
             <div className="space-y-2 text-start">
+              {/* Logo on top for all screens */}
+              <div className="flex items-center gap-2 mb-2">
+                <div className="bg-white rounded-2xl px-3 py-1.5 border border-border/80 shadow-xs inline-flex">
+                  <img
+                    src="/classera-pulse-logo.png"
+                    alt="Classera Pulse"
+                    className="h-8 w-auto max-w-[160px] object-contain"
+                  />
+                </div>
+              </div>
+
               <Badge
                 variant="secondary"
-                className="rounded-full px-3 py-1 font-bold text-xs gap-1.5 mb-1 inline-flex"
+                className="rounded-full px-3 py-1 font-bold text-xs gap-1.5 mb-1 inline-flex bg-[#00B5FF]/10 text-[#004BCE] border-[#00B5FF]/30"
               >
-                <LockKeyhole className="h-3.5 w-3.5 text-primary" />
+                <LockKeyhole className="h-3.5 w-3.5 text-[#004BCE]" />
                 بوابة الموظفين والمدراء الآمنة
               </Badge>
               <h2 className="text-2xl font-black text-foreground">مرحباً بعودتك 👋</h2>
@@ -175,7 +195,7 @@ export function LoginPage() {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full h-11 rounded-full font-black text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all gap-2 mt-2"
+                className="w-full h-11 rounded-full font-black text-xs classera-btn-primary shadow-md transition-all gap-2 mt-2 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>
@@ -196,7 +216,7 @@ export function LoginPage() {
                 <Button
                   variant="outline"
                   onClick={enterDemo}
-                  className="w-full h-10 rounded-full font-bold text-xs border-primary/30 bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-xs"
+                  className="w-full h-10 rounded-full font-bold text-xs border-[#00B5FF]/40 bg-[#00B5FF]/10 text-[#004BCE] hover:bg-[#00B5FF]/20 shadow-xs cursor-pointer transition-all"
                 >
                   الدخول المباشر إلى النسخة التجريبية (Demo Mode)
                 </Button>

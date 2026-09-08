@@ -186,18 +186,28 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
   return (
     <div className="space-y-6">
-      {/* Executive Welcome Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary via-primary/95 to-primary/85 p-6 md:p-7 text-primary-foreground shadow-lg shadow-primary/15 border border-primary/20">
+      {/* Executive Welcome Banner (Classera Pulse Signature Hero) */}
+      <div className="relative overflow-hidden rounded-3xl classera-gradient-hero p-6 md:p-8 text-white shadow-xl shadow-blue-900/20 border border-blue-400/20">
+        {/* Subtle Ambient Glow and Logo Watermark */}
+        <div className="absolute top-[-25%] right-[10%] w-80 h-80 bg-[#00B5FF]/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -left-10 -bottom-10 opacity-15 pointer-events-none hidden sm:block">
+          <img
+            src="/classera-pulse-logo.png"
+            alt=""
+            className="h-48 w-auto object-contain brightness-0 invert"
+          />
+        </div>
+
         <div className="relative z-10 flex flex-col justify-between gap-5 md:flex-row md:items-center">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-primary-foreground/15 px-3 py-0.5 text-xs font-bold backdrop-blur-md border border-primary-foreground/20">
-                لوحة المتابعة والرقابة التشغيلية الذكية
+              <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-bold backdrop-blur-md border border-white/20">
+                منظومة الرقابة التشغيلية الذكية
               </span>
-              <Badge className="bg-emerald-500/20 text-emerald-200 border-emerald-400/30 rounded-full text-[10px] font-bold">
+              <Badge className="bg-[#00B5FF]/25 text-white border-white/30 rounded-full text-[10px] font-bold">
                 {company.legalNameAr}
               </Badge>
-              <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
+              <Sparkles className="h-4 w-4 text-[#00B5FF] animate-pulse" />
             </div>
             <h1 className="text-xl md:text-2xl font-black tracking-tight">
               {t.dashboard.welcome}،{" "}
@@ -205,7 +215,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                 ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
                 : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`}
             </h1>
-            <p className="text-xs text-primary-foreground/80 font-medium max-w-xl">
+            <p className="text-xs text-white/85 font-medium max-w-xl">
               ملخص الأداء والمؤشرات الحية لليوم •{" "}
               {new Date().toLocaleDateString(language === "ar" ? "ar-SA" : "en-US", {
                 weekday: "long",
@@ -219,7 +229,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           <div className="flex flex-wrap gap-2.5">
             <Button
               onClick={() => handleQuickPunch("in")}
-              className="rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs gap-1.5 shadow-sm px-4 h-10"
+              className="rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs gap-1.5 shadow-sm px-4 h-10 cursor-pointer"
             >
               <Clock className="h-4 w-4" />
               تسجيل حضور
@@ -227,15 +237,15 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             <Button
               onClick={() => onNavigate("workflow")}
               variant="secondary"
-              className="rounded-full font-bold text-xs gap-1.5 px-4 h-10 bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              className="rounded-full font-bold text-xs gap-1.5 px-4 h-10 bg-white/15 text-white hover:bg-white/25 border border-white/20 backdrop-blur-md cursor-pointer"
             >
-              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertCircle className="h-4 w-4 text-amber-300" />
               الطلبات المعلقة ({pendingApprovals.length})
             </Button>
             <Button
               onClick={() => onNavigate("employees")}
               variant="outline"
-              className="rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30 font-bold text-xs gap-1.5 px-4 h-10 backdrop-blur-sm"
+              className="rounded-full bg-white/10 hover:bg-white/20 text-white border-white/30 font-bold text-xs gap-1.5 px-4 h-10 backdrop-blur-sm cursor-pointer"
             >
               <Users className="h-4 w-4" />
               ملفات الموظفين
@@ -249,7 +259,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
         {/* Total Employees */}
         <div
           onClick={() => onNavigate("employees")}
-          className="group rounded-3xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:shadow-md cursor-pointer relative overflow-hidden"
+          className="classera-kpi-card group p-5 shadow-xs transition-all duration-200 cursor-pointer"
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-muted-foreground">
@@ -271,7 +281,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
         {/* Live Attendance */}
         <div
           onClick={() => onNavigate("attendance")}
-          className="group rounded-3xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:shadow-md cursor-pointer relative overflow-hidden"
+          className="classera-kpi-card group p-5 shadow-xs transition-all duration-200 cursor-pointer"
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-muted-foreground">
@@ -297,7 +307,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
         {/* Saudization / Nitaqat */}
         <div
           onClick={() => onNavigate("reports")}
-          className="group rounded-3xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:shadow-md cursor-pointer relative overflow-hidden"
+          className="classera-kpi-card group p-5 shadow-xs transition-all duration-200 cursor-pointer"
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-muted-foreground">
@@ -321,7 +331,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
         {/* Pending Approvals */}
         <div
           onClick={() => onNavigate("workflow")}
-          className="group rounded-3xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:shadow-md cursor-pointer relative overflow-hidden"
+          className="classera-kpi-card group p-5 shadow-xs transition-all duration-200 cursor-pointer"
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-muted-foreground">
@@ -343,7 +353,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
         {/* Monthly Payroll */}
         <div
           onClick={() => onNavigate("payroll")}
-          className="group rounded-3xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-200 hover:border-primary/50 hover:shadow-md cursor-pointer relative overflow-hidden"
+          className="classera-kpi-card group p-5 shadow-xs transition-all duration-200 cursor-pointer"
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-muted-foreground">مسير الرواتب (WPS)</span>

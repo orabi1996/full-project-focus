@@ -232,11 +232,88 @@
   transition: all 0.15s ease-in-out;
 }
 
-/* Premium 3D & Flat Badges (Flaticon & Icons8 Styling) */
-.flaticon-badge-blue {
-  background: linear-gradient(135deg, #0B57D0 0%, #1A73E8 100%);
+/* Classera Pulse Design System Tokens & Utilities */
+.classera-gradient-primary {
+  background: linear-gradient(135deg, #004BCE 0%, #007CE8 50%, #00B5FF 100%);
+}
+
+.classera-gradient-hero {
+  background: linear-gradient(135deg, #003EB0 0%, #004BCE 35%, #0066E0 70%, #00B5FF 100%);
+}
+
+.classera-gradient-subtle {
+  background: linear-gradient(135deg, rgba(0, 75, 206, 0.06) 0%, rgba(0, 181, 255, 0.1) 100%);
+}
+
+.classera-btn-primary {
+  background: linear-gradient(135deg, #004BCE 0%, #007CE8 100%);
   color: #FFFFFF;
-  box-shadow: 0 6px 16px rgba(11, 87, 208, 0.25);
+  box-shadow: 0 4px 14px rgba(0, 75, 206, 0.3);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.classera-btn-primary:hover {
+  background: linear-gradient(135deg, #003EB0 0%, #006ED0 100%);
+  box-shadow: 0 6px 20px rgba(0, 75, 206, 0.4);
+  transform: translateY(-1px);
+}
+
+.classera-btn-primary:active {
+  transform: translateY(0);
+}
+
+.classera-badge-pulse {
+  background: rgba(0, 181, 255, 0.12);
+  color: #004BCE;
+  border: 1px solid rgba(0, 181, 255, 0.3);
+}
+
+.dark .classera-badge-pulse {
+  background: rgba(0, 181, 255, 0.18);
+  color: #38BDF8;
+  border-color: rgba(0, 181, 255, 0.4);
+}
+
+.classera-glow {
+  box-shadow: 0 0 24px -4px rgba(0, 181, 255, 0.35);
+}
+
+.classera-kpi-card {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 1.5rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.classera-kpi-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #004BCE 0%, #00B5FF 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.classera-kpi-card:hover::before {
+  opacity: 1;
+}
+
+.classera-kpi-card:hover {
+  border-color: rgba(0, 181, 255, 0.4);
+  box-shadow: 0 8px 24px -4px rgba(0, 75, 206, 0.12);
+  transform: translateY(-2px);
+}
+
+/* Premium 3D & Flat Badges */
+.flaticon-badge-blue {
+  background: linear-gradient(135deg, #004BCE 0%, #007CE8 100%);
+  color: #FFFFFF;
+  box-shadow: 0 6px 16px rgba(0, 75, 206, 0.25);
 }
 
 .flaticon-badge-emerald {

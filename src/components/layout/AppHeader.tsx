@@ -106,7 +106,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   return (
     <header className="sticky top-0 z-30 flex h-20 w-full items-center justify-between border-b border-border/70 bg-card/90 px-4 md:px-8 backdrop-blur-xl transition-all">
       {/* Search & Fast Command Bar with Mobile Menu Toggle */}
-      <div className="flex items-center gap-2.5 w-72 md:w-96 lg:w-[420px]">
+      <div className="flex items-center gap-2.5 w-72 md:w-96 lg:w-[440px]">
         <Button
           variant="ghost"
           size="icon"
@@ -117,16 +117,25 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <Menu className="h-5 w-5" />
         </Button>
 
+        {/* Mobile Brand Logo */}
+        <div className="md:hidden flex items-center shrink-0 bg-white rounded-xl px-1.5 py-1 border border-border/60 shadow-2xs">
+          <img
+            src="/classera-pulse-logo.png"
+            alt="Classera Pulse"
+            className="h-6 w-auto max-w-[100px] object-contain"
+          />
+        </div>
+
         {/* Google M3 Unified Pill Search */}
         <button
           onClick={onOpenCommandPalette}
-          className="flex h-11 w-full items-center justify-between rounded-full bg-muted/60 px-4 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 border border-border/40 transition-all shadow-xs"
+          className="flex h-11 w-full items-center justify-between rounded-full bg-muted/50 px-4 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-[#00B5FF]/50 border border-border/50 transition-all shadow-xs"
         >
-          <div className="flex items-center gap-2.5">
-            <Search className="h-4 w-4 text-primary" />
-            <span>بحث سريع في الموظفين والعمليات...</span>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Search className="h-4 w-4 text-primary shrink-0" />
+            <span className="truncate">بحث سريع في الموظفين والعمليات...</span>
           </div>
-          <kbd className="hidden sm:inline-flex items-center gap-1 rounded-full bg-card px-2 py-0.5 text-[10px] font-mono text-muted-foreground border shadow-xs">
+          <kbd className="hidden sm:inline-flex items-center gap-1 rounded-full bg-card px-2 py-0.5 text-[10px] font-mono text-muted-foreground border shadow-xs shrink-0">
             Ctrl + K
           </kbd>
         </button>

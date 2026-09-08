@@ -1,0 +1,437 @@
+{
+  "schema_version": "0.1.0",
+  "catalog_version": "draft-2026-09-08",
+  "status": "proposal",
+  "runtime_enabled": false,
+  "baseline": {
+    "unit_runner": "vitest",
+    "e2e_runner": "playwright",
+    "browser_projects": ["chromium", "mobile-chrome"],
+    "locale": "ar-SA",
+    "timezone": "Asia/Riyadh",
+    "demo_mode": "VITE_ENABLE_DEMO_MODE=true",
+    "coverage_config": "vitest.config.ts",
+    "e2e_config": "playwright.config.ts"
+  },
+  "levels": [
+    {
+      "id": "unit",
+      "tool": "vitest",
+      "environment": "node",
+      "gate": "pr",
+      "coverage_target": {
+        "statements": 0.95,
+        "branches": 0.9
+      }
+    },
+    {
+      "id": "component",
+      "tool": "vitest+testing-library",
+      "environment": "jsdom",
+      "gate": "ui_pr",
+      "coverage_target": {
+        "states": "all_primary"
+      }
+    },
+    {
+      "id": "contract",
+      "tool": "vitest+pglite",
+      "environment": "ephemeral_db",
+      "gate": "pr",
+      "coverage_target": {
+        "manifest": "100%"
+      }
+    },
+    {
+      "id": "integration",
+      "tool": "vitest+supabase_test",
+      "environment": "staging_like",
+      "gate": "domain_pr",
+      "coverage_target": {
+        "critical_paths": "100%"
+      }
+    },
+    {
+      "id": "api",
+      "tool": "typed_api_harness",
+      "environment": "staging",
+      "gate": "release_candidate",
+      "coverage_target": {
+        "endpoints": "100%"
+      }
+    },
+    {
+      "id": "e2e",
+      "tool": "playwright",
+      "environment": "demo_and_staging",
+      "gate": "release_candidate",
+      "coverage_target": {
+        "journeys": "12/12_smoke"
+      }
+    },
+    {
+      "id": "visual",
+      "tool": "playwright_screenshots",
+      "environment": "staging",
+      "gate": "release_candidate",
+      "coverage_target": {
+        "critical_views": "100%"
+      }
+    },
+    {
+      "id": "accessibility",
+      "tool": "axe+keyboard_manual",
+      "environment": "staging",
+      "gate": "release_candidate",
+      "coverage_target": {
+        "serious_violations": 0
+      }
+    },
+    {
+      "id": "performance",
+      "tool": "lighthouse+k6+explain",
+      "environment": "staging",
+      "gate": "beta_scale",
+      "coverage_target": {
+        "p95_targets": "defined_in_part_13"
+      }
+    },
+    {
+      "id": "security",
+      "tool": "SAST/SCA/fuzz/replay",
+      "environment": "ci_and_staging",
+      "gate": "pilot_release",
+      "coverage_target": {
+        "SEC_cases": "20/20"
+      }
+    },
+    {
+      "id": "dr",
+      "tool": "restore_and_chaos_runbook",
+      "environment": "isolated_staging",
+      "gate": "production_readiness",
+      "coverage_target": {
+        "restore_drill": "pass"
+      }
+    }
+  ],
+  "module_matrix": [
+    {
+      "module_id": "auth_rbac",
+      "name": "Auth/RBAC",
+      "acceptance_refs": ["QA-A01", "QA-A03", "QA-A08", "SEC-A01..05"]
+    },
+    {
+      "module_id": "organization",
+      "name": "Organization",
+      "acceptance_refs": ["QA-A05", "DB-A03..05"]
+    },
+    {
+      "module_id": "employees_documents",
+      "name": "Employees/Documents",
+      "acceptance_refs": ["QA-A05", "SEC-A12..13"]
+    },
+    {
+      "module_id": "attendance",
+      "name": "Attendance",
+      "acceptance_refs": ["WF-A05..06", "DB-A09", "API-A18"]
+    },
+    {
+      "module_id": "leave",
+      "name": "Leave",
+      "acceptance_refs": ["WF-A07", "DB-A08", "DB-A14", "API-A17"]
+    },
+    {
+      "module_id": "payroll",
+      "name": "Payroll",
+      "acceptance_refs": ["WF-A08", "DB-A06", "API-A10", "SEC-A09"]
+    },
+    {
+      "module_id": "loans_advances",
+      "name": "Loans/Advances",
+      "acceptance_refs": ["WF-A11", "DB-A10", "QA-A05"]
+    },
+    {
+      "module_id": "payments",
+      "name": "Payments",
+      "acceptance_refs": ["WF-A10", "API-A11", "SEC-A10..11"]
+    },
+    {
+      "module_id": "settlement",
+      "name": "Settlement",
+      "acceptance_refs": ["WF-A13", "DB-A06", "QA-A05"]
+    },
+    {
+      "module_id": "expenses",
+      "name": "Expenses",
+      "acceptance_refs": ["WF-A12", "SEC-A15"]
+    },
+    {
+      "module_id": "ats_performance",
+      "name": "ATS/Performance",
+      "acceptance_refs": ["WF-A15", "WF-A16"]
+    },
+    {
+      "module_id": "assets",
+      "name": "Assets",
+      "acceptance_refs": ["WF-A14"]
+    },
+    {
+      "module_id": "integrations_reports",
+      "name": "Integrations/Reports",
+      "acceptance_refs": ["WF-A17", "API-A12", "API-A16"]
+    },
+    {
+      "module_id": "support_audit",
+      "name": "Support/Audit",
+      "acceptance_refs": ["WF-A18", "SEC-A06", "SEC-A18"]
+    }
+  ],
+  "suites": [
+    {
+      "id": "S-QA-01",
+      "name": "core_unit",
+      "level": "unit",
+      "files": [
+        "src/lib/auth",
+        "src/lib/utils/payroll-calculator.ts",
+        "src/lib/utils/eosb-calculator.ts",
+        "src/lib/business/*"
+      ],
+      "trigger": "every_pr"
+    },
+    {
+      "id": "S-QA-02",
+      "name": "contract_migrations",
+      "level": "contract",
+      "files": ["supabase/migrations", "src/tests/*schema*", "src/tests/*transaction*"],
+      "trigger": "migration_or_business_change"
+    },
+    {
+      "id": "S-QA-03",
+      "name": "api_contract",
+      "level": "api",
+      "files": ["API_CONTRACT_MANIFEST.draft.json"],
+      "trigger": "api_or_policy_change"
+    },
+    {
+      "id": "S-QA-04",
+      "name": "tenant_rls",
+      "level": "integration",
+      "files": ["tenant_context", "RLS_policies"],
+      "trigger": "data_or_permission_change"
+    },
+    {
+      "id": "S-QA-05",
+      "name": "attendance_finance_integration",
+      "level": "integration",
+      "files": ["punches", "leave", "payroll", "payments", "settlement"],
+      "trigger": "critical_domain_change"
+    },
+    {
+      "id": "S-QA-06",
+      "name": "e2e_desktop_smoke",
+      "level": "e2e",
+      "files": [
+        "e2e/auth.spec.ts",
+        "e2e/navigation.spec.ts",
+        "e2e/core-workflows.spec.ts",
+        "e2e/organization.spec.ts"
+      ],
+      "trigger": "nightly_and_rc"
+    },
+    {
+      "id": "S-QA-07",
+      "name": "e2e_mobile_rtl",
+      "level": "e2e",
+      "files": ["mobile-chrome", "RTL_routes"],
+      "trigger": "nightly_and_rc"
+    },
+    {
+      "id": "S-QA-08",
+      "name": "visual_a11y",
+      "level": "visual/accessibility",
+      "files": ["screen_inventory_subset", "design_system_states"],
+      "trigger": "rc"
+    },
+    {
+      "id": "S-QA-09",
+      "name": "security_negative",
+      "level": "security",
+      "files": ["SEC-A01..20", "OWASP_controls"],
+      "trigger": "every_security_or_release_change"
+    },
+    {
+      "id": "S-QA-10",
+      "name": "load_queue",
+      "level": "performance",
+      "files": ["dashboard", "attendance", "payroll", "reports", "jobs"],
+      "trigger": "beta_and_scale_gate"
+    },
+    {
+      "id": "S-QA-11",
+      "name": "backup_restore",
+      "level": "dr",
+      "files": ["PITR", "tenant_export", "restore_runbook"],
+      "trigger": "production_readiness_and_quarterly"
+    }
+  ],
+  "acceptance_cases": [
+    {
+      "id": "QA-A01",
+      "automated": true,
+      "gate": "pr"
+    },
+    {
+      "id": "QA-A02",
+      "automated": true,
+      "gate": "pr"
+    },
+    {
+      "id": "QA-A03",
+      "automated": true,
+      "gate": "pr"
+    },
+    {
+      "id": "QA-A04",
+      "automated": false,
+      "gate": "release_candidate"
+    },
+    {
+      "id": "QA-A05",
+      "automated": true,
+      "gate": "release_candidate"
+    },
+    {
+      "id": "QA-A06",
+      "automated": true,
+      "gate": "release_candidate"
+    },
+    {
+      "id": "QA-A07",
+      "automated": true,
+      "gate": "release_candidate"
+    },
+    {
+      "id": "QA-A08",
+      "automated": true,
+      "gate": "release_candidate"
+    },
+    {
+      "id": "QA-A09",
+      "automated": false,
+      "gate": "release_candidate"
+    },
+    {
+      "id": "QA-A10",
+      "automated": false,
+      "gate": "release_candidate"
+    },
+    {
+      "id": "QA-A11",
+      "automated": true,
+      "gate": "release_candidate"
+    },
+    {
+      "id": "QA-A12",
+      "automated": true,
+      "gate": "release_candidate"
+    },
+    {
+      "id": "QA-A13",
+      "automated": false,
+      "gate": "release_candidate"
+    },
+    {
+      "id": "QA-A14",
+      "automated": true,
+      "gate": "release_candidate"
+    },
+    {
+      "id": "QA-A15",
+      "automated": false,
+      "gate": "release_candidate"
+    },
+    {
+      "id": "QA-A16",
+      "automated": true,
+      "gate": "production_readiness"
+    },
+    {
+      "id": "QA-A17",
+      "automated": true,
+      "gate": "production_readiness"
+    },
+    {
+      "id": "QA-A18",
+      "automated": false,
+      "gate": "production_readiness"
+    },
+    {
+      "id": "QA-A19",
+      "automated": true,
+      "gate": "production_readiness"
+    },
+    {
+      "id": "QA-A20",
+      "automated": true,
+      "gate": "production_readiness"
+    }
+  ],
+  "coverage_gates": {
+    "critical_calculators": {
+      "statements": 0.95,
+      "branches": 0.9
+    },
+    "server_functions_minimum": {
+      "statements": 0.85,
+      "branches": 0.75
+    },
+    "api_manifest": "100% success/auth/validation/idempotency where applicable",
+    "security": "20/20",
+    "a11y": "zero critical_or_serious",
+    "e2e": "12 journeys smoke"
+  },
+  "performance_targets": {
+    "dashboard_p95_ms": 2000,
+    "list_api_p95_ms": 500,
+    "fast_command_p95_ms": 800,
+    "queue_age": "within workflow SLA"
+  },
+  "environments": [
+    "ephemeral_unit",
+    "pglite_contract",
+    "supabase_staging",
+    "provider_sandbox",
+    "production_smoke"
+  ],
+  "defect_policy": {
+    "P0": "data/payment exposure or loss; block immediately",
+    "P1": "critical financial/journey failure; block release",
+    "P2": "workaround or noncritical feature; backlog",
+    "P3": "cosmetic/copy; no pilot block unless a11y/brand"
+  },
+  "flaky_policy": [
+    "owner_and_expiry_required",
+    "retry_does_not_hide_failure",
+    "quarantine_needs_ticket",
+    "redacted_artifacts_only"
+  ],
+  "release_exit_criteria": [
+    "zero_open_P0_P1",
+    "SEC-A01..20 pass_or_expired_exception",
+    "critical_workflows_green",
+    "coverage_gates_met",
+    "a11y_serious_zero",
+    "performance_budget_green",
+    "restore_evidence",
+    "rollback_runbook"
+  ],
+  "open_decisions": [
+    "testing_library_for_components",
+    "axe_in_ci_runner",
+    "load_test_hosting",
+    "visual_baseline_storage",
+    "real_provider_sandbox_accounts"
+  ]
+}

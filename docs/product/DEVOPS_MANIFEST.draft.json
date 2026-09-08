@@ -1,0 +1,278 @@
+{
+  "schema_version": "0.1.0",
+  "catalog_version": "draft-2026-09-08",
+  "status": "proposal",
+  "runtime_enabled": false,
+  "git": {
+    "protected_branch": "main",
+    "feature_prefixes": ["feature/", "fix/", "docs/"],
+    "force_push_allowed": false,
+    "published_history_rewrite_allowed": false,
+    "required_reviews": ["codeowner", "security_for_auth_rls", "finance_for_payroll_payment"],
+    "release_tag_contains": ["commit_sha", "migration_versions", "artifact_digest"]
+  },
+  "current_baseline": {
+    "workflow_file": ".github/workflows/quality.yml",
+    "triggers": ["push_main", "pull_request_main", "workflow_dispatch"],
+    "node_version": 22,
+    "artifact_retention_days": 14,
+    "browsers": ["chromium", "mobile-chrome"]
+  },
+  "pipelines": [
+    {
+      "id": "preflight",
+      "trigger": "pull_request",
+      "steps": ["format_check", "secret_scan", "lockfile_check", "changed_scope"],
+      "required": true
+    },
+    {
+      "id": "static",
+      "trigger": "pull_request",
+      "steps": ["typecheck", "eslint", "sast", "sca", "license", "sbom"],
+      "required": true
+    },
+    {
+      "id": "unit_contract",
+      "trigger": "pull_request",
+      "steps": ["vitest_coverage", "manifest_shape", "migration_lint", "pglite_contract"],
+      "required": true
+    },
+    {
+      "id": "build",
+      "trigger": "pull_request",
+      "steps": ["vite_build", "bundle_budget", "artifact_digest"],
+      "required": true
+    },
+    {
+      "id": "integration",
+      "trigger": "pull_request_or_nightly",
+      "steps": ["ephemeral_migration", "synthetic_seed", "supabase_rls", "api_contract"],
+      "required": false
+    },
+    {
+      "id": "browser",
+      "trigger": "nightly_or_rc",
+      "steps": ["playwright_chromium", "playwright_mobile", "a11y", "visual"],
+      "required": false
+    },
+    {
+      "id": "security_performance",
+      "trigger": "nightly_or_rc",
+      "steps": ["fuzz", "webhook_replay", "upload_scan", "k6", "lighthouse"],
+      "required": false
+    },
+    {
+      "id": "publish",
+      "trigger": "merge_main",
+      "steps": ["immutable_artifact", "provenance", "environment_approval"],
+      "required": true
+    },
+    {
+      "id": "post_deploy",
+      "trigger": "deployment",
+      "steps": ["health", "smoke", "slo_gate", "rollback_decision"],
+      "required": true
+    }
+  ],
+  "environments": [
+    {
+      "id": "local",
+      "data": "local_seed_or_pglite",
+      "secrets": "developer_env_ignored",
+      "deployment": "manual"
+    },
+    {
+      "id": "preview",
+      "data": "synthetic_demo",
+      "secrets": "publishable_only",
+      "deployment": "per_pr"
+    },
+    {
+      "id": "ephemeral_db",
+      "data": "schema_fixtures",
+      "secrets": "job_scoped_connection",
+      "deployment": "ci"
+    },
+    {
+      "id": "staging",
+      "data": "masked_seed",
+      "secrets": "github_environment_staging",
+      "deployment": "approval_after_ci"
+    },
+    {
+      "id": "production",
+      "data": "customer",
+      "secrets": "vault_kms_least_privilege",
+      "deployment": "canary_then_rollout"
+    },
+    {
+      "id": "dr_restore",
+      "data": "encrypted_backup_copy",
+      "secrets": "isolated_restore_credentials",
+      "deployment": "runbook"
+    }
+  ],
+  "secrets": [
+    {
+      "name": "SUPABASE_URL",
+      "visibility": "server_and_public_config_by_environment",
+      "rotation": "environment_change"
+    },
+    {
+      "name": "SUPABASE_PUBLISHABLE_KEY",
+      "visibility": "browser_safe_publishable",
+      "rotation": "provider_policy"
+    },
+    {
+      "name": "SUPABASE_SERVICE_ROLE_KEY",
+      "visibility": "server_only",
+      "rotation": "scheduled_or_incident"
+    },
+    {
+      "name": "PAYMENT_PROVIDER_SECRET",
+      "visibility": "worker_only",
+      "rotation": "scheduled_or_incident"
+    },
+    {
+      "name": "WEBHOOK_SIGNING_SECRET",
+      "visibility": "provider_worker",
+      "rotation": "overlap_then_revoke"
+    },
+    {
+      "name": "KMS_KEY_REFERENCE",
+      "visibility": "platform_only",
+      "rotation": "KMS_policy"
+    },
+    {
+      "name": "VITE_ENABLE_DEMO_MODE",
+      "visibility": "build_config",
+      "rotation": "must_be_false_in_production"
+    }
+  ],
+  "runbooks": [
+    {
+      "id": "deploy-failure",
+      "trigger": "health_or_error_gate",
+      "owner": "on_call",
+      "evidence": "release_sha_and_metrics"
+    },
+    {
+      "id": "migration-failure",
+      "trigger": "sql_error_or_lock",
+      "owner": "data_platform",
+      "evidence": "preflight_postflight_log"
+    },
+    {
+      "id": "payment-incident",
+      "trigger": "provider_mismatch_or_duplicate_risk",
+      "owner": "finance_on_call",
+      "evidence": "provider_reconciliation"
+    },
+    {
+      "id": "queue-dlq",
+      "trigger": "retry_limit",
+      "owner": "worker_owner",
+      "evidence": "manual_replay_reason"
+    },
+    {
+      "id": "key-compromise",
+      "trigger": "secret_alert",
+      "owner": "security_on_call",
+      "evidence": "rotation_and_audit"
+    },
+    {
+      "id": "restore-drill",
+      "trigger": "quarterly_or_readiness",
+      "owner": "data_platform",
+      "evidence": "RPO_RTO_report"
+    },
+    {
+      "id": "tenant-isolation",
+      "trigger": "RLS_alert",
+      "owner": "security_on_call",
+      "evidence": "cross_tenant_test"
+    }
+  ],
+  "deployment": {
+    "flow": [
+      "pr",
+      "checks",
+      "merge_main",
+      "artifact_digest",
+      "staging",
+      "approval",
+      "canary",
+      "slo_gate",
+      "rollout"
+    ],
+    "database_strategy": "expand_migrate_contract",
+    "rollback": "code_artifact_rollback_or_forward_fix_for_db",
+    "feature_flags_required_for_sensitive_changes": true,
+    "payment_real_provider_disabled_in_canary": true
+  },
+  "observability": {
+    "logs": [
+      "structured_json",
+      "request_id",
+      "trace_id",
+      "tenant_hash",
+      "actor_hash",
+      "latency",
+      "redaction"
+    ],
+    "metrics": [
+      "availability",
+      "p95",
+      "4xx_5xx",
+      "db_locks",
+      "rls_denies",
+      "queue_age",
+      "dlq",
+      "provider_latency",
+      "payroll_close",
+      "reconciliation"
+    ],
+    "alerts": ["P0_data_payment", "P1_slo_queue_db", "P2_feature"],
+    "source_maps": "private"
+  },
+  "backup_dr": {
+    "pitr": true,
+    "daily_snapshot": true,
+    "object_versioning": true,
+    "default_rpo_minutes": 15,
+    "default_rto_hours": 4,
+    "restore_drill": "quarterly",
+    "legal_hold": true
+  },
+  "acceptance_case_ids": [
+    "OPS-A01",
+    "OPS-A02",
+    "OPS-A03",
+    "OPS-A04",
+    "OPS-A05",
+    "OPS-A06",
+    "OPS-A07",
+    "OPS-A08",
+    "OPS-A09",
+    "OPS-A10",
+    "OPS-A11",
+    "OPS-A12",
+    "OPS-A13",
+    "OPS-A14",
+    "OPS-A15",
+    "OPS-A16",
+    "OPS-A17",
+    "OPS-A18",
+    "OPS-A19",
+    "OPS-A20"
+  ],
+  "open_decisions": [
+    "hosting_provider_and_regions",
+    "artifact_registry",
+    "OIDC_deploy_identity",
+    "on_call_schedule",
+    "observability_vendor",
+    "canary_percentage",
+    "enterprise_rpo_rto"
+  ]
+}

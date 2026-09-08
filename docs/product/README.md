@@ -34,6 +34,8 @@
 26. [Security Control Manifest](SECURITY_CONTROL_MANIFEST.draft.json): 13 خطرًا و12 control و20 اختبار أمن؛ غير مفعّل تشغيليًا.
 27. [PART 13 — QA & Testing Strategy](PART_13_QA_TESTING_STRATEGY.ar.md): استراتيجية unit/component/contract/integration/API/E2E/visual/a11y/performance/security/DR ومصفوفة الوحدات.
 28. [QA Test Manifest](QA_TEST_MANIFEST.draft.json): 11 suite و14 مجالًا وبوابات التغطية والخروج؛ غير مفعّل تشغيليًا.
+29. [PART 14 — DevOps Architecture](PART_14_DEVOPS_ARCHITECTURE.ar.md): Git، CI/CD، البيئات، الأسرار، Supabase migrations، النشر، المراقبة، النسخ الاحتياطي، والتراجع.
+30. [DevOps Manifest](DEVOPS_MANIFEST.draft.json): 9 pipelines و6 بيئات و7 runbooks؛ غير مفعّل تشغيليًا.
 
 **الحالة:** اكتمل الاكتشاف المكتبي وأدوات البحث، وأُعدت استراتيجية المنتج ونطاق MVP والباقات كقرارات عمل مبدئية. لا توجد حتى الآن نتائج مقابلات أو تجارب مدفوعة أو أسعار معتمدة ضمن هذه المخرجات. مرحلة التوثيق لا تعني اعتماد الإطلاق أو تطبيق ترحيلات قاعدة البيانات.
 
@@ -54,7 +56,7 @@
 | 11    | API                       | مكتمل كمواصفات مبدئية؛ تنفيذ REST/OpenAPI والـadapters معلق          |
 | 12    | Security                  | مكتمل كمواصفات مبدئية؛ سد فجوات pilot واختبارات SEC معلق             |
 | 13    | QA & Testing              | مكتمل كمواصفات مبدئية؛ توسيع suites وgates الآلية معلق               |
-| 14    | DevOps                    | مخطط                                                                 |
+| 14    | DevOps                    | مكتمل كمواصفات مبدئية؛ تهيئة environments وCI/CD التشغيلية معلقة     |
 | 15    | Analytics                 | مخطط                                                                 |
 | 16    | Roadmap                   | مخطط                                                                 |
 | 17    | Development Backlog       | مخطط                                                                 |

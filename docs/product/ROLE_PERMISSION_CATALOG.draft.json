@@ -1,0 +1,208 @@
+{
+  "schema_version": "0.1.0",
+  "catalog_version": "draft-2026-09-08",
+  "status": "proposal",
+  "runtime_enabled": false,
+  "deny_by_default": true,
+  "authorization_formula": [
+    "active_session",
+    "tenant_membership",
+    "released_feature",
+    "subscription_entitlement",
+    "role_permission",
+    "data_scope",
+    "entity_and_period_status",
+    "separation_of_duties",
+    "audit_requirement"
+  ],
+  "roles": [
+    {
+      "id": "super_admin",
+      "kind": "platform",
+      "default_scope": "platform",
+      "sensitive_access": "break_glass_only"
+    },
+    {
+      "id": "support_agent",
+      "kind": "platform",
+      "default_scope": "ticket",
+      "sensitive_access": "masked_ticket_only"
+    },
+    {
+      "id": "billing_admin",
+      "kind": "platform",
+      "default_scope": "tenant_commerce",
+      "sensitive_access": "no_employee_payroll"
+    },
+    {
+      "id": "org_owner",
+      "kind": "customer",
+      "default_scope": "tenant",
+      "sensitive_access": "contract_required"
+    },
+    {
+      "id": "org_admin",
+      "kind": "customer",
+      "default_scope": "tenant",
+      "sensitive_access": "policy_limited"
+    },
+    {
+      "id": "hr_manager",
+      "kind": "customer",
+      "default_scope": "tenant",
+      "sensitive_access": "hr_restricted"
+    },
+    {
+      "id": "hr_operator",
+      "kind": "customer",
+      "default_scope": "department",
+      "sensitive_access": "hr_restricted"
+    },
+    {
+      "id": "payroll_officer",
+      "kind": "customer",
+      "default_scope": "payroll_group",
+      "sensitive_access": "payroll_restricted"
+    },
+    {
+      "id": "finance_officer",
+      "kind": "customer",
+      "default_scope": "entity",
+      "sensitive_access": "payment_restricted"
+    },
+    {
+      "id": "attendance_officer",
+      "kind": "customer",
+      "default_scope": "location",
+      "sensitive_access": "attendance_restricted"
+    },
+    {
+      "id": "line_manager",
+      "kind": "customer",
+      "default_scope": "team",
+      "sensitive_access": "masked_team_payroll"
+    },
+    {
+      "id": "recruiter",
+      "kind": "customer",
+      "default_scope": "department",
+      "sensitive_access": "candidate_restricted"
+    },
+    {
+      "id": "performance_lead",
+      "kind": "customer",
+      "default_scope": "department",
+      "sensitive_access": "evaluation_restricted"
+    },
+    {
+      "id": "asset_manager",
+      "kind": "customer",
+      "default_scope": "location",
+      "sensitive_access": "asset_restricted"
+    },
+    {
+      "id": "auditor",
+      "kind": "customer",
+      "default_scope": "tenant",
+      "sensitive_access": "read_only_scoped"
+    },
+    {
+      "id": "employee",
+      "kind": "customer",
+      "default_scope": "self",
+      "sensitive_access": "self_only"
+    }
+  ],
+  "scopes": [
+    "self",
+    "team",
+    "department",
+    "location",
+    "entity",
+    "payroll_group",
+    "tenant",
+    "tenant_commerce",
+    "platform",
+    "ticket"
+  ],
+  "field_levels": [
+    "public_profile",
+    "confidential_hr",
+    "restricted_payroll",
+    "restricted_identity",
+    "security_secret"
+  ],
+  "actions": ["view", "create", "edit", "archive", "approve", "export", "execute", "manage"],
+  "separation_of_duties": [
+    {
+      "prepare": "payroll_officer",
+      "approve": "independent_payroll_approver",
+      "execute": "finance_officer"
+    },
+    { "request": "employee", "approve": "line_manager_or_hr_manager", "self_approval": false },
+    {
+      "prepare": "settlement_hr_or_payroll",
+      "review": "finance_or_hr_manager",
+      "close": "independent_authorizer"
+    },
+    { "grant": "org_admin", "target": "super_admin", "requires": "org_owner_or_platform_policy" }
+  ],
+  "delegation": {
+    "wildcard_permissions": false,
+    "end_at_required": true,
+    "default_max_days": 30,
+    "reason_required_for": ["restricted_payroll", "restricted_identity", "payment", "role_grant"],
+    "membership_or_revocation_overrides": true
+  },
+  "baseline_controls": [
+    "tenant_id_on_tenant_owned_records",
+    "server_side_authorization",
+    "database_rls",
+    "private_storage_and_signed_urls",
+    "append_only_audit",
+    "mfa_for_sensitive_roles",
+    "idempotency_for_sensitive_commands",
+    "break_glass_expiry"
+  ],
+  "permission_examples": [
+    { "code": "people.employee.view", "scope": "department", "field_level": "public_profile" },
+    { "code": "people.salary.view", "scope": "payroll_group", "field_level": "restricted_payroll" },
+    { "code": "attendance.exception.approve", "scope": "team", "field_level": "confidential_hr" },
+    {
+      "code": "payroll.run.calculate",
+      "scope": "payroll_group",
+      "field_level": "restricted_payroll"
+    },
+    { "code": "payroll.run.lock", "scope": "payroll_group", "requires_separation": true },
+    { "code": "payments.transfer.record", "scope": "entity", "requires_separation": true },
+    {
+      "code": "documents.employee.download_restricted",
+      "scope": "entity",
+      "field_level": "restricted_identity",
+      "requires_reason": true
+    },
+    {
+      "code": "reports.export.restricted",
+      "scope": "tenant",
+      "field_level": "restricted_payroll",
+      "requires_reason": true
+    }
+  ],
+  "error_codes": [
+    "unauthenticated",
+    "membership_inactive",
+    "tenant_scope_denied",
+    "permission_denied",
+    "feature_not_released",
+    "entitlement_missing",
+    "delegation_expired",
+    "separation_of_duties_violation",
+    "restricted_field_denied",
+    "break_glass_required"
+  ],
+  "open_decisions": [
+    "role_owner_mapping",
+    "tenant_role_assignment_schema",
+    "enterprise_support_access_policy"
+  ]
+}

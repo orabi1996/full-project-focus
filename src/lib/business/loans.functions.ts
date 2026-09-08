@@ -10,6 +10,51 @@ const FINANCE_ROLES = [
   "finance_officer",
 ] as const;
 
+export const requestLoanServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { employeeId: string; principalAmount: number; monthlyInstallment: number; totalInstallments: number; reason: string; loanType?: "personal_advance" | "salary_advance" }) => {
+    if (!input.employeeId || !(input.principalAmount > 0) || !(input.monthlyInstallment > 0) || !(input.totalInstallments >= 1) || !input.reason?.trim()) throw new Error("بيانات السلفة غير مكتملة");
+    if (input.monthlyInstallment * input.totalInstallments < input.principalAmount) throw new Error("إجمالي الأقساط أقل من قيمة السلفة");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as any;
+    const { data: employee } = await supabase.from("employees").select("id, total_salary, basic_salary").eq("id", data.employeeId).maybeSingle();
+    if (!employee) throw new Error("الموظف غير موجود");
+    const { data: activeLoans } = await supabase.from("loans").select("remaining_balance").eq("employee_id", data.employeeId).in("status", ["pending", "approved", "active"]);
+    const outstanding = (activeLoans ?? []).reduce((sum: number, row: any) => sum + Number(row.remaining_balance ?? 0), 0);
+    const salary = Number(employee.total_salary ?? employee.basic_salary ?? 0);
+    if (data.loanType === "salary_advance" && data.principalAmount > salary * 0.5) throw new Error("السلفة المبكرة لا تتجاوز 50% من راتب الموظف");
+    if (outstanding + data.principalAmount > salary * 3) throw new Error("تجاوز الحد الأقصى للمديونية المسموح بها");
+    const { data: loan, error } = await supabase.from("loans").insert({
+      employee_id: data.employeeId, loan_type: data.loanType ?? "personal_advance", principal_amount: round2(data.principalAmount),
+      monthly_installment: round2(data.monthlyInstallment), total_installments: data.totalInstallments,
+      remaining_balance: round2(data.principalAmount), status: "pending",
+    }).select("id").single();
+    if (error) throw new Error(`تعذر حفظ طلب السلفة: ${error.message}`);
+    return { id: loan.id };
+  });
+
+export const requestSalaryAdvanceServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { employeeId: string; periodYear: number; periodMonth: number; amount: number; reason: string }) => {
+    if (!input.employeeId || input.periodMonth < 1 || input.periodMonth > 12 || !(input.amount > 0) || !input.reason?.trim()) throw new Error("بيانات الصرف المبكر غير مكتملة");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as any;
+    const { data: employee } = await supabase.from("employees").select("total_salary, basic_salary").eq("id", data.employeeId).maybeSingle();
+    if (!employee) throw new Error("الموظف غير موجود");
+    const salary = Number(employee.total_salary ?? employee.basic_salary ?? 0);
+    if (data.amount > salary * 0.5) throw new Error("الصرف المبكر لا يتجاوز 50% من الراتب");
+    const { data: advance, error } = await supabase.from("salary_advances").insert({
+      employee_id: data.employeeId, period_year: data.periodYear, period_month: data.periodMonth,
+      requested_amount: round2(data.amount), reason: data.reason.trim(), requested_by: context.userId,
+    }).select("id").single();
+    if (error) throw new Error(`تعذر حفظ طلب الصرف المبكر: ${error.message}`);
+    return { id: advance.id };
+  });
+
 export interface PendingLoanRow {
   id: string;
   employeeId: string;
@@ -97,61 +142,10 @@ export const disburseApprovedLoansServer = createServerFn({ method: "POST" })
       "finance_officer",
     ]);
 
-    let query = supabase
-      .from("loans")
-      .select(
-        "id, employee_id, principal_amount, approved_amount, installment_amount, monthly_installment, installments_total, total_installments",
-      )
-      .eq("status", "approved");
-    if (data.loanIds?.length) query = query.in("id", data.loanIds);
-
-    const { data: loans, error } = await query;
-    if (error) throw new Error(`تعذر قراءة السلف: ${error.message}`);
-    if (!loans?.length) throw new Error("لا توجد سلف معتمدة بانتظار الصرف");
-
-    const { data: account, error: accountError } = await supabase
-      .from("company_bank_accounts")
-      .select("id, current_balance")
-      .eq("id", data.bankAccountId)
-      .maybeSingle();
-    if (accountError || !account) throw new Error("حساب المنشأة غير موجود");
-
-    const total = round2(
-      loans.reduce(
-        (sum: number, l: any) => sum + Number(l.approved_amount ?? l.principal_amount ?? 0),
-        0,
-      ),
-    );
-    const balance = Number(account.current_balance ?? 0);
-    if (total > balance) throw new Error("رصيد حساب المنشأة لا يكفي لصرف السلف المعتمدة");
-
-    const now = new Date().toISOString();
-    for (const loan of loans) {
-      const amount = round2(Number(loan.approved_amount ?? loan.principal_amount ?? 0));
-      const installments = Number(loan.installments_total ?? loan.total_installments ?? 1) || 1;
-      await supabase
-        .from("loans")
-        .update({
-          status: "active",
-          approved_amount: amount,
-          outstanding_amount: amount,
-          remaining_balance: amount,
-          installment_amount: round2(
-            Number(loan.installment_amount ?? loan.monthly_installment ?? amount / installments),
-          ),
-          decided_at: now,
-        })
-        .eq("id", loan.id);
-    }
-
-    await supabase
-      .from("company_bank_accounts")
-      .update({ current_balance: round2(balance - total) })
-      .eq("id", account.id);
-
-    return {
-      disbursed: loans.length,
-      totalDisbursed: total,
-      remainingBalance: round2(balance - total),
-    };
+    const { data: result, error } = await supabase.rpc("disburse_loans_atomic", {
+      p_bank_account_id: data.bankAccountId,
+      p_loan_ids: data.loanIds?.length ? data.loanIds : null,
+    });
+    if (error) throw new Error(`تعذر صرف السلف: ${error.message}`);
+    return result;
   });

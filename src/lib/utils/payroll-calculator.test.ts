@@ -54,4 +54,17 @@ describe("calculateEmployeePayroll", () => {
   it("rejects negative payroll inputs", () => {
     expect(() => calculateEmployeePayroll({ ...baseInput, absenceDays: -1 })).toThrow();
   });
+
+  it("charges late and early-departure minutes after their grace periods", () => {
+    const result = calculateEmployeePayroll({
+      ...baseInput,
+      overtimeHours: 0,
+      lateMinutes: 20,
+      lateGraceMinutes: 10,
+      earlyDepartureMinutes: 25,
+      earlyDepartureGraceMinutes: 5,
+    });
+    expect(result.lateDeduction).toBe(9.38);
+    expect(result.earlyDepartureDeduction).toBe(18.75);
+  });
 });

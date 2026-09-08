@@ -14,8 +14,15 @@ export interface PayrollCalculationInput {
   unpaidLeaveDays?: number;
   absenceDays?: number;
   lateMinutes?: number;
+  earlyDepartureMinutes?: number;
+  lateGraceMinutes?: number;
+  earlyDepartureGraceMinutes?: number;
+  deductionCapPercent?: number;
+  deductionRoundingMinutes?: number;
+  deductionRoundingMode?: "exact" | "up" | "nearest";
   overtimeHours?: number;
   loanInstallment?: number;
+  salaryAdvanceDeduction?: number;
   bonus?: number;
   isSaudiNational?: boolean;
   gosiScheme?: "legacy" | "new_1445";
@@ -40,9 +47,11 @@ export interface PayrollCalculationResult {
   unpaidLeaveDeduction: number;
   absenceDeduction: number;
   lateDeduction: number;
+  earlyDepartureDeduction: number;
   gosiEmployee: number;
   gosiEmployer: number;
   loanDeduction: number;
+  salaryAdvanceDeduction: number;
   totalEarnings: number;
   totalDeductions: number;
   netSalary: number;
@@ -62,8 +71,15 @@ export function calculateEmployeePayroll(input: PayrollCalculationInput): Payrol
     unpaidLeaveDays = 0,
     absenceDays = 0,
     lateMinutes = 0,
+    earlyDepartureMinutes = 0,
+    lateGraceMinutes = 0,
+    earlyDepartureGraceMinutes = 0,
+    deductionCapPercent = 100,
+    deductionRoundingMinutes = 1,
+    deductionRoundingMode = "exact",
     overtimeHours = 0,
     loanInstallment = 0,
+    salaryAdvanceDeduction = 0,
     bonus = 0,
     isSaudiNational = true,
     gosiScheme = "legacy",
@@ -81,8 +97,10 @@ export function calculateEmployeePayroll(input: PayrollCalculationInput): Payrol
       unpaidLeaveDays,
       absenceDays,
       lateMinutes,
+      earlyDepartureMinutes,
       overtimeHours,
       loanInstallment,
+      salaryAdvanceDeduction,
       bonus,
     ].some((value) => value < 0)
   ) {
@@ -109,7 +127,17 @@ export function calculateEmployeePayroll(input: PayrollCalculationInput): Payrol
 
   // Late deduction (per minute based on standard wage rate)
   const minuteRate = hourlyRate / 60;
-  const lateDeduction = Number((minuteRate * lateMinutes).toFixed(2));
+  const roundMinutes = (minutes: number) => {
+    const value = Math.max(0, minutes);
+    if (deductionRoundingMinutes <= 1 || deductionRoundingMode === "exact") return value;
+    const units = value / deductionRoundingMinutes;
+    const rounded = deductionRoundingMode === "up" ? Math.ceil(units) : Math.round(units);
+    return rounded * deductionRoundingMinutes;
+  };
+  const lateDeduction = Number((minuteRate * roundMinutes(lateMinutes - lateGraceMinutes)).toFixed(2));
+  const earlyDepartureDeduction = Number(
+    (minuteRate * roundMinutes(earlyDepartureMinutes - earlyDepartureGraceMinutes)).toFixed(2),
+  );
 
   // 5. GOSI / Social Insurance calculation (Saudi standard)
   // Capped at 45,000 SAR on (Basic + Housing)
@@ -130,14 +158,19 @@ export function calculateEmployeePayroll(input: PayrollCalculationInput): Payrol
 
   // 6. Totals
   const totalEarnings = Number((totalMonthlyWage + overtimeAmount + bonus).toFixed(2));
-  const totalDeductions = Number(
+  const uncappedDeductions = Number(
     (
       unpaidLeaveDeduction +
       absenceDeduction +
       lateDeduction +
+      earlyDepartureDeduction +
       gosiEmployee +
-      loanInstallment
+      loanInstallment +
+      salaryAdvanceDeduction
     ).toFixed(2),
+  );
+  const totalDeductions = Number(
+    Math.min(uncappedDeductions, totalEarnings * Math.max(0, deductionCapPercent) / 100).toFixed(2),
   );
 
   const netSalary = Math.max(0, Number((totalEarnings - totalDeductions).toFixed(2)));
@@ -150,9 +183,11 @@ export function calculateEmployeePayroll(input: PayrollCalculationInput): Payrol
     unpaidLeaveDeduction,
     absenceDeduction,
     lateDeduction,
+    earlyDepartureDeduction,
     gosiEmployee,
     gosiEmployer,
     loanDeduction: loanInstallment,
+    salaryAdvanceDeduction,
     totalEarnings,
     totalDeductions,
     netSalary,

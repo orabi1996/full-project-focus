@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
 import { BiometricTerminalPanel } from "./BiometricTerminalPanel";
@@ -40,6 +40,7 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import type { OvertimeRecord } from "../../types";
+import { getAttendancePolicyServer, updateAttendancePolicyServer } from "../../lib/business/attendance-requests.functions";
 
 export const AttendanceView: React.FC = () => {
   const {
@@ -93,6 +94,41 @@ export const AttendanceView: React.FC = () => {
   const [otStartTime, setOtStartTime] = useState("17:00");
   const [otEndTime, setOtEndTime] = useState("20:00");
   const [otHours, setOtHours] = useState(3.0);
+  const [lateGrace, setLateGrace] = useState(15);
+  const [earlyGrace, setEarlyGrace] = useState(15);
+  const [roundingMinutes, setRoundingMinutes] = useState(1);
+  const [deductionCap, setDeductionCap] = useState(100);
+  const [policySaving, setPolicySaving] = useState(false);
+
+  const saveAttendancePolicy = async () => {
+    setPolicySaving(true);
+    try {
+      await updateAttendancePolicyServer({
+        data: {
+          lateGraceMinutes: lateGrace,
+          earlyDepartureGraceMinutes: earlyGrace,
+          roundingMinutes,
+          roundingMode: "up",
+          deductionCapPercent: deductionCap,
+        },
+      });
+      toast.success("تم حفظ سياسة التأخير والانصراف المبكر بنجاح");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر حفظ سياسة الخصم");
+    } finally {
+      setPolicySaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!canManageAttendance) return;
+    void getAttendancePolicyServer({ data: undefined as never }).then((policy) => {
+      setLateGrace(Number(policy.late_grace_minutes ?? 15));
+      setEarlyGrace(Number(policy.early_departure_grace_minutes ?? 15));
+      setRoundingMinutes(Number(policy.rounding_minutes ?? 1));
+      setDeductionCap(Number(policy.deduction_cap_percent ?? 100));
+    }).catch(() => undefined);
+  }, [canManageAttendance]);
   const [otRateType, setOtRateType] = useState<"regular_150" | "holiday_200">("regular_150");
   const [otReason, setOtReason] = useState("");
 
@@ -952,6 +988,17 @@ export const AttendanceView: React.FC = () => {
                   </span>
                   لا يعمل العامل أكثر من 5 ساعات متتالية دون فترة للراحة والصلاة وتناول الطعام لا
                   تقل عن نصف ساعة في المرة الواحدة.
+                </div>
+
+                <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-3 text-foreground">
+                  <p className="font-black">سياسة الخصم القابلة للتهيئة</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="space-y-1"><span className="font-bold">سماح التأخير (دقيقة)</span><input type="number" min="0" value={lateGrace} onChange={(e) => setLateGrace(Number(e.target.value))} className="w-full h-9 rounded-xl border bg-background px-2" /></label>
+                    <label className="space-y-1"><span className="font-bold">سماح الانصراف (دقيقة)</span><input type="number" min="0" value={earlyGrace} onChange={(e) => setEarlyGrace(Number(e.target.value))} className="w-full h-9 rounded-xl border bg-background px-2" /></label>
+                    <label className="space-y-1"><span className="font-bold">التقريب بالدقائق</span><select value={roundingMinutes} onChange={(e) => setRoundingMinutes(Number(e.target.value))} className="w-full h-9 rounded-xl border bg-background px-2"><option value="1">دقيق</option><option value="5">5</option><option value="10">10</option><option value="15">15</option><option value="30">30</option><option value="60">60</option></select></label>
+                    <label className="space-y-1"><span className="font-bold">سقف الخصم (%)</span><input type="number" min="0" max="100" value={deductionCap} onChange={(e) => setDeductionCap(Number(e.target.value))} className="w-full h-9 rounded-xl border bg-background px-2" /></label>
+                  </div>
+                  <Button onClick={saveAttendancePolicy} disabled={policySaving || !canManageAttendance} size="sm" className="rounded-xl font-bold">{policySaving ? "جارٍ الحفظ..." : "حفظ سياسة الخصم"}</Button>
                 </div>
               </div>
             </div>

@@ -21,6 +21,8 @@ import type {
   LoanRecord,
   OrgUnit,
   ApprovalChain,
+  AttendanceCorrectionRequest,
+  OvertimeRecord,
   PayrollGroup,
   PayrollRun,
   PerformanceCycle,
@@ -73,6 +75,8 @@ export interface OperationalSnapshot {
   jobOffers: JobOffer[];
   assets: HardwareAsset[];
   companyDocs: CompanyDocument[];
+  attendanceCorrections: AttendanceCorrectionRequest[];
+  overtimeRecords: OvertimeRecord[];
   auditLogs: AuditLogEntry[];
   notifications: AppNotification[];
   accountingJournals: AccountingJournalEntry[];
@@ -128,6 +132,8 @@ export async function fetchOperationalSnapshot(
     offersResult,
     assetsResult,
     documentsResult,
+    correctionsResult,
+    overtimeResult,
     auditResult,
     notificationsResult,
     journalsResult,
@@ -169,6 +175,8 @@ export async function fetchOperationalSnapshot(
       .from("company_documents")
       .select("*")
       .order("created_at", { ascending: false }),
+    (enterpriseSupabase as any).from("attendance_corrections").select("*").order("requested_at", { ascending: false }),
+    (enterpriseSupabase as any).from("overtime_requests").select("*").order("requested_at", { ascending: false }),
     enterpriseSupabase
       .from("audit_events")
       .select("*")
@@ -211,6 +219,8 @@ export async function fetchOperationalSnapshot(
     offersResult,
     assetsResult,
     documentsResult,
+    correctionsResult,
+    overtimeResult,
     auditResult,
     notificationsResult,
     journalsResult,
@@ -653,6 +663,46 @@ export async function fetchOperationalSnapshot(
       requiresAcknowledgment: row.requires_acknowledgment,
       acknowledgedCount: row.acknowledged_count,
     })),
+    attendanceCorrections: (correctionsResult.data ?? []).map((row: any) => {
+      const employee = employeeMap.get(row.employee_id);
+      return {
+        id: row.id,
+        employeeId: row.employee_id,
+        employeeNo: employee?.employeeNo ?? "",
+        employeeName: employeeName(employee),
+        departmentName: employee?.departmentName ?? "",
+        workDate: row.work_date,
+        correctInTime: row.correct_in?.slice(0, 5) ?? "",
+        correctOutTime: row.correct_out?.slice(0, 5) ?? "",
+        reason: row.reason,
+        status: row.status === "approved" || row.status === "rejected" ? row.status : "pending",
+        submittedAt: row.requested_at,
+        reviewedAt: row.reviewed_at ?? undefined,
+      } as AttendanceCorrectionRequest;
+    }),
+    overtimeRecords: (overtimeResult.data ?? []).map((row: any) => {
+      const employee = employeeMap.get(row.employee_id);
+      return {
+        id: row.id,
+        employeeId: row.employee_id,
+        employeeNo: employee?.employeeNo ?? "",
+        employeeName: employeeName(employee),
+        departmentName: employee?.departmentName ?? "",
+        workDate: row.work_date,
+        startTime: "",
+        endTime: "",
+        hours: numberValue(row.hours),
+        rateMultiplier: numberValue(row.rate_multiplier) || 1.5,
+        rateType: numberValue(row.rate_multiplier) >= 2 ? "holiday_200" : "regular_150",
+        reason: row.reason,
+        hourlyRate: numberValue(row.hourly_rate),
+        totalAmount: numberValue(row.total_amount),
+        status: row.status === "approved" || row.status === "rejected" ? row.status : "pending",
+        createdAt: row.requested_at,
+        approvedBy: row.reviewed_by ?? undefined,
+        approvedAt: row.reviewed_at ?? undefined,
+      } as OvertimeRecord;
+    }),
     auditLogs: (auditResult.data ?? []).map((row) => ({
       id: row.id,
       actorId: row.actor_id ?? "system",
@@ -1053,6 +1103,15 @@ export async function createApprovalChainRecord(chain: Omit<ApprovalChain, "id">
     is_default: chain.isDefault,
     status: chain.status,
   } as unknown as never);
+  if (error) throw new Error(error.message);
+}
+
+/** Archive an approval chain without deleting historical request references. */
+export async function archiveApprovalChainRecord(id: string) {
+  const { error } = await enterpriseSupabase
+    .from("approval_chains")
+    .update({ status: "inactive" })
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }
 

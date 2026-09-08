@@ -2,7 +2,8 @@
 -- No bank API is called here. A finance user records an externally completed transfer.
 ALTER TABLE public.payroll_details
   ADD COLUMN IF NOT EXISTS working_days integer NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS absent_days integer NOT NULL DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS absent_days integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS salary_advance_deduction numeric(12,2) NOT NULL DEFAULT 0;
 ALTER TABLE public.payroll_runs
   ADD COLUMN IF NOT EXISTS payment_bank_reference text,
   ADD COLUMN IF NOT EXISTS payment_account_id uuid REFERENCES public.company_bank_accounts(id),
@@ -78,11 +79,11 @@ BEGIN
     INSERT INTO public.payroll_details (
       payroll_run_id, employee_id, basic_salary, housing_allowance, transport_allowance,
       other_allowances, overtime_hours, overtime_amount, bonus_amount, unpaid_leave_deduction,
-      absence_late_deduction, loan_deduction, gosi_employee_deduction, other_deductions,
+      absence_late_deduction, loan_deduction, salary_advance_deduction, gosi_employee_deduction, other_deductions,
       gross_salary, total_deductions, net_salary, working_days, absent_days
     ) SELECT v_id, d.employee_id, d.basic_salary, d.housing_allowance, d.transport_allowance,
       d.other_allowances, d.overtime_hours, d.overtime_amount, d.bonus_amount, d.unpaid_leave_deduction,
-      d.absence_late_deduction, d.loan_deduction, d.gosi_employee_deduction, d.other_deductions,
+      d.absence_late_deduction, d.loan_deduction, d.salary_advance_deduction, d.gosi_employee_deduction, d.other_deductions,
       d.gross_salary, d.total_deductions, d.net_salary, d.working_days, d.absent_days
       FROM jsonb_populate_record(NULL::public.payroll_details, v_detail) d;
   END LOOP;

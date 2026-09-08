@@ -49,10 +49,18 @@ import {
   INITIAL_ENTERPRISE_GROUPS,
 } from "../auth/rbac-definitions";
 import {
+  submitAttendanceCorrectionServer,
+  decideAttendanceCorrectionServer,
+  submitOvertimeRequestServer,
+  decideOvertimeRequestServer,
+} from "../business/attendance-requests.functions";
+import { requestLoanServer } from "../business/loans.functions";
+import {
   adjustLeaveBalanceRecord,
   acknowledgeDocumentRecord,
   assignAssetRecord,
   createApprovalChainRecord,
+  archiveApprovalChainRecord,
   createAssetRecord,
   createAuditEventRecord,
   createCandidateRecord,
@@ -239,7 +247,7 @@ interface AppContextType {
   rejectRequest: (requestId: string, note?: string) => Promise<boolean>;
   returnRequest: (requestId: string, note?: string) => Promise<boolean>;
   addApprovalChain: (chain: Omit<ApprovalChain, "id">) => void;
-  deleteApprovalChain: (id: string) => void;
+  deleteApprovalChain: (id: string) => Promise<boolean>;
   addDelegationRule: (rule: Omit<DelegationRule, "id" | "createdAt" | "status">) => void;
   revokeDelegationRule: (id: string) => void;
 
@@ -270,12 +278,12 @@ interface AppContextType {
     correctIn?: string;
     correctOut?: string;
     reason: string;
-  }) => void;
-  submitOvertimeRequest: (record: Omit<OvertimeRecord, "id" | "status" | "createdAt">) => void;
-  approveOvertimeRequest: (id: string) => void;
-  rejectOvertimeRequest: (id: string) => void;
-  approveAttendanceCorrection: (id: string) => void;
-  rejectAttendanceCorrection: (id: string) => void;
+  }) => Promise<boolean>;
+  submitOvertimeRequest: (record: Omit<OvertimeRecord, "id" | "status" | "createdAt">) => Promise<boolean>;
+  approveOvertimeRequest: (id: string) => Promise<boolean>;
+  rejectOvertimeRequest: (id: string) => Promise<boolean>;
+  approveAttendanceCorrection: (id: string) => Promise<boolean>;
+  rejectAttendanceCorrection: (id: string) => Promise<boolean>;
 
   // Payroll & Loans
   processPayrollRun: (groupId: string, year: number, month: number) => void;
@@ -509,6 +517,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setJobOffers(operational.jobOffers);
       setAssets(operational.assets);
       setCompanyDocs(operational.companyDocs);
+      setAttendanceCorrections(operational.attendanceCorrections);
+      setOvertimeRecords(operational.overtimeRecords);
       setAuditLogs(operational.auditLogs);
       setNotifications(operational.notifications);
       setAccountingJournals(operational.accountingJournals);
@@ -1251,19 +1261,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addApprovalChain = (chain: Omit<ApprovalChain, "id">) => {
     const newChain: ApprovalChain = { ...chain, id: `chain-${Date.now()}` };
     setApprovalChains((prev) => [newChain, ...prev]);
-    persistLiveChange(() => createApprovalChainRecord(chain));
-    logAuditEvent(
-      "إنشاء مسار موافقات",
-      "ApprovalChain",
-      newChain.id,
-      newChain.nameAr,
-      `نوع الطلب: ${newChain.requestType}`,
+    persistLiveChange(() => createApprovalChainRecord(chain), `approval-chain:create:${newChain.id}`).then(
+      ({ ok }) => {
+        if (!ok) {
+          setApprovalChains((prev) => prev.filter((item) => item.id !== newChain.id));
+          return;
+        }
+        logAuditEvent(
+          "إنشاء مسار موافقات",
+          "ApprovalChain",
+          newChain.id,
+          newChain.nameAr,
+          `نوع الطلب: ${newChain.requestType}`,
+        );
+      },
     );
   };
 
   const deleteApprovalChain = (id: string) => {
-    setApprovalChains((prev) => prev.filter((c) => c.id !== id));
-    toast.success("تم حذف مسار الاعتماد بنجاح");
+    const target = approvalChains.find((chain) => chain.id === id);
+    if (!target) return Promise.resolve(false);
+
+    // Keep historical requests reproducible: archive the chain instead of deleting it.
+    const previous = approvalChains;
+    setApprovalChains((prev) =>
+      prev.map((chain) => (chain.id === id ? { ...chain, status: "inactive" } : chain)),
+    );
+
+    return persistLiveChange(() => archiveApprovalChainRecord(id), `approval-chain:archive:${id}`).then(
+      ({ ok }) => {
+        if (!ok) setApprovalChains(previous);
+        else {
+          toast.success("تم أرشفة مسار الاعتماد وإيقافه بنجاح");
+          logAuditEvent("أرشفة مسار موافقات", "ApprovalChain", id, target.nameAr, "تم إيقاف المسار دون حذف تاريخه");
+        }
+        return ok;
+      },
+    );
   };
 
   const addDelegationRule = (rule: Omit<DelegationRule, "id" | "createdAt" | "status">) => {
@@ -1476,18 +1510,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
-  const submitAttendanceCorrection = (payload: {
+  const submitAttendanceCorrection = async (payload: {
     workDate: string;
     correctIn?: string;
     correctOut?: string;
     reason: string;
   }) => {
+    let serverRequestId: string | undefined;
+    const persisted = dataMode === "live"
+      ? await persistLiveChange(
+          async () => {
+            const result = await submitAttendanceCorrectionServer({
+              data: { employeeId: currentUser.id, ...payload },
+            });
+            serverRequestId = result.id;
+            return result as unknown as void;
+          },
+          `attendance-correction:create:${currentUser.id}:${payload.workDate}`,
+        )
+      : { ok: true };
+    if (!persisted.ok) return false;
     submitRequest({
       type: "attendance_correction",
       payload,
     });
     const newReq: AttendanceCorrectionRequest = {
-      id: `cor-${Date.now()}`,
+      id: serverRequestId ?? `cor-${Date.now()}`,
       employeeId: currentUser.id,
       employeeNo: currentUser.employeeNo,
       employeeName: `${currentUser.firstNameAr} ${currentUser.lastNameAr}`,
@@ -1501,11 +1549,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setAttendanceCorrections((prev) => [newReq, ...prev]);
     toast.success("تم تقديم طلب تصحيح البصمة بنجاح وإرساله للمدير المباشر للاعتماد");
+    return true;
   };
 
-  const approveAttendanceCorrection = (id: string) => {
+  const approveAttendanceCorrection = async (id: string) => {
     const correction = attendanceCorrections.find((c) => c.id === id);
-    if (!correction) return;
+    if (!correction) return false;
+
+    if (dataMode === "live") {
+      const result = await persistLiveChange(
+        () => decideAttendanceCorrectionServer({ data: { id, decision: "approved" } }) as unknown as Promise<void>,
+        `attendance-correction:approve:${id}`,
+      );
+      if (!result.ok) return false;
+    }
 
     setAttendanceCorrections((prev) =>
       prev.map((c) =>
@@ -1570,29 +1627,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     toast.success(`تم اعتماد تصحيح البصمة للموظف (${correction.employeeName}) بنجاح`);
+    return true;
   };
 
-  const rejectAttendanceCorrection = (id: string) => {
+  const rejectAttendanceCorrection = async (id: string) => {
+    if (dataMode === "live") {
+      const result = await persistLiveChange(
+        () => decideAttendanceCorrectionServer({ data: { id, decision: "rejected" } }) as unknown as Promise<void>,
+        `attendance-correction:reject:${id}`,
+      );
+      if (!result.ok) return false;
+    }
     setAttendanceCorrections((prev) =>
       prev.map((c) => (c.id === id ? { ...c, status: "rejected" } : c)),
     );
     toast.info("تم رفض طلب تصحيح البصمة");
+    return true;
   };
 
-  const submitOvertimeRequest = (record: Omit<OvertimeRecord, "id" | "status" | "createdAt">) => {
+  const submitOvertimeRequest = async (record: Omit<OvertimeRecord, "id" | "status" | "createdAt">) => {
+    let serverRequestId: string | undefined;
+    if (dataMode === "live") {
+      const result = await persistLiveChange(
+        async () => {
+          const response = await submitOvertimeRequestServer({ data: { employeeId: currentUser.id, workDate: record.workDate, hours: record.hours, hourlyRate: record.hourlyRate, rateMultiplier: record.rateMultiplier, reason: record.reason } });
+          serverRequestId = response.id;
+        },
+        `overtime:create:${currentUser.id}:${record.workDate}`,
+      );
+      if (!result.ok) return false;
+    }
     const newRecord: OvertimeRecord = {
       ...record,
-      id: `ot-${Date.now()}`,
+      id: serverRequestId ?? `ot-${Date.now()}`,
       status: "pending",
       createdAt: new Date().toISOString(),
     };
     setOvertimeRecords((prev) => [newRecord, ...prev]);
     toast.success(`تم تقديم طلب العمل الإضافي (${record.hours} ساعات) بنجاح وإحالته للاعتماد`);
+    return true;
   };
 
-  const approveOvertimeRequest = (id: string) => {
+  const approveOvertimeRequest = async (id: string) => {
     const target = overtimeRecords.find((r) => r.id === id);
-    if (!target) return;
+    if (!target) return false;
+    if (dataMode === "live") {
+      const result = await persistLiveChange(
+        () => decideOvertimeRequestServer({ data: { id, decision: "approved" } }) as unknown as Promise<void>,
+        `overtime:approve:${id}`,
+      );
+      if (!result.ok) return false;
+    }
 
     setOvertimeRecords((prev) =>
       prev.map((r) =>
@@ -1619,11 +1704,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     toast.success(
       `تم اعتماد ساعات العمل الإضافي للموظف (${target.employeeName}) بمبلغ ${target.totalAmount.toLocaleString()} ر.س واحتسابها ضمن الرواتب`,
     );
+    return true;
   };
 
-  const rejectOvertimeRequest = (id: string) => {
+  const rejectOvertimeRequest = async (id: string) => {
+    if (dataMode === "live") {
+      const result = await persistLiveChange(
+        () => decideOvertimeRequestServer({ data: { id, decision: "rejected" } }) as unknown as Promise<void>,
+        `overtime:reject:${id}`,
+      );
+      if (!result.ok) return false;
+    }
     setOvertimeRecords((prev) => prev.map((r) => (r.id === id ? { ...r, status: "rejected" } : r)));
     toast.info("تم رفض طلب العمل الإضافي");
+    return true;
   };
 
   // Payroll Operations
@@ -1800,7 +1894,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const createLoan = (payload: {
+  const createLoan = async (payload: {
     principalAmount: number;
     monthlyInstallment: number;
     totalInstallments: number;
@@ -1820,7 +1914,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       reason: payload.reason,
       status: "active",
     };
-    if (dataMode === "demo") setLoans((prev) => [newLoan, ...prev]);
+    if (dataMode === "demo") {
+      setLoans((prev) => [newLoan, ...prev]);
+    } else {
+      const result = await persistLiveChange(
+        async () => { await requestLoanServer({ data: { employeeId: currentUser.id, ...payload } }); },
+        `loan:create:${currentUser.id}:${payload.principalAmount}`,
+      );
+      if (!result.ok) return;
+    }
     submitRequest({
       type: "loan_advance",
       payload,

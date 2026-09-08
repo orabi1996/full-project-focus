@@ -60,7 +60,7 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
 
   const employeeIds = employees.map((e: any) => e.id);
 
-  const [salaryRes, attendanceRes, loanRes] = await Promise.all([
+  const [salaryRes, attendanceRes, loanRes, policyRes, advanceRes] = await Promise.all([
     supabase
       .from("salary_profiles")
       .select("*")
@@ -69,7 +69,7 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
       .order("effective_from", { ascending: false }),
     supabase
       .from("attendance_records")
-      .select("employee_id, status, late_minutes, overtime_minutes")
+      .select("employee_id, status, late_minutes, early_departure_minutes, overtime_minutes")
       .in("employee_id", employeeIds)
       .gte("work_date", periodStart)
       .lte("work_date", periodEnd),
@@ -78,12 +78,19 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
       .select("id, employee_id, monthly_installment, remaining_balance")
       .in("employee_id", employeeIds)
       .eq("status", "active"),
+    (supabase as any).from("attendance_policies").select("late_grace_minutes, early_departure_grace_minutes, rounding_minutes, rounding_mode, deduction_cap_percent").eq("scope_key", "global").maybeSingle(),
+    (supabase as any).from("salary_advances").select("employee_id, approved_amount, requested_amount, status").eq("period_year", year).eq("period_month", month).in("status", ["approved", "paid"]),
   ]);
 
-  for (const result of [salaryRes, attendanceRes, loanRes]) {
+  for (const result of [salaryRes, attendanceRes, loanRes, policyRes, advanceRes]) {
     if (result.error) throw new Error(`تعذر قراءة مدخلات الرواتب: ${result.error.message}`);
   }
   const allocations = allocatePayrollLoans(loanRes.data ?? []);
+  const policy = policyRes.data ?? {};
+  const salaryAdvances = new Map<string, number>();
+  for (const advance of advanceRes.data ?? []) {
+    salaryAdvances.set(advance.employee_id, round2(Number(advance.approved_amount ?? advance.requested_amount ?? 0)));
+  }
 
   const latestSalary = new Map<string, any>();
   for (const row of salaryRes.data ?? []) {
@@ -92,18 +99,20 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
 
   const attendanceAgg = new Map<
     string,
-    { absentDays: number; leaveDays: number; lateMinutes: number; overtimeMinutes: number }
+    { absentDays: number; leaveDays: number; lateMinutes: number; earlyDepartureMinutes: number; overtimeMinutes: number }
   >();
   for (const row of attendanceRes.data ?? []) {
     const agg = attendanceAgg.get(row.employee_id) ?? {
       absentDays: 0,
       leaveDays: 0,
       lateMinutes: 0,
+      earlyDepartureMinutes: 0,
       overtimeMinutes: 0,
     };
     if (row.status === "absent") agg.absentDays += 1;
     if (row.status === "leave") agg.leaveDays += 1;
     agg.lateMinutes += row.late_minutes ?? 0;
+    agg.earlyDepartureMinutes += row.early_departure_minutes ?? 0;
     agg.overtimeMinutes += row.overtime_minutes ?? 0;
     attendanceAgg.set(row.employee_id, agg);
   }
@@ -134,6 +143,7 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
       absentDays: 0,
       leaveDays: 0,
       lateMinutes: 0,
+      earlyDepartureMinutes: 0,
       overtimeMinutes: 0,
     };
     const loanInstallment = round2(
@@ -141,6 +151,7 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
         .filter((allocation) => allocation.employee_id === employee.id)
         .reduce((sum, allocation) => sum + allocation.amount, 0),
     );
+    const salaryAdvanceDeduction = salaryAdvances.get(employee.id) ?? 0;
     const overtimeHours = round2(agg.overtimeMinutes / 60);
     const isSaudi = (employee.nationality ?? "SA").toUpperCase().startsWith("SA");
 
@@ -153,8 +164,15 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
       daysInMonth: periodDays,
       absenceDays: agg.absentDays,
       lateMinutes: agg.lateMinutes,
+      earlyDepartureMinutes: agg.earlyDepartureMinutes,
+      lateGraceMinutes: Number(policy.late_grace_minutes ?? 15),
+      earlyDepartureGraceMinutes: Number(policy.early_departure_grace_minutes ?? 15),
+      deductionRoundingMinutes: Number(policy.rounding_minutes ?? 1),
+      deductionRoundingMode: (policy.rounding_mode ?? "exact") as "exact" | "up" | "nearest",
+      deductionCapPercent: Number(policy.deduction_cap_percent ?? 100),
       overtimeHours,
       loanInstallment,
+      salaryAdvanceDeduction,
       isSaudiNational: isSaudi,
       payrollDate: periodEnd,
     });
@@ -184,7 +202,10 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
       bonus_amount: 0,
       gosi_employee_deduction: result.gosiEmployee,
       loan_deduction: result.loanDeduction,
-      absence_late_deduction: round2(result.absenceDeduction + result.lateDeduction),
+      salary_advance_deduction: result.salaryAdvanceDeduction,
+      absence_late_deduction: round2(
+        result.absenceDeduction + result.lateDeduction + result.earlyDepartureDeduction,
+      ),
       unpaid_leave_deduction: result.unpaidLeaveDeduction,
       other_deductions: 0,
       total_deductions: result.totalDeductions,

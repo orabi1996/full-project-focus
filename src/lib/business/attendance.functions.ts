@@ -102,6 +102,7 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
       const checkOutMin = entry.out ? timeOfDay(entry.out) : null;
 
       let lateMinutes = 0;
+      let earlyDepartureMinutes = 0;
       let overtimeMinutes = 0;
       let expectedMinutes = 8 * 60;
 
@@ -111,6 +112,12 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
         expectedMinutes = (shiftEnd >= shiftStart ? shiftEnd : shiftEnd + 1440) - shiftStart;
         const grace = shift.grace_minutes_arrival ?? 0;
         lateMinutes = Math.max(0, checkInMin - shiftStart - grace);
+        if (checkOutMin !== null) {
+          const departureGrace = shift.grace_minutes_departure ?? 0;
+          const normalizedEnd = shiftEnd >= shiftStart ? shiftEnd : shiftEnd + 1440;
+          const normalizedOut = checkOutMin >= shiftStart ? checkOutMin : checkOutMin + 1440;
+          earlyDepartureMinutes = Math.max(0, normalizedEnd - normalizedOut - departureGrace);
+        }
       }
 
       let workedMinutes = 0;
@@ -130,6 +137,7 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
         worked_hours: round2(workedMinutes / 60),
         worked_minutes: workedMinutes,
         late_minutes: lateMinutes,
+        early_departure_minutes: earlyDepartureMinutes,
         overtime_minutes: overtimeMinutes,
         is_manual: false,
         note: "احتُسب آليًا من البصمات",

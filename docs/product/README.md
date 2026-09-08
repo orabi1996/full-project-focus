@@ -26,6 +26,8 @@
 18. [Design Tokens](DESIGN_TOKENS.draft.json): كتالوج آلي مبدئي لنظام التصميم؛ غير مفعّل لتغيير CSS أو theme تلقائيًا.
 19. [PART 9 — Business Workflows](PART_09_BUSINESS_WORKFLOWS.ar.md): حالات الانتقال والاعتمادات والـjobs والإشعارات والفشل للحضور والإجازة والرواتب والدفع والسلف والمخالصة والتكامل.
 20. [Workflow Catalog](WORKFLOW_CATALOG.draft.json): كتالوج آلي مبدئي لـ16 workflow وضوابطها؛ غير مفعّل تشغيليًا.
+21. [PART 10 — Database Architecture](PART_10_DATABASE_ARCHITECTURE.ar.md): استراتيجية Multi-tenancy، الكيانات، الـledger، RLS، الفهارس، الاحتفاظ، وخطة ترحيل schema الحالي.
+22. [Database Schema Manifest](DATABASE_SCHEMA_MANIFEST.draft.json): كتالوج آلي مبدئي لـ86 كيانًا وقواعد التكامل والترحيل؛ غير مفعّل.
 
 **الحالة:** اكتمل الاكتشاف المكتبي وأدوات البحث، وأُعدت استراتيجية المنتج ونطاق MVP والباقات كقرارات عمل مبدئية. لا توجد حتى الآن نتائج مقابلات أو تجارب مدفوعة أو أسعار معتمدة ضمن هذه المخرجات. مرحلة التوثيق لا تعني اعتماد الإطلاق أو تطبيق ترحيلات قاعدة البيانات.
 
@@ -42,7 +44,7 @@
 | 7     | Complete Screen Inventory | مكتمل كمواصفات مبدئية؛ اعتماد subset وربط routes معلق                |
 | 8     | UI/UX Design System       | مكتمل كمواصفات مبدئية؛ تحويل tokens إلى components معلق              |
 | 9     | Workflows                 | مكتمل كمواصفات مبدئية؛ ربط commands/jobs معلق                        |
-| 10    | Database                  | مخطط                                                                 |
+| 10    | Database                  | مكتمل كمواصفات مبدئية؛ tenant backfill وledger migrations معلقة      |
 | 11    | API                       | مخطط                                                                 |
 | 12    | Security                  | مخطط؛ متطلبات الحماية تدخل القرارات السابقة أيضًا                    |
 | 13    | QA & Testing              | مخطط                                                                 |

@@ -22,6 +22,8 @@
 14. [Information Architecture Manifest](INFORMATION_ARCHITECTURE_MANIFEST.draft.json): تمثيل آلي مبدئي للمجموعات والمسارات والـshell؛ غير مفعّل تشغيليًا.
 15. [PART 7 — Complete Screen Inventory](PART_07_COMPLETE_SCREEN_INVENTORY.ar.md): جرد 160 شاشة مع route، الدور، المكونات، الحقول، الحالات، الصلاحيات، والـAPI لكل شاشة.
 16. [Screen Inventory](SCREEN_INVENTORY.draft.json): كتالوج آلي مبدئي كامل للشاشات وحالاتها؛ غير مفعّل بإضافة routes أو permissions.
+17. [PART 8 — UI/UX Design System](PART_08_UI_UX_DESIGN_SYSTEM.ar.md): tokens للهوية والألوان والخطوط والمسافات والمكونات والحالات والتجاوب وRTL/accessibility.
+18. [Design Tokens](DESIGN_TOKENS.draft.json): كتالوج آلي مبدئي لنظام التصميم؛ غير مفعّل لتغيير CSS أو theme تلقائيًا.
 
 **الحالة:** اكتمل الاكتشاف المكتبي وأدوات البحث، وأُعدت استراتيجية المنتج ونطاق MVP والباقات كقرارات عمل مبدئية. لا توجد حتى الآن نتائج مقابلات أو تجارب مدفوعة أو أسعار معتمدة ضمن هذه المخرجات. مرحلة التوثيق لا تعني اعتماد الإطلاق أو تطبيق ترحيلات قاعدة البيانات.
 
@@ -36,7 +38,7 @@
 | 5     | User Journeys             | مكتمل كمواصفات مبدئية؛ تحويل الرحلات إلى routes/workflows معلق       |
 | 6     | Information Architecture  | مكتمل كمواصفات مبدئية؛ تنفيذ routes/guards معلق                      |
 | 7     | Complete Screen Inventory | مكتمل كمواصفات مبدئية؛ اعتماد subset وربط routes معلق                |
-| 8     | UI/UX Design System       | مخطط                                                                 |
+| 8     | UI/UX Design System       | مكتمل كمواصفات مبدئية؛ تحويل tokens إلى components معلق              |
 | 9     | Workflows                 | مخطط                                                                 |
 | 10    | Database                  | مخطط                                                                 |
 | 11    | API                       | مخطط                                                                 |

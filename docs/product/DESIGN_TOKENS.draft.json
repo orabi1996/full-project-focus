@@ -1,0 +1,176 @@
+{
+  "schema_version": "0.1.0",
+  "catalog_version": "draft-2026-09-08",
+  "status": "proposal",
+  "runtime_enabled": false,
+  "brand": {
+    "family": "C-Smarx-Classera",
+    "product_working_name": "Classera Pulse HCM",
+    "brand_authority_confirmed": false,
+    "primary_mark_asset": "/classera-pulse-logo.png"
+  },
+  "fonts": {
+    "arabic": ["Cairo", "sans-serif"],
+    "latin": ["Plus Jakarta Sans", "Roboto", "system-ui", "sans-serif"],
+    "mono": ["JetBrains Mono", "monospace"],
+    "weights": [400, 500, 600, 700, 800, 900],
+    "arabic_is_first_class": true
+  },
+  "colors": {
+    "light": {
+      "brand.royal": "#004BCE",
+      "brand.cyan": "#00B5FF",
+      "brand.navy": "#05112A",
+      "surface.canvas": "#F7F9FC",
+      "surface.card": "#FFFFFF",
+      "surface.muted": "#F0F4F9",
+      "text.primary": "#1A1C1E",
+      "text.secondary": "#444746",
+      "border.default": "#E0E2EC",
+      "border.focus": "#004BCE",
+      "status.success": "#087F5B",
+      "status.warning": "#9A5B00",
+      "status.danger": "#BA1A1A",
+      "status.info": "#006A9C"
+    },
+    "dark": {
+      "brand.royal": "#38BDF8",
+      "brand.cyan": "#00B5FF",
+      "brand.navy": "#E2E2E9",
+      "surface.canvas": "#111318",
+      "surface.card": "#1D2026",
+      "surface.muted": "#383B43",
+      "text.primary": "#E2E2E9",
+      "text.secondary": "#B7BBC3",
+      "border.default": "#484C55",
+      "border.focus": "#38BDF8",
+      "status.success": "#65D6A5",
+      "status.warning": "#FFBD5A",
+      "status.danger": "#FFB4AB",
+      "status.info": "#73D0FF"
+    }
+  },
+  "typography": {
+    "display": { "size_px": 36, "line_height_px": 44, "weight": 800 },
+    "h1": { "size_px": 30, "line_height_px": 38, "weight": 800 },
+    "h2": { "size_px": 24, "line_height_px": 32, "weight": 800 },
+    "h3": { "size_px": 18, "line_height_px": 26, "weight": 700 },
+    "body": { "size_px": 14, "line_height_px": 22, "weight": 400 },
+    "body_small": { "size_px": 12, "line_height_px": 18, "weight": 500 },
+    "label": { "size_px": 12, "line_height_px": 16, "weight": 700 },
+    "button": { "size_px": 13, "line_height_px": 20, "weight": 700 },
+    "code": { "size_px": 13, "line_height_px": 18, "weight": 600 }
+  },
+  "spacing_px": { "1": 4, "2": 8, "3": 12, "4": 16, "6": 24, "8": 32, "10": 40 },
+  "radii_px": { "sm": 8, "md": 12, "lg": 16, "xl": 20, "2xl": 24, "full": 9999 },
+  "elevation": {
+    "1": "0 1px 3px rgb(24 33 43 / 6%)",
+    "2": "0 8px 24px rgb(24 33 43 / 10%)",
+    "3": "0 20px 48px rgb(24 33 43 / 18%)"
+  },
+  "motion_ms": { "fast": 120, "normal": 200, "slow": 320, "reduced_motion": true },
+  "breakpoints_px": {
+    "mobile_max": 767,
+    "tablet_min": 768,
+    "laptop_min": 1024,
+    "desktop_min": 1280
+  },
+  "touch_target_min_px": 44,
+  "components": {
+    "button": {
+      "variants": ["primary", "secondary", "outline", "ghost", "destructive", "link", "icon"],
+      "states": ["default", "hover", "focus", "pressed", "disabled", "loading"]
+    },
+    "input": {
+      "variants": ["text", "email", "number", "masked", "search"],
+      "states": ["empty", "filled", "focus", "invalid", "disabled", "readonly"]
+    },
+    "select": {
+      "variants": ["single", "multi", "async"],
+      "states": ["loading", "empty", "invalid", "disabled"]
+    },
+    "date_time": {
+      "variants": ["date", "range", "time", "timezone"],
+      "states": ["min_max", "holiday", "invalid", "locale"]
+    },
+    "table": {
+      "variants": ["compact", "comfortable", "responsive_list"],
+      "states": ["loading", "empty", "filtered_empty", "error", "selected"]
+    },
+    "card_kpi": {
+      "variants": ["neutral", "brand", "status", "clickable"],
+      "states": ["loading", "stale", "disabled"]
+    },
+    "dialog_drawer": {
+      "variants": ["confirm", "form", "detail", "filter"],
+      "states": ["open", "focus_trap", "dirty", "loading"]
+    },
+    "tabs": {
+      "variants": ["line", "pill", "vertical"],
+      "states": ["active", "hover", "disabled", "overflow"]
+    },
+    "toast_alert": {
+      "variants": ["success", "info", "warning", "error"],
+      "states": ["timeout", "persistent", "action"]
+    },
+    "badge_avatar": {
+      "variants": ["status", "role", "masked", "initials"],
+      "states": ["default", "loading", "privacy"]
+    },
+    "pagination": {
+      "variants": ["numbered", "cursor", "load_more"],
+      "states": ["disabled", "page_size"]
+    },
+    "stepper_timeline": {
+      "variants": ["stepper", "approval", "audit", "lifecycle"],
+      "states": ["current", "complete", "blocked", "error"]
+    },
+    "chart": {
+      "variants": ["line", "bar", "donut", "heatmap"],
+      "states": ["no_data", "stale", "tooltip", "table_fallback"]
+    },
+    "file_upload": {
+      "variants": ["single", "multi", "import"],
+      "states": ["validating", "progress", "rejected", "retry"]
+    },
+    "empty_skeleton": {
+      "variants": ["first_use", "filtered", "denied", "page", "table", "job"],
+      "states": ["loading", "empty", "error", "success"]
+    }
+  },
+  "status_semantics": {
+    "success": ["approved", "paid", "healthy", "completed"],
+    "warning": ["pending", "expiring", "stale", "needs_review"],
+    "danger": ["rejected", "failed", "blocked", "denied"],
+    "info": ["processing", "submitted", "in_progress"]
+  },
+  "accessibility": {
+    "wcag_target": "2.2_AA_core_tasks",
+    "body_contrast_ratio_min": 4.5,
+    "large_text_contrast_ratio_min": 3,
+    "keyboard_first": true,
+    "focus_ring_px": 3,
+    "color_alone_for_status": false,
+    "reduced_motion_supported": true,
+    "rtl_ltr_tested": true
+  },
+  "rtl_rules": [
+    "logical_css_properties",
+    "directional_icons_only_mirror",
+    "arabic_cairo_line_height",
+    "locale_timezone_dates",
+    "ltr_ids_inside_rtl_text"
+  ],
+  "chart_palette": ["#004BCE", "#00B5FF", "#087F5B", "#9A5B00", "#BA1A1A"],
+  "token_lint": {
+    "forbid_unlisted_hex": true,
+    "require_light_dark_fallback": true,
+    "require_component_state_matrix": true
+  },
+  "open_decisions": [
+    "brand_authority_and_final_name",
+    "font_hosting_policy",
+    "high_contrast_mode_scope",
+    "design_token_delivery_css_or_theme_package"
+  ]
+}

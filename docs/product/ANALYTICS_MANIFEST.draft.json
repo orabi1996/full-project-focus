@@ -1,0 +1,540 @@
+{
+  "schema_version": "0.1.0",
+  "catalog_version": "draft-2026-09-08",
+  "status": "proposal",
+  "runtime_enabled": false,
+  "objective": "Measure activation, operational outcomes, retention/revenue, reliability, and customer health without employee PII.",
+  "identity": {
+    "tenant_key": "stable_hash_from_server_membership",
+    "actor_key": "stable_hash_from_auth_user",
+    "anonymous_key": "rotating_consent_bound_id",
+    "raw_identity_allowed": false
+  },
+  "events": [
+    {
+      "event_name": "auth.login.succeeded",
+      "domain": "auth",
+      "stage": "P0",
+      "allowed_properties": ["surface", "locale", "mfa_used"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "auth.mfa.completed",
+      "domain": "auth",
+      "stage": "P0",
+      "allowed_properties": ["method", "surface"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "tenant.onboarding.completed",
+      "domain": "onboarding",
+      "stage": "P0",
+      "allowed_properties": ["plan_code", "employee_bucket", "country_code"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "employee.created",
+      "domain": "people",
+      "stage": "P0",
+      "allowed_properties": ["source", "employee_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "employee.document.uploaded",
+      "domain": "people",
+      "stage": "P0",
+      "allowed_properties": ["document_type", "scan_status"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "attendance.punch.recorded",
+      "domain": "attendance",
+      "stage": "P0",
+      "allowed_properties": ["source", "surface", "device_type"],
+      "contains_direct_pii": false,
+      "audit_critical": true,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "attendance.import.completed",
+      "domain": "attendance",
+      "stage": "P0",
+      "allowed_properties": ["source", "accepted_bucket", "rejected_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": true,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "attendance.correction.decided",
+      "domain": "attendance",
+      "stage": "P0",
+      "allowed_properties": ["decision", "reason_code"],
+      "contains_direct_pii": false,
+      "audit_critical": true,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "leave.request.submitted",
+      "domain": "leave",
+      "stage": "P0",
+      "allowed_properties": ["leave_type", "days_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "leave.request.decided",
+      "domain": "leave",
+      "stage": "P0",
+      "allowed_properties": ["decision", "reason_code"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "leave.balance.adjusted",
+      "domain": "leave",
+      "stage": "P0",
+      "allowed_properties": ["entry_type", "days_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": true,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "payroll.run.calculation_completed",
+      "domain": "payroll",
+      "stage": "P0",
+      "allowed_properties": ["employee_bucket", "exception_bucket", "duration_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": true,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "payroll.run.locked",
+      "domain": "payroll",
+      "stage": "P0",
+      "allowed_properties": ["period_bucket", "employee_bucket", "totals_hash"],
+      "contains_direct_pii": false,
+      "audit_critical": true,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "payslip.viewed",
+      "domain": "payroll",
+      "stage": "P0",
+      "allowed_properties": ["surface", "period_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": true,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "advance.requested",
+      "domain": "payroll",
+      "stage": "P0",
+      "allowed_properties": ["amount_bucket", "installment_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "expense.submitted",
+      "domain": "expenses",
+      "stage": "P0",
+      "allowed_properties": ["category", "amount_bucket", "receipt_present"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "settlement.signed",
+      "domain": "settlement",
+      "stage": "P0",
+      "allowed_properties": ["service_bucket", "amount_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": true,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "payment.batch.submitted",
+      "domain": "payments",
+      "stage": "P0",
+      "allowed_properties": ["provider", "employee_bucket", "amount_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": true,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "payment.item.reconciled",
+      "domain": "payments",
+      "stage": "P0",
+      "allowed_properties": ["provider", "status", "amount_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": true,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "integration.sync.failed",
+      "domain": "integrations",
+      "stage": "P0",
+      "allowed_properties": ["provider", "error_code", "retryable"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "report.run.requested",
+      "domain": "reports",
+      "stage": "P1",
+      "allowed_properties": ["report_code", "format", "role"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "report.run.completed",
+      "domain": "reports",
+      "stage": "P1",
+      "allowed_properties": ["report_code", "duration_bucket", "row_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "data.export.denied",
+      "domain": "security",
+      "stage": "P1",
+      "allowed_properties": ["resource", "reason_code"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "support.ticket.created",
+      "domain": "support",
+      "stage": "P2",
+      "allowed_properties": ["priority", "channel", "category"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "support.ticket.resolved",
+      "domain": "support",
+      "stage": "P2",
+      "allowed_properties": ["priority", "resolution_code", "duration_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "security.break_glass.read",
+      "domain": "security",
+      "stage": "P1",
+      "allowed_properties": ["resource_type", "reason_code", "duration_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": true,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "subscription.invoice.paid",
+      "domain": "commerce",
+      "stage": "P2",
+      "allowed_properties": ["plan_code", "currency_code", "amount_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "subscription.invoice.failed",
+      "domain": "commerce",
+      "stage": "P2",
+      "allowed_properties": ["plan_code", "provider", "reason_code"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    },
+    {
+      "event_name": "invite.accepted",
+      "domain": "growth",
+      "stage": "P2",
+      "allowed_properties": ["role", "employee_bucket"],
+      "contains_direct_pii": false,
+      "audit_critical": false,
+      "schema_version": "1.0"
+    }
+  ],
+  "metrics": [
+    {
+      "id": "activation_rate",
+      "formula": "tenants_with_four_milestones / verified_tenants",
+      "window": "signup_cohort_week",
+      "owner": "product"
+    },
+    {
+      "id": "time_to_first_value",
+      "formula": "first_payroll_preview - verified_at",
+      "window": "p50_p90",
+      "owner": "product"
+    },
+    {
+      "id": "wau_mau",
+      "formula": "unique_successful_users_7d / unique_successful_users_30d",
+      "window": "rolling",
+      "owner": "product"
+    },
+    {
+      "id": "module_adoption",
+      "formula": "tenants_with_successful_module_command / active_tenants",
+      "window": "28d",
+      "owner": "product"
+    },
+    {
+      "id": "approval_sla",
+      "formula": "median(decided_at - submitted_at) excluding requester_wait",
+      "window": "request_type",
+      "owner": "operations"
+    },
+    {
+      "id": "attendance_exception_rate",
+      "formula": "days_with_exception / scheduled_days",
+      "window": "payroll_period",
+      "owner": "attendance"
+    },
+    {
+      "id": "payroll_close_time",
+      "formula": "locked_at - calculation_started_at",
+      "window": "run",
+      "owner": "payroll"
+    },
+    {
+      "id": "payroll_error_rate",
+      "formula": "failed_or_unresolved_runs / runs",
+      "window": "monthly",
+      "owner": "payroll"
+    },
+    {
+      "id": "reconciliation_age",
+      "formula": "now - oldest_unmatched_item",
+      "window": "current",
+      "owner": "finance"
+    },
+    {
+      "id": "leave_balance_accuracy",
+      "formula": "ledger_projection_checks_passed / checks",
+      "window": "nightly",
+      "owner": "leave"
+    },
+    {
+      "id": "self_service_success",
+      "formula": "completed_ess_commands / started_ess_commands",
+      "window": "28d",
+      "owner": "product"
+    },
+    {
+      "id": "logo_retention",
+      "formula": "active_prior_month_and_current / active_prior_month",
+      "window": "monthly_cohort",
+      "owner": "growth"
+    },
+    {
+      "id": "gross_revenue_retention",
+      "formula": "retained_recurring_revenue / starting_recurring_revenue",
+      "window": "monthly",
+      "owner": "finance"
+    },
+    {
+      "id": "net_revenue_retention",
+      "formula": "(start-churn-contraction+expansion)/start",
+      "window": "monthly",
+      "owner": "finance"
+    },
+    {
+      "id": "failed_payment_recovery",
+      "formula": "recovered_within_grace / failed_subscriptions",
+      "window": "billing_cycle",
+      "owner": "billing"
+    },
+    {
+      "id": "support_sla",
+      "formula": "tickets_within_target / closed_tickets",
+      "window": "priority",
+      "owner": "customer_success"
+    },
+    {
+      "id": "nps",
+      "formula": "percent_promoters - percent_detractors",
+      "window": "quarterly",
+      "owner": "customer_success"
+    },
+    {
+      "id": "customer_health",
+      "formula": "weighted_usage_outcome_support_payment_score",
+      "window": "current_with_confidence",
+      "owner": "customer_success"
+    },
+    {
+      "id": "data_quality_rate",
+      "formula": "valid_deduped_events / received_events",
+      "window": "source_schema",
+      "owner": "data"
+    }
+  ],
+  "dashboards": [
+    {
+      "id": "platform_health",
+      "roles": ["product", "customer_success", "ops"],
+      "metrics": [
+        "activation_rate",
+        "logo_retention",
+        "net_revenue_retention",
+        "data_quality_rate"
+      ],
+      "scope": "aggregate"
+    },
+    {
+      "id": "organization_cockpit",
+      "roles": ["org_owner", "org_admin"],
+      "metrics": [
+        "module_adoption",
+        "attendance_exception_rate",
+        "payroll_close_time",
+        "approval_sla"
+      ],
+      "scope": "tenant"
+    },
+    {
+      "id": "hr_operations",
+      "roles": ["hr_manager"],
+      "metrics": ["time_to_first_value", "approval_sla", "leave_balance_accuracy"],
+      "scope": "tenant"
+    },
+    {
+      "id": "attendance",
+      "roles": ["attendance_officer"],
+      "metrics": ["attendance_exception_rate", "data_quality_rate"],
+      "scope": "tenant"
+    },
+    {
+      "id": "payroll_finance",
+      "roles": ["payroll_officer", "finance_officer"],
+      "metrics": ["payroll_close_time", "payroll_error_rate", "reconciliation_age"],
+      "scope": "tenant_restricted"
+    },
+    {
+      "id": "manager",
+      "roles": ["line_manager"],
+      "metrics": ["approval_sla", "attendance_exception_rate"],
+      "scope": "team"
+    },
+    {
+      "id": "employee_ess",
+      "roles": ["employee"],
+      "metrics": ["self_service_success"],
+      "scope": "self"
+    },
+    {
+      "id": "support_security",
+      "roles": ["support_agent", "security_function"],
+      "metrics": ["support_sla", "data_quality_rate"],
+      "scope": "least_privilege"
+    }
+  ],
+  "event_contract": {
+    "name_pattern": "domain.object.action",
+    "required": [
+      "event_id",
+      "event_name",
+      "schema_version",
+      "occurred_at",
+      "tenant_key",
+      "actor_key",
+      "actor_role",
+      "surface",
+      "locale",
+      "properties"
+    ],
+    "forbidden_properties": [
+      "email",
+      "full_name",
+      "national_id",
+      "iban",
+      "salary_amount",
+      "document_text",
+      "performance_note",
+      "raw_ip",
+      "signed_url"
+    ],
+    "dedup_key": "event_id",
+    "received_at_required": true
+  },
+  "pipeline": [
+    "sdk_or_command_wrapper",
+    "server_collector",
+    "schema_validator_and_redactor",
+    "outbox_queue",
+    "curated_warehouse",
+    "aggregate_metric_jobs",
+    "role_scoped_dashboards"
+  ],
+  "retention": {
+    "raw_events": "short_contract_window",
+    "curated_aggregates": "contract_and_legal_hold",
+    "deletion": "DSAR_and_legal_hold_aware"
+  },
+  "sampling": {
+    "payroll_payment_security": "never_sample_for_audit",
+    "high_volume_ux": "declared_sampling_allowed"
+  },
+  "consent": {
+    "operational_analytics": "necessity_or_contract",
+    "behavioral_tools": "explicit_tenant_or_user_consent",
+    "do_not_track": "honor_where_required"
+  },
+  "quality_checks": [
+    "schema_registry",
+    "PII_allowlist_scan",
+    "dedup_and_order_check",
+    "lineage_and_as_of",
+    "metric_anomaly_alert"
+  ],
+  "acceptance_case_ids": [
+    "AN-A01",
+    "AN-A02",
+    "AN-A03",
+    "AN-A04",
+    "AN-A05",
+    "AN-A06",
+    "AN-A07",
+    "AN-A08",
+    "AN-A09",
+    "AN-A10",
+    "AN-A11",
+    "AN-A12",
+    "AN-A13",
+    "AN-A14",
+    "AN-A15",
+    "AN-A16",
+    "AN-A17",
+    "AN-A18",
+    "AN-A19",
+    "AN-A20"
+  ],
+  "open_decisions": [
+    "warehouse_provider",
+    "behavioral_analytics_tool",
+    "raw_event_retention",
+    "exchange_rate_source",
+    "metric_owner_cadence",
+    "SIEM/analytics_boundary"
+  ]
+}

@@ -436,7 +436,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                     <Download className="h-3.5 w-3.5" />
                     تحميل ملف حماية الأجور (SIF)
                   </Button>
-                  {canManagePayroll && selectedRun.status === "ready_for_review" && (
+                  {canManagePayroll && ["draft", "ready_for_review"].includes(selectedRun.status) && (
                     <Button
                       onClick={() => lockAndConfirmPayrollRun(selectedRun.id)}
                       size="sm"
@@ -453,7 +453,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                       className="rounded-full text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white gap-1.5 h-9 px-4"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      تأكيد الصرف البنكي
+                      إرشادات تأكيد التحويل
                     </Button>
                   )}
                 </div>

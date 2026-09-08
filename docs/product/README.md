@@ -30,6 +30,8 @@
 22. [Database Schema Manifest](DATABASE_SCHEMA_MANIFEST.draft.json): كتالوج آلي مبدئي لـ86 كيانًا وقواعد التكامل والترحيل؛ غير مفعّل.
 23. [PART 11 — API Architecture](PART_11_API_ARCHITECTURE.ar.md): عقود REST، الأوامر، pagination، الأخطاء، الـwebhooks، والـadapters مع server functions الحالية.
 24. [API Contract Manifest](API_CONTRACT_MANIFEST.draft.json): كتالوج آلي مبدئي لـ85 endpoint وerror/event contracts؛ غير مفعّل تشغيليًا.
+25. [PART 12 — Security Architecture](PART_12_SECURITY_ARCHITECTURE.ar.md): نموذج التهديد، OWASP، المصادقة، RLS، الملفات، webhooks، الحوادث، وضوابط DevSecOps.
+26. [Security Control Manifest](SECURITY_CONTROL_MANIFEST.draft.json): 13 خطرًا و12 control و20 اختبار أمن؛ غير مفعّل تشغيليًا.
 
 **الحالة:** اكتمل الاكتشاف المكتبي وأدوات البحث، وأُعدت استراتيجية المنتج ونطاق MVP والباقات كقرارات عمل مبدئية. لا توجد حتى الآن نتائج مقابلات أو تجارب مدفوعة أو أسعار معتمدة ضمن هذه المخرجات. مرحلة التوثيق لا تعني اعتماد الإطلاق أو تطبيق ترحيلات قاعدة البيانات.
 
@@ -48,7 +50,7 @@
 | 9     | Workflows                 | مكتمل كمواصفات مبدئية؛ ربط commands/jobs معلق                        |
 | 10    | Database                  | مكتمل كمواصفات مبدئية؛ tenant backfill وledger migrations معلقة      |
 | 11    | API                       | مكتمل كمواصفات مبدئية؛ تنفيذ REST/OpenAPI والـadapters معلق          |
-| 12    | Security                  | مخطط؛ متطلبات الحماية تدخل القرارات السابقة أيضًا                    |
+| 12    | Security                  | مكتمل كمواصفات مبدئية؛ سد فجوات pilot واختبارات SEC معلق             |
 | 13    | QA & Testing              | مخطط                                                                 |
 | 14    | DevOps                    | مخطط                                                                 |
 | 15    | Analytics                 | مخطط                                                                 |

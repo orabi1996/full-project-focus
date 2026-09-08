@@ -1,0 +1,496 @@
+{
+  "schema_version": "0.1.0",
+  "catalog_version": "draft-2026-09-08",
+  "status": "proposal",
+  "runtime_enabled": false,
+  "security_objective": "Protect employee/payroll data, prevent cross-tenant effects, and preserve evidence for every sensitive decision.",
+  "assets": [
+    {
+      "id": "A01",
+      "name": "payroll_and_payment",
+      "classification": "restricted",
+      "examples": ["salary_profiles", "payroll_lines", "bank_ref", "payment callbacks"]
+    },
+    {
+      "id": "A02",
+      "name": "employee_identity",
+      "classification": "restricted",
+      "examples": ["national_id", "documents", "medical/investigation"]
+    },
+    {
+      "id": "A03",
+      "name": "tenant_authorization",
+      "classification": "confidential",
+      "examples": ["memberships", "roles", "approval chains"]
+    },
+    {
+      "id": "A04",
+      "name": "secrets",
+      "classification": "restricted",
+      "examples": ["service_role", "provider credentials", "webhook secrets"]
+    },
+    {
+      "id": "A05",
+      "name": "availability_and_evidence",
+      "classification": "internal",
+      "examples": ["jobs", "outbox", "audit", "backups"]
+    }
+  ],
+  "trust_boundaries": [
+    {
+      "id": "TB01",
+      "from": "browser_mobile",
+      "to": "api_middleware",
+      "trust": "untrusted_client",
+      "controls": ["TLS", "CSP", "session_validation", "rate_limit"]
+    },
+    {
+      "id": "TB02",
+      "from": "api_middleware",
+      "to": "postgres_rls",
+      "trust": "application_to_data",
+      "controls": ["tenant_guard", "RBAC", "typed_query", "RLS"]
+    },
+    {
+      "id": "TB03",
+      "from": "api_middleware",
+      "to": "object_storage",
+      "trust": "private_files",
+      "controls": ["signed_url", "AV_scan", "expiry", "scope_check"]
+    },
+    {
+      "id": "TB04",
+      "from": "api_jobs",
+      "to": "providers",
+      "trust": "external_dependency",
+      "controls": ["HMAC", "allowlist", "timeout", "circuit_breaker", "reconciliation"]
+    },
+    {
+      "id": "TB05",
+      "from": "support_platform",
+      "to": "restricted_data",
+      "trust": "break_glass",
+      "controls": ["reason", "expiry", "second_approver", "read_audit"]
+    }
+  ],
+  "risks": [
+    {
+      "id": "R01",
+      "threat": "cross_tenant_idor",
+      "asset": "A01/A02/A03",
+      "severity": "critical",
+      "likelihood": "high",
+      "controls": ["tenant_id", "composite_fk", "RLS", "scope_projection"],
+      "status": "gap_to_close"
+    },
+    {
+      "id": "R02",
+      "threat": "role_escalation",
+      "asset": "A03",
+      "severity": "critical",
+      "likelihood": "medium",
+      "controls": ["server_side_rbac", "SoD", "MFA", "audit"],
+      "status": "gap_to_close"
+    },
+    {
+      "id": "R03",
+      "threat": "service_key_leak",
+      "asset": "A04",
+      "severity": "critical",
+      "likelihood": "high",
+      "controls": ["secrets_manager", "client_bundle_scan", "rotation", "egress_alert"],
+      "status": "gap_to_close"
+    },
+    {
+      "id": "R04",
+      "threat": "webhook_replay_or_spoof",
+      "asset": "A01/A05",
+      "severity": "high",
+      "likelihood": "medium",
+      "controls": ["HMAC", "timestamp", "provider_event_id", "quarantine"],
+      "status": "gap_to_close"
+    },
+    {
+      "id": "R05",
+      "threat": "file_malware_or_public_url",
+      "asset": "A02",
+      "severity": "high",
+      "likelihood": "medium",
+      "controls": ["magic_bytes", "AV", "private_bucket", "signed_url"],
+      "status": "gap_to_close"
+    },
+    {
+      "id": "R06",
+      "threat": "sql_or_filter_injection",
+      "asset": "A01/A02",
+      "severity": "high",
+      "likelihood": "medium",
+      "controls": ["typed_schema", "allowlist", "parameterized_queries"],
+      "status": "mitigate"
+    },
+    {
+      "id": "R07",
+      "threat": "xss_csv_formula",
+      "asset": "A02/A05",
+      "severity": "high",
+      "likelihood": "medium",
+      "controls": ["escaping", "CSP", "export_formula_escape"],
+      "status": "gap_to_close"
+    },
+    {
+      "id": "R08",
+      "threat": "ssrf_integration",
+      "asset": "A04/A05",
+      "severity": "high",
+      "likelihood": "low",
+      "controls": ["egress_allowlist", "DNS_IP_check", "timeout_no_redirect"],
+      "status": "gap_to_close"
+    },
+    {
+      "id": "R09",
+      "threat": "race_double_payment",
+      "asset": "A01",
+      "severity": "critical",
+      "likelihood": "medium",
+      "controls": ["db_lock", "idempotency", "provider_query", "reconciliation"],
+      "status": "mitigate"
+    },
+    {
+      "id": "R10",
+      "threat": "insider_break_glass",
+      "asset": "A01/A02",
+      "severity": "high",
+      "likelihood": "low",
+      "controls": ["time_bound", "second_approver", "read_audit", "alert"],
+      "status": "gap_to_close"
+    },
+    {
+      "id": "R11",
+      "threat": "credential_stuffing",
+      "asset": "A03",
+      "severity": "high",
+      "likelihood": "medium",
+      "controls": ["MFA", "rate_limit", "lockout", "breach_detection"],
+      "status": "gap_to_close"
+    },
+    {
+      "id": "R12",
+      "threat": "backup_log_exposure",
+      "asset": "A01/A02/A05",
+      "severity": "high",
+      "likelihood": "medium",
+      "controls": ["encryption", "redaction", "retention", "access_review"],
+      "status": "gap_to_close"
+    },
+    {
+      "id": "R13",
+      "threat": "queue_denial_of_service",
+      "asset": "A05",
+      "severity": "medium",
+      "likelihood": "medium",
+      "controls": ["quota", "backpressure", "dead_letter", "circuit_breaker"],
+      "status": "gap_to_close"
+    }
+  ],
+  "controls": [
+    {
+      "id": "C01",
+      "area": "identity",
+      "control": "OIDC/Supabase claims validation with issuer audience expiry signature",
+      "owner": "platform_security",
+      "evidence": "auth integration test + token negative tests"
+    },
+    {
+      "id": "C02",
+      "area": "mfa",
+      "control": "MFA for owner/payroll/finance/bank/payment/break-glass actions",
+      "owner": "identity",
+      "evidence": "step-up auth E2E"
+    },
+    {
+      "id": "C03",
+      "area": "tenant_isolation",
+      "control": "tenant guard then role scope then RLS; no true tenant policy",
+      "owner": "data_platform",
+      "evidence": "cross-tenant SQL/API tests"
+    },
+    {
+      "id": "C04",
+      "area": "field_security",
+      "control": "restricted projections masked by default and reveal reason audited",
+      "owner": "backend",
+      "evidence": "field allowlist tests"
+    },
+    {
+      "id": "C05",
+      "area": "secrets",
+      "control": "service-role/provider secrets in manager only; scan bundles/logs",
+      "owner": "devops",
+      "evidence": "secret scan and rotation drill"
+    },
+    {
+      "id": "C06",
+      "area": "files",
+      "control": "signed private upload, magic/MIME/size/AV/quarantine and short download URLs",
+      "owner": "platform",
+      "evidence": "malware and traversal tests"
+    },
+    {
+      "id": "C07",
+      "area": "api",
+      "control": "typed input, allowlisted filters, idempotency, If-Match, rate limits",
+      "owner": "api",
+      "evidence": "API contract/fuzz tests"
+    },
+    {
+      "id": "C08",
+      "area": "webhooks",
+      "control": "HMAC timestamp nonce provider id quarantine and provider query",
+      "owner": "integrations",
+      "evidence": "replay/tamper tests"
+    },
+    {
+      "id": "C09",
+      "area": "frontend",
+      "control": "CSP secure headers escaping sanitized HTML and CSV formula escape",
+      "owner": "frontend",
+      "evidence": "XSS/headers/export tests"
+    },
+    {
+      "id": "C10",
+      "area": "observability",
+      "control": "redacted request logs security events immutable audit and alerts",
+      "owner": "security",
+      "evidence": "log scan/incident drill"
+    },
+    {
+      "id": "C11",
+      "area": "resilience",
+      "control": "encrypted backup PITR restore drill and legal hold",
+      "owner": "data_platform",
+      "evidence": "restore report"
+    },
+    {
+      "id": "C12",
+      "area": "delivery",
+      "control": "branch protection CODEOWNERS SCA secret scan SAST container scan SBOM",
+      "owner": "devops",
+      "evidence": "CI required checks"
+    }
+  ],
+  "owasp_mapping": [
+    {
+      "area": "A01_broken_access_control",
+      "controls": ["C03", "C04", "C07"]
+    },
+    {
+      "area": "A02_cryptographic_failures",
+      "controls": ["C05", "C11"]
+    },
+    {
+      "area": "A03_injection",
+      "controls": ["C07", "C09"]
+    },
+    {
+      "area": "A04_insecure_design",
+      "controls": ["C03", "C04", "C08"]
+    },
+    {
+      "area": "A05_misconfiguration",
+      "controls": ["C05", "C09", "C12"]
+    },
+    {
+      "area": "A06_vulnerable_components",
+      "controls": ["C12"]
+    },
+    {
+      "area": "A07_auth_failures",
+      "controls": ["C01", "C02"]
+    },
+    {
+      "area": "A08_integrity_failures",
+      "controls": ["C08", "C12"]
+    },
+    {
+      "area": "A09_logging_monitoring",
+      "controls": ["C10"]
+    },
+    {
+      "area": "A10_ssrf",
+      "controls": ["C08"]
+    }
+  ],
+  "current_baseline": [
+    "requireSupabaseAuth",
+    "RLS policies and grants",
+    "server-only admin proxy",
+    "runtime config private-key guard"
+  ],
+  "gaps_before_pilot": [
+    "uniform tenant guard",
+    "field encryption/vault",
+    "MFA step-up",
+    "signed private document flow",
+    "webhook verification",
+    "CSP/security headers",
+    "remove production reliance on localStorage permission overrides",
+    "restore drill"
+  ],
+  "tests": [
+    {
+      "id": "SEC-A01",
+      "type": "security_contract",
+      "priority": "P0",
+      "automated": true,
+      "gate": "release"
+    },
+    {
+      "id": "SEC-A02",
+      "type": "security_contract",
+      "priority": "P0",
+      "automated": true,
+      "gate": "release"
+    },
+    {
+      "id": "SEC-A03",
+      "type": "security_contract",
+      "priority": "P0",
+      "automated": true,
+      "gate": "release"
+    },
+    {
+      "id": "SEC-A04",
+      "type": "security_contract",
+      "priority": "P0",
+      "automated": true,
+      "gate": "release"
+    },
+    {
+      "id": "SEC-A05",
+      "type": "security_contract",
+      "priority": "P0",
+      "automated": true,
+      "gate": "release"
+    },
+    {
+      "id": "SEC-A06",
+      "type": "security_contract",
+      "priority": "P0",
+      "automated": false,
+      "gate": "release"
+    },
+    {
+      "id": "SEC-A07",
+      "type": "security_contract",
+      "priority": "P0",
+      "automated": true,
+      "gate": "release"
+    },
+    {
+      "id": "SEC-A08",
+      "type": "security_contract",
+      "priority": "P0",
+      "automated": true,
+      "gate": "release"
+    },
+    {
+      "id": "SEC-A09",
+      "type": "security_contract",
+      "priority": "P0",
+      "automated": false,
+      "gate": "release"
+    },
+    {
+      "id": "SEC-A10",
+      "type": "security_contract",
+      "priority": "P1",
+      "automated": true,
+      "gate": "pilot"
+    },
+    {
+      "id": "SEC-A11",
+      "type": "security_contract",
+      "priority": "P1",
+      "automated": true,
+      "gate": "pilot"
+    },
+    {
+      "id": "SEC-A12",
+      "type": "security_contract",
+      "priority": "P1",
+      "automated": true,
+      "gate": "pilot"
+    },
+    {
+      "id": "SEC-A13",
+      "type": "security_contract",
+      "priority": "P1",
+      "automated": true,
+      "gate": "pilot"
+    },
+    {
+      "id": "SEC-A14",
+      "type": "security_contract",
+      "priority": "P1",
+      "automated": true,
+      "gate": "pilot"
+    },
+    {
+      "id": "SEC-A15",
+      "type": "security_contract",
+      "priority": "P1",
+      "automated": true,
+      "gate": "pilot"
+    },
+    {
+      "id": "SEC-A16",
+      "type": "security_contract",
+      "priority": "P1",
+      "automated": true,
+      "gate": "pilot"
+    },
+    {
+      "id": "SEC-A17",
+      "type": "security_contract",
+      "priority": "P1",
+      "automated": true,
+      "gate": "pilot"
+    },
+    {
+      "id": "SEC-A18",
+      "type": "security_contract",
+      "priority": "P1",
+      "automated": false,
+      "gate": "pilot"
+    },
+    {
+      "id": "SEC-A19",
+      "type": "security_contract",
+      "priority": "P1",
+      "automated": false,
+      "gate": "pilot"
+    },
+    {
+      "id": "SEC-A20",
+      "type": "security_contract",
+      "priority": "P1",
+      "automated": false,
+      "gate": "pilot"
+    }
+  ],
+  "incident_severity": {
+    "P0": "data/payment exposure",
+    "P1": "payroll availability or tenant wide security",
+    "P2": "feature/user containment",
+    "P3": "single non-sensitive user"
+  },
+  "open_decisions": [
+    "DPA_and_local_privacy",
+    "data_residency",
+    "retention_by_country",
+    "MFA_provider",
+    "KMS_provider",
+    "security_event_SIEM",
+    "break_glass_second_approver"
+  ]
+}

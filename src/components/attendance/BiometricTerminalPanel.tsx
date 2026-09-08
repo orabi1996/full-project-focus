@@ -37,7 +37,7 @@ interface DeviceRow {
 const today = () => new Date().toISOString().slice(0, 10);
 
 export const BiometricTerminalPanel: React.FC = () => {
-  const { employees, refreshData } = useApp() as any;
+  const { employees } = useApp();
 
   const [date, setDate] = useState(today());
   const [punches, setPunches] = useState<PunchRow[]>([]);
@@ -59,8 +59,8 @@ export const BiometricTerminalPanel: React.FC = () => {
       ]);
       setPunches(punchRows as PunchRow[]);
       setDevices(deviceRows as DeviceRow[]);
-    } catch (error: any) {
-      toast.error(error?.message ?? "تعذر قراءة بيانات البصمة");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "تعذر قراءة بيانات البصمة");
     } finally {
       setLoading(false);
     }
@@ -77,15 +77,15 @@ export const BiometricTerminalPanel: React.FC = () => {
     }
     setBusy(true);
     try {
-      const result: any = await recordPunchServer({
+      const result = (await recordPunchServer({
         data: { employeeRef: employeeRef.trim(), punchType, deviceId },
-      });
+      })) as { employeeName?: string; employeeNo?: string };
       toast.success(
-        `${punchType === "in" ? "بصمة دخول" : "بصمة خروج"} — ${result.employeeName} (${result.employeeNo})`,
+        `${punchType === "in" ? "بصمة دخول" : "بصمة خروج"} — ${result.employeeName ?? ""} (${result.employeeNo ?? ""})`,
       );
       await load();
-    } catch (error: any) {
-      toast.error(error?.message ?? "تعذر تسجيل البصمة");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "تعذر تسجيل البصمة");
     } finally {
       setBusy(false);
     }
@@ -97,9 +97,8 @@ export const BiometricTerminalPanel: React.FC = () => {
       await decidePunchServer({ data: { punchId, decision } });
       toast.success(decision === "approved" ? "تم اعتماد البصمة وتحديث الحضور" : "تم رفض البصمة");
       await load();
-      await refreshData?.();
-    } catch (error: any) {
-      toast.error(error?.message ?? "تعذر تنفيذ القرار");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "تعذر تنفيذ القرار");
     } finally {
       setBusy(false);
     }
@@ -108,14 +107,16 @@ export const BiometricTerminalPanel: React.FC = () => {
   const handleSettle = async () => {
     setBusy(true);
     try {
-      const result: any = await settleAttendancePeriodServer({ data: { year, month } });
+      const result = (await settleAttendancePeriodServer({ data: { year, month } })) as {
+        approvedPunches?: number;
+        totalNet?: number;
+      };
       toast.success(
-        `تمت تسوية ${result.approvedPunches} بصمة وإقفال مسيّر ${month}/${year} بصافي ${Math.round(result.totalNet).toLocaleString("ar-EG")} ر.س`,
+        `تمت تسوية ${result.approvedPunches ?? 0} بصمة وإقفال مسيّر ${month}/${year} بصافي ${Math.round(result.totalNet ?? 0).toLocaleString("ar-EG")} ر.س`,
       );
       await load();
-      await refreshData?.();
-    } catch (error: any) {
-      toast.error(error?.message ?? "تعذرت التسوية");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "تعذرت التسوية");
     } finally {
       setBusy(false);
     }
@@ -127,14 +128,14 @@ export const BiometricTerminalPanel: React.FC = () => {
     if (!nameAr || !id) return;
     setBusy(true);
     try {
-      const result: any = await registerBiometricDeviceServer({
+      const result = (await registerBiometricDeviceServer({
         data: { deviceId: id, nameAr, autoApprove: false },
-      });
-      setNewToken(result.token);
+      })) as { token?: string };
+      if (result.token) setNewToken(result.token);
       toast.success("تم تسجيل الجهاز، انسخ رمز الاتصال الآن");
       await load();
-    } catch (error: any) {
-      toast.error(error?.message ?? "تعذر تسجيل الجهاز");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "تعذر تسجيل الجهاز");
     } finally {
       setBusy(false);
     }

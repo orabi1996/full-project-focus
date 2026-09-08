@@ -31,8 +31,8 @@ export const BiometricDevicesPanel: React.FC = () => {
     setLoading(true);
     try {
       setDevices((await listBiometricDevicesServer()) as DeviceRow[]);
-    } catch (error: any) {
-      toast.error(error?.message ?? "تعذر قراءة الأجهزة");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "تعذر قراءة الأجهزة");
     } finally {
       setLoading(false);
     }
@@ -45,13 +45,16 @@ export const BiometricDevicesPanel: React.FC = () => {
   const addDevice = async () => {
     setBusy(true);
     try {
-      const result: any = await registerBiometricDeviceServer({ data: form });
+      const result = (await registerBiometricDeviceServer({ data: form })) as {
+        deviceId: string;
+        token: string;
+      };
       setToken({ deviceId: result.deviceId, value: result.token });
       toast.success("تم تسجيل الجهاز — انسخ رمز الاتصال الآن");
       setForm({ deviceId: "", nameAr: "", autoApprove: true });
       await load();
-    } catch (error: any) {
-      toast.error(error?.message ?? "تعذر تسجيل الجهاز");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "تعذر تسجيل الجهاز");
     } finally {
       setBusy(false);
     }
@@ -60,12 +63,14 @@ export const BiometricDevicesPanel: React.FC = () => {
   const update = async (device: DeviceRow, patch: Record<string, unknown>) => {
     setBusy(true);
     try {
-      const result: any = await updateBiometricDeviceServer({ data: { id: device.id, ...patch } });
+      const result = (await updateBiometricDeviceServer({
+        data: { id: device.id, ...patch },
+      })) as { token?: string };
       if (result?.token) setToken({ deviceId: device.device_id, value: result.token });
       toast.success("تم تحديث الجهاز");
       await load();
-    } catch (error: any) {
-      toast.error(error?.message ?? "تعذر تحديث الجهاز");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "تعذر تحديث الجهاز");
     } finally {
       setBusy(false);
     }
@@ -79,8 +84,8 @@ export const BiometricDevicesPanel: React.FC = () => {
       await deleteBiometricDeviceServer({ data: { id: device.id } });
       toast.success("تم حذف الجهاز");
       await load();
-    } catch (error: any) {
-      toast.error(error?.message ?? "تعذر حذف الجهاز");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "تعذر حذف الجهاز");
     } finally {
       setBusy(false);
     }

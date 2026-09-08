@@ -109,8 +109,8 @@ export function LoginPage() {
 
       {/* Center Main Stage Split Card */}
       <div className="w-full max-w-6xl mx-auto rounded-3xl overflow-hidden border border-white/15 bg-slate-900/60 backdrop-blur-2xl shadow-2xl shadow-black/80 grid grid-cols-1 lg:grid-cols-12 relative z-10 my-auto">
-        {/* Left/Showcase Brand Panel (7 cols on desktop) */}
-        <div className="lg:col-span-7 p-8 sm:p-12 lg:p-14 bg-gradient-to-br from-[#0A1A36]/90 via-[#07152B]/95 to-[#040A15] relative flex flex-col justify-between overflow-hidden border-b lg:border-b-0 lg:border-e border-white/10">
+        {/* Left/Showcase Brand Panel (Hidden on mobile, 7 cols on desktop) */}
+        <div className="hidden lg:flex lg:col-span-7 p-8 sm:p-12 lg:p-14 bg-gradient-to-br from-[#0A1A36]/90 via-[#07152B]/95 to-[#040A15] relative flex-col justify-between overflow-hidden border-b lg:border-b-0 lg:border-e border-white/10">
           {/* Subtle Ambient Radial Glow */}
           <div className="absolute top-0 right-0 w-80 h-80 bg-[#00B5FF]/15 rounded-full blur-3xl pointer-events-none" />
 
@@ -179,7 +179,7 @@ export function LoginPage() {
                 تسجيل الدخول الموحد الآمن
               </Badge>
               <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-                مرحباً بك مجدداً 👋
+                مرحباً بعودتك 👋
               </h2>
               <p className="text-xs text-muted-foreground font-medium">
                 أدخل بيانات حسابك المعتمد للدخول إلى لوحة التحكم
@@ -233,6 +233,7 @@ export function LoginPage() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute left-3 top-3 text-muted-foreground hover:text-foreground p-0.5 rounded-lg transition-colors cursor-pointer"
                     title={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                    aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -243,6 +244,7 @@ export function LoginPage() {
               <Button
                 type="submit"
                 disabled={isSubmitting}
+                aria-label="تسجيل الدخول"
                 className="w-full h-12 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-[#004BCE] via-[#0066E0] to-[#00B5FF] hover:opacity-95 shadow-lg shadow-blue-600/30 transition-all gap-2 mt-2 cursor-pointer"
               >
                 {isSubmitting ? (
@@ -252,7 +254,7 @@ export function LoginPage() {
                   </>
                 ) : (
                   <>
-                    <span>الدخول إلى منظومة الموارد البشرية</span>
+                    <span>تسجيل الدخول إلى المنظومة</span>
                     <ArrowRight className="h-4 w-4 rotate-180" />
                   </>
                 )}

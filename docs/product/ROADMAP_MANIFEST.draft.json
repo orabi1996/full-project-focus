@@ -1,0 +1,351 @@
+{
+  "schema_version": "0.1.0",
+  "catalog_version": "draft-2026-09-08",
+  "status": "proposal",
+  "runtime_enabled": false,
+  "principles": [
+    "value_before_breadth",
+    "data_before_ui",
+    "reversible_delivery",
+    "arabic_first",
+    "evidence_gated"
+  ],
+  "phases": [
+    {
+      "id": "RM-P0",
+      "name": "Discovery",
+      "horizon": "0-4 weeks target",
+      "business_goal": "إثبات ICP والمشتري والمشكلة والسياسة والـpilot",
+      "features": ["research", "ICP", "policy_matrix", "pilot_charter", "pricing_validation"],
+      "screens": ["research_workspace", "landing_message_test", "pilot_charter"],
+      "apis": ["research_outcome_contract"],
+      "database": ["no_operational_migration", "assumption_log"],
+      "testing": ["interviews", "usability", "policy_review", "threat_model_delta"],
+      "exit_criteria": [
+        "ICP_and_top3_pains_evidenced",
+        "country_and_policy_owner",
+        "2_to_3_design_partners",
+        "north_star_baseline",
+        "Go_Refine_Stop_decision"
+      ],
+      "owner": "product"
+    },
+    {
+      "id": "RM-P1",
+      "name": "MVP",
+      "horizon": "6-12 weeks target",
+      "business_goal": "أول قيمة من tenant إلى payroll preview",
+      "features": [
+        "auth_invite_tenant",
+        "organization",
+        "employees_documents",
+        "attendance",
+        "leave",
+        "payroll_preview",
+        "approval",
+        "audit"
+      ],
+      "screens": [
+        "auth_onboarding",
+        "organization",
+        "employees",
+        "attendance",
+        "leave",
+        "payroll_preview",
+        "approval_inbox",
+        "audit"
+      ],
+      "apis": [
+        "me_tenant_employees",
+        "attendance",
+        "leave",
+        "payroll_calculate",
+        "approvals",
+        "audit"
+      ],
+      "database": [
+        "tenant_registry",
+        "membership_rls",
+        "tenant_backfill",
+        "leave_ledger",
+        "payroll_snapshot",
+        "outbox_audit"
+      ],
+      "testing": [
+        "unit",
+        "migration",
+        "RLS",
+        "API_contract",
+        "staging_E2E",
+        "RTL_mobile",
+        "SEC_A01_A08"
+      ],
+      "exit_criteria": [
+        "critical_CRUD_persists_after_refresh",
+        "RLS_green",
+        "payroll_reproducible",
+        "design_partner_first_value",
+        "zero_P0_P1"
+      ],
+      "owner": "engineering_product"
+    },
+    {
+      "id": "RM-P2",
+      "name": "Beta",
+      "horizon": "8-16 weeks target",
+      "business_goal": "تشغيل design partners ودورتين payroll مع مطابقة",
+      "features": [
+        "payroll_lock",
+        "payslip_pdf",
+        "payment_sandbox",
+        "reconciliation",
+        "advances",
+        "expenses",
+        "settlement",
+        "SLA_delegation",
+        "reports",
+        "support"
+      ],
+      "screens": [
+        "payroll_lock_payment",
+        "advances_expenses_settlement",
+        "SLA_inbox",
+        "reports_jobs",
+        "support"
+      ],
+      "apis": [
+        "payroll_lock_adjustment",
+        "payment_callbacks_reconcile",
+        "advances",
+        "expenses",
+        "settlement",
+        "reports_jobs_support"
+      ],
+      "database": [
+        "financial_ledgers",
+        "journal_lines",
+        "provider_callbacks",
+        "jobs_dlq",
+        "private_storage",
+        "report_projections"
+      ],
+      "testing": [
+        "golden_payroll",
+        "concurrency_idempotency",
+        "provider_replay",
+        "restore_drill",
+        "visual_a11y",
+        "k6",
+        "WF_DB_API_SEC_cases"
+      ],
+      "exit_criteria": [
+        "two_payroll_cycles_per_partner",
+        "no_double_payment",
+        "support_SLA",
+        "activation_target_or_reason",
+        "pricing_unit_economics"
+      ],
+      "owner": "engineering_finance"
+    },
+    {
+      "id": "RM-P3",
+      "name": "Production",
+      "horizon": "12-24 weeks target",
+      "business_goal": "إطلاق مدفوع مضبوط وموثوق",
+      "features": [
+        "billing",
+        "entitlements",
+        "production_notifications",
+        "country_payroll_after_approval",
+        "security_events",
+        "backup_DR",
+        "incident_portal"
+      ],
+      "screens": ["billing", "health", "security_admin", "WPS_validation", "customer_success"],
+      "apis": ["subscriptions_invoices", "production_callbacks", "WPS", "DSAR", "support_SLA"],
+      "database": ["commerce_schema", "retention_legal_hold", "analytics_aggregates"],
+      "testing": [
+        "UAT",
+        "security_review",
+        "real_auth_E2E",
+        "restore_RPO_RTO",
+        "load_1K",
+        "incident_tabletop"
+      ],
+      "exit_criteria": [
+        "contracts_DPA_UAT",
+        "zero_P0_P1",
+        "canary_rollback",
+        "billing_recovery",
+        "paid_customer_handover"
+      ],
+      "owner": "product_security_ops"
+    },
+    {
+      "id": "RM-P4",
+      "name": "Growth",
+      "horizon": "6-12 months target",
+      "business_goal": "توسيع adoption والاحتفاظ والتكاملات",
+      "features": [
+        "ATS",
+        "performance",
+        "workforce",
+        "assets",
+        "ERP_connectors",
+        "device_connectors",
+        "scheduled_reports",
+        "PWA",
+        "analytics_warehouse"
+      ],
+      "screens": [
+        "talent",
+        "assets",
+        "integrations",
+        "report_builder",
+        "mobile_PWA",
+        "platform_analytics"
+      ],
+      "apis": [
+        "candidate_offer_to_hire",
+        "performance",
+        "assets",
+        "connectors",
+        "scheduled_reports",
+        "analytics_ingestion"
+      ],
+      "database": [
+        "domain_completion",
+        "connector_cursors",
+        "warehouse_aggregates",
+        "event_partitioning",
+        "add_on_entitlements"
+      ],
+      "testing": [
+        "multi_browser",
+        "load_10K",
+        "connector_replay",
+        "privacy_deletion",
+        "NRR_adoption"
+      ],
+      "exit_criteria": [
+        "adoption_retention_guardrail",
+        "production_connectors",
+        "cost_per_tenant_target",
+        "PWA_a11y_green",
+        "expansion_playbook"
+      ],
+      "owner": "growth_platform"
+    },
+    {
+      "id": "RM-P5",
+      "name": "Enterprise",
+      "horizon": "after_product_market_fit",
+      "business_goal": "تلبية العزل والسياسات والـscale المؤسسي",
+      "features": [
+        "SSO_SAML_OIDC",
+        "SCIM",
+        "advanced_SoD",
+        "customer_keys",
+        "residency_tiers",
+        "SIEM",
+        "bulk_API",
+        "tenant_move",
+        "100K_plus_scale"
+      ],
+      "screens": [
+        "enterprise_security",
+        "SSO_SCIM",
+        "policy_designer",
+        "residency_keys",
+        "SIEM_export",
+        "partner_API"
+      ],
+      "apis": [
+        "platform_admin",
+        "SCIM",
+        "SSO_callbacks",
+        "bulk_import_export",
+        "audit_stream",
+        "tenant_move_restore"
+      ],
+      "database": [
+        "separate_tier",
+        "read_replicas",
+        "partition",
+        "regional_storage",
+        "KMS_keys",
+        "event_workers"
+      ],
+      "testing": [
+        "load_100K_1M",
+        "isolation_pen_test",
+        "SSO_conformance",
+        "regional_DR",
+        "chaos",
+        "compatibility"
+      ],
+      "exit_criteria": [
+        "enterprise_contract_SLA_DPA",
+        "capacity_evidence",
+        "reference_tenant_controls",
+        "no_loss_tenant_move",
+        "restore_evidence"
+      ],
+      "owner": "enterprise_architecture"
+    }
+  ],
+  "capacity_path": [
+    {
+      "level": "1K_users",
+      "architecture": "modular_monolith_postgres_rls_one_worker_cdn",
+      "evidence": ["p95", "queue_age", "cost_per_tenant"]
+    },
+    {
+      "level": "10K_users",
+      "architecture": "queue_redis_read_replica_when_measured_warehouse_aggregates",
+      "evidence": ["db_locks", "worker_saturation", "p95"]
+    },
+    {
+      "level": "100K_users",
+      "architecture": "partition_events_attendance_horizontal_workers_pool_search_warehouse",
+      "evidence": ["noisy_neighbor", "storage_growth", "queue_age"]
+    },
+    {
+      "level": "1M_plus_users",
+      "architecture": "regional_tiers_selective_event_driven_microservices",
+      "evidence": ["regional_RTO", "isolation", "unit_economics"]
+    }
+  ],
+  "decision_gates": ["RM-P0_to_P1", "RM-P1_to_P2", "RM-P2_to_P3", "RM-P3_to_P4", "RM-P4_to_P5"],
+  "acceptance_case_ids": [
+    "RM-A01",
+    "RM-A02",
+    "RM-A03",
+    "RM-A04",
+    "RM-A05",
+    "RM-A06",
+    "RM-A07",
+    "RM-A08",
+    "RM-A09",
+    "RM-A10",
+    "RM-A11",
+    "RM-A12",
+    "RM-A13",
+    "RM-A14",
+    "RM-A15",
+    "RM-A16",
+    "RM-A17",
+    "RM-A18",
+    "RM-A19",
+    "RM-A20"
+  ],
+  "open_decisions": [
+    "pilot_country_and_policy",
+    "design_partner_count",
+    "payment_provider",
+    "billing_model",
+    "warehouse_provider",
+    "enterprise_residency_tiers",
+    "timeline_capacity"
+  ]
+}

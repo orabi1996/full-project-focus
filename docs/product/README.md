@@ -38,6 +38,8 @@
 30. [DevOps Manifest](DEVOPS_MANIFEST.draft.json): 9 pipelines و6 بيئات و7 runbooks؛ غير مفعّل تشغيليًا.
 31. [PART 15 — Product & Business Analytics](PART_15_ANALYTICS_ARCHITECTURE.ar.md): شجرة المقاييس، taxonomy للأحداث، لوحات الأدوار، الخصوصية، والجودة.
 32. [Analytics Manifest](ANALYTICS_MANIFEST.draft.json): 29 event و19 metric و8 dashboards مع منع PII؛ غير مفعّل تشغيليًا.
+33. [PART 16 — Product Roadmap](PART_16_PRODUCT_ROADMAP.ar.md): مراحل Discovery وMVP وBeta وProduction وGrowth وEnterprise مع نطاق وبوابات خروج وسعة.
+34. [Roadmap Manifest](ROADMAP_MANIFEST.draft.json): 6 phases و4 مستويات سعة ومعايير انتقال؛ غير مفعّل تشغيليًا.
 
 **الحالة:** اكتمل الاكتشاف المكتبي وأدوات البحث، وأُعدت استراتيجية المنتج ونطاق MVP والباقات كقرارات عمل مبدئية. لا توجد حتى الآن نتائج مقابلات أو تجارب مدفوعة أو أسعار معتمدة ضمن هذه المخرجات. مرحلة التوثيق لا تعني اعتماد الإطلاق أو تطبيق ترحيلات قاعدة البيانات.
 
@@ -60,7 +62,7 @@
 | 13    | QA & Testing              | مكتمل كمواصفات مبدئية؛ توسيع suites وgates الآلية معلق               |
 | 14    | DevOps                    | مكتمل كمواصفات مبدئية؛ تهيئة environments وCI/CD التشغيلية معلقة     |
 | 15    | Analytics                 | مكتمل كمواصفات مبدئية؛ collector والـwarehouse واللوحات معلقة        |
-| 16    | Roadmap                   | مخطط                                                                 |
+| 16    | Roadmap                   | مكتمل كمواصفات مبدئية؛ التواريخ والأدلة التجارية قابلة للتحقق        |
 | 17    | Development Backlog       | مخطط                                                                 |
 | 18    | Implementation            | يبدأ بعد تحليل النطاق؛ الكود السابق أصل قائم يحتاج تقييمًا واختبارات |
 

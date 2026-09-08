@@ -28,6 +28,8 @@
 20. [Workflow Catalog](WORKFLOW_CATALOG.draft.json): كتالوج آلي مبدئي لـ16 workflow وضوابطها؛ غير مفعّل تشغيليًا.
 21. [PART 10 — Database Architecture](PART_10_DATABASE_ARCHITECTURE.ar.md): استراتيجية Multi-tenancy، الكيانات، الـledger، RLS، الفهارس، الاحتفاظ، وخطة ترحيل schema الحالي.
 22. [Database Schema Manifest](DATABASE_SCHEMA_MANIFEST.draft.json): كتالوج آلي مبدئي لـ86 كيانًا وقواعد التكامل والترحيل؛ غير مفعّل.
+23. [PART 11 — API Architecture](PART_11_API_ARCHITECTURE.ar.md): عقود REST، الأوامر، pagination، الأخطاء، الـwebhooks، والـadapters مع server functions الحالية.
+24. [API Contract Manifest](API_CONTRACT_MANIFEST.draft.json): كتالوج آلي مبدئي لـ85 endpoint وerror/event contracts؛ غير مفعّل تشغيليًا.
 
 **الحالة:** اكتمل الاكتشاف المكتبي وأدوات البحث، وأُعدت استراتيجية المنتج ونطاق MVP والباقات كقرارات عمل مبدئية. لا توجد حتى الآن نتائج مقابلات أو تجارب مدفوعة أو أسعار معتمدة ضمن هذه المخرجات. مرحلة التوثيق لا تعني اعتماد الإطلاق أو تطبيق ترحيلات قاعدة البيانات.
 
@@ -45,7 +47,7 @@
 | 8     | UI/UX Design System       | مكتمل كمواصفات مبدئية؛ تحويل tokens إلى components معلق              |
 | 9     | Workflows                 | مكتمل كمواصفات مبدئية؛ ربط commands/jobs معلق                        |
 | 10    | Database                  | مكتمل كمواصفات مبدئية؛ tenant backfill وledger migrations معلقة      |
-| 11    | API                       | مخطط                                                                 |
+| 11    | API                       | مكتمل كمواصفات مبدئية؛ تنفيذ REST/OpenAPI والـadapters معلق          |
 | 12    | Security                  | مخطط؛ متطلبات الحماية تدخل القرارات السابقة أيضًا                    |
 | 13    | QA & Testing              | مخطط                                                                 |
 | 14    | DevOps                    | مخطط                                                                 |

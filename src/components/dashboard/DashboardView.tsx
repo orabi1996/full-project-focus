@@ -187,65 +187,109 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
   return (
     <div className="space-y-6">
-      {/* Executive Welcome Banner (Classera Pulse Signature Hero) */}
-      <div className="relative overflow-hidden rounded-3xl classera-gradient-hero p-6 md:p-8 text-white shadow-xl shadow-blue-900/20 border border-blue-400/20">
-        {/* Subtle Ambient Glow and Logo Watermark */}
-        <div className="absolute top-[-25%] right-[10%] w-80 h-80 bg-[#00B5FF]/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -left-10 -bottom-10 opacity-15 pointer-events-none hidden sm:block">
-          <AppLogo height={160} className="brightness-0 invert" />
+      {/* Executive Welcome Card (Classera Pulse Signature Hero) */}
+      <div className="relative overflow-hidden rounded-3xl bg-card border border-border/80 p-6 md:p-8 shadow-xs">
+        {/* Top Accent Gradient Bar */}
+        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+
+        {/* Subtle Ambient Watermark */}
+        <div className="absolute -left-8 -bottom-8 opacity-[0.04] pointer-events-none hidden sm:block">
+          <AppLogo height={180} />
         </div>
 
-        <div className="relative z-10 flex flex-col justify-between gap-5 md:flex-row md:items-center">
-          <div className="space-y-2">
+        <div className="relative z-10 flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+          <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-bold backdrop-blur-md border border-white/20">
+              <span className="rounded-full bg-primary/10 text-primary border border-primary/20 px-3 py-0.5 text-xs font-bold inline-flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
                 منظومة الرقابة التشغيلية الذكية
               </span>
-              <Badge className="bg-[#00B5FF]/25 text-white border-white/30 rounded-full text-[10px] font-bold">
+              <Badge
+                variant="outline"
+                className="rounded-full border-border/80 text-muted-foreground text-[11px] font-semibold"
+              >
                 {company.legalNameAr}
               </Badge>
-              <Sparkles className="h-4 w-4 text-[#00B5FF] animate-pulse" />
             </div>
-            <h1 className="text-xl md:text-2xl font-black tracking-tight">
-              {t.dashboard.welcome}،{" "}
-              {language === "ar"
-                ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
-                : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`}
-            </h1>
-            <p className="text-xs text-white/85 font-medium max-w-xl">
-              ملخص الأداء والمؤشرات الحية لليوم •{" "}
-              {new Date().toLocaleDateString(language === "ar" ? "ar-SA" : "en-US", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </p>
+
+            <div className="space-y-1">
+              <h1 className="text-xl md:text-2xl font-black text-foreground tracking-tight">
+                {t.dashboard.welcome}،{" "}
+                <span className="text-primary">
+                  {language === "ar"
+                    ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`.replace(/\(مدير النظام\)/g, "").trim()
+                    : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`.replace(/\(مدير النظام\)/g, "").trim()}
+                </span>
+              </h1>
+              <p className="text-xs text-muted-foreground font-medium flex items-center gap-2">
+                <span>ملخص الأداء والعمليات التشغيلية الحية</span>
+                <span className="text-muted-foreground/40">•</span>
+                <span className="font-semibold text-foreground/80">
+                  {new Date().toLocaleDateString(language === "ar" ? "ar-SA" : "en-US", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </span>
+              </p>
+            </div>
+
+            {/* Micro Quick Pulse Stats */}
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <div className="inline-flex items-center gap-2 rounded-xl bg-muted/50 border border-border/60 px-3 py-1.5 text-xs">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-muted-foreground">نسبة حضور اليوم:</span>
+                <span className="font-bold text-foreground font-mono">
+                  {totalEmployees > 0 ? Math.round((presentToday / totalEmployees) * 100) : 100}%
+                </span>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-xl bg-muted/50 border border-border/60 px-3 py-1.5 text-xs">
+                <span className="h-2 w-2 rounded-full bg-primary" />
+                <span className="text-muted-foreground">نسبة التوطين:</span>
+                <span className="font-bold text-primary font-mono">{saudizationRate}%</span>
+              </div>
+              {pendingApprovals.length > 0 && (
+                <div className="inline-flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 text-xs">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  <span className="text-amber-800 dark:text-amber-300 font-semibold">بانتظار الاعتماد:</span>
+                  <span className="font-bold text-amber-700 dark:text-amber-400 font-mono">
+                    {pendingApprovals.length} طلبات
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-2.5">
+          {/* Harmonized Action Buttons */}
+          <div className="flex flex-wrap items-center gap-2.5">
             <Button
               onClick={() => handleQuickPunch("in")}
-              className="rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs gap-1.5 shadow-sm px-4 h-10 cursor-pointer"
+              className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs gap-2 shadow-sm px-5 h-11 cursor-pointer transition-all"
             >
               <Clock className="h-4 w-4" />
-              تسجيل حضور
+              تسجيل حضور وانصراف
             </Button>
             <Button
               onClick={() => onNavigate("workflow")}
-              variant="secondary"
-              className="rounded-full font-bold text-xs gap-1.5 px-4 h-10 bg-white/15 text-white hover:bg-white/25 border border-white/20 backdrop-blur-md cursor-pointer"
+              variant="outline"
+              className="rounded-full font-bold text-xs gap-2 px-4 h-11 border-border/80 hover:bg-muted/70 cursor-pointer shadow-2xs relative"
             >
-              <AlertCircle className="h-4 w-4 text-amber-300" />
-              الطلبات المعلقة ({pendingApprovals.length})
+              <AlertCircle className="h-4 w-4 text-amber-500" />
+              الطلبات المعلقة
+              {pendingApprovals.length > 0 && (
+                <span className="rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-mono text-[11px] font-bold px-2 py-0.5 border border-amber-500/20">
+                  {pendingApprovals.length}
+                </span>
+              )}
             </Button>
             <Button
               onClick={() => onNavigate("employees")}
-              variant="outline"
-              className="rounded-full bg-white/10 hover:bg-white/20 text-white border-white/30 font-bold text-xs gap-1.5 px-4 h-10 backdrop-blur-sm cursor-pointer"
+              variant="ghost"
+              className="rounded-full font-bold text-xs gap-2 px-4 h-11 hover:bg-muted/70 text-muted-foreground hover:text-foreground cursor-pointer"
             >
               <Users className="h-4 w-4" />
-              ملفات الموظفين
+              دليل الموظفين
             </Button>
           </div>
         </div>

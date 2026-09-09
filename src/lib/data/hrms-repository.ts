@@ -26,15 +26,16 @@ export interface CoreSnapshot {
 }
 
 function splitName(fullName: string) {
-  if (fullName.includes("@")) {
+  const cleaned = fullName.replace(/\(مدير النظام\)/g, "").trim();
+  if (cleaned.includes("@") || !cleaned) {
     return {
       firstName: "أ. عبد العزيز",
-      lastName: "الفهد (مدير النظام)",
+      lastName: "الفهد",
     };
   }
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  const parts = cleaned.split(/\s+/).filter(Boolean);
   return {
-    firstName: parts[0] ?? fullName,
+    firstName: parts[0] ?? cleaned,
     lastName: parts.slice(1).join(" ") || "—",
   };
 }
@@ -54,7 +55,7 @@ function mapEmployee(
     row.email?.toLowerCase().includes("hr");
 
   const defaultFirstName = isAdminEmail ? "أ. عبد العزيز" : "موظف";
-  const defaultLastName = isAdminEmail ? "الفهد (مدير النظام)" : "عام";
+  const defaultLastName = isAdminEmail ? "الفهد" : "عام";
 
   const firstNameAr =
     row.first_name_ar && !row.first_name_ar.includes("@")
@@ -65,7 +66,7 @@ function mapEmployee(
 
   const lastNameAr =
     row.last_name_ar && row.last_name_ar !== "—" && !row.last_name_ar.includes("@")
-      ? row.last_name_ar
+      ? row.last_name_ar.replace(/\(مدير النظام\)/g, "").trim()
       : isEmailOrEmpty
         ? defaultLastName
         : splitName(row.full_name).lastName;

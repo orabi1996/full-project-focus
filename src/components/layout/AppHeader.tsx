@@ -138,60 +138,64 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         </button>
       </div>
 
-      {/* Right Controls & Live Time */}
-      <div className="flex items-center gap-2.5 md:gap-3.5">
-        {/* Live Data Connection Status Pill */}
-        <Badge
-          variant={dataError ? "destructive" : dataMode === "live" ? "default" : "secondary"}
-          className="hidden md:inline-flex h-8 gap-1.5 rounded-full px-3 text-[10px] font-bold shadow-xs"
+      {/* Right Controls & Status */}
+      <div className="flex items-center gap-2.5 md:gap-3">
+        {/* Subtle Live Data Connection Status Indicator */}
+        <div
+          className="hidden md:inline-flex items-center gap-2 h-9 rounded-full px-3.5 border border-border/70 bg-muted/30 text-xs font-semibold text-muted-foreground"
           title={
-            dataError ||
-            (lastSavedAt
-              ? `آخر حفظ مؤكد: ${new Date(lastSavedAt).toLocaleTimeString("ar-SA")}`
-              : undefined)
+            dataError
+              ? `الوضع المحلي: ${dataError}`
+              : dataMode === "live"
+                ? "متصل بالنظام السحابي المباشر"
+                : "النسخة التجريبية التفاعلية"
           }
         >
-          <Database className={`h-3 w-3 ${isDataLoading || isSaving ? "animate-pulse" : ""}`} />
-          {dataError
-            ? "خطأ في الحفظ أو الاتصال"
-            : dataMode === "live"
-              ? isSaving
-                ? `جارٍ حفظ ${pendingMutationCount > 1 ? `${pendingMutationCount} عمليات` : "التغييرات"}`
-                : lastSavedAt
-                  ? "تم الحفظ والتأكيد"
-                  : "بيانات حية مباشرة"
-              : "نسخة تجريبية"}
-        </Badge>
+          <span
+            className={`h-2 w-2 rounded-full ${
+              dataError
+                ? "bg-amber-500"
+                : dataMode === "live"
+                  ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
+                  : "bg-primary shadow-[0_0_8px_rgba(0,181,255,0.5)]"
+            }`}
+          />
+          <span className="text-[11px] font-medium">
+            {dataError
+              ? "الوضع المحلي"
+              : dataMode === "live"
+                ? isSaving
+                  ? "جارٍ المزامنة..."
+                  : "سحابي مباشر"
+                : "نسخة تجريبية"}
+          </span>
+        </div>
 
-        {/* Brand Logo Live Switcher */}
-        <BrandLogoSwitcher compact className="hidden xl:inline-flex" />
-
-        {/* Live Saudi Clock Pill */}
-        <div className="hidden lg:flex items-center gap-2 rounded-full border border-border/80 bg-muted/40 px-3.5 py-1.5 text-xs font-mono font-bold text-foreground shadow-xs">
-          <Clock className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
+        {/* Executive Riyadh Time */}
+        <div className="hidden 2xl:flex items-center gap-1.5 text-xs font-mono text-muted-foreground px-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           <span>
             {liveTime.toLocaleTimeString("ar-SA", {
               timeZone: "Asia/Riyadh",
               hour: "2-digit",
               minute: "2-digit",
-              second: "2-digit",
             })}{" "}
             (الرياض)
           </span>
         </div>
 
-        {/* Dynamic Role Switcher Pill */}
+        {/* Dynamic Role Indicator / Switcher Pill */}
         {isDemo ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-10 rounded-full gap-2 border-primary/20 bg-secondary text-xs font-bold text-secondary-foreground hover:bg-secondary/80 shadow-xs px-4"
+                className="h-9 rounded-full gap-2 border-primary/20 bg-secondary/70 text-xs font-bold text-secondary-foreground hover:bg-secondary shadow-2xs px-3.5"
               >
-                <Shield className="h-4 w-4 text-primary" />
+                <Shield className="h-3.5 w-3.5 text-primary" />
                 <span className="hidden sm:inline">{roleLabels[currentRole][language]}</span>
-                <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                <ChevronDown className="h-3 w-3 opacity-60" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -215,14 +219,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <Button
+          <Badge
             variant="outline"
-            size="sm"
-            className="h-10 rounded-full gap-2 border-primary/20 bg-secondary text-xs font-bold text-secondary-foreground shadow-xs px-4"
+            className="hidden lg:inline-flex h-9 rounded-full px-3.5 border-primary/25 bg-primary/5 text-primary text-xs font-bold gap-1.5 shadow-2xs"
           >
-            <Shield className="h-4 w-4 text-primary" />
-            <span className="hidden sm:inline">{roleLabels[currentRole][language]}</span>
-          </Button>
+            <Shield className="h-3.5 w-3.5 text-primary" />
+            <span>{roleLabels[currentRole][language]}</span>
+          </Badge>
         )}
 
         {/* Language Switcher Button */}
@@ -336,13 +339,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-black text-foreground">
                     {language === "ar"
-                      ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
-                      : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`}
+                      ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`.replace(/\(مدير النظام\)/g, "").trim()
+                      : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`.replace(/\(مدير النظام\)/g, "").trim()}
                   </span>
                   <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                 </div>
-                <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[160px]">
-                  {session?.user?.email || currentUser.email || "hr.admin@classera.com"}
+                <span className="text-[10px] font-semibold text-primary/90 truncate max-w-[150px]">
+                  {currentUser.jobTitleAr || roleLabels[currentRole][language]}
                 </span>
               </div>
             </button>
@@ -350,10 +353,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
           <DropdownMenuContent
             align={language === "ar" ? "start" : "end"}
-            className="w-80 rounded-3xl p-3 shadow-2xl border-border/80 space-y-2 animate-in fade-in zoom-in-95 duration-150"
+            className="w-80 rounded-3xl p-3 shadow-2xl border-border/80 space-y-2.5 animate-in fade-in zoom-in-95 duration-150"
           >
             {/* Header: User Identity Card */}
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-muted/40 border border-primary/15 space-y-2 text-start">
+            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-muted/40 border border-primary/15 space-y-2.5 text-start">
               <div className="flex items-center gap-3">
                 <div className="relative shrink-0">
                   <img
@@ -369,21 +372,23 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 <div className="space-y-0.5 overflow-hidden">
                   <h4 className="text-xs font-black text-foreground truncate">
                     {language === "ar"
-                      ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
-                      : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`}
+                      ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`.replace(/\(مدير النظام\)/g, "").trim()
+                      : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`.replace(/\(مدير النظام\)/g, "").trim()}
                   </h4>
                   <p className="text-[11px] font-mono text-primary font-bold truncate">
-                    {session?.user?.email || currentUser.email || "hr.admin@classera.com"}
+                    {session?.user?.email?.includes("focus-hrms")
+                      ? "hr.admin@classera.com"
+                      : session?.user?.email || (currentUser.email?.includes("focus-hrms") ? "hr.admin@classera.com" : currentUser.email) || "hr.admin@classera.com"}
                   </p>
                   <p className="text-[10px] text-muted-foreground font-medium truncate">
-                    {currentUser.jobTitleAr}
+                    {currentUser.jobTitleAr || "مدير عام المنظومة"}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-1.5 border-t border-border/40 text-[10px]">
+              <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[10px]">
                 <span className="font-mono text-muted-foreground">
-                  رقم: {currentUser.employeeNo || "FOC-0001"}
+                  رقم: {currentUser.employeeNo || "CLS-0001"}
                 </span>
                 <Badge variant="default" className="text-[9px] font-bold rounded-full px-2">
                   {roleLabels[currentRole][language]}
@@ -398,12 +403,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 className="flex items-center gap-2.5 rounded-xl text-xs font-bold px-3 py-2 cursor-pointer hover:bg-secondary"
               >
                 <User className="h-4 w-4 text-primary" />
-                <div className="flex flex-col text-start">
-                  <span>ملفي الشخصي 360°</span>
-                  <span className="text-[10px] text-muted-foreground font-normal">
-                    عرض البيانات الوظيفية، العقد، والرواتب
-                  </span>
-                </div>
+                <span>الملف الشخصي والبيانات الوظيفية</span>
               </DropdownMenuItem>
 
               <DropdownMenuItem
@@ -444,6 +444,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   </span>
                 </div>
               </DropdownMenuItem>
+            </div>
+
+            <DropdownMenuSeparator />
+
+            {/* Brand Logo Options in Dropdown */}
+            <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 space-y-2">
+              <span className="text-[10px] font-black text-muted-foreground block text-start">
+                تفضيل نموذج الهوية والشعار:
+              </span>
+              <BrandLogoSwitcher className="w-full justify-center" />
             </div>
 
             <DropdownMenuSeparator />

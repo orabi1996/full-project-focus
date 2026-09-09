@@ -45,7 +45,7 @@
     {
       "id": "DES-002",
       "title_ar": "إزالة ادعاءات نجاح أمان الحساب غير المنفذة",
-      "status": "planned",
+      "status": "implemented_unavailable_ui",
       "priority": "P0",
       "phase": 1,
       "owner_role": "Frontend + Backend",
@@ -73,7 +73,17 @@
         1,
         3
       ],
-      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري.",
+      "implementation": {
+        "date": "2026-09-09",
+        "scope": "Removed simulated security operations; explicit unavailable/unknown state in Arabic and English. No identity mutations or MFA integration enabled.",
+        "delivery_note": "DES-002_IMPLEMENTATION.ar.md",
+        "automated_tests": [
+          "src/components/layout/AccountSecurityPanel.test.tsx",
+          "e2e/account-security.spec.ts"
+        ],
+        "ci_evidence": "GitHub Actions checks on the commit that introduces this implementation."
+      }
     },
     {
       "id": "DES-003",

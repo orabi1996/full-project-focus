@@ -5,6 +5,7 @@ import { AppHeader } from "./AppHeader";
 import { CommandPalette } from "./CommandPalette";
 import { ViewErrorBoundary } from "../ui/ViewErrorBoundary";
 import { canAccessModule } from "../../lib/auth/permissions";
+import { LayoutDashboard, Users, Clock, CheckSquare, Smartphone } from "lucide-react";
 
 const DashboardView = lazy(() =>
   import("../dashboard/DashboardView").then((module) => ({ default: module.DashboardView })),
@@ -89,7 +90,8 @@ const VALID_TABS = new Set([
 ]);
 
 export const AppLayout: React.FC = () => {
-  const { language, direction, currentRole } = useApp();
+  const { language, direction, currentRole, requests } = useApp();
+  const pendingRequestsCount = requests?.filter((r) => r.status === "pending_approval").length || 0;
   const initialTab =
     typeof window === "undefined" ? "dashboard" : window.location.hash.replace("#", "");
   const [currentTab, setCurrentTab] = useState(
@@ -228,6 +230,77 @@ export const AppLayout: React.FC = () => {
             </ViewErrorBoundary>
           </div>
         </main>
+
+        {/* Mobile Fast Navigation Bar (Classera Pulse Mobile) */}
+        <nav className="sticky bottom-0 z-30 flex items-center justify-around border-t border-border/80 bg-card/95 backdrop-blur-xl px-2 py-1.5 md:hidden shadow-lg select-none">
+          <button
+            type="button"
+            onClick={() => selectTab("dashboard")}
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-2xl transition-all cursor-pointer ${
+              currentTab === "dashboard"
+                ? "text-primary font-black scale-105"
+                : "text-muted-foreground hover:text-foreground font-semibold"
+            }`}
+          >
+            <LayoutDashboard className="h-5 w-5" />
+            <span className="text-[10px]">الرئيسية</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => selectTab("employees")}
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-2xl transition-all cursor-pointer ${
+              currentTab === "employees"
+                ? "text-primary font-black scale-105"
+                : "text-muted-foreground hover:text-foreground font-semibold"
+            }`}
+          >
+            <Users className="h-5 w-5" />
+            <span className="text-[10px]">الموظفون</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => selectTab("attendance")}
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-2xl transition-all cursor-pointer ${
+              currentTab === "attendance"
+                ? "text-primary font-black scale-105"
+                : "text-muted-foreground hover:text-foreground font-semibold"
+            }`}
+          >
+            <Clock className="h-5 w-5" />
+            <span className="text-[10px]">الحضور</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => selectTab("workflow")}
+            className={`relative flex flex-col items-center gap-1 py-1 px-3 rounded-2xl transition-all cursor-pointer ${
+              currentTab === "workflow"
+                ? "text-primary font-black scale-105"
+                : "text-muted-foreground hover:text-foreground font-semibold"
+            }`}
+          >
+            <CheckSquare className="h-5 w-5" />
+            <span className="text-[10px]">الاعتمادات</span>
+            {pendingRequestsCount > 0 && (
+              <span className="absolute top-0.5 end-2.5 h-2 w-2 rounded-full bg-destructive animate-pulse" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => selectTab("ess")}
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-2xl transition-all cursor-pointer ${
+              currentTab === "ess"
+                ? "text-primary font-black scale-105"
+                : "text-muted-foreground hover:text-foreground font-semibold"
+            }`}
+          >
+            <Smartphone className="h-5 w-5" />
+            <span className="text-[10px]">خدماتي ESS</span>
+          </button>
+        </nav>
       </div>
     </div>
   );

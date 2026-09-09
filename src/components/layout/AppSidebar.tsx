@@ -1,7 +1,7 @@
 import React from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { IconSymbol, type IconSource } from "../ui/IconSymbol";
-import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, X } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { canAccessModule } from "../../lib/auth/permissions";
 import { AppLogo } from "../common/AppLogo";
@@ -228,13 +228,23 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
         <button
           onClick={onToggleCollapse}
-          className="hidden h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-xs hover:text-foreground hover:bg-muted md:flex transition-colors"
+          className="hidden h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-xs hover:text-foreground hover:bg-muted md:flex transition-colors cursor-pointer"
         >
           {direction === "rtl" ? (
             collapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
           ) : (
             collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />
           )}
+        </button>
+
+        {/* Mobile Close Button */}
+        <button
+          type="button"
+          onClick={onMobileClose}
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-border/80 bg-card text-muted-foreground hover:text-foreground hover:bg-muted md:hidden transition-colors cursor-pointer shadow-xs"
+          title="إغلاق القائمة"
+        >
+          <X className="h-4 w-4" />
         </button>
       </div>
 

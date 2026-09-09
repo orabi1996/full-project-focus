@@ -1,0 +1,108 @@
+{
+  "batch": "I-001",
+  "date": "2026-09-08",
+  "base_remote_commit": "10340cbd13dccdb78935e510460810ecc77490ae",
+  "story_ids": ["TEN-001", "TEN-002"],
+  "status": "verified_local_not_deployed",
+  "code_sha256": {
+    "package-lock.json": "ef05b1f0e3dafcbe3cd9fda9abde261970d9196ca22e276db1d213502a8d9830",
+    "package.json": "b0fb57a6d1ba66872bbc0aeef37da64ad669282697fcc75d9fc6540d7a006fc2",
+    "src/lib/tenancy/tenant-context-handler.ts": "c4ed115d037fe4190a224a4a1b9fb1e07c8ed68a82a24511d9d0b31917d89084",
+    "src/lib/tenancy/tenant-context.server.ts": "5923bdc14e4e7c7d6ed65d4ae1d020f1152c873470b1f2231891ab02d06bc88d",
+    "src/lib/tenancy/tenant-context.test.ts": "34066a56aa8c4f3114bc03bf47b7cfd067545df9bd89697fb4d0add3a80b74cb",
+    "src/lib/tenancy/tenant-context.ts": "71936d234bbf5ba3107bddab1f1b9e5eb04f01138ced6d2bc70ae2ac5bcd0454",
+    "src/routeTree.gen.ts": "0839534c3566a2608be49e75d967f5ebb81c18dc0253db108211ec15ffeb3c53",
+    "src/routes/api/v1/me.ts": "5fbcb8cad797f532427d3bdcf8e49d1bb509d5a14f89e56630cdfde145eb2b27",
+    "src/tests/tenant-registry.integration.test.ts": "667f52562ae5f3d4e1c1699c875561cc4334fa6da90a7cc8e92129acabe07b1b",
+    "supabase/migrations/20260908223000_tenant_registry_foundation.sql": "a4e1d05345c2b420ba8d481815d8bfe55300aa16402b5af9ccd39f78b79ae201",
+    "vitest.config.ts": "885c8e30538679e03cc0ed08b3c4f920919e2220a7db366f89b89220d91125d9"
+  },
+  "checks": [
+    {
+      "command": "npm run typecheck",
+      "exit_code": 0
+    },
+    {
+      "command": "npm run test:coverage",
+      "exit_code": 0,
+      "files_passed": 17,
+      "tests_passed": 146,
+      "new_context_tests": 38,
+      "new_sql_tests": 33
+    },
+    {
+      "command": "npm run lint",
+      "exit_code": 0,
+      "errors": 0,
+      "warnings": 229
+    },
+    {
+      "command": "eslint changed tenancy and integration test files",
+      "exit_code": 0,
+      "errors": 0,
+      "warnings": 0
+    },
+    {
+      "command": "npm run build",
+      "exit_code": 0
+    },
+    {
+      "command": "git diff --check and documentation graph validation",
+      "exit_code": 0
+    }
+  ],
+  "coverage_instrumented_files_only": {
+    "lines": 98.12,
+    "statements": 98.12,
+    "functions": 96.29,
+    "branches": 90.86,
+    "branchesTrue": 100
+  },
+  "http_smoke": {
+    "environment": "local_vite",
+    "results": [
+      {
+        "method": "GET",
+        "auth": "absent",
+        "status": 401,
+        "cache_control": "private, no-store"
+      },
+      {
+        "method": "HEAD",
+        "auth": "absent",
+        "status": 401,
+        "empty_body": true
+      },
+      {
+        "method": "POST",
+        "status": 405,
+        "allow": "GET, HEAD"
+      },
+      {
+        "method": "OPTIONS",
+        "status": 204,
+        "handled_by": "Vite development CORS middleware"
+      }
+    ]
+  },
+  "sql_test_environment": {
+    "engine": "PGlite",
+    "version": "0.5.8",
+    "database": "in_memory_synthetic",
+    "real_sql_roles": ["anon", "authenticated", "service_role"],
+    "supabase_auth_uid": "test_shim"
+  },
+  "not_verified": [
+    "full_legacy_migration_chain",
+    "live_Supabase_auth_and_PostgREST",
+    "staging_deployment",
+    "production_CORS_and_rate_limiting",
+    "legacy_HR_tenant_isolation",
+    "payroll_correctness",
+    "country_policy_or_compliance"
+  ],
+  "deployment": {
+    "migration_applied_to_customer_database": false,
+    "production_release": false
+  }
+}

@@ -571,7 +571,7 @@
       "role": "platform engineer",
       "phase": "RM-P1",
       "priority": "P0",
-      "status": "planned",
+      "status": "implemented_local",
       "depends_on": [],
       "screen_ids": ["S014", "S045", "S146"],
       "api_refs": ["GET /tenants"],
@@ -593,17 +593,17 @@
         {
           "id": "TEN-001-T1",
           "description_ar": "إضافة migration توسعية لسجل tenant/settings/memberships وقيود زمنية",
-          "status": "planned"
+          "status": "implemented_local"
         },
         {
           "id": "TEN-001-T2",
           "description_ar": "ضبط grants وRLS واختبار SELECT/INSERT/UPDATE/DELETE بأدوار قاعدة حقيقية",
-          "status": "planned"
+          "status": "implemented_local"
         },
         {
           "id": "TEN-001-T3",
           "description_ar": "توثيق provisioning والتراجع دون ترحيل شركات legacy ضمنيًا",
-          "status": "planned"
+          "status": "implemented_local"
         }
       ],
       "test_cases": [
@@ -614,8 +614,11 @@
           "precondition": "شركتان وعضوان فعالان في قاعدة اختبار",
           "action": "يقرأ عضو الشركة A السجل بصفة authenticated",
           "expected": "يرى شركته وعضويته وإعداداتها فقط",
-          "execution_status": "not_run",
-          "evidence": null
+          "execution_status": "passed_local",
+          "evidence": {
+            "batch": "I-001",
+            "test_file": "src/tests/tenant-registry.integration.test.ts"
+          }
         },
         {
           "id": "TEN-001-QA2",
@@ -624,12 +627,23 @@
           "precondition": "عضو مستخدم عادي أو مجهول",
           "action": "محاولة إدراج عضوية أو تغيير tenant_id أو حذف سجل",
           "expected": "تمنع قاعدة البيانات الكتابة ولا تمنح عضوية جديدة",
-          "execution_status": "not_run",
-          "evidence": null
+          "execution_status": "passed_local",
+          "evidence": {
+            "batch": "I-001",
+            "test_file": "src/tests/tenant-registry.integration.test.ts"
+          }
         }
       ],
       "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
-      "evidence": []
+      "evidence": [
+        {
+          "batch": "I-001",
+          "test_file": "src/tests/tenant-registry.integration.test.ts",
+          "scope": "local_synthetic",
+          "deployment": "not_deployed",
+          "limitations": "No full legacy migration chain or live Supabase/PostgREST validation."
+        }
+      ]
     },
     {
       "id": "TEN-002",
@@ -640,7 +654,7 @@
       "role": "authenticated user",
       "phase": "RM-P1",
       "priority": "P0",
-      "status": "planned",
+      "status": "implemented_local",
       "depends_on": ["TEN-001"],
       "screen_ids": ["S013", "S012"],
       "api_refs": ["GET /me"],
@@ -662,17 +676,17 @@
         {
           "id": "TEN-002-T1",
           "description_ar": "تنفيذ DTO typed وresolver للسياق وتاريخ صلاحية العضوية",
-          "status": "planned"
+          "status": "implemented_local"
         },
         {
           "id": "TEN-002-T2",
           "description_ar": "إضافة GET /api/v1/me بمصادقة خادم وقراءة RLS فقط",
-          "status": "planned"
+          "status": "implemented_local"
         },
         {
           "id": "TEN-002-T3",
           "description_ar": "اختبار أخطاء الجلسة والاختيار والتعليق وإخفاء أخطاء المزود",
-          "status": "planned"
+          "status": "implemented_local"
         }
       ],
       "test_cases": [
@@ -683,8 +697,11 @@
           "precondition": "جلسة موثقة وعضوية واحدة سارية",
           "action": "طلب GET /me",
           "expected": "يرجع user_id وسياق الشركة والإعدادات دون أسرار أو رواتب",
-          "execution_status": "not_run",
-          "evidence": null
+          "execution_status": "passed_local",
+          "evidence": {
+            "batch": "I-001",
+            "test_file": "src/lib/tenancy/tenant-context.test.ts"
+          }
         },
         {
           "id": "TEN-002-QA2",
@@ -693,12 +710,23 @@
           "precondition": "عضويتان ساريتان أو معرف شركة غير مخول",
           "action": "طلب سياق بلا اختيار أو باختيار غير مخول",
           "expected": "يرجع tenant_required أو tenant_access_denied دون اختيار شركة عشوائيًا",
-          "execution_status": "not_run",
-          "evidence": null
+          "execution_status": "passed_local",
+          "evidence": {
+            "batch": "I-001",
+            "test_file": "src/lib/tenancy/tenant-context.test.ts"
+          }
         }
       ],
       "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
-      "evidence": []
+      "evidence": [
+        {
+          "batch": "I-001",
+          "test_file": "src/lib/tenancy/tenant-context.test.ts",
+          "scope": "local_synthetic",
+          "deployment": "not_deployed",
+          "limitations": "No full legacy migration chain or live Supabase/PostgREST validation."
+        }
+      ]
     },
     {
       "id": "TEN-003",

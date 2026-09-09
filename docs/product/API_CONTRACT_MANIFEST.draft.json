@@ -39,7 +39,8 @@
     "428": "idempotency_or_precondition_required",
     "429": "rate_limited",
     "500": "unexpected service error",
-    "503": "dependency unavailable"
+    "503": "dependency unavailable",
+    "405": "method_not_allowed"
   },
   "rate_limits": {
     "browser_reads": "120/min/user",
@@ -56,11 +57,21 @@
       "roles": ["authenticated"],
       "scope": "tenant",
       "request_schema": null,
-      "response_schema": "MeResponse",
-      "errors": ["unauthorized", "forbidden", "not_found", "validation_error", "rate_limited"],
+      "response_schema": "TenantContextResponse_v1",
+      "errors": [
+        "unauthorized",
+        "validation_error",
+        "tenant_required",
+        "tenant_access_denied",
+        "service_unavailable",
+        "method_not_allowed"
+      ],
       "idempotency_required": false,
       "events": [],
-      "rate_class": "browser_reads"
+      "rate_class": "browser_reads",
+      "implementation_status": "local_verified_not_deployed",
+      "implementation_batch": "I-001",
+      "rate_limit_status": "pending_distributed_limit_before_pilot"
     },
     {
       "method": "GET",
@@ -1224,6 +1235,36 @@
       "code": "rate_limited",
       "http": 429,
       "retryable": true
+    },
+    {
+      "code": "unauthorized",
+      "http": 401,
+      "retryable": false
+    },
+    {
+      "code": "validation_error",
+      "http": 422,
+      "retryable": false
+    },
+    {
+      "code": "tenant_required",
+      "http": 409,
+      "retryable": false
+    },
+    {
+      "code": "tenant_access_denied",
+      "http": 403,
+      "retryable": false
+    },
+    {
+      "code": "service_unavailable",
+      "http": 503,
+      "retryable": true
+    },
+    {
+      "code": "method_not_allowed",
+      "http": 405,
+      "retryable": false
     }
   ],
   "event_contract": {
@@ -1308,5 +1349,8 @@
     "openapi_generation_tool",
     "webhook_retention_window",
     "graphql_or_rest_only"
-  ]
+  ],
+  "implementation_notes": {
+    "I-001": "GET /me has no business grants; returns user_id, membership id, safe tenant and nullable settings. tenant_context_required remains a proposed error for other contracts; /me distinguishes selector ambiguity (409) from access denial (403)."
+  }
 }

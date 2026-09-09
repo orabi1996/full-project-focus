@@ -20,13 +20,14 @@
     "company_id": "tenant_id during migration",
     "requests": "workflow_requests",
     "payroll_details": "payroll_lines",
-    "accounting_journals.lines": "journal_lines"
+    "accounting_journals.lines": "journal_lines",
+    "memberships": "tenant_memberships (physical table; I-001)"
   },
   "entities": [
     {
       "name": "tenants",
       "domain": "identity",
-      "existing_in_repo": false,
+      "existing_in_repo": true,
       "tenant_scoped": false,
       "primary_key": "id uuid",
       "important_fields": [
@@ -41,12 +42,14 @@
       "sensitivity": ["internal"],
       "indexes": ["slug", "status"],
       "relations": [],
-      "retention": "contract_defined"
+      "retention": "contract_defined",
+      "implementation_status": "migration_added_not_deployed",
+      "implementation_batch": "I-001"
     },
     {
       "name": "tenant_settings",
       "domain": "identity",
-      "existing_in_repo": false,
+      "existing_in_repo": true,
       "tenant_scoped": true,
       "primary_key": "id uuid",
       "important_fields": [
@@ -62,7 +65,9 @@
       "sensitivity": ["internal"],
       "indexes": ["tenant_id"],
       "relations": ["tenants 1:1"],
-      "retention": "contract_defined"
+      "retention": "contract_defined",
+      "implementation_status": "migration_added_not_deployed",
+      "implementation_batch": "I-001"
     },
     {
       "name": "tenant_domains",
@@ -105,9 +110,9 @@
       "retention": "contract_defined"
     },
     {
-      "name": "memberships",
+      "name": "tenant_memberships",
       "domain": "identity",
-      "existing_in_repo": false,
+      "existing_in_repo": true,
       "tenant_scoped": true,
       "primary_key": "id uuid",
       "important_fields": [
@@ -123,7 +128,9 @@
       "sensitivity": ["internal"],
       "indexes": ["tenant_id:user_id", "tenant_id:status"],
       "relations": [],
-      "retention": "contract_defined"
+      "retention": "contract_defined",
+      "implementation_status": "migration_added_not_deployed",
+      "implementation_batch": "I-001"
     },
     {
       "name": "role_definitions",

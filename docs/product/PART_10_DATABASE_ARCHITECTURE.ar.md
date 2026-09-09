@@ -13,7 +13,7 @@
 | محرك البيانات   | PostgreSQL عبر Supabase                      | معاملات وقيود وRLS وJSONB عند الحاجة؛ مناسب للـledger والتقارير                               |
 | استراتيجية SaaS | Shared database + shared schema + tenant key | أقل كلفة تشغيلية ويستفيد من RLS؛ يظل فصل عميل واحد/DB ممكنًا للعملاء ذوي العزل التنظيمي الخاص |
 | المفتاح القياسي | `tenant_id uuid` على كل جدول أعمال           | يمنع query بلا نطاق ويتيح composite FK/index؛ `company_id` يبقى alias انتقاليا                |
-| هوية المستخدم   | `auth.users` مع profiles/memberships         | لا نكرر كلمات المرور أو أسرار الهوية في public schema                                         |
+| هوية المستخدم   | `auth.users` مع profiles/tenant_memberships  | لا نكرر كلمات المرور أو أسرار الهوية في public schema                                         |
 | المبالغ         | `numeric(19,4)` + `currency_code char(3)`    | لا floating point في الرواتب أو الضرائب أو المطابقة                                           |
 | الوقت           | UTC في التخزين + timezone المؤسسة في العرض   | يحافظ على البصمة عبر التوقيت الصيفي ويمنع خلط تاريخ payroll                                   |
 | التاريخ المالي  | snapshots وledgers immutable                 | إعادة الحساب تصنع version أو adjustment؛ لا تعديل صامت لسند مقفول                             |
@@ -65,7 +65,7 @@ erDiagram
 - `tenant_domains`: domain verification وSSO/SCIM mapping.
 - `subsidiaries`, `departments`, `cost_centers`, `job_positions`, `work_locations`: الهيكل المؤسسي مع effective dates.
 - `profiles`: اسم العرض واللغة والصورة؛ لا يحمل salary أو national ID.
-- `memberships`: علاقة auth user بالtenant والدور والحالة وتاريخ البداية/النهاية.
+- `tenant_memberships` (الاسم المنطقي السابق `memberships`): علاقة auth user بالtenant والدور والحالة وتاريخ البداية/النهاية.
 - `role_definitions`, `permission_definitions`, `role_permissions`, `membership_roles`, `delegations`: catalog قابل للتوسع، مع policy version.
 
 ### 4.2 الموظف وملف العمل

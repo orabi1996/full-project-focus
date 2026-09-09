@@ -41,6 +41,9 @@
 33. [PART 16 — Product Roadmap](PART_16_PRODUCT_ROADMAP.ar.md): مراحل Discovery وMVP وBeta وProduction وGrowth وEnterprise مع نطاق وبوابات خروج وسعة.
 34. [Roadmap Manifest](ROADMAP_MANIFEST.draft.json): 6 phases و4 مستويات سعة ومعايير انتقال؛ غير مفعّل تشغيليًا.
 
+35. [PART 17 — Development Backlog](PART_17_DEVELOPMENT_BACKLOG.ar.md): قصص بمعايير قبول ومهام وحالات اختبار وتبعيات ومراجع فعلية.
+36. [Development Backlog](DEVELOPMENT_BACKLOG.draft.json) و[مسودات GitHub Issues](BACKLOG_GITHUB_ISSUES.draft.jsonl): كتالوج تنفيذ وملفات نقل؛ الحالات مخططة بلا ادعاء نجاح اختبارات.
+
 **الحالة:** اكتمل الاكتشاف المكتبي وأدوات البحث، وأُعدت استراتيجية المنتج ونطاق MVP والباقات كقرارات عمل مبدئية. لا توجد حتى الآن نتائج مقابلات أو تجارب مدفوعة أو أسعار معتمدة ضمن هذه المخرجات. مرحلة التوثيق لا تعني اعتماد الإطلاق أو تطبيق ترحيلات قاعدة البيانات.
 
 ## ترتيب العمل
@@ -63,7 +66,7 @@
 | 14    | DevOps                    | مكتمل كمواصفات مبدئية؛ تهيئة environments وCI/CD التشغيلية معلقة     |
 | 15    | Analytics                 | مكتمل كمواصفات مبدئية؛ collector والـwarehouse واللوحات معلقة        |
 | 16    | Roadmap                   | مكتمل كمواصفات مبدئية؛ التواريخ والأدلة التجارية قابلة للتحقق        |
-| 17    | Development Backlog       | مخطط                                                                 |
+| 17    | Development Backlog       | مكتمل كخطة تنفيذ مترابطة؛ نتائج التنفيذ تسجل في PART 18              |
 | 18    | Implementation            | يبدأ بعد تحليل النطاق؛ الكود السابق أصل قائم يحتاج تقييمًا واختبارات |
 
 ## طريقة توثيق القرارات

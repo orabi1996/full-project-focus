@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   ArrowUpRight,
   ArrowDownRight,
-  Sparkles,
   MapPin,
   FileText,
   DollarSign,
@@ -313,8 +312,8 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           <div className="space-y-3.5 flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-primary/10 text-primary border border-primary/20 px-3 py-1 text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs">
-                <Sparkles className="h-3.5 w-3.5 text-primary animate-pulse" />
-                مركز القيادة والرقابة التشغيلية الذكية
+                <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                مركز القيادة والرقابة التشغيلية المعتمدة
               </span>
               <Badge
                 variant="outline"
@@ -1165,7 +1164,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
       <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-border/60 pb-3">
           <div className="flex items-center gap-2.5">
-            <Zap className="h-5 w-5 text-amber-500" />
+            <Layers className="h-5 w-5 text-primary" />
             <div>
               <h2 className="text-sm md:text-base font-black text-foreground">
                 منصة الوصول السريع للأنظمة التشغيلية

@@ -8,7 +8,6 @@ import {
   Save,
   Search,
   CheckCircle2,
-  Sparkles,
   Layers,
   ChevronDown,
   ChevronUp,
@@ -68,7 +67,7 @@ const DOMAIN_SECTIONS: DomainConfig[] = [
     id: "talent",
     nameAr: "إدارة المواهب واستقطاب الكفاءات (Talent & Growth)",
     nameEn: "Talent Acquisition & Performance",
-    icon: "stars",
+    icon: "trending_up",
     screenIds: ["ats", "performance", "workforce"],
   },
   {

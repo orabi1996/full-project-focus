@@ -13,7 +13,6 @@ import {
   AlertCircle,
   ChevronRight,
   Shield,
-  Sparkles,
   QrCode,
   Download,
   Send,
@@ -170,10 +169,10 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-black text-foreground">
-                  بوابة الخدمة الذاتية وتطبيق الجوال الذكي
+                  بوابة الخدمة الذاتية للموظف (ESS)
                 </h1>
                 <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
-                  الخدمة الذاتية الذكية (ESS)
+                  الخدمة الذاتية للموظف (ESS)
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground font-medium mt-0.5">

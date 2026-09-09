@@ -16,7 +16,6 @@ import {
   Plus,
   Play,
   Table,
-  Sparkles,
   TrendingUp,
   Award,
 } from "lucide-react";

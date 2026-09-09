@@ -18,7 +18,6 @@ import {
   Eye,
   Award,
   Globe,
-  Sparkles,
   UserCheck,
   Printer,
   Search,

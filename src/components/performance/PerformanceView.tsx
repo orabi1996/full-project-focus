@@ -10,7 +10,6 @@ import {
   Target,
   BarChart3,
   Calendar,
-  Sparkles,
   Plus,
   TrendingUp,
   LayoutGrid,
@@ -128,7 +127,7 @@ export const PerformanceView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2.5">
             <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
-              <IconSymbol name="stars" source="material" filled size={24} className="text-primary" />
+              <IconSymbol name="trending_up" source="material" filled size={24} className="text-primary" />
             </div>
             <div>
               <div className="flex items-center gap-2">

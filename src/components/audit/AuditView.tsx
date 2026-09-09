@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
 import { IconSymbol } from "../ui/IconSymbol";
-import { History, Shield, Search, Filter, User, Clock, Lock, Download, Sparkles } from "lucide-react";
+import { History, Shield, Search, Filter, User, Clock, Lock, Download } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 

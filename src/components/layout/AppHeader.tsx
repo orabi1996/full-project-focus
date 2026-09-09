@@ -11,7 +11,6 @@ import {
   Shield,
   Check,
   Clock,
-  Sparkles,
   Command,
   LogOut,
   Database,

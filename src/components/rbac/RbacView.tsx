@@ -11,7 +11,6 @@ import {
   FileCheck,
   History,
   Lock,
-  Sparkles,
 } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { ALL_SYSTEM_SCREENS } from "../../lib/auth/rbac-definitions";

@@ -9,7 +9,7 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { Button } from "../ui/button";
-import { Shield, Sparkles, Copy } from "lucide-react";
+import { Shield, ShieldCheck, Copy } from "lucide-react";
 import { toast } from "sonner";
 import type { DataScope } from "../../types";
 import {
@@ -262,8 +262,8 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             onClick={handleCreate}
             className="rounded-full text-xs font-bold h-9 px-5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs gap-1.5"
           >
-            <Sparkles className="h-4 w-4" />
-            إنشاء المجموعة وضبط الصلاحيات
+            <ShieldCheck className="h-4 w-4" />
+            حفظ المجموعة وتعيين الصلاحيات
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -8,7 +8,7 @@ import {
   ShieldCheck,
   UsersRound,
   Loader2,
-  Sparkles,
+  KeyRound,
   ArrowRight,
   Shield,
   Layers,
@@ -58,7 +58,7 @@ export function LoginPage() {
         <div className="flex flex-col items-center gap-4">
           <div className="relative flex items-center justify-center">
             <div className="h-16 w-16 rounded-full border-2 border-[#00B5FF]/20 border-t-[#00B5FF] animate-spin" />
-            <Sparkles className="h-6 w-6 text-[#00B5FF] absolute animate-pulse" />
+            <ShieldCheck className="h-6 w-6 text-[#00B5FF] absolute" />
           </div>
           <p className="text-xs font-bold text-slate-300">جارٍ تهيئة بوابة Classera Pulse الآمنة…</p>
         </div>
@@ -122,14 +122,14 @@ export function LoginPage() {
 
             <div className="space-y-3">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00B5FF]/15 border border-[#00B5FF]/30 text-xs font-bold text-[#00B5FF]">
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>الجيل الجديد لإدارة رأس المال البشري والامتثال</span>
+                <ShieldCheck className="h-3.5 w-3.5" />
+                <span>المنظومة المؤسسية لإدارة رأس المال البشري والامتثال</span>
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-snug">
-                كفاءة تشغيلية متقدمة لبيئة عمل رقمية ذكية
+                كفاءة تشغيلية متقدمة لإدارة رأس المال البشري والمنشآت
               </h1>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium max-w-xl">
-                منصة سحابية متكاملة تدعم دورة حياة الموظف من التوظيف إلى نهاية الخدمة، مدعومة باحتساب آلي للرواتب، الحضور الذكي، وسير الموافقات المرن.
+                منصة سحابية مؤسسية متكاملة تدعم دورة حياة الموظف من التوظيف إلى نهاية الخدمة، مدعومة باحتساب معتمد للرواتب، الحضور والانصراف، وسير الموافقات المؤسسي.
               </p>
             </div>
 
@@ -272,7 +272,7 @@ export function LoginPage() {
                   onClick={enterDemo}
                   className="w-full h-11 rounded-2xl font-bold text-xs border-[#00B5FF]/40 bg-[#00B5FF]/10 text-[#004BCE] dark:text-[#00B5FF] hover:bg-[#00B5FF]/20 shadow-xs cursor-pointer transition-all gap-2"
                 >
-                  <Sparkles className="h-4 w-4 text-[#00B5FF]" />
+                  <KeyRound className="h-4 w-4 text-[#00B5FF]" />
                   <span>الدخول المباشر إلى النسخة التجريبية (Demo Mode)</span>
                 </Button>
               </div>

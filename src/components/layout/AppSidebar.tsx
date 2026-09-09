@@ -1,7 +1,7 @@
 import React from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { IconSymbol, type IconSource } from "../ui/IconSymbol";
-import { ChevronLeft, ChevronRight, Sparkles, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { canAccessModule } from "../../lib/auth/permissions";
 import { AppLogo } from "../common/AppLogo";
@@ -146,7 +146,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         {
           id: "performance",
           label: t.nav.performance,
-          iconName: "stars",
+          iconName: "trending_up",
           iconSource: "material",
         },
         {

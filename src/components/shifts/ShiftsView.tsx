@@ -13,7 +13,6 @@ import {
   Layers,
   MapPin,
   Save,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";

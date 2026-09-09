@@ -120,7 +120,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     },
     {
       id: "ess",
-      labelAr: "بوابة الخدمة الذاتية وتطبيق الجوال الذكي",
+      labelAr: "بوابة الخدمة الذاتية للموظف (ESS)",
       icon: Smartphone,
       cat: "الخدمة الذاتية",
     },

@@ -27,7 +27,6 @@ import {
   Share2,
   Clock,
   MapPin,
-  Sparkles,
   Award,
   GraduationCap,
   Laptop,

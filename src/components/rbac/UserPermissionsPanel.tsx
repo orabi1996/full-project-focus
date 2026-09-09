@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   UserCheck,
   RotateCcw,
-  Sparkles,
   Sliders,
   Check,
   Building2,
@@ -52,7 +51,7 @@ const DOMAIN_SECTIONS: DomainConfig[] = [
   {
     id: "talent",
     nameAr: "إدارة المواهب واستقطاب الكفاءات (Talent & Growth)",
-    icon: "stars",
+    icon: "trending_up",
     screenIds: ["ats", "performance", "workforce"],
   },
   {

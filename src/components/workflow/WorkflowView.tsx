@@ -24,7 +24,6 @@ import {
   ChevronRight,
   Send,
   FileCheck,
-  Sparkles,
   Trash2,
   Calendar,
   UserCheck,
@@ -328,7 +327,7 @@ export const WorkflowView: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-black text-foreground">
-                  محرك الطلبات ومسارات الاعتماد الذكية
+                  محرك الطلبات ومسارات الاعتماد المؤسسية
                 </h1>
                 <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
                   حوكمة ومسارات إلكترونية

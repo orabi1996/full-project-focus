@@ -15,9 +15,7 @@ import {
   Search,
   Plus,
   Compass,
-  Sparkles,
   ShieldCheck,
-  Zap,
   TrendingUp,
   XCircle,
   Calendar,
@@ -282,7 +280,7 @@ export const AttendanceView: React.FC = () => {
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground font-medium mt-1">
-            البصمة الذكية GPS، السياج الجغرافي، واحتساب الساعات الإضافية وفق المادة 107 من نظام
+            تسجيل البصمة والموقع الجغرافي GPS، السياج الجغرافي، واحتساب الساعات الإضافية وفق المادة 107 من نظام
             العمل السعودي
           </p>
         </div>
@@ -318,7 +316,7 @@ export const AttendanceView: React.FC = () => {
               size="sm"
               className="rounded-full text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground h-10 px-4 shadow-xs cursor-pointer"
             >
-              <Zap className="h-4 w-4 text-amber-300" />
+              <Clock className="h-4 w-4 text-primary-foreground" />
               طلب عمل إضافي
             </Button>
           )}
@@ -356,7 +354,7 @@ export const AttendanceView: React.FC = () => {
             </span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-            <Zap className="h-6 w-6" />
+            <Clock className="h-6 w-6" />
           </div>
         </div>
 
@@ -399,7 +397,7 @@ export const AttendanceView: React.FC = () => {
             أجهزة البصمة والاعتماد
           </TabsTrigger>
           <TabsTrigger value="overtime" className="rounded-xl text-xs font-bold gap-1.5 py-2">
-            <Zap className="h-3.5 w-3.5 text-amber-500" />
+            <Clock className="h-3.5 w-3.5 text-amber-500" />
             الساعات والعمل الإضافي (م107)
             {overtimeRecords.filter((o) => o.status === "pending").length > 0 && (
               <Badge className="mr-1 bg-amber-500 text-white rounded-full text-[10px] h-4 px-1.5">
@@ -663,7 +661,7 @@ export const AttendanceView: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-border/60 pb-4">
               <div>
                 <h2 className="text-base font-black text-foreground flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-amber-500" />
+                  <Clock className="h-5 w-5 text-primary" />
                   محرك احتساب وإدارة العمل الإضافي (Overtime Engine)
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -1103,7 +1101,7 @@ export const AttendanceView: React.FC = () => {
         <DialogContent className="max-w-lg rounded-3xl p-6">
           <DialogHeader>
             <DialogTitle className="text-base font-black flex items-center gap-2">
-              <Zap className="h-5 w-5 text-amber-500" />
+              <Clock className="h-5 w-5 text-primary" />
               تسجيل تكليف بساعات عمل إضافي (م107)
             </DialogTitle>
             <DialogDescription className="text-xs font-medium">

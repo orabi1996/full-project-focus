@@ -31,7 +31,6 @@ import {
   ShieldCheck,
   Building,
   CreditCard,
-  Sparkles,
   FileCheck,
   Search,
   Filter,

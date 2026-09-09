@@ -19,7 +19,6 @@ import {
   Building,
   Calendar,
   Briefcase,
-  Sparkles,
   Award,
   Printer,
   ChevronRight,
@@ -605,8 +604,8 @@ export const EmployeesView: React.FC = () => {
       {/* Quick Filter Pills Bar */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
         <span className="text-xs font-black text-muted-foreground whitespace-nowrap ml-1 flex items-center gap-1">
-          <Sparkles className="h-3.5 w-3.5 text-primary" />
-          فلاتر سريعة:
+          <Filter className="h-3.5 w-3.5 text-primary" />
+          تصنيف الكوادر:
         </span>
         <button
           type="button"

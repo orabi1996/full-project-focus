@@ -15,7 +15,6 @@ import {
   ChevronRight,
   Layers,
   Search,
-  Sparkles,
   Briefcase,
   TrendingUp,
   FileCheck,
@@ -260,7 +259,7 @@ export const OrganizationView: React.FC = () => {
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                إدارة المنشأة الرئيسية، الشركات التابعة، شجرة الهيكل التنظيمي SVG، والمواقع الجغرافية بنطاق السياج الذكي (Geofencing)
+                إدارة المنشأة والشركات التابعة، شجرة الهيكل التنظيمي المعتمد، والمواقع الجغرافية ونطاق السياج الجغرافي (Geofencing)
               </p>
             </div>
           </div>
@@ -371,7 +370,7 @@ export const OrganizationView: React.FC = () => {
             value="orgchart"
             className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5"
           >
-            {t.org.orgChart} الشجري SVG
+            {t.org.orgChart} الشجري
           </TabsTrigger>
           <TabsTrigger
             value="structure"

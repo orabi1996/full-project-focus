@@ -9,7 +9,6 @@ import {
   ShieldAlert,
   Check,
   Power,
-  Sparkles,
 } from "lucide-react";
 import type {
   ScreenActionPermissions,

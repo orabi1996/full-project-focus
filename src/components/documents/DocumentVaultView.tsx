@@ -20,7 +20,6 @@ import {
   Users,
   FileCheck,
   Calendar,
-  Sparkles,
   QrCode,
   ExternalLink,
   Printer,
@@ -1261,7 +1260,7 @@ export const DocumentVaultView: React.FC = () => {
             <span className="text-[11px] font-bold text-primary">بانتظار التدقيق والاعتماد</span>
             <p className="text-xl font-black text-primary mt-0.5 font-tabular-nums font-mono">{pendingReviewCount} وثيقة</p>
             <span className="text-[10px] text-muted-foreground font-bold flex items-center gap-1 mt-0.5">
-              <Sparkles className="h-3 w-3 text-primary" /> مراجعة المطابقة الرقمية
+              <ShieldCheck className="h-3 w-3 text-primary" /> مراجعة المطابقة الرقمية
             </span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">

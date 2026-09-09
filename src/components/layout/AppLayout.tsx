@@ -215,8 +215,8 @@ export const AppLayout: React.FC = () => {
         />
 
         {/* Dynamic Page Body */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-muted/15">
-          <div className="mx-auto max-w-7xl">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-muted/15">
+          <div className="w-full">
             <ViewErrorBoundary key={currentTab}>
               <Suspense
                 fallback={

@@ -310,7 +310,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
         <div className="relative z-10 flex flex-col justify-between gap-6 xl:flex-row xl:items-center">
           {/* Welcome & System State */}
-          <div className="space-y-3.5 max-w-3xl">
+          <div className="space-y-3.5 flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-primary/10 text-primary border border-primary/20 px-3 py-1 text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs">
                 <Sparkles className="h-3.5 w-3.5 text-primary animate-pulse" />

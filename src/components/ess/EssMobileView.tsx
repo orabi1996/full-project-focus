@@ -375,13 +375,14 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
       {/* MODAL 1: Quick Leave Request */}
       <Dialog open={isQuickLeaveModalOpen} onOpenChange={setIsQuickLeaveModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6">
-          <DialogHeader>
+        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+          <DialogHeader className="pt-1">
             <DialogTitle className="text-base font-black flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-primary" />
               تقديم طلب إجازة سريعة
             </DialogTitle>
-            <DialogDescription className="text-xs font-medium">
+            <DialogDescription className="text-xs font-medium text-muted-foreground">
               سيتم إرسال الطلب لمديرك المباشر تلقائياً للموافقة والاعتماد
             </DialogDescription>
           </DialogHeader>
@@ -450,7 +451,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             <Button
               size="sm"
               onClick={handleSubmitQuickLeave}
-              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 h-9"
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 h-10 shadow-xs cursor-pointer"
             >
               إرسال طلب الإجازة
             </Button>
@@ -460,13 +461,14 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
       {/* MODAL 2: Quick Punch Regularization */}
       <Dialog open={isPunchCorrectionModalOpen} onOpenChange={setIsPunchCorrectionModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6">
-          <DialogHeader>
+        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+          <DialogHeader className="pt-1">
             <DialogTitle className="text-base font-black flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
               طلب تصحيح بصمة حضور / انصراف
             </DialogTitle>
-            <DialogDescription className="text-xs font-medium">
+            <DialogDescription className="text-xs font-medium text-muted-foreground">
               في حال تعذر تسجيل البصمة أو وجود عطل فني في جهاز البصمة
             </DialogDescription>
           </DialogHeader>
@@ -521,7 +523,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             <Button
               size="sm"
               onClick={handleSubmitPunchCorrection}
-              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 h-9"
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 h-10 shadow-xs cursor-pointer"
             >
               إرسال طلب التصحيح
             </Button>
@@ -531,14 +533,15 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
       {/* MODAL 3: Salary Certificate Modal */}
       <Dialog open={isCertificateModalOpen} onOpenChange={setIsCertificateModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6">
-          <DialogHeader>
+        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+          <DialogHeader className="pt-1">
             <DialogTitle className="text-base font-black flex items-center gap-2">
               <QrCode className="h-5 w-5 text-primary" />
               طلب شهادة تعريف بالراتب
             </DialogTitle>
-            <DialogDescription className="text-xs font-medium">
-              يُحفظ الطلب ويرسل للجهة المختصة للمراجعة وإصدار الشهادة.
+            <DialogDescription className="text-xs font-medium text-muted-foreground">
+              يُحفظ الطلب ويرسل للجهة المختصة للمراجعة وإصدار الشهادة
             </DialogDescription>
           </DialogHeader>
 
@@ -574,7 +577,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               size="sm"
               onClick={handleRequestCertificate}
               disabled={isSaving}
-              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 h-10 shadow-xs cursor-pointer"
             >
               إرسال طلب الشهادة
             </Button>
@@ -585,13 +588,14 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
       {/* MODAL 4: Mobile Payslip Modal with Overtime & Print */}
       {myPayroll && (
         <Dialog open={isPayslipModalOpen} onOpenChange={setIsPayslipModalOpen}>
-          <DialogContent className="max-w-md rounded-3xl p-6">
-            <DialogHeader>
+          <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+            <DialogHeader className="pt-1">
               <DialogTitle className="text-base font-black flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                قسيمة الراتب
+                قسيمة الراتب الرسمية
               </DialogTitle>
-              <DialogDescription className="text-xs font-medium">
+              <DialogDescription className="text-xs font-medium text-muted-foreground">
                 {company.legalNameAr} • {myRun?.periodMonth}/{myRun?.periodYear}
               </DialogDescription>
             </DialogHeader>
@@ -611,12 +615,12 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                 </div>
                 {myPayroll.overtimeAmount > 0 && (
                   <div className="flex justify-between text-primary font-bold">
-                    <span>بدل ساعات إضافية (م107):</span>
+                    <span>بدل ساعات إضافية (المادة 107 - نظام العمل):</span>
                     <span>+{myPayroll.overtimeAmount.toLocaleString()} ر.س</span>
                   </div>
                 )}
                 <div className="flex justify-between text-destructive font-bold">
-                  <span>التأمينات GOSI:</span>
+                  <span>التأمينات الاجتماعية (GOSI):</span>
                   <span>-{myPayroll.gosiEmployeeDeduction.toLocaleString()} ر.س</span>
                 </div>
                 {myPayroll.loanInstallmentDeduction > 0 && (
@@ -635,11 +639,11 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               <div className="p-2.5 rounded-2xl bg-secondary/50 border border-primary/20 flex items-center justify-between text-[10px] font-sans">
                 <div className="flex items-center gap-1.5 text-foreground">
                   <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>مستخرج من بيانات المسيّر</span>
+                  <span>مستخرج وموثق من بيانات مسيّر الرواتب</span>
                 </div>
                 <Badge
                   variant="outline"
-                  className="font-mono text-[9px] border-emerald-300 text-emerald-700"
+                  className="font-mono text-[9px] border-emerald-300 text-emerald-700 bg-emerald-500/10 font-bold"
                 >
                   {myRun?.status === "paid" ? "تم تسجيل الصرف" : "مسيّر معتمد"}
                 </Badge>
@@ -651,7 +655,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                 size="sm"
                 onClick={() => window.print()}
                 variant="outline"
-                className="flex-1 text-xs font-bold gap-1.5 rounded-full h-9"
+                className="flex-1 text-xs font-bold gap-1.5 rounded-full h-10 border-border/80 hover:bg-secondary cursor-pointer"
               >
                 <Printer className="h-4 w-4" />
                 طباعة
@@ -659,7 +663,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               <Button
                 size="sm"
                 onClick={() => setIsPayslipModalOpen(false)}
-                className="flex-1 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-full h-9"
+                className="flex-1 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-full h-10 shadow-xs cursor-pointer"
               >
                 إغلاق
               </Button>

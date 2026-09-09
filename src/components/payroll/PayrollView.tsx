@@ -12,6 +12,7 @@ import { LoansTreasuryPanel } from "./LoansTreasuryPanel";
 import { BankTransferPanel } from "./BankTransferPanel";
 import { SettlementNotificationsPanel } from "./SettlementNotificationsPanel";
 import { MonthlyReportsPanel } from "./MonthlyReportsPanel";
+import { AppLogo } from "../common/AppLogo";
 import {
   Wallet,
   DollarSign,
@@ -790,27 +791,28 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
 
       {/* MODAL 1: Run Payroll Setup */}
       <Dialog open={isRunModalOpen} onOpenChange={setIsRunModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6">
-          <DialogHeader>
+        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+          <DialogHeader className="pt-1">
             <DialogTitle className="text-base font-black flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5 text-primary" />
               تشغيل مسير رواتب جديد
             </DialogTitle>
-            <DialogDescription className="text-xs font-medium">
+            <DialogDescription className="text-xs font-medium text-muted-foreground">
               اختر مجموعة الرواتب والفترة المطلوب تجميع الحضور والسلف والاستحقاقات لها
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3.5 py-2 text-xs">
             <div className="space-y-1.5">
-              <label className="font-bold" htmlFor="payroll-group">
+              <label className="font-bold text-foreground" htmlFor="payroll-group">
                 مجموعة الرواتب *
               </label>
               <select
                 id="payroll-group"
                 value={runGroupId}
                 onChange={(event) => setRunGroupId(event.target.value)}
-                className="h-10 w-full rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold text-xs"
+                className="h-10 w-full rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
                 {payrollGroups.map((group) => (
                   <option key={group.id} value={group.id}>
@@ -821,14 +823,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="font-bold" htmlFor="payroll-month">
+                <label className="font-bold text-foreground" htmlFor="payroll-month">
                   الشهر *
                 </label>
                 <select
                   id="payroll-month"
                   value={runMonth}
                   onChange={(event) => setRunMonth(Number(event.target.value))}
-                  className="h-10 w-full rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold text-xs"
+                  className="h-10 w-full rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                   {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
                     <option key={month} value={month}>
@@ -838,14 +840,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold" htmlFor="payroll-year">
+                <label className="font-bold text-foreground" htmlFor="payroll-year">
                   السنة *
                 </label>
                 <select
                   id="payroll-year"
                   value={runYear}
                   onChange={(event) => setRunYear(Number(event.target.value))}
-                  className="h-10 w-full rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold text-xs"
+                  className="h-10 w-full rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                   {[today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1].map(
                     (year) => (
@@ -864,7 +866,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
               size="sm"
               onClick={handleRunNewPayroll}
               disabled={payrollGroups.length === 0}
-              className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground px-5 h-9"
+              className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground px-6 h-10 shadow-xs cursor-pointer"
             >
               بدء الاحتساب
             </Button>
@@ -878,12 +880,11 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
           open={!!selectedPayslipEmployee}
           onOpenChange={() => setSelectedPayslipEmployee(null)}
         >
-          <DialogContent className="max-w-lg rounded-3xl p-6">
-            <div className="border-b border-border/60 pb-4 text-center space-y-1">
+          <DialogContent className="max-w-lg rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+            <div className="border-b border-border/60 pb-4 text-center space-y-2 pt-1">
               <div className="flex justify-center mb-1">
-                <div className="h-11 w-11 rounded-2xl bg-gradient-to-tr from-primary to-primary/80 text-primary-foreground font-black text-xl flex items-center justify-center shadow-md">
-                  HR
-                </div>
+                <AppLogo height={38} />
               </div>
               <h2 className="text-base font-black text-foreground">
                 قسيمة الراتب الإلكترونية المعتمدة
@@ -934,7 +935,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
 
                 {selectedPayslipEmployee.overtimeAmount > 0 && (
                   <div className="flex justify-between text-primary font-bold">
-                    <span>بدل ساعات عمل إضافي (م107):</span>
+                    <span>بدل ساعات عمل إضافي (المادة 107 - نظام العمل):</span>
                     <span>+{selectedPayslipEmployee.overtimeAmount.toLocaleString()} ر.س</span>
                   </div>
                 )}
@@ -970,7 +971,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                   <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
                   <span>معتمد ومصادق إلكترونياً • متوافق مع نظام حماية الأجور (WPS)</span>
                 </div>
-                <Badge variant="outline" className="font-mono text-[9px] border-emerald-300 text-emerald-700">
+                <Badge variant="outline" className="font-mono text-[9px] border-emerald-300 text-emerald-700 bg-emerald-500/10 font-bold">
                   VERIFIED
                 </Badge>
               </div>
@@ -981,7 +982,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                 size="sm"
                 onClick={() => window.print()}
                 variant="outline"
-                className="flex-1 text-xs font-bold gap-1.5 rounded-full h-9"
+                className="flex-1 text-xs font-bold gap-1.5 rounded-full h-10 border-border/80 hover:bg-secondary cursor-pointer"
               >
                 <Printer className="h-4 w-4" />
                 طباعة القسيمة
@@ -989,7 +990,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
               <Button
                 size="sm"
                 onClick={() => window.print()}
-                className="flex-1 text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-9"
+                className="flex-1 text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-10 shadow-xs cursor-pointer"
               >
                 <Download className="h-4 w-4" />
                 حفظ كـ PDF
@@ -1001,24 +1002,25 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
 
       {/* MODAL 3: Loan Request Modal */}
       <Dialog open={isLoanModalOpen} onOpenChange={setIsLoanModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6">
-          <DialogHeader>
+        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+          <DialogHeader className="pt-1">
             <DialogTitle className="text-base font-black flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-primary" />
               طلب سلفة مالية جديدة
             </DialogTitle>
-            <DialogDescription className="text-xs font-medium">
+            <DialogDescription className="text-xs font-medium text-muted-foreground">
               تخضع السلف لسياسة المنشأة وتستقطع شهرياً عبر مسير الرواتب
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3.5 text-xs py-2">
             <div className="space-y-1.5">
-              <label className="font-bold">الموظف صاحب الطلب *</label>
+              <label className="font-bold text-foreground">الموظف صاحب الطلب *</label>
               <select
                 value={loanEmpId}
                 onChange={(e) => setLoanEmpId(e.target.value)}
-                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
               >
                 {employees.map((emp) => (
                   <option key={emp.id} value={emp.id}>
@@ -1029,16 +1031,16 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-bold">المبلغ المطلوب (ر.س) *</label>
+              <label className="font-bold text-foreground">المبلغ المطلوب (ر.س) *</label>
               <input
                 type="number"
                 value={loanAmount}
                 onChange={(e) => setLoanAmount(Number(e.target.value))}
-                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-bold"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="font-bold">عدد أشهر السداد (الأقساط) *</label>
+              <label className="font-bold text-foreground">عدد أشهر السداد (الأقساط) *</label>
               <select
                 value={installmentsCount}
                 onChange={(e) => setInstallmentsCount(Number(e.target.value))}
@@ -1050,7 +1052,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="font-bold">سبب ومبرر طلب السلفة *</label>
+              <label className="font-bold text-foreground">سبب ومبرر طلب السلفة *</label>
               <textarea
                 rows={2}
                 value={loanReason}
@@ -1065,7 +1067,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
             <Button
               size="sm"
               onClick={handleCreateLoan}
-              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 h-10 shadow-xs cursor-pointer"
             >
               تأكيد وإرسال طلب السلفة
             </Button>
@@ -1079,8 +1081,12 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
           open={!!selectedSettlementForClearance}
           onOpenChange={() => setSelectedSettlementForClearance(null)}
         >
-          <DialogContent className="max-w-xl rounded-3xl p-6">
-            <div className="border-b border-border/60 pb-4 text-center space-y-1">
+          <DialogContent className="max-w-xl rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+            <div className="border-b border-border/60 pb-4 text-center space-y-2 pt-1">
+              <div className="flex justify-center mb-1">
+                <AppLogo height={38} />
+              </div>
               <h2 className="text-base font-black text-foreground">
                 مخالصة نهائية وإبراء ذمة مالية وقانونية
               </h2>
@@ -1168,7 +1174,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
               <Button
                 size="sm"
                 onClick={() => window.print()}
-                className="w-full rounded-full text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground h-9"
+                className="w-full rounded-full text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground h-10 shadow-xs cursor-pointer"
               >
                 <Printer className="h-4 w-4" />
                 طباعة سند المخالصة الرسمي
@@ -1180,24 +1186,25 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
 
       {/* MODAL 5: EOSB Settlement Calculator Modal */}
       <Dialog open={isSettlementModalOpen} onOpenChange={setIsSettlementModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6">
-          <DialogHeader>
+        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+          <DialogHeader className="pt-1">
             <DialogTitle className="text-base font-black flex items-center gap-2">
               <FileCheck className="h-5 w-5 text-primary" />
               حاسبة ومخالصة مكافأة نهاية الخدمة (EOSB)
             </DialogTitle>
-            <DialogDescription className="text-xs font-medium">
+            <DialogDescription className="text-xs font-medium text-muted-foreground">
               وفق المادتين 84 و 85 من نظام العمل السعودي
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3.5 text-xs py-2">
             <div className="space-y-1.5">
-              <label className="font-bold">الموظف المنتهية خدماته *</label>
+              <label className="font-bold text-foreground">الموظف المنتهية خدماته *</label>
               <select
                 value={settlementEmpId}
                 onChange={(e) => setSettlementEmpId(e.target.value)}
-                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
               >
                 {employees.map((emp) => (
                   <option key={emp.id} value={emp.id}>
@@ -1208,21 +1215,21 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-bold">تاريخ نهاية الخدمة *</label>
+              <label className="font-bold text-foreground">تاريخ نهاية الخدمة *</label>
               <input
                 type="date"
                 value={terminationDate}
                 onChange={(e) => setTerminationDate(e.target.value)}
-                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-bold"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-bold">سبب انتهاء العلاقة العمالية *</label>
+              <label className="font-bold text-foreground">سبب انتهاء العلاقة العمالية *</label>
               <select
                 value={separationType}
                 onChange={(e) => setSeparationType(e.target.value as any)}
-                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
               >
                 <option value="contract_expiration">انتهاء مدة العقد المحدد (مكافأة كاملة)</option>
                 <option value="termination_by_employer">إنهاء من صاحب العمل بموجب م77 (مكافأة كاملة)</option>
@@ -1236,7 +1243,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
             <Button
               size="sm"
               onClick={handleCalculateAndSaveSettlement}
-              className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 h-9"
+              className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-10 shadow-xs cursor-pointer"
             >
               احتساب واعتماد المخالصة
             </Button>

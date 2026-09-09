@@ -188,8 +188,11 @@ export const EmployeeProfileModal: React.FC = () => {
         open={!!activeEmployeeModalId}
         onOpenChange={(open) => !open && closeEmployeeProfile()}
       >
-        <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto rounded-3xl p-6 shadow-2xl border-border/80">
-          <DialogHeader className="border-b border-border/70 pb-4">
+        <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto rounded-3xl p-6 shadow-2xl border-border/80 relative">
+          {/* Top Accent Gradient Bar */}
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+
+          <DialogHeader className="border-b border-border/70 pb-4 pt-1">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               {/* Profile Main Info */}
               <div className="flex items-center gap-4">
@@ -216,8 +219,8 @@ export const EmployeeProfileModal: React.FC = () => {
                   <div className="flex items-center gap-2 flex-wrap">
                     <DialogTitle className="text-lg font-black text-foreground">
                       {language === "ar"
-                        ? `${employee.firstNameAr} ${employee.lastNameAr}`
-                        : `${employee.firstNameEn} ${employee.lastNameEn}`}
+                        ? `${employee.firstNameAr} ${employee.lastNameAr}`.replace(/\(مدير النظام\)/g, "").trim()
+                        : `${employee.firstNameEn} ${employee.lastNameEn}`.replace(/\(مدير النظام\)/g, "").trim()}
                     </DialogTitle>
                     <Badge
                       variant="outline"
@@ -367,40 +370,40 @@ export const EmployeeProfileModal: React.FC = () => {
 
           {/* Tabbed Comprehensive Profile Content */}
           <Tabs defaultValue="identity" className="w-full">
-            <TabsList className="grid grid-cols-6 w-full bg-muted/60 p-1 rounded-full border border-border/60">
+            <TabsList className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full bg-muted/50 p-1.5 rounded-2xl border border-border/60">
               <TabsTrigger
                 value="identity"
-                className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+                className="rounded-xl text-xs font-bold py-2 px-3.5 shrink-0 transition-all cursor-pointer whitespace-nowrap data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
               >
                 الهوية والعنوان
               </TabsTrigger>
               <TabsTrigger
                 value="job"
-                className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+                className="rounded-xl text-xs font-bold py-2 px-3.5 shrink-0 transition-all cursor-pointer whitespace-nowrap data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
               >
                 الوظيفة والعقد
               </TabsTrigger>
               <TabsTrigger
                 value="compensation"
-                className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+                className="rounded-xl text-xs font-bold py-2 px-3.5 shrink-0 transition-all cursor-pointer whitespace-nowrap data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
               >
                 الأجور والبدلات والبنك
               </TabsTrigger>
               <TabsTrigger
                 value="education"
-                className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+                className="rounded-xl text-xs font-bold py-2 px-3.5 shrink-0 transition-all cursor-pointer whitespace-nowrap data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
               >
                 المؤهلات والشهادات
               </TabsTrigger>
               <TabsTrigger
                 value="assets_docs"
-                className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+                className="rounded-xl text-xs font-bold py-2 px-3.5 shrink-0 transition-all cursor-pointer whitespace-nowrap data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
               >
                 العهد والمستندات
               </TabsTrigger>
               <TabsTrigger
                 value="activity"
-                className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+                className="rounded-xl text-xs font-bold py-2 px-3.5 shrink-0 transition-all cursor-pointer whitespace-nowrap data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
               >
                 الإجازات والطلبات
               </TabsTrigger>

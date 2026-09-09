@@ -1338,99 +1338,167 @@ export const EmployeesView: React.FC = () => {
         </div>
       )}
 
-      {/* 3-Step Add Employee Wizard Modal */}
+      {/* 3-Step Add Employee Wizard Modal (Classera Pulse Executive) */}
       <Dialog open={isAddWizardOpen} onOpenChange={setIsAddWizardOpen}>
-        <DialogContent className="max-w-3xl rounded-3xl p-6">
-          <DialogHeader>
-            <DialogTitle className="text-base font-black flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-primary" />
-              معالج تسجيل وتعيين موظف جديد (الخطوة {wizardStep} من 3)
-            </DialogTitle>
-            <DialogDescription className="text-xs font-medium">
-              استكمال البيانات الشخصية والوظيفية والمالية وإصدار العقد الرقمي
-            </DialogDescription>
+        <DialogContent className="max-w-3xl rounded-3xl p-6 md:p-8 border border-border/80 shadow-2xl relative overflow-hidden">
+          {/* Top Accent Gradient Bar */}
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+
+          <DialogHeader className="pt-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-base font-black flex items-center gap-2">
+                  <UserPlus className="h-5 w-5 text-primary" />
+                  معالج تسجيل وتعيين موظف جديد
+                </DialogTitle>
+                <DialogDescription className="text-xs font-medium text-muted-foreground mt-0.5">
+                  استكمال البيانات الشخصية والوظيفية والمالية وإصدار العقد الرقمي الموثق
+                </DialogDescription>
+              </div>
+              <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary bg-primary/5">
+                توثيق فوري مع قوى
+              </Badge>
+            </div>
+
+            {/* 3-Step Visual Progress Track */}
+            <div className="flex items-center justify-between gap-2 pt-4 pb-2 border-b border-border/60">
+              <div
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  wizardStep === 1
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : wizardStep > 1
+                      ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30"
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {wizardStep > 1 ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <span className="h-4 w-4 rounded-full bg-primary-foreground/20 flex items-center justify-center text-[10px]">
+                    1
+                  </span>
+                )}
+                <span>البيانات الشخصية</span>
+              </div>
+
+              <div className="h-0.5 flex-1 bg-border/60 hidden sm:block" />
+
+              <div
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  wizardStep === 2
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : wizardStep > 2
+                      ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30"
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {wizardStep > 2 ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <span className="h-4 w-4 rounded-full bg-primary-foreground/20 flex items-center justify-center text-[10px]">
+                    2
+                  </span>
+                )}
+                <span>الوظيفة والإدارة</span>
+              </div>
+
+              <div className="h-0.5 flex-1 bg-border/60 hidden sm:block" />
+
+              <div
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  wizardStep === 3
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                <span className="h-4 w-4 rounded-full bg-primary-foreground/20 flex items-center justify-center text-[10px]">
+                  3
+                </span>
+                <span>الرواتب وتوثيق قوى</span>
+              </div>
+            </div>
           </DialogHeader>
 
           {/* Wizard Step 1: Personal */}
           {wizardStep === 1 && (
-            <div className="grid grid-cols-2 gap-3.5 text-xs py-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs py-3">
               <div className="space-y-1.5">
-                <label className="font-bold">الاسم الأول (بالعربي) *</label>
+                <label className="font-bold text-foreground">الاسم الأول (بالعربي) *</label>
                 <input
                   type="text"
                   value={newEmp.firstNameAr}
                   onChange={(e) => setNewEmp({ ...newEmp, firstNameAr: e.target.value })}
                   placeholder="مثال: أحمد"
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold">اسم العائلة (بالعربي) *</label>
+                <label className="font-bold text-foreground">اسم العائلة (بالعربي) *</label>
                 <input
                   type="text"
                   value={newEmp.lastNameAr}
                   onChange={(e) => setNewEmp({ ...newEmp, lastNameAr: e.target.value })}
                   placeholder="مثال: السعيد"
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold">الاسم الأول بالإنجليزية</label>
+                <label className="font-bold text-foreground">الاسم الأول بالإنجليزية</label>
                 <input
                   type="text"
                   value={newEmp.firstNameEn}
                   onChange={(e) => setNewEmp({ ...newEmp, firstNameEn: e.target.value })}
                   placeholder="Ahmed"
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold">اسم العائلة بالإنجليزية</label>
+                <label className="font-bold text-foreground">اسم العائلة بالإنجليزية</label>
                 <input
                   type="text"
                   value={newEmp.lastNameEn}
                   onChange={(e) => setNewEmp({ ...newEmp, lastNameEn: e.target.value })}
                   placeholder="Al-Saeed"
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold">البريد الإلكتروني للعمل *</label>
+                <label className="font-bold text-foreground">البريد الإلكتروني الرسمي *</label>
                 <input
                   type="email"
                   value={newEmp.email}
                   onChange={(e) => setNewEmp({ ...newEmp, email: e.target.value })}
                   placeholder="ahmed@classera-pulse.com"
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold">رقم الهوية الوطنية / الإقامة (10 أرقام) *</label>
+                <label className="font-bold text-foreground">رقم الهوية الوطنية / الإقامة (10 أرقام) *</label>
                 <input
                   type="text"
                   value={newEmp.nationalIdOrIqama}
                   onChange={(e) => setNewEmp({ ...newEmp, nationalIdOrIqama: e.target.value })}
                   placeholder="10XXXXXXXX"
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold">الجنسية</label>
+                <label className="font-bold text-foreground">الجنسية</label>
                 <input
                   type="text"
                   value={newEmp.nationality}
                   onChange={(e) => setNewEmp({ ...newEmp, nationality: e.target.value })}
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold">رقم الجوال</label>
+                <label className="font-bold text-foreground">رقم الجوال</label>
                 <input
                   type="text"
                   value={newEmp.phone}
                   onChange={(e) => setNewEmp({ ...newEmp, phone: e.target.value })}
                   placeholder="+966 5X XXX XXXX"
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
             </div>
@@ -1438,19 +1506,19 @@ export const EmployeesView: React.FC = () => {
 
           {/* Wizard Step 2: Job Details */}
           {wizardStep === 2 && (
-            <div className="grid grid-cols-2 gap-3.5 text-xs py-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs py-3">
               <div className="space-y-1.5">
-                <label className="font-bold">المسمى الوظيفي *</label>
+                <label className="font-bold text-foreground">المسمى الوظيفي *</label>
                 <input
                   type="text"
                   value={newEmp.jobTitleAr}
                   onChange={(e) => setNewEmp({ ...newEmp, jobTitleAr: e.target.value })}
                   placeholder="مثال: مهندس برمجيات سحابية"
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold">القسم / الإدارة</label>
+                <label className="font-bold text-foreground">القسم / الإدارة</label>
                 <select
                   value={newEmp.departmentId}
                   onChange={(e) => {
@@ -1461,7 +1529,7 @@ export const EmployeesView: React.FC = () => {
                       departmentName: d?.nameAr || "",
                     });
                   }}
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                   {orgUnits.map((u) => (
                     <option key={u.id} value={u.id}>
@@ -1471,7 +1539,7 @@ export const EmployeesView: React.FC = () => {
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold">موقع وفرع العمل</label>
+                <label className="font-bold text-foreground">موقع وفرع العمل</label>
                 <select
                   value={newEmp.workLocationId}
                   onChange={(e) => {
@@ -1482,7 +1550,7 @@ export const EmployeesView: React.FC = () => {
                       workLocationName: l?.nameAr || "",
                     });
                   }}
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                   {workLocations.map((l) => (
                     <option key={l.id} value={l.id}>
@@ -1492,69 +1560,145 @@ export const EmployeesView: React.FC = () => {
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold">تاريخ المباشرة</label>
+                <label className="font-bold text-foreground">تاريخ المباشرة</label>
                 <input
                   type="date"
                   value={newEmp.hireDate}
                   onChange={(e) => setNewEmp({ ...newEmp, hireDate: e.target.value })}
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
+              </div>
+              <div className="space-y-1.5">
+                <label className="font-bold text-foreground">نمط العمل</label>
+                <select
+                  value={newEmp.workType}
+                  onChange={(e) => setNewEmp({ ...newEmp, workType: e.target.value as any })}
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="on_site">حضور مكتبي كامل</option>
+                  <option value="hybrid">عمل هجين (مكتبي وعن بعد)</option>
+                  <option value="remote">عمل عن بعد كامل</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="font-bold text-foreground">نوع العقد الموثق</label>
+                <select
+                  value={newEmp.contractType}
+                  onChange={(e) => setNewEmp({ ...newEmp, contractType: e.target.value as any })}
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="full_time">دوام كامل معتمد</option>
+                  <option value="part_time">دوام جزئي</option>
+                  <option value="temporary">عقد محدد المدة / مؤقت</option>
+                </select>
               </div>
             </div>
           )}
 
           {/* Wizard Step 3: Salary & Review */}
           {wizardStep === 3 && (
-            <div className="grid grid-cols-2 gap-3.5 text-xs py-2">
-              <div className="space-y-1.5">
-                <label className="font-bold">الراتب الأساسي (ر.س) *</label>
-                <input
-                  type="number"
-                  value={newEmp.basicSalary}
-                  onChange={(e) => {
-                    const b = Number(e.target.value);
-                    const h = Math.round(b * 0.25);
-                    const tr = Math.round(b * 0.08);
-                    setNewEmp({
-                      ...newEmp,
-                      basicSalary: b,
-                      housingAllowance: h,
-                      transportAllowance: tr,
-                      totalSalary: b + h + tr,
-                    });
-                  }}
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
+            <div className="space-y-4 py-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-foreground">الراتب الأساسي (ر.س) *</label>
+                  <input
+                    type="number"
+                    value={newEmp.basicSalary}
+                    onChange={(e) => {
+                      const b = Number(e.target.value);
+                      const h = Math.round(b * 0.25);
+                      const tr = Math.round(b * 0.08);
+                      setNewEmp({
+                        ...newEmp,
+                        basicSalary: b,
+                        housingAllowance: h,
+                        transportAllowance: tr,
+                        totalSalary: b + h + tr,
+                      });
+                    }}
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-mono font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="font-bold text-foreground">إجمالي الراتب الشهري (شامل السكن والنقل)</label>
+                  <input
+                    type="number"
+                    readOnly
+                    value={newEmp.totalSalary}
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted px-3.5 font-mono font-black text-primary text-sm"
+                  />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="font-bold">إجمالي الراتب الشهري (شامل السكن والنقل)</label>
-                <input
-                  type="number"
-                  readOnly
-                  value={newEmp.totalSalary}
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted px-3 font-mono font-black text-primary"
-                />
+
+              {/* Real-time Qiwa & Contract Readiness Card */}
+              <div className="rounded-2xl bg-muted/30 border border-border/70 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                    بطاقة مراجعة العقد الرقمي والتوثيق الحكومي
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono border-emerald-300 text-emerald-600 font-bold bg-emerald-500/10"
+                  >
+                    جاهز للإصدار عبر قوى
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-[11px]">
+                  <div className="bg-card p-2.5 rounded-xl border border-border/50">
+                    <span className="text-muted-foreground block text-[10px]">الموظف:</span>
+                    <span className="font-bold text-foreground truncate block">
+                      {newEmp.firstNameAr} {newEmp.lastNameAr || "—"}
+                    </span>
+                  </div>
+                  <div className="bg-card p-2.5 rounded-xl border border-border/50">
+                    <span className="text-muted-foreground block text-[10px]">المسمى الوظيفي:</span>
+                    <span className="font-bold text-foreground truncate block">
+                      {newEmp.jobTitleAr || "—"}
+                    </span>
+                  </div>
+                  <div className="bg-card p-2.5 rounded-xl border border-border/50">
+                    <span className="text-muted-foreground block text-[10px]">الإدارة:</span>
+                    <span className="font-bold text-foreground truncate block">
+                      {newEmp.departmentName || "تقنية المعلومات"}
+                    </span>
+                  </div>
+                  <div className="bg-card p-2.5 rounded-xl border border-border/50">
+                    <span className="text-muted-foreground block text-[10px]">إجمالي الراتب:</span>
+                    <span className="font-black text-primary font-mono block">
+                      {newEmp.totalSalary.toLocaleString()} ر.س
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-          <DialogFooter className="flex justify-between items-center w-full mt-4">
+          <DialogFooter className="flex justify-between items-center w-full mt-4 pt-3 border-t border-border/60">
             {wizardStep > 1 && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setWizardStep((prev) => prev - 1)}
-                className="rounded-full text-xs font-bold border-border/80 px-4 h-9"
+                className="rounded-full text-xs font-bold border-border/80 px-4 h-10 cursor-pointer"
               >
                 السابق
               </Button>
             )}
             <div className="flex gap-2 mr-auto">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsAddWizardOpen(false)}
+                className="rounded-full text-xs font-bold px-4 h-10 text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                إلغاء
+              </Button>
               {wizardStep < 3 ? (
                 <Button
                   size="sm"
                   onClick={() => setWizardStep((prev) => prev + 1)}
-                  className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9 shadow-xs"
+                  className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 h-10 shadow-xs cursor-pointer"
                 >
                   التالي
                 </Button>
@@ -1562,9 +1706,10 @@ export const EmployeesView: React.FC = () => {
                 <Button
                   size="sm"
                   onClick={handleCreateEmployee}
-                  className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 h-9 shadow-xs"
+                  className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-10 shadow-xs cursor-pointer gap-2"
                 >
-                  تأكيد وإضافة الموظف
+                  <CheckCircle2 className="h-4 w-4" />
+                  تأكيد وتوثيق الموظف
                 </Button>
               )}
             </div>

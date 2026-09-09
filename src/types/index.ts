@@ -652,6 +652,16 @@ export interface EmployeePayrollDetail {
   // Net
   netSalary: number;
   notes?: string;
+
+  // Granular attendance, leave & penalty breakdown
+  absenceDays?: number;
+  lateMinutes?: number;
+  earlyDepartureMinutes?: number;
+  earlyDepartureDeduction?: number;
+  unpaidLeaveDays?: number;
+  sickLeaveDays?: number;
+  sickLeaveDeduction?: number;
+  penaltiesAmount?: number;
 }
 
 export interface LoanRecord {

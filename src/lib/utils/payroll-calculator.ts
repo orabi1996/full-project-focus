@@ -12,8 +12,11 @@ export interface PayrollCalculationInput {
   calculationBasis: PayrollCalculationBasis;
   daysInMonth: number; // 28, 29, 30, or 31
   unpaidLeaveDays?: number;
+  sickLeaveDays?: number;
   absenceDays?: number;
   lateMinutes?: number;
+  earlyDepartureMinutes?: number;
+  penaltiesAmount?: number;
   overtimeHours?: number;
   loanInstallment?: number;
   bonus?: number;
@@ -38,8 +41,11 @@ export interface PayrollCalculationResult {
   grossSalary: number;
   overtimeAmount: number;
   unpaidLeaveDeduction: number;
+  sickLeaveDeduction: number;
   absenceDeduction: number;
   lateDeduction: number;
+  earlyDepartureDeduction: number;
+  penaltiesDeduction: number;
   gosiEmployee: number;
   gosiEmployer: number;
   loanDeduction: number;
@@ -60,8 +66,11 @@ export function calculateEmployeePayroll(input: PayrollCalculationInput): Payrol
     calculationBasis,
     daysInMonth,
     unpaidLeaveDays = 0,
+    sickLeaveDays = 0,
     absenceDays = 0,
     lateMinutes = 0,
+    earlyDepartureMinutes = 0,
+    penaltiesAmount = 0,
     overtimeHours = 0,
     loanInstallment = 0,
     bonus = 0,
@@ -79,12 +88,15 @@ export function calculateEmployeePayroll(input: PayrollCalculationInput): Payrol
       transportAllowance,
       otherAllowances,
       unpaidLeaveDays,
+      sickLeaveDays,
       absenceDays,
       lateMinutes,
+      earlyDepartureMinutes,
+      penaltiesAmount,
       overtimeHours,
       loanInstallment,
       bonus,
-    ].some((value) => value < 0)
+    ].some((value) => (value ?? 0) < 0)
   ) {
     throw new Error("Payroll values cannot be negative");
   }
@@ -107,9 +119,29 @@ export function calculateEmployeePayroll(input: PayrollCalculationInput): Payrol
   const unpaidLeaveDeduction = Number((dailyRate * unpaidLeaveDays).toFixed(2));
   const absenceDeduction = Number((dailyRate * absenceDays).toFixed(2));
 
-  // Late deduction (per minute based on standard wage rate)
+  // Sick Leave deduction according to Saudi Labor Law Article 117:
+  // First 30 days: full pay (0% deduction)
+  // Next 60 days (days 31-90): 75% pay (25% deduction)
+  // Next 30 days (days 91-120): unpaid (100% deduction)
+  // Above 120 days: unpaid (100% deduction)
+  let sickLeaveDeduction = 0;
+  if (sickLeaveDays > 90) {
+    const tier2Days = 60;
+    const tier3Days = Math.min(30, sickLeaveDays - 90);
+    const beyondDays = Math.max(0, sickLeaveDays - 120);
+    sickLeaveDeduction = Number(
+      ((tier2Days * 0.25 + tier3Days * 1.0 + beyondDays * 1.0) * dailyRate).toFixed(2),
+    );
+  } else if (sickLeaveDays > 30) {
+    const tier2Days = sickLeaveDays - 30;
+    sickLeaveDeduction = Number((tier2Days * 0.25 * dailyRate).toFixed(2));
+  }
+
+  // Late & Early departure deduction (per minute based on standard wage rate)
   const minuteRate = hourlyRate / 60;
   const lateDeduction = Number((minuteRate * lateMinutes).toFixed(2));
+  const earlyDepartureDeduction = Number((minuteRate * earlyDepartureMinutes).toFixed(2));
+  const penaltiesDeduction = Number(penaltiesAmount.toFixed(2));
 
   // 5. GOSI / Social Insurance calculation (Saudi standard)
   // Capped at 45,000 SAR on (Basic + Housing)
@@ -133,8 +165,11 @@ export function calculateEmployeePayroll(input: PayrollCalculationInput): Payrol
   const totalDeductions = Number(
     (
       unpaidLeaveDeduction +
+      sickLeaveDeduction +
       absenceDeduction +
       lateDeduction +
+      earlyDepartureDeduction +
+      penaltiesDeduction +
       gosiEmployee +
       loanInstallment
     ).toFixed(2),
@@ -148,8 +183,11 @@ export function calculateEmployeePayroll(input: PayrollCalculationInput): Payrol
     grossSalary: totalMonthlyWage,
     overtimeAmount,
     unpaidLeaveDeduction,
+    sickLeaveDeduction,
     absenceDeduction,
     lateDeduction,
+    earlyDepartureDeduction,
+    penaltiesDeduction,
     gosiEmployee,
     gosiEmployer,
     loanDeduction: loanInstallment,

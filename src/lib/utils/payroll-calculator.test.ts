@@ -51,6 +51,42 @@ describe("calculateEmployeePayroll", () => {
     expect(result.gosiEmployer).toBe(250);
   });
 
+  it("calculates early departure and late deductions accurately", () => {
+    const result = calculateEmployeePayroll({
+      ...baseInput,
+      overtimeHours: 0,
+      lateMinutes: 30,
+      earlyDepartureMinutes: 30,
+    });
+    // total wage = 13,500. hourly rate = 13500 / 240 = 56.25. minute rate = 56.25 / 60 = 0.9375.
+    // 30 mins = 28.13 SAR.
+    expect(result.lateDeduction).toBe(28.13);
+    expect(result.earlyDepartureDeduction).toBe(28.13);
+  });
+
+  it("calculates sick leave deduction according to Saudi Labor Law Article 117", () => {
+    // 40 days of sick leave: first 30 days full pay (0%), next 10 days at 25% deduction.
+    // daily rate = 13500 / 30 = 450.
+    // 10 days * 450 * 0.25 = 1,125.
+    const result = calculateEmployeePayroll({
+      ...baseInput,
+      overtimeHours: 0,
+      sickLeaveDays: 40,
+    });
+    expect(result.sickLeaveDeduction).toBe(1125);
+  });
+
+  it("includes penalties and unpaid leave deductions in total deductions", () => {
+    const result = calculateEmployeePayroll({
+      ...baseInput,
+      overtimeHours: 0,
+      unpaidLeaveDays: 2, // 2 * 450 = 900
+      penaltiesAmount: 250,
+    });
+    expect(result.unpaidLeaveDeduction).toBe(900);
+    expect(result.penaltiesDeduction).toBe(250);
+  });
+
   it("rejects negative payroll inputs", () => {
     expect(() => calculateEmployeePayroll({ ...baseInput, absenceDays: -1 })).toThrow();
   });

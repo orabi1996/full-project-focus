@@ -157,10 +157,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
       toast.error("يجب إنشاء مجموعة رواتب أولاً قبل تشغيل المسير");
       return;
     }
+    const targetRunId = `pr-${groupId}-${runYear}-${String(runMonth).padStart(2, "0")}`;
     processPayrollRun(groupId, runYear, runMonth);
-    setSelectedRunId(`pr-${groupId}-${runYear}-${String(runMonth).padStart(2, "0")}`);
+    setSelectedRunId(targetRunId);
+    setActiveTab("runs");
     setIsRunModalOpen(false);
-    toast.success(`تم بدء احتساب مسير رواتب ${runMonth}/${runYear} بنجاح`);
+    toast.success(
+      `تم احتساب مسير رواتب ${runMonth}/${runYear} بنجاح وفق سجلات البصمة، الإجازات، والجزاءات المعتمدة`,
+    );
   };
 
   const handleExportWPS = () => {
@@ -383,7 +387,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
 
         {/* Tab 1: Payroll Runs */}
         <TabsContent value="runs" className="space-y-4 pt-4">
-          {selectedRun && (
+          {selectedRun ? (
             <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
                 <div>
@@ -433,7 +437,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                     onClick={handleExportPayrollCSV}
                     variant="outline"
                     size="sm"
-                    className="rounded-full text-xs font-bold gap-1.5 h-9 border-border/80 hover:bg-secondary"
+                    className="rounded-full text-xs font-bold gap-1.5 h-9 border-border/80 hover:bg-secondary cursor-pointer"
                   >
                     <Download className="h-3.5 w-3.5" />
                     تصدير كشف الرواتب
@@ -442,7 +446,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                     onClick={handleExportWPS}
                     variant="outline"
                     size="sm"
-                    className="rounded-full text-xs font-bold gap-1.5 text-primary border-primary/30 hover:bg-secondary h-9"
+                    className="rounded-full text-xs font-bold gap-1.5 text-primary border-primary/30 hover:bg-secondary h-9 cursor-pointer"
                   >
                     <Download className="h-3.5 w-3.5" />
                     تحميل ملف حماية الأجور (SIF)
@@ -451,7 +455,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                     <Button
                       onClick={() => lockAndConfirmPayrollRun(selectedRun.id)}
                       size="sm"
-                      className="rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 h-9 px-4"
+                      className="rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 h-9 px-4 cursor-pointer"
                     >
                       <Lock className="h-3.5 w-3.5" />
                       اعتماد وقفل المسير
@@ -461,7 +465,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                     <Button
                       onClick={() => markPayrollAsPaid(selectedRun.id)}
                       size="sm"
-                      className="rounded-full text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white gap-1.5 h-9 px-4"
+                      className="rounded-full text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white gap-1.5 h-9 px-4 cursor-pointer"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       إرشادات تأكيد التحويل
@@ -534,65 +538,98 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                       <th className="py-3 px-3 text-start">بدل السكن والنقل</th>
                       <th className="py-3 px-3 text-start">عمل إضافي (م107)</th>
                       <th className="py-3 px-3 text-start">التأمينات (GOSI)</th>
-                      <th className="py-3 px-3 text-start">سلف وخصومات</th>
+                      <th className="py-3 px-3 text-start">سلف وخصومات شاملة</th>
                       <th className="py-3 px-3 text-start font-bold text-foreground">الصافي المحول</th>
                       <th className="py-3 px-3 text-center">القسيمة</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {filteredRunDetails.map((item) => (
-                      <tr key={item.id} className="classera-table-row group">
-                        <td className="py-3 px-3">
-                          <button
-                            type="button"
-                            onClick={() => openEmployeeProfile(item.employeeId)}
-                            className="text-start font-bold text-foreground block group-hover:text-primary group-hover:underline cursor-pointer"
-                          >
-                            {item.employeeName}
-                          </button>
-                          <span className="block text-[10px] font-normal text-muted-foreground font-mono">
-                            {item.employeeNo} • {item.departmentName}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 font-mono">
-                          {item.basicSalary.toLocaleString()} ر.س
-                        </td>
-                        <td className="py-3 px-3 font-mono text-emerald-600 font-bold">
-                          +{(item.housingAllowance + item.transportAllowance).toLocaleString()} ر.س
-                        </td>
-                        <td className="py-3 px-3 font-mono font-bold">
-                          {item.overtimeAmount > 0 ? (
-                            <span className="text-primary font-bold">
-                              +{item.overtimeAmount.toLocaleString()} ر.س
+                    {filteredRunDetails.map((item) => {
+                      const nonGosiDeduction = Number(
+                        (item.totalDeductions - item.gosiEmployeeDeduction).toFixed(2),
+                      );
+                      return (
+                        <tr key={item.id} className="classera-table-row group">
+                          <td className="py-3 px-3">
+                            <button
+                              type="button"
+                              onClick={() => openEmployeeProfile(item.employeeId)}
+                              className="text-start font-bold text-foreground block group-hover:text-primary group-hover:underline cursor-pointer"
+                            >
+                              {item.employeeName}
+                            </button>
+                            <span className="block text-[10px] font-normal text-muted-foreground font-mono">
+                              {item.employeeNo} • {item.departmentName}
                             </span>
-                          ) : (
-                            <span className="text-muted-foreground">0</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 font-mono text-destructive">
-                          -{item.gosiEmployeeDeduction.toLocaleString()} ر.س
-                        </td>
-                        <td className="py-3 px-3 font-mono text-destructive">
-                          {item.loanInstallmentDeduction + item.absenceLateDeduction > 0
-                            ? `-${(item.loanInstallmentDeduction + item.absenceLateDeduction).toLocaleString()} ر.س`
-                            : "0"}
-                        </td>
-                        <td className="py-3 px-3 font-mono font-black text-foreground">
-                          {item.netSalary.toLocaleString()} ر.س
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedPayslipEmployee(item)}
-                            className="h-7 text-xs text-primary gap-1 font-bold rounded-full hover:bg-secondary px-3"
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                            القسيمة
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="py-3 px-3 font-mono">
+                            {item.basicSalary.toLocaleString()} ر.س
+                          </td>
+                          <td className="py-3 px-3 font-mono text-emerald-600 font-bold">
+                            +{(item.housingAllowance + item.transportAllowance).toLocaleString()} ر.س
+                          </td>
+                          <td className="py-3 px-3 font-mono font-bold">
+                            {item.overtimeAmount > 0 ? (
+                              <span className="text-primary font-bold">
+                                +{item.overtimeAmount.toLocaleString()} ر.س
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">0</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 font-mono text-destructive">
+                            -{item.gosiEmployeeDeduction.toLocaleString()} ر.س
+                          </td>
+                          <td className="py-3 px-3 font-mono text-destructive">
+                            {nonGosiDeduction > 0 ? (
+                              <div>
+                                <span className="font-bold">
+                                  -{nonGosiDeduction.toLocaleString()} ر.س
+                                </span>
+                                <div className="text-[9px] text-muted-foreground font-sans font-normal mt-0.5 flex flex-wrap gap-1">
+                                  {item.absenceLateDeduction > 0 && (
+                                    <span className="bg-destructive/10 text-destructive px-1.5 py-0.2 rounded-full">
+                                      بصمة/غياب: -{item.absenceLateDeduction}
+                                    </span>
+                                  )}
+                                  {item.unpaidLeaveDeduction > 0 && (
+                                    <span className="bg-amber-500/10 text-amber-700 px-1.5 py-0.2 rounded-full">
+                                      إجازات: -{item.unpaidLeaveDeduction}
+                                    </span>
+                                  )}
+                                  {item.loanInstallmentDeduction > 0 && (
+                                    <span className="bg-purple-500/10 text-purple-700 px-1.5 py-0.2 rounded-full">
+                                      سلفة: -{item.loanInstallmentDeduction}
+                                    </span>
+                                  )}
+                                  {item.otherDeductions > 0 && (
+                                    <span className="bg-rose-500/10 text-rose-700 px-1.5 py-0.2 rounded-full">
+                                      جزاءات: -{item.otherDeductions}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">0</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 font-mono font-black text-foreground">
+                            {item.netSalary.toLocaleString()} ر.س
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedPayslipEmployee(item)}
+                              className="h-7 text-xs text-primary gap-1 font-bold rounded-full hover:bg-secondary px-3 cursor-pointer"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              القسيمة
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                     {filteredRunDetails.length === 0 && (
                       <tr>
                         <td colSpan={8} className="text-center py-8 text-muted-foreground">
@@ -603,6 +640,33 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                   </tbody>
                 </table>
               </div>
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-dashed border-border/80 bg-card/60 p-12 text-center shadow-xs flex flex-col items-center justify-center gap-4 my-4">
+              <div className="h-16 w-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center shadow-xs">
+                <FileSpreadsheet className="h-8 w-8 text-primary" />
+              </div>
+              <div className="max-w-md space-y-1.5">
+                <h3 className="text-base font-black text-foreground">
+                  لم يتم تشغيل أي مسير رواتب بعد
+                </h3>
+                <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                  يمكنك تشغيل أول مسير رواتب للمنشأة الآن؛ سيقوم النظام تلقائياً بتجميع بيانات البصمة والحضور،
+                  واحتساب دقائق التأخير والانصراف المبكر، والإجازات غير المدفوعة والمرضية (م117)، والجزاءات، وأقساط السلف والتأمينات الاجتماعية.
+                </p>
+              </div>
+              {canManagePayroll && (
+                <Button
+                  onClick={() => {
+                    setRunGroupId(payrollGroups[0]?.id || "");
+                    setIsRunModalOpen(true);
+                  }}
+                  className="classera-btn-primary rounded-full font-bold text-xs h-11 px-8 gap-2 shadow-sm cursor-pointer mt-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  تشغيل مسير رواتب جديد الآن
+                </Button>
+              )}
             </div>
           )}
         </TabsContent>
@@ -954,8 +1018,22 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
 
                 {selectedPayslipEmployee.absenceLateDeduction > 0 && (
                   <div className="flex justify-between text-destructive font-bold">
-                    <span>استقطاع التأخير والغياب:</span>
+                    <span>استقطاع التأخير والانصراف المبكر والغياب:</span>
                     <span>-{selectedPayslipEmployee.absenceLateDeduction.toLocaleString()} ر.س</span>
+                  </div>
+                )}
+
+                {selectedPayslipEmployee.unpaidLeaveDeduction > 0 && (
+                  <div className="flex justify-between text-destructive font-bold">
+                    <span>استقطاع الإجازات غير مدفوعة الأجر والمرضية (م117):</span>
+                    <span>-{selectedPayslipEmployee.unpaidLeaveDeduction.toLocaleString()} ر.س</span>
+                  </div>
+                )}
+
+                {selectedPayslipEmployee.otherDeductions > 0 && (
+                  <div className="flex justify-between text-destructive font-bold">
+                    <span>الجزاءات والمخالفات الإدارية المعتمدة:</span>
+                    <span>-{selectedPayslipEmployee.otherDeductions.toLocaleString()} ر.س</span>
                   </div>
                 )}
 

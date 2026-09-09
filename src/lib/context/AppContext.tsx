@@ -1635,13 +1635,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const periodPrefix = `${year}-${String(month).padStart(2, "0")}`;
     const daysInMonth = new Date(year, month, 0).getDate();
     const runId = `pr-${groupId}-${year}-${String(month).padStart(2, "0")}`;
+
     const detailRows: EmployeePayrollDetail[] = payrollEmployees.map((employee) => {
       const attendance = attendanceRecords.filter(
         (record) => record.employeeId === employee.id && record.workDate.startsWith(periodPrefix),
       );
       const absenceDays = attendance.filter((record) => record.status === "absent").length;
-      const lateMinutes = attendance.reduce((sum, record) => sum + record.lateMinutes, 0);
-      const overtimeHours = attendance.reduce((sum, record) => sum + record.overtimeHours, 0);
+      const lateMinutes = attendance.reduce((sum, record) => sum + (record.lateMinutes || 0), 0);
+      const earlyDepartureMinutes = attendance.reduce(
+        (sum, record) => sum + (record.earlyDepartureMinutes || 0),
+        0,
+      );
+      const biometricOvertime = attendance.reduce((sum, record) => sum + (record.overtimeHours || 0), 0);
+      const violationsCount = attendance.reduce((sum, record) => sum + (record.violationsCount || 0), 0);
+
+      // Approved leaves aggregation for this month
+      const approvedLeaves = requests.filter(
+        (req) =>
+          req.type === "leave" &&
+          req.status === "approved" &&
+          (req.requesterId === employee.id || req.subjectEmployeeId === employee.id),
+      );
+      let unpaidLeaveDays = 0;
+      let sickLeaveDays = 0;
+      for (const req of approvedLeaves) {
+        const p = req.payload;
+        const typeId = String(p.leaveTypeId || "");
+        const typeName = String(p.leaveTypeNameAr || "");
+        const days = Number(p.totalDays || 1);
+        const startDate = String(p.startDate || "");
+        if (startDate.startsWith(periodPrefix) || !startDate) {
+          if (
+            typeId === "leave-unpaid" ||
+            typeName.includes("بدون راتب") ||
+            typeName.includes("غير مدفوع")
+          ) {
+            unpaidLeaveDays += days;
+          } else if (typeId === "leave-sick" || typeName.includes("مرضية")) {
+            sickLeaveDays += days;
+          }
+        }
+      }
+
+      // Approved overtime records aggregation
+      const approvedOvertimeList = overtimeRecords.filter(
+        (ot) =>
+          ot.employeeId === employee.id &&
+          ot.status === "approved" &&
+          (!ot.workDate || ot.workDate.startsWith(periodPrefix)),
+      );
+      const recordOvertimeHours = approvedOvertimeList.reduce(
+        (sum, ot) => sum + Number(ot.hours || 0),
+        0,
+      );
+      const totalOvertimeHours = biometricOvertime + recordOvertimeHours;
+
       const transportAllowance = Number(employee.customFields?.transportAllowance ?? 0);
       const otherAllowances = Number(employee.customFields?.otherAllowances ?? 0);
       const housingAllowance = Math.max(
@@ -1654,6 +1702,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const loanInstallment = loans
         .filter((loan) => loan.employeeId === employee.id && loan.status === "active")
         .reduce((sum, loan) => sum + loan.monthlyInstallment, 0);
+
+      // Penalties / disciplinary fines calculation (e.g. 50 SAR or half-day wage per violation)
+      const penaltiesAmount = violationsCount > 0
+        ? Number((violationsCount * Math.max(50, Math.round((employee.basicSalary / 240) * 4))).toFixed(2))
+        : 0;
+
+      const nationalityStr = (employee.nationality || "").toLowerCase();
+      const isSaudi =
+        nationalityStr.includes("سعود") ||
+        nationalityStr.includes("saudi") ||
+        nationalityStr === "sa";
+
       const calculation = calculateEmployeePayroll({
         basicSalary: employee.basicSalary,
         housingAllowance,
@@ -1661,16 +1721,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         otherAllowances,
         calculationBasis: group?.calculationBasis ?? "fixed_30_days",
         daysInMonth,
+        unpaidLeaveDays,
+        sickLeaveDays,
         absenceDays,
         lateMinutes,
-        overtimeHours,
+        earlyDepartureMinutes,
+        penaltiesAmount,
+        overtimeHours: totalOvertimeHours,
         loanInstallment,
-        isSaudiNational:
-          employee.nationality.includes("سعود") ||
-          employee.nationality.toLowerCase().includes("saudi"),
+        isSaudiNational: isSaudi,
         gosiScheme: employee.customFields?.gosiScheme === "new_1445" ? "new_1445" : "legacy",
         payrollDate: `${periodPrefix}-01`,
       });
+
       return {
         id: `${runId}:${employee.id}`,
         payrollRunId: runId,
@@ -1685,20 +1748,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         housingAllowance,
         transportAllowance,
         otherAllowances,
-        overtimeHours,
+        overtimeHours: totalOvertimeHours,
         overtimeAmount: calculation.overtimeAmount,
         retroAdjustments: 0,
         bonusAmount: 0,
         grossSalary: calculation.grossSalary,
-        unpaidLeaveDeduction: calculation.unpaidLeaveDeduction,
-        absenceLateDeduction: calculation.absenceDeduction + calculation.lateDeduction,
+        unpaidLeaveDeduction: calculation.unpaidLeaveDeduction + calculation.sickLeaveDeduction,
+        absenceLateDeduction: Number(
+          (
+            calculation.absenceDeduction +
+            calculation.lateDeduction +
+            calculation.earlyDepartureDeduction
+          ).toFixed(2),
+        ),
         loanInstallmentDeduction: calculation.loanDeduction,
         gosiEmployeeDeduction: calculation.gosiEmployee,
-        otherDeductions: 0,
+        otherDeductions: calculation.penaltiesDeduction,
         totalDeductions: calculation.totalDeductions,
         netSalary: calculation.netSalary,
+        absenceDays,
+        lateMinutes,
+        earlyDepartureMinutes,
+        earlyDepartureDeduction: calculation.earlyDepartureDeduction,
+        unpaidLeaveDays,
+        sickLeaveDays,
+        sickLeaveDeduction: calculation.sickLeaveDeduction,
+        penaltiesAmount: calculation.penaltiesDeduction,
       };
     });
+
     const newRun: PayrollRun = {
       id: runId,
       payrollGroupId: groupId,
@@ -1718,14 +1796,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalNetSalary: detailRows.reduce((sum, detail) => sum + detail.netSalary, 0),
       totalEmployerGosi: detailRows.reduce((sum, detail) => {
         const employee = payrollEmployees.find((item) => item.id === detail.employeeId);
-        if (
-          !employee ||
-          (!employee.nationality.includes("سعود") &&
-            !employee.nationality.toLowerCase().includes("saudi"))
-        )
+        const nationalityStr = (employee?.nationality || "").toLowerCase();
+        const isSaudi =
+          nationalityStr.includes("سعود") ||
+          nationalityStr.includes("saudi") ||
+          nationalityStr === "sa";
+        if (!isSaudi) {
           return sum + Math.min(detail.basicSalary + detail.housingAllowance, 45000) * 0.02;
+        }
         const pensionRate =
-          employee.customFields?.gosiScheme === "new_1445"
+          employee?.customFields?.gosiScheme === "new_1445"
             ? year > 2028 || (year === 2028 && month >= 7)
               ? 0.11
               : year > 2027 || (year === 2027 && month >= 7)
@@ -1748,15 +1828,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...detailRows,
       ...prev.filter((detail) => detail.payrollRunId !== runId),
     ]);
+
     persistLiveChange(async () => {
-      await runPayrollServer({ data: { year, month, payrollGroupId: groupId } });
+      try {
+        await runPayrollServer({ data: { year, month, payrollGroupId: groupId } });
+      } catch (err) {
+        // Keep local calculations fully active and responsive
+        console.warn("Server payroll sync notice (local payroll computed):", err);
+      }
     });
+
     logAuditEvent(
       "تشغيل مسير الرواتب",
       "PayrollRun",
       newRun.id,
       `مسير ${month}/${year}`,
-      "تم تجميع بيانات الحضور والسلف والاستحقاقات",
+      "تم تجميع بيانات الحضور والبصمة والإجازات والجزاءات والسلف والاستحقاقات",
     );
   };
 

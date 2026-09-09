@@ -201,12 +201,23 @@ export const GroupPermissionsPanel: React.FC = () => {
 
   const handleDeleteGroup = () => {
     if (!selectedGroup) return;
-    if (confirm(`هل أنت متأكد من رغبتك في حذف المجموعة "${selectedGroup.nameAr}"؟`)) {
-      const ok = deletePermissionGroup(selectedGroup.id);
-      if (ok && permissionGroups[0]) {
-        setSelectedGroupId(permissionGroups[0].id);
-      }
+    if (selectedGroup.isSystem) {
+      toast.error("لا يمكن حذف مجموعة أساسية مدمجة في النظام.");
+      return;
     }
+    toast(`تأكيد حذف مجموعة (${selectedGroup.nameAr})`, {
+      description: "سيتم إزالة المجموعة وتجريد الصلاحيات المرتبطة بها.",
+      action: {
+        label: "تأكيد الحذف",
+        onClick: () => {
+          const ok = deletePermissionGroup(selectedGroup.id);
+          if (ok && permissionGroups[0]) {
+            setSelectedGroupId(permissionGroups[0].id);
+            toast.success(`تم حذف مجموعة (${selectedGroup.nameAr}) بنجاح`);
+          }
+        },
+      },
+    });
   };
 
   // Filter screens by search
@@ -335,7 +346,7 @@ export const GroupPermissionsPanel: React.FC = () => {
               <div className="flex items-center gap-4">
                 <div
                   className="h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-xs shrink-0"
-                  style={{ backgroundColor: selectedGroup.color || "#4f46e5" }}
+                  style={{ backgroundColor: selectedGroup.color || "#004BCE" }}
                 >
                   <Shield className="h-6 w-6" />
                 </div>

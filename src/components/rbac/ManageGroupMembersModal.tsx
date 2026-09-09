@@ -95,7 +95,7 @@ export const ManageGroupMembersModal: React.FC<ManageGroupMembersModalProps> = (
             <div className="flex items-center gap-3">
               <div
                 className="h-10 w-10 rounded-2xl flex items-center justify-center text-white shadow-xs"
-                style={{ backgroundColor: group.color || "#4f46e5" }}
+                style={{ backgroundColor: group.color || "#004BCE" }}
               >
                 <Users className="h-5 w-5" />
               </div>

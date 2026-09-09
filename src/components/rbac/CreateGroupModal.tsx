@@ -37,16 +37,16 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   const [descriptionAr, setDescriptionAr] = useState("");
   const [dataScope, setDataScope] = useState<DataScope>("department");
   const [templateGroupId, setTemplateGroupId] = useState<string>("copy_super");
-  const [color, setColor] = useState("#2563eb");
+  const [color, setColor] = useState("#004BCE");
 
   const colors = [
-    { label: "أزرق نيلي", value: "#4f46e5" },
-    { label: "أزرق سماوي", value: "#0284c7" },
+    { label: "أزرق كلاسيرا الملكي", value: "#004BCE" },
+    { label: "سيان مضيء", value: "#00B5FF" },
     { label: "زمردي أخضر", value: "#059669" },
     { label: "كهرماني", value: "#d97706" },
     { label: "بنفسجي", value: "#7c3aed" },
     { label: "وردي داكن", value: "#db2777" },
-    { label: "رمادي معدني", value: "#475569" },
+    { label: "كحلي ليلي", value: "#07152B" },
   ];
 
   const handleCreate = () => {

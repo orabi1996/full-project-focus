@@ -1,0 +1,88 @@
+# برنامج تطوير منتج HR SaaS
+
+**آخر تحديث:** 9 سبتمبر 2026.
+
+**تنفيذ تحسين التصميم:** [DES-002 — تصحيح عرض أمان الحساب](design-audit/DES-002_IMPLEMENTATION.ar.md): إزالة إجراءات الأمان الوهمية وعرض عدم الإتاحة صراحة. لا يتضمن تفعيل تغيير كلمة المرور أو MFA. النقطة التالية DES-003 بعد مراجعة فحوص دفعة الأمان.
+
+**مراجعة التصميم الحالية:** [مراجعة HRMS وخطة تطوير تجربة الاستخدام](design-audit/DESIGN_REVIEW_AND_DELIVERY_PLAN.ar.md)، مع [30 مهمة تنفيذ](design-audit/DESIGN_BACKLOG.json) و[تغطية مصدرية لـ48 ملفًا](design-audit/SOURCE_COVERAGE.json). المراجعة البصرية معلقة لتعذر وصول المتصفح إلى المعاينة؛ لا تتضمن هذه الدفعة تطبيق التصميم.
+
+**النطاق:** منتج مؤسسي عربي/إنجليزي يستكمل مشروع `full-project-focus`، ضمن تصور صاحبه لعائلة C‑Smarx / Classera. الاسم التجاري لم يُحسم.
+
+## المخرجات المتاحة
+
+1. [PART 1 — Business Discovery](PART_01_BUSINESS_DISCOVERY.ar.md): الرؤية، العملاء، المشكلات، المنافسون، علاقة المنتج بالعائلة، حدود التجربة، نموذج جدوى افتراضي، سجل فرضيات ومعايير القرار.
+2. [دليل التحقق التجاري](DISCOVERY_VALIDATION_PLAYBOOK.ar.md): عينة مقابلات وأسئلة وبطاقات توثيق، اختبار شراء، مقارنة بدائل، ميثاق تجربة، و12 مهمة اكتشاف.
+3. [PART 2 — Product Strategy](PART_02_PRODUCT_STRATEGY.ar.md): قرارات النطاق والأولويات، الباقات المقترحة، التهيئة، البيع ونجاح العملاء، المقاييس وبوابات الإصدار.
+4. [نطاق MVP ومعايير القبول](MVP_SCOPE_AND_ACCEPTANCE.ar.md): ربط الوحدات M01–M20 بالنطاق، 8 قصص قيمة، و24 حالة قبول و6 تقارير أساسية.
+5. [الاشتراكات والاستحقاقات](SUBSCRIPTIONS_AND_ENTITLEMENTS.ar.md) و[كتالوج الباقات المبدئي](plan-catalog.draft.json): الحدود والفوترة والتجربة والترقية والإلغاء و6 أمثلة حسابية و8 حالات قبول اشتراكات؛ غير مفعّل تشغيليًا.
+6. [PART 3 — Product Architecture](PART_03_PRODUCT_ARCHITECTURE.ar.md): شكل الخدمة، حدود المجالات، Multi-tenancy، الطبقات، المعاملات، الأحداث، التكاملات، البيئات، ومعايير القبول المعمارية.
+7. [خريطة مجالات المنتج](PRODUCT_DOMAIN_MAP.ar.md) و[سجل القرارات المعمارية](ARCHITECTURE_DECISION_RECORDS.ar.md): مالك الحقيقة، عقود Commands/Queries، الأحداث، projections، و12 ADR مع القرارات المفتوحة.
+8. [Architecture Manifest](architecture-manifest.draft.json): تمثيل آلي مبدئي غير مفعّل للاستراتيجية المعمارية.
+9. [PART 4 — User Roles & Permissions](PART_04_USER_ROLES_AND_PERMISSIONS.ar.md): أدوار المنصة والعميل، نطاقات البيانات، حساسية الحقول، فصل المهام، التفويض، ومصفوفة قبول RBAC.
+10. [كتالوج الأدوار والصلاحيات](ROLE_PERMISSION_CATALOG.draft.json): تمثيل آلي مبدئي غير مفعّل للأدوار والنطاقات وقواعد الرفض الافتراضية.
+11. [PART 5 — User Journeys](PART_05_USER_JOURNEYS.ar.md): رحلات الدخول والتهيئة والموظف والحضور والإجازة والرواتب والتوظيف والأداء والعهد والتكامل والدعم.
+12. [كتالوج رحلات المستخدم](USER_JOURNEY_CATALOG.draft.json): تمثيل آلي مبدئي للحالات والخطوات والحواجز ومؤشرات القياس؛ غير مفعّل تشغيليًا.
+13. [PART 6 — Information Architecture](PART_06_INFORMATION_ARCHITECTURE.ar.md): هرم المنتج، التنقل الهجين، route taxonomy، guards، البحث، Inbox، الإعدادات، responsive وRTL/LTR.
+14. [Information Architecture Manifest](INFORMATION_ARCHITECTURE_MANIFEST.draft.json): تمثيل آلي مبدئي للمجموعات والمسارات والـshell؛ غير مفعّل تشغيليًا.
+15. [PART 7 — Complete Screen Inventory](PART_07_COMPLETE_SCREEN_INVENTORY.ar.md): جرد 160 شاشة مع route، الدور، المكونات، الحقول، الحالات، الصلاحيات، والـAPI لكل شاشة.
+16. [Screen Inventory](SCREEN_INVENTORY.draft.json): كتالوج آلي مبدئي كامل للشاشات وحالاتها؛ غير مفعّل بإضافة routes أو permissions.
+17. [PART 8 — UI/UX Design System](PART_08_UI_UX_DESIGN_SYSTEM.ar.md): tokens للهوية والألوان والخطوط والمسافات والمكونات والحالات والتجاوب وRTL/accessibility.
+18. [Design Tokens](DESIGN_TOKENS.draft.json): كتالوج آلي مبدئي لنظام التصميم؛ غير مفعّل لتغيير CSS أو theme تلقائيًا.
+19. [PART 9 — Business Workflows](PART_09_BUSINESS_WORKFLOWS.ar.md): حالات الانتقال والاعتمادات والـjobs والإشعارات والفشل للحضور والإجازة والرواتب والدفع والسلف والمخالصة والتكامل.
+20. [Workflow Catalog](WORKFLOW_CATALOG.draft.json): كتالوج آلي مبدئي لـ16 workflow وضوابطها؛ غير مفعّل تشغيليًا.
+21. [PART 10 — Database Architecture](PART_10_DATABASE_ARCHITECTURE.ar.md): استراتيجية Multi-tenancy، الكيانات، الـledger، RLS، الفهارس، الاحتفاظ، وخطة ترحيل schema الحالي.
+22. [Database Schema Manifest](DATABASE_SCHEMA_MANIFEST.draft.json): كتالوج آلي مبدئي لـ86 كيانًا وقواعد التكامل والترحيل؛ غير مفعّل.
+23. [PART 11 — API Architecture](PART_11_API_ARCHITECTURE.ar.md): عقود REST، الأوامر، pagination، الأخطاء، الـwebhooks، والـadapters مع server functions الحالية.
+24. [API Contract Manifest](API_CONTRACT_MANIFEST.draft.json): كتالوج آلي مبدئي لـ85 endpoint وerror/event contracts؛ غير مفعّل تشغيليًا.
+25. [PART 12 — Security Architecture](PART_12_SECURITY_ARCHITECTURE.ar.md): نموذج التهديد، OWASP، المصادقة، RLS، الملفات، webhooks، الحوادث، وضوابط DevSecOps.
+26. [Security Control Manifest](SECURITY_CONTROL_MANIFEST.draft.json): 13 خطرًا و12 control و20 اختبار أمن؛ غير مفعّل تشغيليًا.
+27. [PART 13 — QA & Testing Strategy](PART_13_QA_TESTING_STRATEGY.ar.md): استراتيجية unit/component/contract/integration/API/E2E/visual/a11y/performance/security/DR ومصفوفة الوحدات.
+28. [QA Test Manifest](QA_TEST_MANIFEST.draft.json): 11 suite و14 مجالًا وبوابات التغطية والخروج؛ غير مفعّل تشغيليًا.
+29. [PART 14 — DevOps Architecture](PART_14_DEVOPS_ARCHITECTURE.ar.md): Git، CI/CD، البيئات، الأسرار، Supabase migrations، النشر، المراقبة، النسخ الاحتياطي، والتراجع.
+30. [DevOps Manifest](DEVOPS_MANIFEST.draft.json): 9 pipelines و6 بيئات و7 runbooks؛ غير مفعّل تشغيليًا.
+31. [PART 15 — Product & Business Analytics](PART_15_ANALYTICS_ARCHITECTURE.ar.md): شجرة المقاييس، taxonomy للأحداث، لوحات الأدوار، الخصوصية، والجودة.
+32. [Analytics Manifest](ANALYTICS_MANIFEST.draft.json): 29 event و19 metric و8 dashboards مع منع PII؛ غير مفعّل تشغيليًا.
+33. [PART 16 — Product Roadmap](PART_16_PRODUCT_ROADMAP.ar.md): مراحل Discovery وMVP وBeta وProduction وGrowth وEnterprise مع نطاق وبوابات خروج وسعة.
+34. [Roadmap Manifest](ROADMAP_MANIFEST.draft.json): 6 phases و4 مستويات سعة ومعايير انتقال؛ غير مفعّل تشغيليًا.
+
+35. [PART 17 — Development Backlog](PART_17_DEVELOPMENT_BACKLOG.ar.md): قصص بمعايير قبول ومهام وحالات اختبار وتبعيات ومراجع فعلية.
+36. [Development Backlog](DEVELOPMENT_BACKLOG.draft.json) و[مسودات GitHub Issues](BACKLOG_GITHUB_ISSUES.draft.jsonl): كتالوج تنفيذ وملفات نقل؛ الحالات مخططة بلا ادعاء نجاح اختبارات.
+
+37. [PART 18 — Implementation](PART_18_IMPLEMENTATION.ar.md): دفعة I-001 لسجل الشركات والعضويات وGET /me، مع اختبارات محلية وحدود نشر صريحة.
+
+**الحالة:** اكتمل الاكتشاف المكتبي وأدوات البحث، وأُعدت استراتيجية المنتج ونطاق MVP والباقات كقرارات عمل مبدئية. لا توجد حتى الآن نتائج مقابلات أو تجارب مدفوعة أو أسعار معتمدة ضمن هذه المخرجات. مرحلة التوثيق لا تعني اعتماد الإطلاق أو تطبيق ترحيلات قاعدة البيانات.
+
+## ترتيب العمل
+
+| الجزء | المخرج                    | الحالة                                                              |
+| ----- | ------------------------- | ------------------------------------------------------------------- |
+| 1     | Business Discovery        | مكتمل مكتبيًا؛ التحقق الميداني مخطط                                 |
+| 2     | Product Strategy          | مكتمل كمواصفات مبدئية؛ التحقق التجاري والاعتماد التشغيلي معلقان     |
+| 3     | Product Architecture      | مكتمل كمواصفات مبدئية؛ تنفيذ tenant/contracts معلق                  |
+| 4     | User Roles                | مكتمل كمواصفات مبدئية؛ تنفيذ catalog/RLS معلق                       |
+| 5     | User Journeys             | مكتمل كمواصفات مبدئية؛ تحويل الرحلات إلى routes/workflows معلق      |
+| 6     | Information Architecture  | مكتمل كمواصفات مبدئية؛ تنفيذ routes/guards معلق                     |
+| 7     | Complete Screen Inventory | مكتمل كمواصفات مبدئية؛ اعتماد subset وربط routes معلق               |
+| 8     | UI/UX Design System       | مكتمل كمواصفات مبدئية؛ تحويل tokens إلى components معلق             |
+| 9     | Workflows                 | مكتمل كمواصفات مبدئية؛ ربط commands/jobs معلق                       |
+| 10    | Database                  | مكتمل كمواصفات مبدئية؛ tenant backfill وledger migrations معلقة     |
+| 11    | API                       | مكتمل كمواصفات مبدئية؛ تنفيذ REST/OpenAPI والـadapters معلق         |
+| 12    | Security                  | مكتمل كمواصفات مبدئية؛ سد فجوات pilot واختبارات SEC معلق            |
+| 13    | QA & Testing              | مكتمل كمواصفات مبدئية؛ توسيع suites وgates الآلية معلق              |
+| 14    | DevOps                    | مكتمل كمواصفات مبدئية؛ تهيئة environments وCI/CD التشغيلية معلقة    |
+| 15    | Analytics                 | مكتمل كمواصفات مبدئية؛ collector والـwarehouse واللوحات معلقة       |
+| 16    | Roadmap                   | مكتمل كمواصفات مبدئية؛ التواريخ والأدلة التجارية قابلة للتحقق       |
+| 17    | Development Backlog       | مكتمل كخطة تنفيذ مترابطة؛ نتائج التنفيذ تسجل في PART 18             |
+| 18    | Implementation            | جارٍ؛ I-001 منفذة ومختبرة محليًا، وباقي المنتج والترحيل والنشر معلق |
+
+## طريقة توثيق القرارات
+
+- نفصل الحقيقة عن الافتراض والهدف؛ كل ادعاء سوقي له مصدر وتاريخ، وكل نتيجة تجربة لها عينة وتعريف قياس.
+- نحدّث فرضيات H01–H12 بنتائج مهام DISC-01–DISC-12 دون اختلاق مقابلات أو اتفاقيات.
+- لا تعني شاشة موجودة دورة أعمال مكتملة. الدليل يشمل الحفظ والصلاحيات والمطابقة والفشل والاستعادة حسب الوظيفة.
+- نحسم البلد والشريحة وعلاقة المنتج بالعائلة قبل تثبيت التوطين والتسعير أو اتخاذ فصل معماري مكلف.
+- يُحفظ التاريخ البرمجي كما هو؛ المراحل 1–17 مواصفات؛ بدأت دفعة I-001 البرمجية في PART 18. تحديثات الوظائف السابقة في [PR #3](https://github.com/orabi1996/full-project-focus/pull/3) لها مراجعتها واختباراتها المستقلة.
+- تُرفع كل دفعة مكتملة ومراجعة خلال العمل مباشرة إلى GitHub في commit مستقل؛ المراحل التجارية الحالية تتجمع في [PR #4](https://github.com/orabi1996/full-project-focus/pull/4). الرفع لا يساوي دمجًا أو نشرًا إنتاجيًا، ويُذكر وضع كل دفعة بعد التحقق.
+- قرارات المعمارية المبدئية لا تفعّل migrations أو تغير الكود؛ التنفيذ الجاري موثق في PART 18؛ وتبقى كل ملفات `*.draft.json` غير قابلة للاستخدام التشغيلي.
+- مصفوفة الصلاحيات والكتالوج المبدئي لا يغيران صلاحيات Live؛ الكتالوج الآلي المرفق في PART 4 يحمل `runtime_enabled: false` حتى اعتماد Schema وRLS والاختبارات.
+- بيانات المقابلات الخام وملفات العملاء ليست جزءًا من هذا المستودع؛ ننشر قوالب ونتائج مجمعة فقط وفق سياسة البحث.

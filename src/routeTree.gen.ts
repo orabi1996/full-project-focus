@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ApiV1MeRouteImport } from './routes/api/v1/me'
 import { Route as ApiPublicBiometricPunchRouteImport } from './routes/api/public/biometric/punch'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1MeRoute = ApiV1MeRouteImport.update({
+  id: '/api/v1/me',
+  path: '/api/v1/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBiometricPunchRoute = ApiPublicBiometricPunchRouteImport.update({
   id: '/api/public/biometric/punch',
   path: '/api/public/biometric/punch',
@@ -32,30 +38,34 @@ const ApiPublicBiometricPunchRoute = ApiPublicBiometricPunchRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/api/v1/me': typeof ApiV1MeRoute
   '/api/public/biometric/punch': typeof ApiPublicBiometricPunchRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/api/v1/me': typeof ApiV1MeRoute
   '/api/public/biometric/punch': typeof ApiPublicBiometricPunchRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/api/v1/me': typeof ApiV1MeRoute
   '/api/public/biometric/punch': typeof ApiPublicBiometricPunchRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/api/public/biometric/punch'
+  fullPaths: '/' | '/login' | '/api/v1/me' | '/api/public/biometric/punch'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/api/public/biometric/punch'
-  id: '__root__' | '/' | '/login' | '/api/public/biometric/punch'
+  to: '/' | '/login' | '/api/v1/me' | '/api/public/biometric/punch'
+  id: '__root__' | '/' | '/login' | '/api/v1/me' | '/api/public/biometric/punch'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
+  ApiV1MeRoute: typeof ApiV1MeRoute
   ApiPublicBiometricPunchRoute: typeof ApiPublicBiometricPunchRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/me': {
+      id: '/api/v1/me'
+      path: '/api/v1/me'
+      fullPath: '/api/v1/me'
+      preLoaderRoute: typeof ApiV1MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/biometric/punch': {
       id: '/api/public/biometric/punch'
       path: '/api/public/biometric/punch'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
+  ApiV1MeRoute: ApiV1MeRoute,
   ApiPublicBiometricPunchRoute: ApiPublicBiometricPunchRoute,
 }
 export const routeTree = rootRouteImport

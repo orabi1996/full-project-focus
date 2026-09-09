@@ -1,0 +1,3902 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_version": "2026-09-08",
+  "status": "planning_baseline",
+  "runtime_enabled": false,
+  "source_head": "10340cbd13dccdb78935e510460810ecc77490ae",
+  "source_documents": [
+    "PART_16_PRODUCT_ROADMAP.ar.md",
+    "SCREEN_INVENTORY.draft.json",
+    "API_CONTRACT_MANIFEST.draft.json",
+    "QA_TEST_MANIFEST.draft.json"
+  ],
+  "estimation_policy": "No delivery dates or effort claims before team sizing; priority is launch criticality, not defect severity.",
+  "quality_profiles": {
+    "tenant_security": [
+      "unauthorized",
+      "expired_session",
+      "cross_tenant_id",
+      "archived_record",
+      "sensitive_field_mask",
+      "SoD_where_applicable"
+    ],
+    "recovery": [
+      "invalid_input",
+      "duplicate_data",
+      "network_failure",
+      "API_failure",
+      "timeout",
+      "concurrent_updates",
+      "partial_failure",
+      "large_dataset",
+      "deleted_record"
+    ],
+    "arabic_ux": [
+      "empty",
+      "loading",
+      "error",
+      "success",
+      "RTL_ar",
+      "LTR_en",
+      "360_768_1440_viewport",
+      "keyboard_focus"
+    ]
+  },
+  "definition_of_ready": [
+    "Known actor and owned data",
+    "Validated screen/API links or explicit contract gap",
+    "Independent acceptance oracle",
+    "Dependencies and release gate identified"
+  ],
+  "definition_of_done": [
+    "Reviewed typed implementation",
+    "Acceptance evidence with commit SHA",
+    "Negative paths and applicable quality profiles checked",
+    "Migration/rollback documented where needed",
+    "No secrets or real employee fixtures",
+    "No claim of production readiness without release gate"
+  ],
+  "epics": [
+    {
+      "id": "EP-01",
+      "title_ar": "التحقق التجاري والسياسات",
+      "owner_function": "product"
+    },
+    {
+      "id": "EP-02",
+      "title_ar": "أساس الشركات وسياق العضوية",
+      "owner_function": "platform"
+    },
+    {
+      "id": "EP-03",
+      "title_ar": "الهوية والصلاحيات وفصل المهام",
+      "owner_function": "identity"
+    },
+    {
+      "id": "EP-04",
+      "title_ar": "واجهة عربية ونظام التصميم والتنقل",
+      "owner_function": "frontend"
+    },
+    {
+      "id": "EP-05",
+      "title_ar": "التهيئة والهيكل والموظفون",
+      "owner_function": "people"
+    },
+    {
+      "id": "EP-06",
+      "title_ar": "الجداول والحضور والاستثناءات",
+      "owner_function": "time"
+    },
+    {
+      "id": "EP-07",
+      "title_ar": "محرك الاعتماد والإجازات",
+      "owner_function": "workflow"
+    },
+    {
+      "id": "EP-08",
+      "title_ar": "الرواتب وشرح المبلغ",
+      "owner_function": "payroll"
+    },
+    {
+      "id": "EP-09",
+      "title_ar": "السلف والمصروفات والمخالصة",
+      "owner_function": "finance"
+    },
+    {
+      "id": "EP-10",
+      "title_ar": "الدفع والمطابقة والقيود",
+      "owner_function": "treasury"
+    },
+    {
+      "id": "EP-11",
+      "title_ar": "الملفات والتدقيق والإشعارات",
+      "owner_function": "governance"
+    },
+    {
+      "id": "EP-12",
+      "title_ar": "التقارير والتكاملات",
+      "owner_function": "integrations"
+    },
+    {
+      "id": "EP-13",
+      "title_ar": "الفوترة ونجاح العملاء وإدارة المنصة",
+      "owner_function": "commerce"
+    },
+    {
+      "id": "EP-14",
+      "title_ar": "التوظيف والأداء والعهد",
+      "owner_function": "talent"
+    },
+    {
+      "id": "EP-15",
+      "title_ar": "الأمن والخصوصية والتشغيل والجودة",
+      "owner_function": "quality_security_ops"
+    },
+    {
+      "id": "EP-16",
+      "title_ar": "التحليلات والنمو والذكاء المفيد",
+      "owner_function": "product_analytics"
+    },
+    {
+      "id": "EP-17",
+      "title_ar": "المؤسسات والسعة والتكامل مع Classera",
+      "owner_function": "enterprise"
+    }
+  ],
+  "features": [
+    {
+      "id": "F-DISC-101",
+      "epic_id": "EP-01",
+      "title_ar": "إثبات شريحة العميل ومشكلة الإقفال",
+      "story_ids": ["DISC-101"]
+    },
+    {
+      "id": "F-DISC-102",
+      "epic_id": "EP-01",
+      "title_ar": "حسم بلد التجربة ومالك سياسة الرواتب",
+      "story_ids": ["DISC-102"]
+    },
+    {
+      "id": "F-TEN-001",
+      "epic_id": "EP-02",
+      "title_ar": "إنشاء سجل الشركات والعضويات بقراءة معزولة",
+      "story_ids": ["TEN-001"]
+    },
+    {
+      "id": "F-TEN-002",
+      "epic_id": "EP-02",
+      "title_ar": "حل سياق الشركة على الخادم",
+      "story_ids": ["TEN-002"]
+    },
+    {
+      "id": "F-TEN-003",
+      "epic_id": "EP-02",
+      "title_ar": "ترحيل ملكية بيانات الأعمال القديمة تدريجيًا",
+      "story_ids": ["TEN-003"]
+    },
+    {
+      "id": "F-IAM-001",
+      "epic_id": "EP-03",
+      "title_ar": "الدعوات والدخول الآمن",
+      "story_ids": ["IAM-001"]
+    },
+    {
+      "id": "F-IAM-002",
+      "epic_id": "EP-03",
+      "title_ar": "صلاحيات الموارد والنطاق وفصل المهام",
+      "story_ids": ["IAM-002"]
+    },
+    {
+      "id": "F-IAM-003",
+      "epic_id": "EP-03",
+      "title_ar": "التفويض المؤرخ",
+      "story_ids": ["IAM-003"]
+    },
+    {
+      "id": "F-UX-001",
+      "epic_id": "EP-04",
+      "title_ar": "تطبيق tokens ومكونات عربية قابلة للوصول",
+      "story_ids": ["UX-001"]
+    },
+    {
+      "id": "F-UX-002",
+      "epic_id": "EP-04",
+      "title_ar": "مسارات فعلية وتنقل حسب الدور",
+      "story_ids": ["UX-002"]
+    },
+    {
+      "id": "F-UX-003",
+      "epic_id": "EP-04",
+      "title_ar": "لوحات الأدوار والخدمة الذاتية",
+      "story_ids": ["UX-003"]
+    },
+    {
+      "id": "F-ORG-001",
+      "epic_id": "EP-05",
+      "title_ar": "تهيئة المؤسسة والهيكل",
+      "story_ids": ["ORG-001"]
+    },
+    {
+      "id": "F-EMP-001",
+      "epic_id": "EP-05",
+      "title_ar": "ملف الموظف وتاريخ التوظيف",
+      "story_ids": ["EMP-001"]
+    },
+    {
+      "id": "F-EMP-002",
+      "epic_id": "EP-05",
+      "title_ar": "الاستيراد الجماعي مع مراجعة الأخطاء",
+      "story_ids": ["EMP-002"]
+    },
+    {
+      "id": "F-ATT-001",
+      "epic_id": "EP-06",
+      "title_ar": "ورديات عابرة لمنتصف الليل",
+      "story_ids": ["ATT-001"]
+    },
+    {
+      "id": "F-ATT-002",
+      "epic_id": "EP-06",
+      "title_ar": "استيراد بصمات قابل لإعادة التشغيل",
+      "story_ids": ["ATT-002"]
+    },
+    {
+      "id": "F-ATT-003",
+      "epic_id": "EP-06",
+      "title_ar": "تصحيح الحضور والإضافي والتأخير",
+      "story_ids": ["ATT-003"]
+    },
+    {
+      "id": "F-APR-001",
+      "epic_id": "EP-07",
+      "title_ar": "اعتماد ذري وصندوق مهام",
+      "story_ids": ["APR-001"]
+    },
+    {
+      "id": "F-LEV-001",
+      "epic_id": "EP-07",
+      "title_ar": "حجز رصيد الإجازة واعتمادها",
+      "story_ids": ["LEV-001"]
+    },
+    {
+      "id": "F-LEV-002",
+      "epic_id": "EP-07",
+      "title_ar": "إلغاء الإجازة وتصحيح الرصيد",
+      "story_ids": ["LEV-002"]
+    },
+    {
+      "id": "F-PAY-001",
+      "epic_id": "EP-08",
+      "title_ar": "سياسات الراتب والحساب القابل للتكرار",
+      "story_ids": ["PAY-001"]
+    },
+    {
+      "id": "F-PAY-002",
+      "epic_id": "EP-08",
+      "title_ar": "قفل المسير والقسائم والتصحيحات",
+      "story_ids": ["PAY-002"]
+    },
+    {
+      "id": "F-ADV-001",
+      "epic_id": "EP-09",
+      "title_ar": "السلف وصرف الأصل وجدولة الأقساط",
+      "story_ids": ["ADV-001"]
+    },
+    {
+      "id": "F-EXP-001",
+      "epic_id": "EP-09",
+      "title_ar": "مصروفات وصرف مبكر بضوابط",
+      "story_ids": ["EXP-001"]
+    },
+    {
+      "id": "F-EOS-001",
+      "epic_id": "EP-09",
+      "title_ar": "مخالصة موثقة ونسخ تعديل",
+      "story_ids": ["EOS-001"]
+    },
+    {
+      "id": "F-PMT-001",
+      "epic_id": "EP-10",
+      "title_ar": "دفعة دفع في بيئة المزود التجريبية",
+      "story_ids": ["PMT-001"]
+    },
+    {
+      "id": "F-REC-001",
+      "epic_id": "EP-10",
+      "title_ar": "مطابقة الدفع وربط الحسابات",
+      "story_ids": ["REC-001"]
+    },
+    {
+      "id": "F-DOC-001",
+      "epic_id": "EP-11",
+      "title_ar": "ملفات خاصة وروابط تنزيل محدودة",
+      "story_ids": ["DOC-001"]
+    },
+    {
+      "id": "F-AUD-001",
+      "epic_id": "EP-11",
+      "title_ar": "سجل تدقيق مع outbox في المعاملة",
+      "story_ids": ["AUD-001"]
+    },
+    {
+      "id": "F-NOT-001",
+      "epic_id": "EP-11",
+      "title_ar": "تسليم إشعارات موثوق ومحلي",
+      "story_ids": ["NOT-001"]
+    },
+    {
+      "id": "F-RPT-001",
+      "epic_id": "EP-12",
+      "title_ar": "تقارير حضور ورواتب متطابقة وقابلة للتصدير",
+      "story_ids": ["RPT-001"]
+    },
+    {
+      "id": "F-INT-001",
+      "epic_id": "EP-12",
+      "title_ar": "موصلات أجهزة وERP قابلة للاستئناف",
+      "story_ids": ["INT-001"]
+    },
+    {
+      "id": "F-BIL-001",
+      "epic_id": "EP-13",
+      "title_ar": "اشتراك واستحقاقات مستقلة عن الصلاحيات",
+      "story_ids": ["BIL-001"]
+    },
+    {
+      "id": "F-SUP-001",
+      "epic_id": "EP-13",
+      "title_ar": "دعم وSLA ووصول طارئ محدود",
+      "story_ids": ["SUP-001"]
+    },
+    {
+      "id": "F-PLT-001",
+      "epic_id": "EP-13",
+      "title_ar": "إدارة تشغيل المنصة والميزات",
+      "story_ids": ["PLT-001"]
+    },
+    {
+      "id": "F-ATS-001",
+      "epic_id": "EP-14",
+      "title_ar": "من المرشح إلى مباشرة العمل",
+      "story_ids": ["ATS-001"]
+    },
+    {
+      "id": "F-PER-001",
+      "epic_id": "EP-14",
+      "title_ar": "الأهداف والمراجعة ومعايرة الأداء",
+      "story_ids": ["PER-001"]
+    },
+    {
+      "id": "F-AST-001",
+      "epic_id": "EP-14",
+      "title_ar": "إسناد العهد واستعادتها والنزاع",
+      "story_ids": ["AST-001"]
+    },
+    {
+      "id": "F-SEC-001",
+      "epic_id": "EP-15",
+      "title_ar": "ضوابط الأمان قبل بيانات العملاء",
+      "story_ids": ["SEC-001"]
+    },
+    {
+      "id": "F-SEC-002",
+      "epic_id": "EP-15",
+      "title_ar": "الاحتفاظ وطلب البيانات والحذف",
+      "story_ids": ["SEC-002"]
+    },
+    {
+      "id": "F-OPS-001",
+      "epic_id": "EP-15",
+      "title_ar": "CI وبيئات وترحيلات قابلة للمراجعة",
+      "story_ids": ["OPS-001"]
+    },
+    {
+      "id": "F-OPS-002",
+      "epic_id": "EP-15",
+      "title_ar": "المراقبة والنسخ والاستعادة والحوادث",
+      "story_ids": ["OPS-002"]
+    },
+    {
+      "id": "F-QA-001",
+      "epic_id": "EP-15",
+      "title_ar": "مصفوفة اختبارات رحلة MVP",
+      "story_ids": ["QA-001"]
+    },
+    {
+      "id": "F-QA-002",
+      "epic_id": "EP-15",
+      "title_ar": "بوابة Beta وProduction بالأدلة",
+      "story_ids": ["QA-002"]
+    },
+    {
+      "id": "F-ANA-001",
+      "epic_id": "EP-16",
+      "title_ar": "أحداث ومؤشرات منتج بلا بيانات حساسة",
+      "story_ids": ["ANA-001"]
+    },
+    {
+      "id": "F-AI-001",
+      "epic_id": "EP-16",
+      "title_ar": "تجربة مساعدة تفسير الاستثناءات",
+      "story_ids": ["AI-001"]
+    },
+    {
+      "id": "F-ENT-001",
+      "epic_id": "EP-17",
+      "title_ar": "SSO وSCIM وربط عائلة Classera",
+      "story_ids": ["ENT-001"]
+    },
+    {
+      "id": "F-ENT-002",
+      "epic_id": "EP-17",
+      "title_ar": "سعة وعزل مؤسسي بناء على قياس",
+      "story_ids": ["ENT-002"]
+    }
+  ],
+  "stories": [
+    {
+      "id": "DISC-101",
+      "epic_id": "EP-01",
+      "feature_id": "F-DISC-101",
+      "title_ar": "إثبات شريحة العميل ومشكلة الإقفال",
+      "user_story": "As a product manager, I want to validate the buyer and payroll-close problem, so that scope follows customer evidence.",
+      "role": "product manager",
+      "phase": "RM-P0",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": [],
+      "screen_ids": [],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "DISC-101-AC1",
+          "given": "قالب PART 1 وعينة مستهدفة",
+          "when": "توثيق مقابلة بموافقة المشارك",
+          "then": "تسجل المشكلة وتكرارها وخط الأساس والاعتراضات دون بيانات موظفين"
+        },
+        {
+          "id": "DISC-101-AC2",
+          "given": "لا توجد مقابلات منفذة",
+          "when": "مراجعة بوابة Phase 0",
+          "then": "تظل البوابة غير مجتازة ولا تسجل نتائج أو استعداد دفع مفترض"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "DISC-101-T1",
+          "description_ar": "إعداد سجل أدلة H01–H12 خارج بيانات المنتج",
+          "status": "planned"
+        },
+        {
+          "id": "DISC-101-T2",
+          "description_ar": "ربط نتائج المقابلات بمعايير Go/Refine/Stop",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "DISC-101-QA1",
+          "acceptance_id": "DISC-101-AC1",
+          "level": "acceptance",
+          "precondition": "قالب PART 1 وعينة مستهدفة",
+          "action": "توثيق مقابلة بموافقة المشارك",
+          "expected": "تسجل المشكلة وتكرارها وخط الأساس والاعتراضات دون بيانات موظفين",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "DISC-101-QA2",
+          "acceptance_id": "DISC-101-AC2",
+          "level": "acceptance",
+          "precondition": "لا توجد مقابلات منفذة",
+          "action": "مراجعة بوابة Phase 0",
+          "expected": "تظل البوابة غير مجتازة ولا تسجل نتائج أو استعداد دفع مفترض",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery"],
+      "evidence": []
+    },
+    {
+      "id": "DISC-102",
+      "epic_id": "EP-01",
+      "feature_id": "F-DISC-102",
+      "title_ar": "حسم بلد التجربة ومالك سياسة الرواتب",
+      "user_story": "As a finance policy owner, I want to approve a versioned country policy, so that payroll uses a reviewed rule set.",
+      "role": "finance policy owner",
+      "phase": "RM-P0",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["DISC-101"],
+      "screen_ids": [],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "DISC-102-AC1",
+          "given": "بلد تجربة وشروط عقد موثقة",
+          "when": "مراجعة سياسة الأجر والإجازة والمخالصة",
+          "then": "يسجل المصدر وتاريخ النفاذ والمالك وحالات حساب معتمدة"
+        },
+        {
+          "id": "DISC-102-AC2",
+          "given": "قاعدة محلية غير معتمدة",
+          "when": "طلب تفعيل حساب إنتاجي",
+          "then": "يبقى التفعيل محجوبًا مع قرار بحث محدد"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "DISC-102-T1",
+          "description_ar": "جمع أمثلة حساب من مالية العميل ومختص البلد",
+          "status": "planned"
+        },
+        {
+          "id": "DISC-102-T2",
+          "description_ar": "تحويل الأمثلة إلى fixtures اصطناعية وتحديد تاريخ مراجعة",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "DISC-102-QA1",
+          "acceptance_id": "DISC-102-AC1",
+          "level": "acceptance",
+          "precondition": "بلد تجربة وشروط عقد موثقة",
+          "action": "مراجعة سياسة الأجر والإجازة والمخالصة",
+          "expected": "يسجل المصدر وتاريخ النفاذ والمالك وحالات حساب معتمدة",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "DISC-102-QA2",
+          "acceptance_id": "DISC-102-AC2",
+          "level": "acceptance",
+          "precondition": "قاعدة محلية غير معتمدة",
+          "action": "طلب تفعيل حساب إنتاجي",
+          "expected": "يبقى التفعيل محجوبًا مع قرار بحث محدد",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery"],
+      "evidence": []
+    },
+    {
+      "id": "TEN-001",
+      "epic_id": "EP-02",
+      "feature_id": "F-TEN-001",
+      "title_ar": "إنشاء سجل الشركات والعضويات بقراءة معزولة",
+      "user_story": "As a platform engineer, I want to store tenant memberships with database isolation, so that new features have a trusted tenant boundary.",
+      "role": "platform engineer",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "implemented_local",
+      "depends_on": [],
+      "screen_ids": ["S014", "S045", "S146"],
+      "api_refs": ["GET /tenants"],
+      "acceptance_criteria": [
+        {
+          "id": "TEN-001-AC1",
+          "given": "شركتان وعضوان فعالان في قاعدة اختبار",
+          "when": "يقرأ عضو الشركة A السجل بصفة authenticated",
+          "then": "يرى شركته وعضويته وإعداداتها فقط"
+        },
+        {
+          "id": "TEN-001-AC2",
+          "given": "عضو مستخدم عادي أو مجهول",
+          "when": "محاولة إدراج عضوية أو تغيير tenant_id أو حذف سجل",
+          "then": "تمنع قاعدة البيانات الكتابة ولا تمنح عضوية جديدة"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "TEN-001-T1",
+          "description_ar": "إضافة migration توسعية لسجل tenant/settings/memberships وقيود زمنية",
+          "status": "implemented_local"
+        },
+        {
+          "id": "TEN-001-T2",
+          "description_ar": "ضبط grants وRLS واختبار SELECT/INSERT/UPDATE/DELETE بأدوار قاعدة حقيقية",
+          "status": "implemented_local"
+        },
+        {
+          "id": "TEN-001-T3",
+          "description_ar": "توثيق provisioning والتراجع دون ترحيل شركات legacy ضمنيًا",
+          "status": "implemented_local"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "TEN-001-QA1",
+          "acceptance_id": "TEN-001-AC1",
+          "level": "acceptance",
+          "precondition": "شركتان وعضوان فعالان في قاعدة اختبار",
+          "action": "يقرأ عضو الشركة A السجل بصفة authenticated",
+          "expected": "يرى شركته وعضويته وإعداداتها فقط",
+          "execution_status": "passed_local",
+          "evidence": {
+            "batch": "I-001",
+            "test_file": "src/tests/tenant-registry.integration.test.ts"
+          }
+        },
+        {
+          "id": "TEN-001-QA2",
+          "acceptance_id": "TEN-001-AC2",
+          "level": "acceptance",
+          "precondition": "عضو مستخدم عادي أو مجهول",
+          "action": "محاولة إدراج عضوية أو تغيير tenant_id أو حذف سجل",
+          "expected": "تمنع قاعدة البيانات الكتابة ولا تمنح عضوية جديدة",
+          "execution_status": "passed_local",
+          "evidence": {
+            "batch": "I-001",
+            "test_file": "src/tests/tenant-registry.integration.test.ts"
+          }
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": [
+        {
+          "batch": "I-001",
+          "test_file": "src/tests/tenant-registry.integration.test.ts",
+          "scope": "local_synthetic",
+          "deployment": "not_deployed",
+          "limitations": "No full legacy migration chain or live Supabase/PostgREST validation."
+        }
+      ]
+    },
+    {
+      "id": "TEN-002",
+      "epic_id": "EP-02",
+      "feature_id": "F-TEN-002",
+      "title_ar": "حل سياق الشركة على الخادم",
+      "user_story": "As a authenticated user, I want to resolve an active tenant context, so that every new request has an explicit verified workspace.",
+      "role": "authenticated user",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "implemented_local",
+      "depends_on": ["TEN-001"],
+      "screen_ids": ["S013", "S012"],
+      "api_refs": ["GET /me"],
+      "acceptance_criteria": [
+        {
+          "id": "TEN-002-AC1",
+          "given": "جلسة موثقة وعضوية واحدة سارية",
+          "when": "طلب GET /me",
+          "then": "يرجع user_id وسياق الشركة والإعدادات دون أسرار أو رواتب"
+        },
+        {
+          "id": "TEN-002-AC2",
+          "given": "عضويتان ساريتان أو معرف شركة غير مخول",
+          "when": "طلب سياق بلا اختيار أو باختيار غير مخول",
+          "then": "يرجع tenant_required أو tenant_access_denied دون اختيار شركة عشوائيًا"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "TEN-002-T1",
+          "description_ar": "تنفيذ DTO typed وresolver للسياق وتاريخ صلاحية العضوية",
+          "status": "implemented_local"
+        },
+        {
+          "id": "TEN-002-T2",
+          "description_ar": "إضافة GET /api/v1/me بمصادقة خادم وقراءة RLS فقط",
+          "status": "implemented_local"
+        },
+        {
+          "id": "TEN-002-T3",
+          "description_ar": "اختبار أخطاء الجلسة والاختيار والتعليق وإخفاء أخطاء المزود",
+          "status": "implemented_local"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "TEN-002-QA1",
+          "acceptance_id": "TEN-002-AC1",
+          "level": "acceptance",
+          "precondition": "جلسة موثقة وعضوية واحدة سارية",
+          "action": "طلب GET /me",
+          "expected": "يرجع user_id وسياق الشركة والإعدادات دون أسرار أو رواتب",
+          "execution_status": "passed_local",
+          "evidence": {
+            "batch": "I-001",
+            "test_file": "src/lib/tenancy/tenant-context.test.ts"
+          }
+        },
+        {
+          "id": "TEN-002-QA2",
+          "acceptance_id": "TEN-002-AC2",
+          "level": "acceptance",
+          "precondition": "عضويتان ساريتان أو معرف شركة غير مخول",
+          "action": "طلب سياق بلا اختيار أو باختيار غير مخول",
+          "expected": "يرجع tenant_required أو tenant_access_denied دون اختيار شركة عشوائيًا",
+          "execution_status": "passed_local",
+          "evidence": {
+            "batch": "I-001",
+            "test_file": "src/lib/tenancy/tenant-context.test.ts"
+          }
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": [
+        {
+          "batch": "I-001",
+          "test_file": "src/lib/tenancy/tenant-context.test.ts",
+          "scope": "local_synthetic",
+          "deployment": "not_deployed",
+          "limitations": "No full legacy migration chain or live Supabase/PostgREST validation."
+        }
+      ]
+    },
+    {
+      "id": "TEN-003",
+      "epic_id": "EP-02",
+      "feature_id": "F-TEN-003",
+      "title_ar": "ترحيل ملكية بيانات الأعمال القديمة تدريجيًا",
+      "user_story": "As a data engineer, I want to backfill explicit tenant ownership, so that legacy data becomes safe for multiple customers.",
+      "role": "data engineer",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["TEN-001"],
+      "screen_ids": ["S023"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "TEN-003-AC1",
+          "given": "خريطة معتمدة للشركات القديمة ونسخة احتياطية",
+          "when": "تشغيل dry run للترحيل",
+          "then": "يتطابق عدد السجلات والإجماليات وتظهر الصفوف مجهولة المالك"
+        },
+        {
+          "id": "TEN-003-AC2",
+          "given": "سجل يتيم أو مرجع طفل لشركة أخرى",
+          "when": "محاولة تفعيل NOT NULL والقيود المركبة",
+          "then": "تمنع البوابة التفعيل حتى معالجة السجل بدليل"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "TEN-003-T1",
+          "description_ar": "بناء tenant_legacy_map بقرار ملكية لكل شركة",
+          "status": "planned"
+        },
+        {
+          "id": "TEN-003-T2",
+          "description_ar": "تقسيم backfill إلى batches مع تقرير مطابقة",
+          "status": "planned"
+        },
+        {
+          "id": "TEN-003-T3",
+          "description_ar": "إضافة composite FK وRLS لكل مجموعة ثم اختبار التطبيق القديم",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "TEN-003-QA1",
+          "acceptance_id": "TEN-003-AC1",
+          "level": "acceptance",
+          "precondition": "خريطة معتمدة للشركات القديمة ونسخة احتياطية",
+          "action": "تشغيل dry run للترحيل",
+          "expected": "يتطابق عدد السجلات والإجماليات وتظهر الصفوف مجهولة المالك",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "TEN-003-QA2",
+          "acceptance_id": "TEN-003-AC2",
+          "level": "acceptance",
+          "precondition": "سجل يتيم أو مرجع طفل لشركة أخرى",
+          "action": "محاولة تفعيل NOT NULL والقيود المركبة",
+          "expected": "تمنع البوابة التفعيل حتى معالجة السجل بدليل",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "IAM-001",
+      "epic_id": "EP-03",
+      "feature_id": "F-IAM-001",
+      "title_ar": "الدعوات والدخول الآمن",
+      "user_story": "As a org_admin, I want to invite a member with an expiring invitation, so that only intended users can join the tenant.",
+      "role": "org_admin",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["TEN-002"],
+      "screen_ids": ["S005", "S006", "S008", "S009", "S010", "S046"],
+      "api_refs": ["POST /memberships/invitations", "POST /invitations/{token}/accept"],
+      "acceptance_criteria": [
+        {
+          "id": "IAM-001-AC1",
+          "given": "دعوة غير منتهية إلى بريد محدد",
+          "when": "يقبل صاحب البريد الدعوة بجلسة موثقة",
+          "then": "تنشأ عضوية واحدة بعد التحقق وتصبح الدعوة مستهلكة"
+        },
+        {
+          "id": "IAM-001-AC2",
+          "given": "دعوة مستهلكة أو بريد مختلف أو انتهاء جلسة",
+          "when": "تكرار القبول",
+          "then": "لا تنشأ عضوية ثانية وتظهر رسالة قابلة للاستعادة دون كشف حساب آخر"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "IAM-001-T1",
+          "description_ar": "تخزين hash الدعوة وexpiry وربط البريد المتحقق",
+          "status": "planned"
+        },
+        {
+          "id": "IAM-001-T2",
+          "description_ar": "تنفيذ قبول atomic مع audit وidempotency",
+          "status": "planned"
+        },
+        {
+          "id": "IAM-001-T3",
+          "description_ar": "إكمال MFA وإلغاء الجلسات والحد من محاولات الدخول",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "IAM-001-QA1",
+          "acceptance_id": "IAM-001-AC1",
+          "level": "acceptance",
+          "precondition": "دعوة غير منتهية إلى بريد محدد",
+          "action": "يقبل صاحب البريد الدعوة بجلسة موثقة",
+          "expected": "تنشأ عضوية واحدة بعد التحقق وتصبح الدعوة مستهلكة",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "IAM-001-QA2",
+          "acceptance_id": "IAM-001-AC2",
+          "level": "acceptance",
+          "precondition": "دعوة مستهلكة أو بريد مختلف أو انتهاء جلسة",
+          "action": "تكرار القبول",
+          "expected": "لا تنشأ عضوية ثانية وتظهر رسالة قابلة للاستعادة دون كشف حساب آخر",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "IAM-002",
+      "epic_id": "EP-03",
+      "feature_id": "F-IAM-002",
+      "title_ar": "صلاحيات الموارد والنطاق وفصل المهام",
+      "user_story": "As a security owner, I want to authorize commands using tenant scope and separation of duties, so that roles cannot approve their own financial work.",
+      "role": "security owner",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["TEN-002"],
+      "screen_ids": ["S047", "S048", "S049", "S051", "S054"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "IAM-002-AC1",
+          "given": "عضو بدور ومجموعة رواتب محددين",
+          "when": "طلب قراءة مسير داخل نطاقه",
+          "then": "يسمح بالفعل والحقول المصرح بها فقط"
+        },
+        {
+          "id": "IAM-002-AC2",
+          "given": "معد مسير يملك أيضًا دور اعتماد أو super_admin منصة",
+          "when": "محاولة اعتماد المسير نفسه",
+          "then": "يرفض فصل المهام ولا تتجاوز الباقة أو دور المنصة نطاق العميل"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "IAM-002-T1",
+          "description_ar": "تحويل كتالوج PART 4 إلى permissions مثبتة بالإصدار",
+          "status": "planned"
+        },
+        {
+          "id": "IAM-002-T2",
+          "description_ar": "تنفيذ policy resolver على الخادم ومطابقته مع RLS",
+          "status": "planned"
+        },
+        {
+          "id": "IAM-002-T3",
+          "description_ar": "اختبار union للنطاقات وmask للحقول ورفض المنح الذاتية",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "IAM-002-QA1",
+          "acceptance_id": "IAM-002-AC1",
+          "level": "acceptance",
+          "precondition": "عضو بدور ومجموعة رواتب محددين",
+          "action": "طلب قراءة مسير داخل نطاقه",
+          "expected": "يسمح بالفعل والحقول المصرح بها فقط",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "IAM-002-QA2",
+          "acceptance_id": "IAM-002-AC2",
+          "level": "acceptance",
+          "precondition": "معد مسير يملك أيضًا دور اعتماد أو super_admin منصة",
+          "action": "محاولة اعتماد المسير نفسه",
+          "expected": "يرفض فصل المهام ولا تتجاوز الباقة أو دور المنصة نطاق العميل",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "IAM-003",
+      "epic_id": "EP-03",
+      "feature_id": "F-IAM-003",
+      "title_ar": "التفويض المؤرخ",
+      "user_story": "As a hr_manager, I want to delegate a narrow approval scope temporarily, so that absence does not create permanent access.",
+      "role": "hr_manager",
+      "phase": "RM-P2",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["IAM-002"],
+      "screen_ids": ["S050", "S052", "S053"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "IAM-003-AC1",
+          "given": "تفويض مصدق داخل مدة ودور المفوض",
+          "when": "اعتماد طلب فريق داخل النطاق",
+          "then": "يسجل الفاعل والمفوض والسياسة في القرار"
+        },
+        {
+          "id": "IAM-003-AC2",
+          "given": "تفويض منته أو طلب المفوض الأصلي",
+          "when": "محاولة القرار",
+          "then": "يمنع التنفيذ ولا يمدد التفويض تلقائيًا"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "IAM-003-T1",
+          "description_ar": "إنشاء delegation مع مدى زمني وحد صلاحيات",
+          "status": "planned"
+        },
+        {
+          "id": "IAM-003-T2",
+          "description_ar": "حساب صلاحية المفوض بتاريخ الحدث",
+          "status": "planned"
+        },
+        {
+          "id": "IAM-003-T3",
+          "description_ar": "اختبار نهاية المدة وself approval وغياب المعتمد",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "IAM-003-QA1",
+          "acceptance_id": "IAM-003-AC1",
+          "level": "acceptance",
+          "precondition": "تفويض مصدق داخل مدة ودور المفوض",
+          "action": "اعتماد طلب فريق داخل النطاق",
+          "expected": "يسجل الفاعل والمفوض والسياسة في القرار",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "IAM-003-QA2",
+          "acceptance_id": "IAM-003-AC2",
+          "level": "acceptance",
+          "precondition": "تفويض منته أو طلب المفوض الأصلي",
+          "action": "محاولة القرار",
+          "expected": "يمنع التنفيذ ولا يمدد التفويض تلقائيًا",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "UX-001",
+      "epic_id": "EP-04",
+      "feature_id": "F-UX-001",
+      "title_ar": "تطبيق tokens ومكونات عربية قابلة للوصول",
+      "user_story": "As a Arabic employee, I want to use consistent readable controls, so that core tasks work with Arabic and assistive technology.",
+      "role": "Arabic employee",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": [],
+      "screen_ids": ["S005", "S013", "S149"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "UX-001-AC1",
+          "given": "شاشة دخول ونموذج وجدول في ar وen",
+          "when": "العرض عند 360 و768 و1440 بكسل",
+          "then": "اتجاه سليم وتباين WCAG 2.2 AA وتنقل كامل بلوحة المفاتيح"
+        },
+        {
+          "id": "UX-001-AC2",
+          "given": "اسم عربي طويل وأرقام مالية ووضع داكن",
+          "when": "تكبير 200% وفتح dialog",
+          "then": "لا تختفي الأفعال ولا ينحصر focus خارج الحوار"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "UX-001-T1",
+          "description_ar": "تحويل PART 8 إلى semantic CSS tokens ومكونات فعلية",
+          "status": "planned"
+        },
+        {
+          "id": "UX-001-T2",
+          "description_ar": "تطبيق خصائص CSS المنطقية ونصوص AR/EN",
+          "status": "planned"
+        },
+        {
+          "id": "UX-001-T3",
+          "description_ar": "فحص visual وkeyboard وscreen reader في مهام أساسية",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "UX-001-QA1",
+          "acceptance_id": "UX-001-AC1",
+          "level": "acceptance",
+          "precondition": "شاشة دخول ونموذج وجدول في ar وen",
+          "action": "العرض عند 360 و768 و1440 بكسل",
+          "expected": "اتجاه سليم وتباين WCAG 2.2 AA وتنقل كامل بلوحة المفاتيح",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "UX-001-QA2",
+          "acceptance_id": "UX-001-AC2",
+          "level": "acceptance",
+          "precondition": "اسم عربي طويل وأرقام مالية ووضع داكن",
+          "action": "تكبير 200% وفتح dialog",
+          "expected": "لا تختفي الأفعال ولا ينحصر focus خارج الحوار",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "UX-002",
+      "epic_id": "EP-04",
+      "feature_id": "F-UX-002",
+      "title_ar": "مسارات فعلية وتنقل حسب الدور",
+      "user_story": "As a authenticated user, I want to navigate to a permitted deep link, so that refresh and back navigation preserve task context.",
+      "role": "authenticated user",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["UX-001", "TEN-002", "IAM-002"],
+      "screen_ids": ["S013", "S012", "S079", "S141"],
+      "api_refs": ["GET /me"],
+      "acceptance_criteria": [
+        {
+          "id": "UX-002-AC1",
+          "given": "عضوية فعالة ورابط لشاشة مسموحة",
+          "when": "فتح الرابط ثم refresh والرجوع",
+          "then": "تبقى الشاشة والفلاتر المسموحة دون الاعتماد على hash tab"
+        },
+        {
+          "id": "UX-002-AC2",
+          "given": "تبديل الشركة أثناء وجود بيانات cache",
+          "when": "فتح لوحة الشركة الجديدة",
+          "then": "تزال بيانات الشركة السابقة من queries ولا تظهر لحظةً في الواجهة"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "UX-002-T1",
+          "description_ar": "إضافة shell ومسارات /app وفق manifest مع legacy adapters",
+          "status": "planned"
+        },
+        {
+          "id": "UX-002-T2",
+          "description_ar": "تضمين tenant في query keys وإلغاء queries عند التبديل",
+          "status": "planned"
+        },
+        {
+          "id": "UX-002-T3",
+          "description_ar": "اختبار 403 و404 وroute error boundary وmobile drawer",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "UX-002-QA1",
+          "acceptance_id": "UX-002-AC1",
+          "level": "acceptance",
+          "precondition": "عضوية فعالة ورابط لشاشة مسموحة",
+          "action": "فتح الرابط ثم refresh والرجوع",
+          "expected": "تبقى الشاشة والفلاتر المسموحة دون الاعتماد على hash tab",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "UX-002-QA2",
+          "acceptance_id": "UX-002-AC2",
+          "level": "acceptance",
+          "precondition": "تبديل الشركة أثناء وجود بيانات cache",
+          "action": "فتح لوحة الشركة الجديدة",
+          "expected": "تزال بيانات الشركة السابقة من queries ولا تظهر لحظةً في الواجهة",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "UX-003",
+      "epic_id": "EP-04",
+      "feature_id": "F-UX-003",
+      "title_ar": "لوحات الأدوار والخدمة الذاتية",
+      "user_story": "As a employee, I want to see my own actionable dashboard, so that I can resolve requests and understand my records.",
+      "role": "employee",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["UX-002", "EMP-001"],
+      "screen_ids": ["S013", "S141", "S142", "S143", "S144", "S145"],
+      "api_refs": ["GET /notifications"],
+      "acceptance_criteria": [
+        {
+          "id": "UX-003-AC1",
+          "given": "موظف ومدير ومسؤول رواتب",
+          "when": "فتح اللوحة لكل دور",
+          "then": "تظهر KPIs وتعريف الفترة ومهام ضمن نطاق كل دور"
+        },
+        {
+          "id": "UX-003-AC2",
+          "given": "لا بيانات أو فشل endpoint",
+          "when": "فتح اللوحة",
+          "then": "تظهر empty/error/loading مستقلة ولا تعرض قيم demo في live"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "UX-003-T1",
+          "description_ar": "بناء queries مجمعة حسب الدور وحدود الحقول",
+          "status": "planned"
+        },
+        {
+          "id": "UX-003-T2",
+          "description_ar": "ربط quick actions بحالات فعلية",
+          "status": "planned"
+        },
+        {
+          "id": "UX-003-T3",
+          "description_ar": "اختبار عزل ESS عن تفاصيل موظف آخر",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "UX-003-QA1",
+          "acceptance_id": "UX-003-AC1",
+          "level": "acceptance",
+          "precondition": "موظف ومدير ومسؤول رواتب",
+          "action": "فتح اللوحة لكل دور",
+          "expected": "تظهر KPIs وتعريف الفترة ومهام ضمن نطاق كل دور",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "UX-003-QA2",
+          "acceptance_id": "UX-003-AC2",
+          "level": "acceptance",
+          "precondition": "لا بيانات أو فشل endpoint",
+          "action": "فتح اللوحة",
+          "expected": "تظهر empty/error/loading مستقلة ولا تعرض قيم demo في live",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "ORG-001",
+      "epic_id": "EP-05",
+      "feature_id": "F-ORG-001",
+      "title_ar": "تهيئة المؤسسة والهيكل",
+      "user_story": "As a org_admin, I want to configure legal entities and calendars, so that operations use a consistent organization baseline.",
+      "role": "org_admin",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["TEN-003", "IAM-002", "UX-002"],
+      "screen_ids": [
+        "S014",
+        "S015",
+        "S016",
+        "S017",
+        "S018",
+        "S019",
+        "S043",
+        "S044",
+        "S146",
+        "S149"
+      ],
+      "api_refs": [
+        "GET /tenants/{tenantId}/settings",
+        "PATCH /tenants/{tenantId}/settings",
+        "POST /tenants/{tenantId}/departments"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "ORG-001-AC1",
+          "given": "إعدادات لغة وعملة ومنطقة زمنية صالحة",
+          "when": "حفظ الكيان والهيكل ثم refresh",
+          "then": "تقرأ نفس النسخة وتُربط الأقسام بالشركة الصحيحة"
+        },
+        {
+          "id": "ORG-001-AC2",
+          "given": "دورة مديرية أو قسم من شركة أخرى",
+          "when": "حفظ الهيكل",
+          "then": "يرفض الطلب قبل الكتابة مع تحديد الحقل المخالف"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "ORG-001-T1",
+          "description_ar": "إكمال tenant settings validation وversion update",
+          "status": "planned"
+        },
+        {
+          "id": "ORG-001-T2",
+          "description_ar": "حفظ الهيكل والتقاويم بمفاتيح مركبة",
+          "status": "planned"
+        },
+        {
+          "id": "ORG-001-T3",
+          "description_ar": "بناء onboarding checklist يعتمد على بيانات محفوظة",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "ORG-001-QA1",
+          "acceptance_id": "ORG-001-AC1",
+          "level": "acceptance",
+          "precondition": "إعدادات لغة وعملة ومنطقة زمنية صالحة",
+          "action": "حفظ الكيان والهيكل ثم refresh",
+          "expected": "تقرأ نفس النسخة وتُربط الأقسام بالشركة الصحيحة",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "ORG-001-QA2",
+          "acceptance_id": "ORG-001-AC2",
+          "level": "acceptance",
+          "precondition": "دورة مديرية أو قسم من شركة أخرى",
+          "action": "حفظ الهيكل",
+          "expected": "يرفض الطلب قبل الكتابة مع تحديد الحقل المخالف",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "EMP-001",
+      "epic_id": "EP-05",
+      "feature_id": "F-EMP-001",
+      "title_ar": "ملف الموظف وتاريخ التوظيف",
+      "user_story": "As a hr_operator, I want to manage effective-dated employee records, so that payroll can reproduce historical employment.",
+      "role": "hr_operator",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["ORG-001"],
+      "screen_ids": [
+        "S025",
+        "S026",
+        "S027",
+        "S028",
+        "S029",
+        "S030",
+        "S035",
+        "S036",
+        "S037",
+        "S038",
+        "S039",
+        "S040"
+      ],
+      "api_refs": [
+        "GET /employees",
+        "POST /employees",
+        "PATCH /employees/{id}",
+        "POST /employees/{id}/employment-versions"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "EMP-001-AC1",
+          "given": "موظف بعقد ونسخة وظيفية حالية",
+          "when": "إضافة نقل اعتبارًا من الشهر القادم",
+          "then": "تبقى النسخة السابقة فعالة حتى تاريخ النقل"
+        },
+        {
+          "id": "EMP-001-AC2",
+          "given": "تعديلان لنفس version أو رقم موظف مكرر داخل tenant",
+          "when": "حفظ التعديل الثاني",
+          "then": "يرجع conflict مع آخر نسخة ولا يطمس السجل الأول"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "EMP-001-T1",
+          "description_ar": "تطبيق employee repository وemployment versions",
+          "status": "planned"
+        },
+        {
+          "id": "EMP-001-T2",
+          "description_ar": "إخفاء IBAN/الهوية وفق allowlist",
+          "status": "planned"
+        },
+        {
+          "id": "EMP-001-T3",
+          "description_ar": "نماذج typed والتحقق من التداخل والأرشفة",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "EMP-001-QA1",
+          "acceptance_id": "EMP-001-AC1",
+          "level": "acceptance",
+          "precondition": "موظف بعقد ونسخة وظيفية حالية",
+          "action": "إضافة نقل اعتبارًا من الشهر القادم",
+          "expected": "تبقى النسخة السابقة فعالة حتى تاريخ النقل",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "EMP-001-QA2",
+          "acceptance_id": "EMP-001-AC2",
+          "level": "acceptance",
+          "precondition": "تعديلان لنفس version أو رقم موظف مكرر داخل tenant",
+          "action": "حفظ التعديل الثاني",
+          "expected": "يرجع conflict مع آخر نسخة ولا يطمس السجل الأول",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "EMP-002",
+      "epic_id": "EP-05",
+      "feature_id": "F-EMP-002",
+      "title_ar": "الاستيراد الجماعي مع مراجعة الأخطاء",
+      "user_story": "As a hr_operator, I want to preview and retry employee imports, so that large files do not corrupt employee records.",
+      "role": "hr_operator",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["EMP-001"],
+      "screen_ids": ["S020", "S021", "S022", "S041", "S042"],
+      "api_refs": ["POST /employees"],
+      "acceptance_criteria": [
+        {
+          "id": "EMP-002-AC1",
+          "given": "ملف اصطناعي به 100 صف وعمود تاريخ",
+          "when": "معاينة mapping ثم تأكيد الاستيراد",
+          "then": "يعرض مجموع النجاح والرفض والتكرار مساويًا لمجموع الصفوف"
+        },
+        {
+          "id": "EMP-002-AC2",
+          "given": "انقطاع worker بعد نصف الدفعة ثم retry",
+          "when": "استئناف نفس job",
+          "then": "لا تتكرر السجلات وتبقى الصفوف المرفوضة قابلة للتنزيل"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "EMP-002-T1",
+          "description_ar": "تحديد schema نموذج الاستيراد مع قوالب AR/EN",
+          "status": "planned"
+        },
+        {
+          "id": "EMP-002-T2",
+          "description_ar": "إنشاء import staging وrow keys وتقرير أخطاء",
+          "status": "planned"
+        },
+        {
+          "id": "EMP-002-T3",
+          "description_ar": "اختبار parsing وCSV formula injection وحجم الملف",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "EMP-002-QA1",
+          "acceptance_id": "EMP-002-AC1",
+          "level": "acceptance",
+          "precondition": "ملف اصطناعي به 100 صف وعمود تاريخ",
+          "action": "معاينة mapping ثم تأكيد الاستيراد",
+          "expected": "يعرض مجموع النجاح والرفض والتكرار مساويًا لمجموع الصفوف",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "EMP-002-QA2",
+          "acceptance_id": "EMP-002-AC2",
+          "level": "acceptance",
+          "precondition": "انقطاع worker بعد نصف الدفعة ثم retry",
+          "action": "استئناف نفس job",
+          "expected": "لا تتكرر السجلات وتبقى الصفوف المرفوضة قابلة للتنزيل",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "ATT-001",
+      "epic_id": "EP-06",
+      "feature_id": "F-ATT-001",
+      "title_ar": "ورديات عابرة لمنتصف الليل",
+      "user_story": "As a attendance_officer, I want to schedule shifts in the company time zone, so that attendance belongs to the correct working day.",
+      "role": "attendance_officer",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["ORG-001", "EMP-001"],
+      "screen_ids": ["S065", "S066", "S067", "S069", "S070"],
+      "api_refs": ["GET /shifts", "POST /shifts", "POST /schedules"],
+      "acceptance_criteria": [
+        {
+          "id": "ATT-001-AC1",
+          "given": "وردية 22:00–06:00 وتقويم عطلات",
+          "when": "إسنادها لموظف ثم إدخال الدخول والخروج",
+          "then": "يحتسب اليوم التشغيلي والساعات وفق سياسة الوردية"
+        },
+        {
+          "id": "ATT-001-AC2",
+          "given": "توقيت محلي مكرر أو غير موجود بسبب DST",
+          "when": "حفظ إسناد أو قراءة بصمة",
+          "then": "يطلب تحديدًا صريحًا ولا يخمن offset أو يضاعف الساعات"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "ATT-001-T1",
+          "description_ar": "تمثيل shift span وتوقيت IANA وتقويم المؤسسة",
+          "status": "planned"
+        },
+        {
+          "id": "ATT-001-T2",
+          "description_ar": "منع التداخل في schedule assignments",
+          "status": "planned"
+        },
+        {
+          "id": "ATT-001-T3",
+          "description_ar": "fixtures لعبور اليوم والعطلة وتغير offset",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "ATT-001-QA1",
+          "acceptance_id": "ATT-001-AC1",
+          "level": "acceptance",
+          "precondition": "وردية 22:00–06:00 وتقويم عطلات",
+          "action": "إسنادها لموظف ثم إدخال الدخول والخروج",
+          "expected": "يحتسب اليوم التشغيلي والساعات وفق سياسة الوردية",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "ATT-001-QA2",
+          "acceptance_id": "ATT-001-AC2",
+          "level": "acceptance",
+          "precondition": "توقيت محلي مكرر أو غير موجود بسبب DST",
+          "action": "حفظ إسناد أو قراءة بصمة",
+          "expected": "يطلب تحديدًا صريحًا ولا يخمن offset أو يضاعف الساعات",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "ATT-002",
+      "epic_id": "EP-06",
+      "feature_id": "F-ATT-002",
+      "title_ar": "استيراد بصمات قابل لإعادة التشغيل",
+      "user_story": "As a attendance_officer, I want to ingest deduplicated raw punches, so that retries preserve the original attendance evidence.",
+      "role": "attendance_officer",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["ATT-001"],
+      "screen_ids": ["S055", "S056", "S060", "S061", "S062", "S063", "S064"],
+      "api_refs": [
+        "POST /attendance/imports",
+        "GET /attendance/imports/{id}",
+        "POST /attendance/punches"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "ATT-002-AC1",
+          "given": "صفوف بصمات صحيحة ومرفوضة ومكررة",
+          "when": "معالجة batch",
+          "then": "يحتفظ الخام بالمصدر ويعزل الرفض ويطابق إجمالي الصفوف"
+        },
+        {
+          "id": "ATT-002-AC2",
+          "given": "نفس device event يصل مرتين",
+          "when": "إعادة الإدخال",
+          "then": "تنشأ بصمة واحدة ويُعاد معرف النتيجة السابقة"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "ATT-002-T1",
+          "description_ar": "إضافة import batch/raw rows مع unique event key",
+          "status": "planned"
+        },
+        {
+          "id": "ATT-002-T2",
+          "description_ar": "فصل ingestion عن attendance calculation jobs",
+          "status": "planned"
+        },
+        {
+          "id": "ATT-002-T3",
+          "description_ar": "حماية الجهاز بمفتاح مقيّد بالtenant مع retry وquarantine",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "ATT-002-QA1",
+          "acceptance_id": "ATT-002-AC1",
+          "level": "acceptance",
+          "precondition": "صفوف بصمات صحيحة ومرفوضة ومكررة",
+          "action": "معالجة batch",
+          "expected": "يحتفظ الخام بالمصدر ويعزل الرفض ويطابق إجمالي الصفوف",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "ATT-002-QA2",
+          "acceptance_id": "ATT-002-AC2",
+          "level": "acceptance",
+          "precondition": "نفس device event يصل مرتين",
+          "action": "إعادة الإدخال",
+          "expected": "تنشأ بصمة واحدة ويُعاد معرف النتيجة السابقة",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "ATT-003",
+      "epic_id": "EP-06",
+      "feature_id": "F-ATT-003",
+      "title_ar": "تصحيح الحضور والإضافي والتأخير",
+      "user_story": "As a line_manager, I want to approve documented attendance exceptions, so that payroll consumes explained adjustments.",
+      "role": "line_manager",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["ATT-002", "APR-001"],
+      "screen_ids": ["S057", "S058", "S059", "S068", "S070", "S142"],
+      "api_refs": [
+        "POST /attendance/corrections",
+        "POST /attendance/corrections/{id}/approve",
+        "POST /attendance/overtime-requests",
+        "POST /attendance/periods/{id}/settle"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "ATT-003-AC1",
+          "given": "تأخير وخروج مبكر وسياسة versioned",
+          "when": "اعتماد استثناء بمستنده",
+          "then": "يسجل أثرًا واحدًا مفصلًا دون تعديل مباشر لصافي راتب الموظف"
+        },
+        {
+          "id": "ATT-003-AC2",
+          "given": "تصحيح وصل بعد قفل فترة راتب",
+          "when": "اعتماده",
+          "then": "ينشأ adjustment للفترة المناسبة ولا تتغير snapshot المقفلة"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "ATT-003-T1",
+          "description_ar": "حساب قواعد tolerance وlate/early/overtime بإصدار",
+          "status": "planned"
+        },
+        {
+          "id": "ATT-003-T2",
+          "description_ar": "ربط evidence وapproval بالledger",
+          "status": "planned"
+        },
+        {
+          "id": "ATT-003-T3",
+          "description_ar": "تقرير unresolved exceptions قبل الإقفال",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "ATT-003-QA1",
+          "acceptance_id": "ATT-003-AC1",
+          "level": "acceptance",
+          "precondition": "تأخير وخروج مبكر وسياسة versioned",
+          "action": "اعتماد استثناء بمستنده",
+          "expected": "يسجل أثرًا واحدًا مفصلًا دون تعديل مباشر لصافي راتب الموظف",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "ATT-003-QA2",
+          "acceptance_id": "ATT-003-AC2",
+          "level": "acceptance",
+          "precondition": "تصحيح وصل بعد قفل فترة راتب",
+          "action": "اعتماده",
+          "expected": "ينشأ adjustment للفترة المناسبة ولا تتغير snapshot المقفلة",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "APR-001",
+      "epic_id": "EP-07",
+      "feature_id": "F-APR-001",
+      "title_ar": "اعتماد ذري وصندوق مهام",
+      "user_story": "As a line_manager, I want to record exactly one decision per approval step, so that requests progress without duplicate effects.",
+      "role": "line_manager",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["IAM-002", "EMP-001"],
+      "screen_ids": ["S052", "S053", "S079", "S080"],
+      "api_refs": ["GET /inbox/approvals", "POST /requests/{id}/decisions"],
+      "acceptance_criteria": [
+        {
+          "id": "APR-001-AC1",
+          "given": "طلب وخطوة pending ومعتمد مخول",
+          "when": "قرار اعتماد",
+          "then": "تتغير الخطوة والطلب وaudit وoutbox في معاملة واحدة"
+        },
+        {
+          "id": "APR-001-AC2",
+          "given": "موافقة وإلغاء متزامنان أو غياب معتمد",
+          "when": "تنفيذ الأمرين",
+          "then": "يفوز انتقال صالح واحد أو يظهر blocked_no_approver دون اعتماد تلقائي"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "APR-001-T1",
+          "description_ar": "بناء state machine وtransactional command",
+          "status": "planned"
+        },
+        {
+          "id": "APR-001-T2",
+          "description_ar": "تخزين idempotency وversion وسلسلة معتمدين محلولة على الخادم",
+          "status": "planned"
+        },
+        {
+          "id": "APR-001-T3",
+          "description_ar": "اختبار rollback لفشل timeline أو ledger داخل المعاملة",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "APR-001-QA1",
+          "acceptance_id": "APR-001-AC1",
+          "level": "acceptance",
+          "precondition": "طلب وخطوة pending ومعتمد مخول",
+          "action": "قرار اعتماد",
+          "expected": "تتغير الخطوة والطلب وaudit وoutbox في معاملة واحدة",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "APR-001-QA2",
+          "acceptance_id": "APR-001-AC2",
+          "level": "acceptance",
+          "precondition": "موافقة وإلغاء متزامنان أو غياب معتمد",
+          "action": "تنفيذ الأمرين",
+          "expected": "يفوز انتقال صالح واحد أو يظهر blocked_no_approver دون اعتماد تلقائي",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "LEV-001",
+      "epic_id": "EP-07",
+      "feature_id": "F-LEV-001",
+      "title_ar": "حجز رصيد الإجازة واعتمادها",
+      "user_story": "As a employee, I want to reserve leave and follow its decision, so that available balance reflects pending requests.",
+      "role": "employee",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["APR-001", "ATT-001"],
+      "screen_ids": ["S071", "S072", "S073", "S074", "S075", "S076", "S077"],
+      "api_refs": [
+        "GET /leave/balances",
+        "POST /leave/requests",
+        "POST /leave/requests/{id}/approve"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "LEV-001-AC1",
+          "given": "رصيد 10 أيام وطلب 3 أيام",
+          "when": "إرسال ثم اعتماد الطلب",
+          "then": "يصبح المتاح 7 والحجز 0 والمستخدم 3 دون احتساب العطلات بغير السياسة"
+        },
+        {
+          "id": "LEV-001-AC2",
+          "given": "طلبان متزامنان يتجاوز مجموعهما الرصيد",
+          "when": "إرسال الطلبين",
+          "then": "يرفض الطلب غير المغطى وتبقى قيود الرصيد متوازنة"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "LEV-001-T1",
+          "description_ar": "تثبيت توقيت الحجز عند submit ومعالجة سياسة النوع",
+          "status": "planned"
+        },
+        {
+          "id": "LEV-001-T2",
+          "description_ar": "تنفيذ ledger وreservation atomic",
+          "status": "planned"
+        },
+        {
+          "id": "LEV-001-T3",
+          "description_ar": "مطابقة projection مع ledger واختبار أيام جزئية",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "LEV-001-QA1",
+          "acceptance_id": "LEV-001-AC1",
+          "level": "acceptance",
+          "precondition": "رصيد 10 أيام وطلب 3 أيام",
+          "action": "إرسال ثم اعتماد الطلب",
+          "expected": "يصبح المتاح 7 والحجز 0 والمستخدم 3 دون احتساب العطلات بغير السياسة",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "LEV-001-QA2",
+          "acceptance_id": "LEV-001-AC2",
+          "level": "acceptance",
+          "precondition": "طلبان متزامنان يتجاوز مجموعهما الرصيد",
+          "action": "إرسال الطلبين",
+          "expected": "يرفض الطلب غير المغطى وتبقى قيود الرصيد متوازنة",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "LEV-002",
+      "epic_id": "EP-07",
+      "feature_id": "F-LEV-002",
+      "title_ar": "إلغاء الإجازة وتصحيح الرصيد",
+      "user_story": "As a employee, I want to cancel eligible leave and trace adjustments, so that my balance is restored once with an audit trail.",
+      "role": "employee",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["LEV-001"],
+      "screen_ids": ["S074", "S078"],
+      "api_refs": ["POST /leave/requests/{id}/cancel"],
+      "acceptance_criteria": [
+        {
+          "id": "LEV-002-AC1",
+          "given": "طلب محجوز لم يبدأ",
+          "when": "إلغاؤه مرتين بالمفتاح نفسه",
+          "then": "يعود الرصيد مرة واحدة ويظل رابط الطلب والقيد العكسي ظاهرًا"
+        },
+        {
+          "id": "LEV-002-AC2",
+          "given": "طلب بدأ أو دخل مسيرًا مقفولًا",
+          "when": "طلب الإلغاء",
+          "then": "يوجه لاستثناء موثق وفق السياسة دون تعديل تاريخ مالي"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "LEV-002-T1",
+          "description_ar": "توحيد release/reversal في command إلغاء",
+          "status": "planned"
+        },
+        {
+          "id": "LEV-002-T2",
+          "description_ar": "فصل administrative adjustment بصلاحية وسبب",
+          "status": "planned"
+        },
+        {
+          "id": "LEV-002-T3",
+          "description_ar": "اختبار race إلغاء/اعتماد وحدود نهاية السنة",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "LEV-002-QA1",
+          "acceptance_id": "LEV-002-AC1",
+          "level": "acceptance",
+          "precondition": "طلب محجوز لم يبدأ",
+          "action": "إلغاؤه مرتين بالمفتاح نفسه",
+          "expected": "يعود الرصيد مرة واحدة ويظل رابط الطلب والقيد العكسي ظاهرًا",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "LEV-002-QA2",
+          "acceptance_id": "LEV-002-AC2",
+          "level": "acceptance",
+          "precondition": "طلب بدأ أو دخل مسيرًا مقفولًا",
+          "action": "طلب الإلغاء",
+          "expected": "يوجه لاستثناء موثق وفق السياسة دون تعديل تاريخ مالي",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "PAY-001",
+      "epic_id": "EP-08",
+      "feature_id": "F-PAY-001",
+      "title_ar": "سياسات الراتب والحساب القابل للتكرار",
+      "user_story": "As a payroll_officer, I want to calculate payroll from versioned inputs, so that every amount can be explained and reproduced.",
+      "role": "payroll_officer",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["EMP-001", "ATT-003", "LEV-001"],
+      "screen_ids": ["S081", "S082", "S083", "S084", "S085", "S086", "S087", "S097", "S108"],
+      "api_refs": [
+        "POST /employees/{id}/salary-profiles",
+        "POST /payroll/runs",
+        "POST /payroll/runs/{id}/calculate",
+        "GET /payroll/runs/{id}/lines"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "PAY-001-AC1",
+          "given": "مدخلات موظف وسياسة معروفة وأمثلة ذهبية اصطناعية",
+          "when": "حساب المسير مرتين لنفس version",
+          "then": "تتطابق النتائج وكل بند يربط المصدر والقاعدة وطريقة التقريب"
+        },
+        {
+          "id": "PAY-001-AC2",
+          "given": "راتب غير معرّف أو مدخل حضور معلق",
+          "when": "محاولة اعتماد حساب",
+          "then": "تظهر exceptions مانعة ولا تتحول القيمة الناقصة إلى صفر صامت"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "PAY-001-T1",
+          "description_ar": "حفظ payroll input snapshot وpolicy versions",
+          "status": "planned"
+        },
+        {
+          "id": "PAY-001-T2",
+          "description_ar": "استبدال أرقام مالية عائمة بتمثيل عشري مناسب",
+          "status": "planned"
+        },
+        {
+          "id": "PAY-001-T3",
+          "description_ar": "golden cases لأجزاء الشهر والإضافي والإجازات والخصومات",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "PAY-001-QA1",
+          "acceptance_id": "PAY-001-AC1",
+          "level": "acceptance",
+          "precondition": "مدخلات موظف وسياسة معروفة وأمثلة ذهبية اصطناعية",
+          "action": "حساب المسير مرتين لنفس version",
+          "expected": "تتطابق النتائج وكل بند يربط المصدر والقاعدة وطريقة التقريب",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "PAY-001-QA2",
+          "acceptance_id": "PAY-001-AC2",
+          "level": "acceptance",
+          "precondition": "راتب غير معرّف أو مدخل حضور معلق",
+          "action": "محاولة اعتماد حساب",
+          "expected": "تظهر exceptions مانعة ولا تتحول القيمة الناقصة إلى صفر صامت",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "PAY-002",
+      "epic_id": "EP-08",
+      "feature_id": "F-PAY-002",
+      "title_ar": "قفل المسير والقسائم والتصحيحات",
+      "user_story": "As a finance_officer, I want to lock reviewed payroll and publish immutable payslips, so that approved payroll cannot change silently.",
+      "role": "finance_officer",
+      "phase": "RM-P2",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["PAY-001", "APR-001"],
+      "screen_ids": ["S088", "S093", "S094", "S095", "S096", "S109", "S144"],
+      "api_refs": [
+        "POST /payroll/runs/{id}/review",
+        "POST /payroll/runs/{id}/lock",
+        "POST /payroll/runs/{id}/adjustments",
+        "GET /employees/{id}/payslips"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "PAY-002-AC1",
+          "given": "مسير مراجع ومعتمد مستقل",
+          "when": "قفل المسير",
+          "then": "تجمد snapshot وتنشأ قسائم قابلة للمطابقة بصلاحية self"
+        },
+        {
+          "id": "PAY-002-AC2",
+          "given": "تعديل salary profile أو retry للقفل",
+          "when": "قراءة القسيمة السابقة",
+          "then": "تظل القسيمة كما اعتمدت ولا تتكرر الخصومات أو القيود"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "PAY-002-T1",
+          "description_ar": "تحويل lock إلى transaction idempotent مع SoD",
+          "status": "planned"
+        },
+        {
+          "id": "PAY-002-T2",
+          "description_ar": "توليد PDF عربي من snapshot في worker",
+          "status": "planned"
+        },
+        {
+          "id": "PAY-002-T3",
+          "description_ar": "adjustment version بعد القفل مع audit وسبب",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "PAY-002-QA1",
+          "acceptance_id": "PAY-002-AC1",
+          "level": "acceptance",
+          "precondition": "مسير مراجع ومعتمد مستقل",
+          "action": "قفل المسير",
+          "expected": "تجمد snapshot وتنشأ قسائم قابلة للمطابقة بصلاحية self",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "PAY-002-QA2",
+          "acceptance_id": "PAY-002-AC2",
+          "level": "acceptance",
+          "precondition": "تعديل salary profile أو retry للقفل",
+          "action": "قراءة القسيمة السابقة",
+          "expected": "تظل القسيمة كما اعتمدت ولا تتكرر الخصومات أو القيود",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "ADV-001",
+      "epic_id": "EP-09",
+      "feature_id": "F-ADV-001",
+      "title_ar": "السلف وصرف الأصل وجدولة الأقساط",
+      "user_story": "As a payroll_officer, I want to track each loan and its funded principal separately, so that deductions match the correct remaining balance.",
+      "role": "payroll_officer",
+      "phase": "RM-P2",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["PAY-001", "APR-001"],
+      "screen_ids": ["S098", "S099", "S100"],
+      "api_refs": [
+        "POST /salary-advances",
+        "POST /salary-advances/{id}/approve",
+        "POST /salary-advances/{id}/disburse",
+        "GET /deductions"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "ADV-001-AC1",
+          "given": "سلفتان لنفس الموظف بمراجع مستقلة",
+          "when": "صرفهما وتحصيل قسطين",
+          "then": "يرتبط كل قسط بسلفته ومسيره ويطابق المتبقي أصل كل سلفة"
+        },
+        {
+          "id": "ADV-001-AC2",
+          "given": "فشل صرف أصل السلفة أو تأجيل قسط",
+          "when": "تشغيل الرواتب",
+          "then": "لا يخصم أصل غير مصروف ولا يحذف القسط المؤجل"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "ADV-001-T1",
+          "description_ar": "ledger لكل principal/installment/payment reference",
+          "status": "planned"
+        },
+        {
+          "id": "ADV-001-T2",
+          "description_ar": "فصل approval عن disbursement وربط إثبات الدفع",
+          "status": "planned"
+        },
+        {
+          "id": "ADV-001-T3",
+          "description_ar": "اختبار partial repayment والتسوية المبكرة والتكرار",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "ADV-001-QA1",
+          "acceptance_id": "ADV-001-AC1",
+          "level": "acceptance",
+          "precondition": "سلفتان لنفس الموظف بمراجع مستقلة",
+          "action": "صرفهما وتحصيل قسطين",
+          "expected": "يرتبط كل قسط بسلفته ومسيره ويطابق المتبقي أصل كل سلفة",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "ADV-001-QA2",
+          "acceptance_id": "ADV-001-AC2",
+          "level": "acceptance",
+          "precondition": "فشل صرف أصل السلفة أو تأجيل قسط",
+          "action": "تشغيل الرواتب",
+          "expected": "لا يخصم أصل غير مصروف ولا يحذف القسط المؤجل",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "EXP-001",
+      "epic_id": "EP-09",
+      "feature_id": "F-EXP-001",
+      "title_ar": "مصروفات وصرف مبكر بضوابط",
+      "user_story": "As a employee, I want to submit an expense or early payout for review, so that approved reimbursements have clear accounting.",
+      "role": "employee",
+      "phase": "RM-P2",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["APR-001", "EMP-001"],
+      "screen_ids": ["S101", "S102", "S103"],
+      "api_refs": [
+        "POST /expense-reports",
+        "POST /expense-reports/{id}/submit",
+        "POST /early-payout-requests"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "EXP-001-AC1",
+          "given": "إيصال ومركز تكلفة ومبلغ في حدود السياسة",
+          "when": "تقديم واعتماد المصروف",
+          "then": "تنشأ مطالبة معتمدة وقيد payable مرتبط بالمستند"
+        },
+        {
+          "id": "EXP-001-AC2",
+          "given": "إيصال مكرر أو تجاوز سياسة",
+          "when": "إعادة التقديم",
+          "then": "يوقف التكرار أو يطلب موافقًا مستقلًا ولا يساوي الموافقة بالصرف"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "EXP-001-T1",
+          "description_ar": "فحص receipt hash وحدود السياسة وتصنيف الضريبة كقرار بلد",
+          "status": "planned"
+        },
+        {
+          "id": "EXP-001-T2",
+          "description_ar": "ربط approval وpayable ووسيلة التسوية",
+          "status": "planned"
+        },
+        {
+          "id": "EXP-001-T3",
+          "description_ar": "معالجة rejected/returned/partial payment دون تكرار",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "EXP-001-QA1",
+          "acceptance_id": "EXP-001-AC1",
+          "level": "acceptance",
+          "precondition": "إيصال ومركز تكلفة ومبلغ في حدود السياسة",
+          "action": "تقديم واعتماد المصروف",
+          "expected": "تنشأ مطالبة معتمدة وقيد payable مرتبط بالمستند",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "EXP-001-QA2",
+          "acceptance_id": "EXP-001-AC2",
+          "level": "acceptance",
+          "precondition": "إيصال مكرر أو تجاوز سياسة",
+          "action": "إعادة التقديم",
+          "expected": "يوقف التكرار أو يطلب موافقًا مستقلًا ولا يساوي الموافقة بالصرف",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "EOS-001",
+      "epic_id": "EP-09",
+      "feature_id": "F-EOS-001",
+      "title_ar": "مخالصة موثقة ونسخ تعديل",
+      "user_story": "As a hr_manager, I want to close a final settlement with reviewed obligations, so that leaving employees receive an explained settlement.",
+      "role": "hr_manager",
+      "phase": "RM-P2",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["PAY-002", "ADV-001", "EXP-001"],
+      "screen_ids": ["S104", "S105", "S106"],
+      "api_refs": ["POST /employees/{id}/exit-cases"],
+      "acceptance_criteria": [
+        {
+          "id": "EOS-001-AC1",
+          "given": "آخر يوم وعهد وسلف وإجازات معلومة",
+          "when": "إعداد نسخة مخالصة واعتمادها مستقلًا",
+          "then": "تظهر بنود ومصادر وholds وإثبات استلام منفصل عن حالة الصرف"
+        },
+        {
+          "id": "EOS-001-AC2",
+          "given": "تصحيح بعد توقيع النسخة أو عهدة متنازع عليها",
+          "when": "محاولة إعادة الإغلاق",
+          "then": "ينشأ amendment أو hold موثق ولا تستبدل النسخة الموقعة"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "EOS-001-T1",
+          "description_ar": "إكمال settlement versions وبنود snapshot",
+          "status": "planned"
+        },
+        {
+          "id": "EOS-001-T2",
+          "description_ar": "ربط clearance والعهد والسياسة المعتمدة",
+          "status": "planned"
+        },
+        {
+          "id": "EOS-001-T3",
+          "description_ar": "اختبارات تفاصيل partial settlement وعدم حذف التاريخ",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "EOS-001-QA1",
+          "acceptance_id": "EOS-001-AC1",
+          "level": "acceptance",
+          "precondition": "آخر يوم وعهد وسلف وإجازات معلومة",
+          "action": "إعداد نسخة مخالصة واعتمادها مستقلًا",
+          "expected": "تظهر بنود ومصادر وholds وإثبات استلام منفصل عن حالة الصرف",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "EOS-001-QA2",
+          "acceptance_id": "EOS-001-AC2",
+          "level": "acceptance",
+          "precondition": "تصحيح بعد توقيع النسخة أو عهدة متنازع عليها",
+          "action": "محاولة إعادة الإغلاق",
+          "expected": "ينشأ amendment أو hold موثق ولا تستبدل النسخة الموقعة",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "PMT-001",
+      "epic_id": "EP-10",
+      "feature_id": "F-PMT-001",
+      "title_ar": "دفعة دفع في بيئة المزود التجريبية",
+      "user_story": "As a finance_officer, I want to submit a reviewed sandbox payment batch, so that bank export is distinguished from confirmed payment.",
+      "role": "finance_officer",
+      "phase": "RM-P2",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["PAY-002"],
+      "screen_ids": ["S089", "S090", "S091"],
+      "api_refs": [
+        "POST /payment-batches",
+        "POST /payment-batches/{id}/submit",
+        "POST /payment-batches/{id}/confirm",
+        "POST /webhooks/{provider}/callbacks"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "PMT-001-AC1",
+          "given": "مسير مقفول ومراجع ومستفيدون صالحون",
+          "when": "إرسال دفعة sandbox واستلام إثبات موثق",
+          "then": "تتبع الحالة والمرجع على مستوى المستفيد دون اعتبار export دليل صرف"
+        },
+        {
+          "id": "PMT-001-AC2",
+          "given": "timeout بعد قبول المزود أو webhook مكرر",
+          "when": "إعادة المعالجة",
+          "then": "يستعلم عن الحالة قبل retry ولا يرسل دفعة مالية ثانية"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "PMT-001-T1",
+          "description_ar": "provider adapter مع idempotency وتحقق signature/time",
+          "status": "planned"
+        },
+        {
+          "id": "PMT-001-T2",
+          "description_ar": "batch/items وpending/unknown/confirmed منفصلة",
+          "status": "planned"
+        },
+        {
+          "id": "PMT-001-T3",
+          "description_ar": "اختبارات replay وpartial rejection وSoD",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "PMT-001-QA1",
+          "acceptance_id": "PMT-001-AC1",
+          "level": "acceptance",
+          "precondition": "مسير مقفول ومراجع ومستفيدون صالحون",
+          "action": "إرسال دفعة sandbox واستلام إثبات موثق",
+          "expected": "تتبع الحالة والمرجع على مستوى المستفيد دون اعتبار export دليل صرف",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "PMT-001-QA2",
+          "acceptance_id": "PMT-001-AC2",
+          "level": "acceptance",
+          "precondition": "timeout بعد قبول المزود أو webhook مكرر",
+          "action": "إعادة المعالجة",
+          "expected": "يستعلم عن الحالة قبل retry ولا يرسل دفعة مالية ثانية",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "REC-001",
+      "epic_id": "EP-10",
+      "feature_id": "F-REC-001",
+      "title_ar": "مطابقة الدفع وربط الحسابات",
+      "user_story": "As a finance_officer, I want to reconcile statements against payable items, so that unexplained differences remain visible.",
+      "role": "finance_officer",
+      "phase": "RM-P2",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["PMT-001"],
+      "screen_ids": ["S092", "S107", "S109"],
+      "api_refs": [
+        "GET /payment-batches/{id}/reconciliation",
+        "POST /reconciliation/items/{id}/resolve",
+        "GET /journals",
+        "GET /journals/{id}"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "REC-001-AC1",
+          "given": "كشف بنك به مبالغ ومراجع مطابقة",
+          "when": "تشغيل المطابقة",
+          "then": "تتطابق البنود والإجماليات وتظهر الفروق حسب سببها"
+        },
+        {
+          "id": "REC-001-AC2",
+          "given": "تطابق جزئي أو مرجع مكرر أو عملة مختلفة",
+          "when": "حل الاستثناء",
+          "then": "يطلب قرارًا بسبب ومعتمد آخر ولا يفرض paid على كل الدفعة"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "REC-001-T1",
+          "description_ar": "إنشاء journal lines ومفاتيح حسابات versioned",
+          "status": "planned"
+        },
+        {
+          "id": "REC-001-T2",
+          "description_ar": "مطابقة reference/amount/currency ومراجعة الاستثناء",
+          "status": "planned"
+        },
+        {
+          "id": "REC-001-T3",
+          "description_ar": "اختبار توازن debit/credit ومطابقة مجموع البنود للتقرير",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "REC-001-QA1",
+          "acceptance_id": "REC-001-AC1",
+          "level": "acceptance",
+          "precondition": "كشف بنك به مبالغ ومراجع مطابقة",
+          "action": "تشغيل المطابقة",
+          "expected": "تتطابق البنود والإجماليات وتظهر الفروق حسب سببها",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "REC-001-QA2",
+          "acceptance_id": "REC-001-AC2",
+          "level": "acceptance",
+          "precondition": "تطابق جزئي أو مرجع مكرر أو عملة مختلفة",
+          "action": "حل الاستثناء",
+          "expected": "يطلب قرارًا بسبب ومعتمد آخر ولا يفرض paid على كل الدفعة",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "DOC-001",
+      "epic_id": "EP-11",
+      "feature_id": "F-DOC-001",
+      "title_ar": "ملفات خاصة وروابط تنزيل محدودة",
+      "user_story": "As a hr_operator, I want to store and retrieve authorized employee documents, so that sensitive files stay private.",
+      "role": "hr_operator",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["EMP-001", "IAM-002"],
+      "screen_ids": ["S031", "S038", "S145"],
+      "api_refs": [
+        "POST /employees/{id}/documents/upload",
+        "POST /employees/{id}/documents",
+        "POST /exports"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "DOC-001-AC1",
+          "given": "وثيقة نظيفة وعضو مخول",
+          "when": "إكمال رفع وحجر وفحص ثم طلب التنزيل",
+          "then": "يصدر رابط قصير العمر داخل tenant ويسجل التنزيل"
+        },
+        {
+          "id": "DOC-001-AC2",
+          "given": "MIME مزيف أو path شركة أخرى أو رابط منته",
+          "when": "رفع الملف أو تنزيله",
+          "then": "يرفض الطلب ولا يظهر الملف قبل اكتمال فحصه"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "DOC-001-T1",
+          "description_ar": "private buckets وmetadata versions وفحص content",
+          "status": "planned"
+        },
+        {
+          "id": "DOC-001-T2",
+          "description_ar": "signed upload/download server-side scoped",
+          "status": "planned"
+        },
+        {
+          "id": "DOC-001-T3",
+          "description_ar": "retention وlegal hold وsafe filenames",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "DOC-001-QA1",
+          "acceptance_id": "DOC-001-AC1",
+          "level": "acceptance",
+          "precondition": "وثيقة نظيفة وعضو مخول",
+          "action": "إكمال رفع وحجر وفحص ثم طلب التنزيل",
+          "expected": "يصدر رابط قصير العمر داخل tenant ويسجل التنزيل",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "DOC-001-QA2",
+          "acceptance_id": "DOC-001-AC2",
+          "level": "acceptance",
+          "precondition": "MIME مزيف أو path شركة أخرى أو رابط منته",
+          "action": "رفع الملف أو تنزيله",
+          "expected": "يرفض الطلب ولا يظهر الملف قبل اكتمال فحصه",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "AUD-001",
+      "epic_id": "EP-11",
+      "feature_id": "F-AUD-001",
+      "title_ar": "سجل تدقيق مع outbox في المعاملة",
+      "user_story": "As a auditor, I want to trace sensitive changes to an actor and source, so that reviews can reconstruct an operation.",
+      "role": "auditor",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["TEN-003", "IAM-002"],
+      "screen_ids": ["S137", "S138"],
+      "api_refs": ["GET /audit-events"],
+      "acceptance_criteria": [
+        {
+          "id": "AUD-001-AC1",
+          "given": "تغيير مؤثر في ملف أو طلب",
+          "when": "نجاح المعاملة",
+          "then": "يسجل actor/action/entity/old/new/time/reason/request_id مع قيم حساسة مقنعة"
+        },
+        {
+          "id": "AUD-001-AC2",
+          "given": "فشل المعاملة أو محاولة تعديل audit من العميل",
+          "when": "rollback أو UPDATE مباشر",
+          "then": "لا يبقى حدث نجاح لعملية فاشلة ولا يتغير سجل قديم"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "AUD-001-T1",
+          "description_ar": "append-only audit وoutbox بحدود payload",
+          "status": "planned"
+        },
+        {
+          "id": "AUD-001-T2",
+          "description_ar": "واجهة فلترة tenant/actor/time وreason",
+          "status": "planned"
+        },
+        {
+          "id": "AUD-001-T3",
+          "description_ar": "اختبار grants ومنع PII في transport logs",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "AUD-001-QA1",
+          "acceptance_id": "AUD-001-AC1",
+          "level": "acceptance",
+          "precondition": "تغيير مؤثر في ملف أو طلب",
+          "action": "نجاح المعاملة",
+          "expected": "يسجل actor/action/entity/old/new/time/reason/request_id مع قيم حساسة مقنعة",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "AUD-001-QA2",
+          "acceptance_id": "AUD-001-AC2",
+          "level": "acceptance",
+          "precondition": "فشل المعاملة أو محاولة تعديل audit من العميل",
+          "action": "rollback أو UPDATE مباشر",
+          "expected": "لا يبقى حدث نجاح لعملية فاشلة ولا يتغير سجل قديم",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "NOT-001",
+      "epic_id": "EP-11",
+      "feature_id": "F-NOT-001",
+      "title_ar": "تسليم إشعارات موثوق ومحلي",
+      "user_story": "As a employee, I want to receive actionable localized notifications, so that I know what needs attention without exposing private data.",
+      "role": "employee",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["AUD-001", "APR-001"],
+      "screen_ids": ["S139", "S140", "S150"],
+      "api_refs": ["GET /notifications", "POST /notifications/{id}/read"],
+      "acceptance_criteria": [
+        {
+          "id": "NOT-001-AC1",
+          "given": "قرار اعتماد مع event واحد",
+          "when": "تسليمه in-app وemail",
+          "then": "يقرأ المستلم template AR/EN مع رابط يعيد فحص الصلاحية"
+        },
+        {
+          "id": "NOT-001-AC2",
+          "given": "فشل البريد أو تكرار event أو تغيير عضوية المستلم",
+          "when": "retry",
+          "then": "يمنع تسليمًا مكررًا بعد النجاح ويعزل DLQ ولا يكشف تفاصيل مالية"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "NOT-001-T1",
+          "description_ar": "event-recipient-channel-template dedupe وdelivery attempts",
+          "status": "planned"
+        },
+        {
+          "id": "NOT-001-T2",
+          "description_ar": "retry/backoff وDLQ مع تنبيه وتأثير preference",
+          "status": "planned"
+        },
+        {
+          "id": "NOT-001-T3",
+          "description_ar": "تعريف أولوية وتوقيت هدوء وقراءة idempotent",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "NOT-001-QA1",
+          "acceptance_id": "NOT-001-AC1",
+          "level": "acceptance",
+          "precondition": "قرار اعتماد مع event واحد",
+          "action": "تسليمه in-app وemail",
+          "expected": "يقرأ المستلم template AR/EN مع رابط يعيد فحص الصلاحية",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "NOT-001-QA2",
+          "acceptance_id": "NOT-001-AC2",
+          "level": "acceptance",
+          "precondition": "فشل البريد أو تكرار event أو تغيير عضوية المستلم",
+          "action": "retry",
+          "expected": "يمنع تسليمًا مكررًا بعد النجاح ويعزل DLQ ولا يكشف تفاصيل مالية",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "RPT-001",
+      "epic_id": "EP-12",
+      "feature_id": "F-RPT-001",
+      "title_ar": "تقارير حضور ورواتب متطابقة وقابلة للتصدير",
+      "user_story": "As a auditor, I want to export scoped reports with defined measures, so that totals remain consistent across screens and files.",
+      "role": "auditor",
+      "phase": "RM-P2",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["REC-001", "DOC-001"],
+      "screen_ids": ["S109", "S126", "S127", "S128", "S129", "S130"],
+      "api_refs": ["POST /reports/runs", "GET /jobs/{id}", "POST /exports"],
+      "acceptance_criteria": [
+        {
+          "id": "RPT-001-AC1",
+          "given": "فلاتر معروفة وفترة لها بيانات ذهبية",
+          "when": "إنتاج حضور تفصيلي وشامل وتأخير ورواتب وسلف",
+          "then": "يطابق مجموع الصفوف KPIs وPDF وExcel لنفس as_of"
+        },
+        {
+          "id": "RPT-001-AC2",
+          "given": "سحب صلاحية منشئ تقرير مجدول قبل التشغيل",
+          "when": "تشغيل job",
+          "then": "يمنع التصدير ويبلغ صاحب الصلاحية دون استعمال snapshot صلاحيات قديمة"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "RPT-001-T1",
+          "description_ar": "report definitions للأعمدة والفلاتر والصلاحيات والجدولة",
+          "status": "planned"
+        },
+        {
+          "id": "RPT-001-T2",
+          "description_ar": "worker snapshots وsigned artifacts مع انتهاء صلاحية",
+          "status": "planned"
+        },
+        {
+          "id": "RPT-001-T3",
+          "description_ar": "فحص Arabic PDF وformula injection وحجم بيانات كبير",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "RPT-001-QA1",
+          "acceptance_id": "RPT-001-AC1",
+          "level": "acceptance",
+          "precondition": "فلاتر معروفة وفترة لها بيانات ذهبية",
+          "action": "إنتاج حضور تفصيلي وشامل وتأخير ورواتب وسلف",
+          "expected": "يطابق مجموع الصفوف KPIs وPDF وExcel لنفس as_of",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "RPT-001-QA2",
+          "acceptance_id": "RPT-001-AC2",
+          "level": "acceptance",
+          "precondition": "سحب صلاحية منشئ تقرير مجدول قبل التشغيل",
+          "action": "تشغيل job",
+          "expected": "يمنع التصدير ويبلغ صاحب الصلاحية دون استعمال snapshot صلاحيات قديمة",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "INT-001",
+      "epic_id": "EP-12",
+      "feature_id": "F-INT-001",
+      "title_ar": "موصلات أجهزة وERP قابلة للاستئناف",
+      "user_story": "As a org_admin, I want to configure a scoped integration with resumable jobs, so that provider failures do not duplicate business data.",
+      "role": "org_admin",
+      "phase": "RM-P2",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["ATT-002", "AUD-001"],
+      "screen_ids": ["S131", "S132", "S133", "S134", "S135", "S136"],
+      "api_refs": [
+        "POST /integrations/connections",
+        "POST /integrations/{id}/sync",
+        "POST /jobs/{id}/replay"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "INT-001-AC1",
+          "given": "موصل بحساب sandbox وmapping معتمد",
+          "when": "مزامنة عدة صفحات",
+          "then": "يحفظ cursor بعد النجاح ويعرض آخر مزامنة وعدد الصفوف"
+        },
+        {
+          "id": "INT-001-AC2",
+          "given": "فشل صفحة ثالثة أو credential مسحوب",
+          "when": "استئناف job",
+          "then": "لا تتكرر الصفحتان ويظهر سبب آمن مع توقيف عند سحب السر"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "INT-001-T1",
+          "description_ar": "adapter contracts ومفاتيح مخزنة كأسرار خادم",
+          "status": "planned"
+        },
+        {
+          "id": "INT-001-T2",
+          "description_ar": "job checkpoints وwatermarks وreplay audit",
+          "status": "planned"
+        },
+        {
+          "id": "INT-001-T3",
+          "description_ar": "منع SSRF وإعادة حل عنوان المورد والتحقق من outbound allowlist",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "INT-001-QA1",
+          "acceptance_id": "INT-001-AC1",
+          "level": "acceptance",
+          "precondition": "موصل بحساب sandbox وmapping معتمد",
+          "action": "مزامنة عدة صفحات",
+          "expected": "يحفظ cursor بعد النجاح ويعرض آخر مزامنة وعدد الصفوف",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "INT-001-QA2",
+          "acceptance_id": "INT-001-AC2",
+          "level": "acceptance",
+          "precondition": "فشل صفحة ثالثة أو credential مسحوب",
+          "action": "استئناف job",
+          "expected": "لا تتكرر الصفحتان ويظهر سبب آمن مع توقيف عند سحب السر",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "BIL-001",
+      "epic_id": "EP-13",
+      "feature_id": "F-BIL-001",
+      "title_ar": "اشتراك واستحقاقات مستقلة عن الصلاحيات",
+      "user_story": "As a org_owner, I want to manage a trial and subscription, so that commercial limits are clear and predictable.",
+      "role": "org_owner",
+      "phase": "RM-P3",
+      "priority": "P1",
+      "status": "planned",
+      "depends_on": ["IAM-002", "NOT-001"],
+      "screen_ids": ["S004", "S152", "S153", "S154", "S159"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "BIL-001-AC1",
+          "given": "خطة trial وموعد نهاية معروف",
+          "when": "انتهاء trial ثم ترقية مؤكدة من provider",
+          "then": "تتغير الاستحقاقات حسب الفترة وتظهر الفاتورة دون إضافة دور إداري"
+        },
+        {
+          "id": "BIL-001-AC2",
+          "given": "فشل الدفع أو callback مكرر أو downgrade دون الحد الحالي",
+          "when": "معالجة الحدث",
+          "then": "تطبق grace وقيود واضحة دون حذف بيانات أو تحصيل مزدوج"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "BIL-001-T1",
+          "description_ar": "حسم plan version وquantity/proration وتوقيع webhook",
+          "status": "planned"
+        },
+        {
+          "id": "BIL-001-T2",
+          "description_ar": "نمذجة invoice/payment/refund/tax/coupon كعقود منفصلة",
+          "status": "planned"
+        },
+        {
+          "id": "BIL-001-T3",
+          "description_ar": "اختبارات الأموال والتجديد والإلغاء واستعادة الدفع",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "BIL-001-QA1",
+          "acceptance_id": "BIL-001-AC1",
+          "level": "acceptance",
+          "precondition": "خطة trial وموعد نهاية معروف",
+          "action": "انتهاء trial ثم ترقية مؤكدة من provider",
+          "expected": "تتغير الاستحقاقات حسب الفترة وتظهر الفاتورة دون إضافة دور إداري",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "BIL-001-QA2",
+          "acceptance_id": "BIL-001-AC2",
+          "level": "acceptance",
+          "precondition": "فشل الدفع أو callback مكرر أو downgrade دون الحد الحالي",
+          "action": "معالجة الحدث",
+          "expected": "تطبق grace وقيود واضحة دون حذف بيانات أو تحصيل مزدوج",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "SUP-001",
+      "epic_id": "EP-13",
+      "feature_id": "F-SUP-001",
+      "title_ar": "دعم وSLA ووصول طارئ محدود",
+      "user_story": "As a support_agent, I want to handle support with time-limited reviewed access, so that issues can be resolved without broad data exposure.",
+      "role": "support_agent",
+      "phase": "RM-P2",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["IAM-003", "AUD-001", "NOT-001"],
+      "screen_ids": ["S155", "S156", "S157", "S160"],
+      "api_refs": ["POST /support/tickets", "POST /support/tickets/{id}/break-glass"],
+      "acceptance_criteria": [
+        {
+          "id": "SUP-001-AC1",
+          "given": "تذكرة tenant ونطاق وسبب ومدة وموافق مستقل",
+          "when": "فتح جلسة دعم",
+          "then": "تعرض حقولًا مقنعة وتسجل القراءات وتنتهي آليًا"
+        },
+        {
+          "id": "SUP-001-AC2",
+          "given": "ticket من tenant آخر أو انتهاء المدة",
+          "when": "متابعة الوصول",
+          "then": "يرفض الطلب فورًا ولا يمنح الدعم دورًا دائمًا"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "SUP-001-T1",
+          "description_ar": "ticket lifecycle وSLA/escalation وتقويم ساعات العمل",
+          "status": "planned"
+        },
+        {
+          "id": "SUP-001-T2",
+          "description_ar": "break-glass approval وexpiry وread audit",
+          "status": "planned"
+        },
+        {
+          "id": "SUP-001-T3",
+          "description_ar": "قاعدة معرفة وتسليم عميل وhealth score وNPS بمعادلات معلنة",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "SUP-001-QA1",
+          "acceptance_id": "SUP-001-AC1",
+          "level": "acceptance",
+          "precondition": "تذكرة tenant ونطاق وسبب ومدة وموافق مستقل",
+          "action": "فتح جلسة دعم",
+          "expected": "تعرض حقولًا مقنعة وتسجل القراءات وتنتهي آليًا",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "SUP-001-QA2",
+          "acceptance_id": "SUP-001-AC2",
+          "level": "acceptance",
+          "precondition": "ticket من tenant آخر أو انتهاء المدة",
+          "action": "متابعة الوصول",
+          "expected": "يرفض الطلب فورًا ولا يمنح الدعم دورًا دائمًا",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "PLT-001",
+      "epic_id": "EP-13",
+      "feature_id": "F-PLT-001",
+      "title_ar": "إدارة تشغيل المنصة والميزات",
+      "user_story": "As a platform administrator, I want to operate tenants and feature releases with scoped controls, so that support and billing do not become payroll superusers.",
+      "role": "platform administrator",
+      "phase": "RM-P3",
+      "priority": "P1",
+      "status": "planned",
+      "depends_on": ["BIL-001", "SUP-001"],
+      "screen_ids": ["S158", "S159", "S160"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "PLT-001-AC1",
+          "given": "مسؤول منصة بخدمة تشغيل",
+          "when": "مراجعة حالة tenant وfeature rollout",
+          "then": "يعرض health/billing metadata ويسجل التغيير والسبب"
+        },
+        {
+          "id": "PLT-001-AC2",
+          "given": "مسؤول فوترة يطلب قسيمة موظف",
+          "when": "فتح مورد payroll",
+          "then": "يرفض حتى مع صلاحية منصة إدارية"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "PLT-001-T1",
+          "description_ar": "فصل platform sessions وpermissions عن membership",
+          "status": "planned"
+        },
+        {
+          "id": "PLT-001-T2",
+          "description_ar": "إدارة feature flags وtemplates وsystem health",
+          "status": "planned"
+        },
+        {
+          "id": "PLT-001-T3",
+          "description_ar": "اختبارات audit وbreak-glass وفصل مفاتيح التكامل",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "PLT-001-QA1",
+          "acceptance_id": "PLT-001-AC1",
+          "level": "acceptance",
+          "precondition": "مسؤول منصة بخدمة تشغيل",
+          "action": "مراجعة حالة tenant وfeature rollout",
+          "expected": "يعرض health/billing metadata ويسجل التغيير والسبب",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "PLT-001-QA2",
+          "acceptance_id": "PLT-001-AC2",
+          "level": "acceptance",
+          "precondition": "مسؤول فوترة يطلب قسيمة موظف",
+          "action": "فتح مورد payroll",
+          "expected": "يرفض حتى مع صلاحية منصة إدارية",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "ATS-001",
+      "epic_id": "EP-14",
+      "feature_id": "F-ATS-001",
+      "title_ar": "من المرشح إلى مباشرة العمل",
+      "user_story": "As a recruiter, I want to convert an accepted offer into employment, so that hiring does not create duplicate employees.",
+      "role": "recruiter",
+      "phase": "RM-P4",
+      "priority": "P1",
+      "status": "planned",
+      "depends_on": ["EMP-001", "DOC-001", "APR-001"],
+      "screen_ids": ["S110", "S111", "S112", "S113", "S114", "S115", "S116", "S117"],
+      "api_refs": [
+        "GET /job-openings",
+        "POST /job-openings",
+        "POST /candidates",
+        "POST /candidates/{id}/advance",
+        "POST /job-offers",
+        "POST /job-offers/{id}/accept"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "ATS-001-AC1",
+          "given": "عرض نسخة معتمدة وافق عليه المرشح",
+          "when": "تحويل القبول إلى onboarding",
+          "then": "ينشأ موظف واحد مرتبط بمصدر العرض ومهام المباشرة"
+        },
+        {
+          "id": "ATS-001-AC2",
+          "given": "قبول مكرر أو عرض منتهي أو سحب موافقة المرشح",
+          "when": "معالجة التحويل",
+          "then": "يرفض غير الصالح ويحافظ على سياسة retention وملاحظات المقابلة الخاصة"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "ATS-001-T1",
+          "description_ar": "vacancy/pipeline/interview/offer versioning",
+          "status": "planned"
+        },
+        {
+          "id": "ATS-001-T2",
+          "description_ar": "idempotent offer-to-hire transaction",
+          "status": "planned"
+        },
+        {
+          "id": "ATS-001-T3",
+          "description_ar": "candidate consent والتكرار وتخطيط عدد المناصب",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "ATS-001-QA1",
+          "acceptance_id": "ATS-001-AC1",
+          "level": "acceptance",
+          "precondition": "عرض نسخة معتمدة وافق عليه المرشح",
+          "action": "تحويل القبول إلى onboarding",
+          "expected": "ينشأ موظف واحد مرتبط بمصدر العرض ومهام المباشرة",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "ATS-001-QA2",
+          "acceptance_id": "ATS-001-AC2",
+          "level": "acceptance",
+          "precondition": "قبول مكرر أو عرض منتهي أو سحب موافقة المرشح",
+          "action": "معالجة التحويل",
+          "expected": "يرفض غير الصالح ويحافظ على سياسة retention وملاحظات المقابلة الخاصة",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "PER-001",
+      "epic_id": "EP-14",
+      "feature_id": "F-PER-001",
+      "title_ar": "الأهداف والمراجعة ومعايرة الأداء",
+      "user_story": "As a performance_lead, I want to run a review cycle with controlled visibility, so that feedback can be calibrated and acknowledged fairly.",
+      "role": "performance_lead",
+      "phase": "RM-P4",
+      "priority": "P1",
+      "status": "planned",
+      "depends_on": ["EMP-001", "APR-001"],
+      "screen_ids": ["S118", "S119", "S120"],
+      "api_refs": [
+        "POST /performance/cycles",
+        "POST /performance/reviews/{id}/submit",
+        "POST /performance/cycles/{id}/lock"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "PER-001-AC1",
+          "given": "دورة وأهداف وأوزان معلنة",
+          "when": "إكمال self/manager review والمعايرة",
+          "then": "يظهر الإصدار النهائي للمصرح لهم ويطلب إقرار اطلاع الموظف"
+        },
+        {
+          "id": "PER-001-AC2",
+          "given": "دورة مقفلة أو مدير خارج الفريق",
+          "when": "تعديل تقييم",
+          "then": "يرفض أو ينشئ reopen بسبب ومدة دون طمس النسخة"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "PER-001-T1",
+          "description_ar": "cycle milestones وvisibility windows والأوزان",
+          "status": "planned"
+        },
+        {
+          "id": "PER-001-T2",
+          "description_ar": "calibration وacknowledgment وإعادة فتح مضبوطة",
+          "status": "planned"
+        },
+        {
+          "id": "PER-001-T3",
+          "description_ar": "اختبارات توزيع الأوزان وحجب الملاحظات الحساسة",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "PER-001-QA1",
+          "acceptance_id": "PER-001-AC1",
+          "level": "acceptance",
+          "precondition": "دورة وأهداف وأوزان معلنة",
+          "action": "إكمال self/manager review والمعايرة",
+          "expected": "يظهر الإصدار النهائي للمصرح لهم ويطلب إقرار اطلاع الموظف",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "PER-001-QA2",
+          "acceptance_id": "PER-001-AC2",
+          "level": "acceptance",
+          "precondition": "دورة مقفلة أو مدير خارج الفريق",
+          "action": "تعديل تقييم",
+          "expected": "يرفض أو ينشئ reopen بسبب ومدة دون طمس النسخة",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "AST-001",
+      "epic_id": "EP-14",
+      "feature_id": "F-AST-001",
+      "title_ar": "إسناد العهد واستعادتها والنزاع",
+      "user_story": "As a asset_manager, I want to record custody and return inspections, so that clearance is backed by evidence.",
+      "role": "asset_manager",
+      "phase": "RM-P4",
+      "priority": "P1",
+      "status": "planned",
+      "depends_on": ["EMP-001", "DOC-001"],
+      "screen_ids": ["S034", "S121", "S122", "S123", "S124", "S125"],
+      "api_refs": ["POST /assets/{id}/assign", "POST /assets/{id}/return"],
+      "acceptance_criteria": [
+        {
+          "id": "AST-001-AC1",
+          "given": "أصل متاح ومعرف تسلسلي",
+          "when": "إسناده وقبول الموظف ثم استلام إرجاعه",
+          "then": "يحتفظ بسلسلة عهدة وفحص وحالة الأصل"
+        },
+        {
+          "id": "AST-001-AC2",
+          "given": "إسنادان متزامنان أو نزاع تلف",
+          "when": "حفظ الإسناد أو ربط مخالصة",
+          "then": "يمنع الازدواج ويحيل النزاع لمراجعة دون خصم تلقائي"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "AST-001-T1",
+          "description_ar": "custody history وunique active assignment",
+          "status": "planned"
+        },
+        {
+          "id": "AST-001-T2",
+          "description_ar": "توقيع وفحص وdispute case",
+          "status": "planned"
+        },
+        {
+          "id": "AST-001-T3",
+          "description_ar": "ربط clearance كحالة لا كتعديل راتب مباشر",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "AST-001-QA1",
+          "acceptance_id": "AST-001-AC1",
+          "level": "acceptance",
+          "precondition": "أصل متاح ومعرف تسلسلي",
+          "action": "إسناده وقبول الموظف ثم استلام إرجاعه",
+          "expected": "يحتفظ بسلسلة عهدة وفحص وحالة الأصل",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "AST-001-QA2",
+          "acceptance_id": "AST-001-AC2",
+          "level": "acceptance",
+          "precondition": "إسنادان متزامنان أو نزاع تلف",
+          "action": "حفظ الإسناد أو ربط مخالصة",
+          "expected": "يمنع الازدواج ويحيل النزاع لمراجعة دون خصم تلقائي",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "SEC-001",
+      "epic_id": "EP-15",
+      "feature_id": "F-SEC-001",
+      "title_ar": "ضوابط الأمان قبل بيانات العملاء",
+      "user_story": "As a security engineer, I want to verify isolation and sensitive API controls, so that the pilot has evidence for its security boundary.",
+      "role": "security engineer",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["TEN-003", "IAM-002", "DOC-001"],
+      "screen_ids": ["S011", "S051", "S151"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "SEC-001-AC1",
+          "given": "بيئة staging بعميلين وأدوار مختلفة",
+          "when": "اختبار IDOR وRLS ورفع الملفات والجلسات والحدود",
+          "then": "تحفظ أدلة لكل control من PART 12 ويفشل gate عند تسريب"
+        },
+        {
+          "id": "SEC-001-AC2",
+          "given": "استثناء أمني بلا مالك أو بلا تاريخ انتهاء",
+          "when": "محاولة release",
+          "then": "يرفض gate ولا تتحول نتيجة unit إلى ادعاء penetration test"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "SEC-001-T1",
+          "description_ar": "فحص OWASP ومعالجة auth/CSRF/XSS/injection/SSRF",
+          "status": "planned"
+        },
+        {
+          "id": "SEC-001-T2",
+          "description_ar": "حماية secrets وrate limits ورفع الملفات وقواعد الإخراج",
+          "status": "planned"
+        },
+        {
+          "id": "SEC-001-T3",
+          "description_ar": "مصفوفة SEC evidence ومراجعة يدوية للحالات الحرجة",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "SEC-001-QA1",
+          "acceptance_id": "SEC-001-AC1",
+          "level": "acceptance",
+          "precondition": "بيئة staging بعميلين وأدوار مختلفة",
+          "action": "اختبار IDOR وRLS ورفع الملفات والجلسات والحدود",
+          "expected": "تحفظ أدلة لكل control من PART 12 ويفشل gate عند تسريب",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "SEC-001-QA2",
+          "acceptance_id": "SEC-001-AC2",
+          "level": "acceptance",
+          "precondition": "استثناء أمني بلا مالك أو بلا تاريخ انتهاء",
+          "action": "محاولة release",
+          "expected": "يرفض gate ولا تتحول نتيجة unit إلى ادعاء penetration test",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "SEC-002",
+      "epic_id": "EP-15",
+      "feature_id": "F-SEC-002",
+      "title_ar": "الاحتفاظ وطلب البيانات والحذف",
+      "user_story": "As a privacy owner, I want to apply retention and legal holds, so that data is kept and removed for documented reasons.",
+      "role": "privacy owner",
+      "phase": "RM-P3",
+      "priority": "P1",
+      "status": "planned",
+      "depends_on": ["SEC-001", "AUD-001", "DOC-001"],
+      "screen_ids": ["S003", "S151"],
+      "api_refs": ["POST /exports"],
+      "acceptance_criteria": [
+        {
+          "id": "SEC-002-AC1",
+          "given": "طلب بيانات متحقق الهوية وtenant",
+          "when": "إعداد export أو deletion job وفق السياسة",
+          "then": "يتتبع المصادر والمعالج والإكمال دون حذف سجل تحت legal hold"
+        },
+        {
+          "id": "SEC-002-AC2",
+          "given": "أثر مالي أو legal hold أو نسخة احتياطية غير منتهية",
+          "when": "طلب محو فوري",
+          "then": "يوضح نطاق الاستثناء والتاريخ والخطة دون ادعاء محو لم ينفذ"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "SEC-002-T1",
+          "description_ar": "retention classification وpurpose لكل جدول/ملف",
+          "status": "planned"
+        },
+        {
+          "id": "SEC-002-T2",
+          "description_ar": "DSAR workflow وتحقق الهوية ومراجعة الطلب",
+          "status": "planned"
+        },
+        {
+          "id": "SEC-002-T3",
+          "description_ar": "اختبارات deletion/restore وعدم إحياء بيانات محذوفة بعد الاستعادة",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "SEC-002-QA1",
+          "acceptance_id": "SEC-002-AC1",
+          "level": "acceptance",
+          "precondition": "طلب بيانات متحقق الهوية وtenant",
+          "action": "إعداد export أو deletion job وفق السياسة",
+          "expected": "يتتبع المصادر والمعالج والإكمال دون حذف سجل تحت legal hold",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "SEC-002-QA2",
+          "acceptance_id": "SEC-002-AC2",
+          "level": "acceptance",
+          "precondition": "أثر مالي أو legal hold أو نسخة احتياطية غير منتهية",
+          "action": "طلب محو فوري",
+          "expected": "يوضح نطاق الاستثناء والتاريخ والخطة دون ادعاء محو لم ينفذ",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "OPS-001",
+      "epic_id": "EP-15",
+      "feature_id": "F-OPS-001",
+      "title_ar": "CI وبيئات وترحيلات قابلة للمراجعة",
+      "user_story": "As a release engineer, I want to ship tested reversible increments, so that a failed change does not corrupt production.",
+      "role": "release engineer",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": [],
+      "screen_ids": ["S160"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "OPS-001-AC1",
+          "given": "commit وlockfile وmigration على PR",
+          "when": "تشغيل CI",
+          "then": "ينتج typecheck/lint/unit/DB/build artifacts مرتبطة بنفس SHA"
+        },
+        {
+          "id": "OPS-001-AC2",
+          "given": "اختبار حرج فاشل أو migration غير متوافقة مع النسخة السابقة",
+          "when": "طلب deployment",
+          "then": "يمنع release ويعرض rollback/forward-fix واضحًا"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "OPS-001-T1",
+          "description_ar": "توسيع quality workflow بDB integration وartifact evidence",
+          "status": "planned"
+        },
+        {
+          "id": "OPS-001-T2",
+          "description_ar": "فصل dev/ci/staging/pilot/prod والأسرار",
+          "status": "planned"
+        },
+        {
+          "id": "OPS-001-T3",
+          "description_ar": "تثبيت إجراء expand-contract وتجربة ترحيل على نسخة اصطناعية",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "OPS-001-QA1",
+          "acceptance_id": "OPS-001-AC1",
+          "level": "acceptance",
+          "precondition": "commit وlockfile وmigration على PR",
+          "action": "تشغيل CI",
+          "expected": "ينتج typecheck/lint/unit/DB/build artifacts مرتبطة بنفس SHA",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "OPS-001-QA2",
+          "acceptance_id": "OPS-001-AC2",
+          "level": "acceptance",
+          "precondition": "اختبار حرج فاشل أو migration غير متوافقة مع النسخة السابقة",
+          "action": "طلب deployment",
+          "expected": "يمنع release ويعرض rollback/forward-fix واضحًا",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "OPS-002",
+      "epic_id": "EP-15",
+      "feature_id": "F-OPS-002",
+      "title_ar": "المراقبة والنسخ والاستعادة والحوادث",
+      "user_story": "As a on-call engineer, I want to restore data and diagnose failures, so that recovery targets are demonstrated.",
+      "role": "on-call engineer",
+      "phase": "RM-P2",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["OPS-001", "AUD-001"],
+      "screen_ids": ["S160"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "OPS-002-AC1",
+          "given": "backup معروف وبيئة استعادة منفصلة",
+          "when": "تمرين restore وتحقق إجماليات tenant",
+          "then": "يقاس RPO/RTO فعليان وتسجل نتيجة فحص صلاحيات الرواتب"
+        },
+        {
+          "id": "OPS-002-AC2",
+          "given": "outbox متأخر أو worker فاشل أو مزود غير متاح",
+          "when": "تنبيه incident",
+          "then": "يظهر owner/runbook ولا يؤدي replay إلى تكرار عملية مالية"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "OPS-002-T1",
+          "description_ar": "قياس p95/queue age/error rate وrequest_id بدون PII",
+          "status": "planned"
+        },
+        {
+          "id": "OPS-002-T2",
+          "description_ar": "backup restoration ومطابقة وrollback drill",
+          "status": "planned"
+        },
+        {
+          "id": "OPS-002-T3",
+          "description_ar": "runbooks وon-call وincident timeline",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "OPS-002-QA1",
+          "acceptance_id": "OPS-002-AC1",
+          "level": "acceptance",
+          "precondition": "backup معروف وبيئة استعادة منفصلة",
+          "action": "تمرين restore وتحقق إجماليات tenant",
+          "expected": "يقاس RPO/RTO فعليان وتسجل نتيجة فحص صلاحيات الرواتب",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "OPS-002-QA2",
+          "acceptance_id": "OPS-002-AC2",
+          "level": "acceptance",
+          "precondition": "outbox متأخر أو worker فاشل أو مزود غير متاح",
+          "action": "تنبيه incident",
+          "expected": "يظهر owner/runbook ولا يؤدي replay إلى تكرار عملية مالية",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "QA-001",
+      "epic_id": "EP-15",
+      "feature_id": "F-QA-001",
+      "title_ar": "مصفوفة اختبارات رحلة MVP",
+      "user_story": "As a QA engineer, I want to test complete persisted journeys, so that screen completeness is supported by behavior.",
+      "role": "QA engineer",
+      "phase": "RM-P1",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["PAY-001", "DOC-001", "UX-003", "OPS-001"],
+      "screen_ids": ["S013", "S039", "S059", "S074", "S086"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "QA-001-AC1",
+          "given": "بيئة staging مستقلة وجلسات حقيقية وبيانات اصطناعية",
+          "when": "رحلة employee→attendance→leave→payroll preview مع refresh",
+          "then": "تطابق القيم والقرارات وRTL/mobile وAPI وRLS"
+        },
+        {
+          "id": "QA-001-AC2",
+          "given": "network failure أو session expired أو duplicate submit",
+          "when": "تكرار الرحلة",
+          "then": "تظهر حالة استعادة وتطابق الحالة المحفوظة دون نجاح زائف"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "QA-001-T1",
+          "description_ar": "unit/integration/API/E2E/visual/a11y matrix بأدلة",
+          "status": "planned"
+        },
+        {
+          "id": "QA-001-T2",
+          "description_ar": "golden payroll مستقل عن implementation",
+          "status": "planned"
+        },
+        {
+          "id": "QA-001-T3",
+          "description_ar": "Chrome/Firefox/WebKit وmobile وحدود large dataset",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "QA-001-QA1",
+          "acceptance_id": "QA-001-AC1",
+          "level": "acceptance",
+          "precondition": "بيئة staging مستقلة وجلسات حقيقية وبيانات اصطناعية",
+          "action": "رحلة employee→attendance→leave→payroll preview مع refresh",
+          "expected": "تطابق القيم والقرارات وRTL/mobile وAPI وRLS",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "QA-001-QA2",
+          "acceptance_id": "QA-001-AC2",
+          "level": "acceptance",
+          "precondition": "network failure أو session expired أو duplicate submit",
+          "action": "تكرار الرحلة",
+          "expected": "تظهر حالة استعادة وتطابق الحالة المحفوظة دون نجاح زائف",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "QA-002",
+      "epic_id": "EP-15",
+      "feature_id": "F-QA-002",
+      "title_ar": "بوابة Beta وProduction بالأدلة",
+      "user_story": "As a release owner, I want to review finance security and recovery evidence, so that launch claims reflect verified readiness.",
+      "role": "release owner",
+      "phase": "RM-P3",
+      "priority": "P1",
+      "status": "planned",
+      "depends_on": ["QA-001", "REC-001", "EOS-001", "SEC-002", "OPS-002", "BIL-001"],
+      "screen_ids": ["S160"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "QA-002-AC1",
+          "given": "دورتا رواتب متوازيتان ونتائج UAT واعتمادات فعلية",
+          "when": "مراجعة release candidate",
+          "then": "تحفظ financial reconciliation وsecurity وDR وsupport evidence مع قرار واضح"
+        },
+        {
+          "id": "QA-002-AC2",
+          "given": "فرق مالي غير مفسر أو P0/P1 مفتوح",
+          "when": "محاولة اعتماد production",
+          "then": "يبقى القرار No-Go ولا يحل نجاح build محل الدليل"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "QA-002-T1",
+          "description_ar": "release evidence manifest بSHA وmigration ونتائج QA",
+          "status": "planned"
+        },
+        {
+          "id": "QA-002-T2",
+          "description_ar": "مقارنة المخرجات مع exit criteria في PART 16",
+          "status": "planned"
+        },
+        {
+          "id": "QA-002-T3",
+          "description_ar": "توثيق قرار أصحاب الوظائف وخطة متابعة بدون اختلاق موافقات",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "QA-002-QA1",
+          "acceptance_id": "QA-002-AC1",
+          "level": "acceptance",
+          "precondition": "دورتا رواتب متوازيتان ونتائج UAT واعتمادات فعلية",
+          "action": "مراجعة release candidate",
+          "expected": "تحفظ financial reconciliation وsecurity وDR وsupport evidence مع قرار واضح",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "QA-002-QA2",
+          "acceptance_id": "QA-002-AC2",
+          "level": "acceptance",
+          "precondition": "فرق مالي غير مفسر أو P0/P1 مفتوح",
+          "action": "محاولة اعتماد production",
+          "expected": "يبقى القرار No-Go ولا يحل نجاح build محل الدليل",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "ANA-001",
+      "epic_id": "EP-16",
+      "feature_id": "F-ANA-001",
+      "title_ar": "أحداث ومؤشرات منتج بلا بيانات حساسة",
+      "user_story": "As a product analyst, I want to measure activation and payroll outcomes, so that priorities are based on reliable usage evidence.",
+      "role": "product analyst",
+      "phase": "RM-P2",
+      "priority": "P0",
+      "status": "planned",
+      "depends_on": ["AUD-001", "QA-001"],
+      "screen_ids": ["S013", "S153", "S160"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "ANA-001-AC1",
+          "given": "event موثق في كتالوج PART 15",
+          "when": "تجميع signups/activation/DAU/MAU/retention/close-time",
+          "then": "تظهر نافذة وتعريف مقام واستبعاد التجارب والحسابات الداخلية"
+        },
+        {
+          "id": "ANA-001-AC2",
+          "given": "payload يحتوي اسم موظف أو IBAN أو نص حر",
+          "when": "إدخال الحدث",
+          "then": "يرفض collector الحقول ويصدر data-quality alert دون حفظها"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "ANA-001-T1",
+          "description_ar": "event schema allowlist وdedupe وconsent/retention",
+          "status": "planned"
+        },
+        {
+          "id": "ANA-001-T2",
+          "description_ar": "لوحات funnel/feature usage/errors/revenue/churn",
+          "status": "planned"
+        },
+        {
+          "id": "ANA-001-T3",
+          "description_ar": "فحص freshness وsample bias وقياس الإيراد من billing ledger",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "ANA-001-QA1",
+          "acceptance_id": "ANA-001-AC1",
+          "level": "acceptance",
+          "precondition": "event موثق في كتالوج PART 15",
+          "action": "تجميع signups/activation/DAU/MAU/retention/close-time",
+          "expected": "تظهر نافذة وتعريف مقام واستبعاد التجارب والحسابات الداخلية",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "ANA-001-QA2",
+          "acceptance_id": "ANA-001-AC2",
+          "level": "acceptance",
+          "precondition": "payload يحتوي اسم موظف أو IBAN أو نص حر",
+          "action": "إدخال الحدث",
+          "expected": "يرفض collector الحقول ويصدر data-quality alert دون حفظها",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "AI-001",
+      "epic_id": "EP-16",
+      "feature_id": "F-AI-001",
+      "title_ar": "تجربة مساعدة تفسير الاستثناءات",
+      "user_story": "As a hr_manager, I want to review evidence-linked suggestions for exceptions, so that routine investigation is faster without automated decisions.",
+      "role": "hr_manager",
+      "phase": "RM-P4",
+      "priority": "P1",
+      "status": "planned",
+      "depends_on": ["ANA-001", "SEC-002", "ATT-003"],
+      "screen_ids": ["S059", "S085"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "AI-001-AC1",
+          "given": "استثناء حضور بمراجع منقحة وتجربة opt-in",
+          "when": "طلب تفسير مساعد",
+          "then": "يعرض فرضية ومصادر وتكلفة وزمن ومراجعة بشرية قبل أي فعل"
+        },
+        {
+          "id": "AI-001-AC2",
+          "given": "اقتراح بلا مصدر أو يتضمن بيانات من tenant آخر",
+          "when": "تقييم المخرج",
+          "then": "يرفضه النظام وتبقى العمليات المالية والقرارات البشرية كما هي"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "AI-001-T1",
+          "description_ar": "حسم problem/input/output وbudget وحالة opt-in",
+          "status": "planned"
+        },
+        {
+          "id": "AI-001-T2",
+          "description_ar": "eval dataset اصطناعي وgrounding وعزل providers",
+          "status": "planned"
+        },
+        {
+          "id": "AI-001-T3",
+          "description_ar": "human review وprivacy/cost kill switch ومقارنة زمن الإنجاز",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "AI-001-QA1",
+          "acceptance_id": "AI-001-AC1",
+          "level": "acceptance",
+          "precondition": "استثناء حضور بمراجع منقحة وتجربة opt-in",
+          "action": "طلب تفسير مساعد",
+          "expected": "يعرض فرضية ومصادر وتكلفة وزمن ومراجعة بشرية قبل أي فعل",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "AI-001-QA2",
+          "acceptance_id": "AI-001-AC2",
+          "level": "acceptance",
+          "precondition": "اقتراح بلا مصدر أو يتضمن بيانات من tenant آخر",
+          "action": "تقييم المخرج",
+          "expected": "يرفضه النظام وتبقى العمليات المالية والقرارات البشرية كما هي",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "ENT-001",
+      "epic_id": "EP-17",
+      "feature_id": "F-ENT-001",
+      "title_ar": "SSO وSCIM وربط عائلة Classera",
+      "user_story": "As a enterprise IT owner, I want to manage federated access and a documented Classera integration, so that identity and ownership remain consistent across systems.",
+      "role": "enterprise IT owner",
+      "phase": "RM-P5",
+      "priority": "P1",
+      "status": "planned",
+      "depends_on": ["IAM-002", "SEC-002", "ANA-001"],
+      "screen_ids": ["S131", "S147", "S151", "S158"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "ENT-001-AC1",
+          "given": "عقد تكامل وحدود مالك بيانات موثقة وIdP تجريبي",
+          "when": "ربط SSO/SCIM أو مزامنة تعليم مع معرفات ثابتة",
+          "then": "تحفظ هوية tenant وتربط الموظف دون نسخ أسرار أو رواتب غير لازمة"
+        },
+        {
+          "id": "ENT-001-AC2",
+          "given": "إلغاء مستخدم في IdP أو تغير tenant claim أو connector غير متاح",
+          "when": "إعادة مزامنة أو تجديد الجلسة",
+          "then": "يسحب الوصول ضمن SLA ويعزل الفشل دون merge هويات صامت"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "ENT-001-T1",
+          "description_ar": "تثبيت capability contract مع C-SmarX/LeadXera قبل التنفيذ",
+          "status": "planned"
+        },
+        {
+          "id": "ENT-001-T2",
+          "description_ar": "SAML/OIDC/SCIM وprovision/deprovision مع audit",
+          "status": "planned"
+        },
+        {
+          "id": "ENT-001-T3",
+          "description_ar": "تقييم tenant domain verification وconnector recovery",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "ENT-001-QA1",
+          "acceptance_id": "ENT-001-AC1",
+          "level": "acceptance",
+          "precondition": "عقد تكامل وحدود مالك بيانات موثقة وIdP تجريبي",
+          "action": "ربط SSO/SCIM أو مزامنة تعليم مع معرفات ثابتة",
+          "expected": "تحفظ هوية tenant وتربط الموظف دون نسخ أسرار أو رواتب غير لازمة",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "ENT-001-QA2",
+          "acceptance_id": "ENT-001-AC2",
+          "level": "acceptance",
+          "precondition": "إلغاء مستخدم في IdP أو تغير tenant claim أو connector غير متاح",
+          "action": "إعادة مزامنة أو تجديد الجلسة",
+          "expected": "يسحب الوصول ضمن SLA ويعزل الفشل دون merge هويات صامت",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    },
+    {
+      "id": "ENT-002",
+      "epic_id": "EP-17",
+      "feature_id": "F-ENT-002",
+      "title_ar": "سعة وعزل مؤسسي بناء على قياس",
+      "user_story": "As a platform architect, I want to scale isolated workloads using measured bottlenecks, so that growth meets latency and cost targets.",
+      "role": "platform architect",
+      "phase": "RM-P5",
+      "priority": "P1",
+      "status": "planned",
+      "depends_on": ["OPS-002", "ANA-001", "QA-002"],
+      "screen_ids": ["S160"],
+      "api_refs": [],
+      "acceptance_criteria": [
+        {
+          "id": "ENT-002-AC1",
+          "given": "datasets عند 1K و10K و100K و1M مستخدم افتراضي",
+          "when": "تشغيل load model معلن التزامن وmix العمليات",
+          "then": "تحفظ p95/queue/cost/locks ويختار scaling حسب الاختناق المقاس"
+        },
+        {
+          "id": "ENT-002-AC2",
+          "given": "tenant كثيف الاستخدام أو فشل نقل عميل",
+          "when": "تفعيل حصة أو تجربة tenant move",
+          "then": "لا تتضرر tenants الأخرى ويثبت عدم فقد السجلات بالعد والمجاميع"
+        }
+      ],
+      "technical_tasks": [
+        {
+          "id": "ENT-002-T1",
+          "description_ar": "حصر concurrency وrequests/user وحجم attendance بدل العدد فقط",
+          "status": "planned"
+        },
+        {
+          "id": "ENT-002-T2",
+          "description_ar": "thresholds للcache/worker/replica/partition",
+          "status": "planned"
+        },
+        {
+          "id": "ENT-002-T3",
+          "description_ar": "خطة tenant move وregional restore مع استثمار مبرر قبل microservices",
+          "status": "planned"
+        }
+      ],
+      "test_cases": [
+        {
+          "id": "ENT-002-QA1",
+          "acceptance_id": "ENT-002-AC1",
+          "level": "acceptance",
+          "precondition": "datasets عند 1K و10K و100K و1M مستخدم افتراضي",
+          "action": "تشغيل load model معلن التزامن وmix العمليات",
+          "expected": "تحفظ p95/queue/cost/locks ويختار scaling حسب الاختناق المقاس",
+          "execution_status": "not_run",
+          "evidence": null
+        },
+        {
+          "id": "ENT-002-QA2",
+          "acceptance_id": "ENT-002-AC2",
+          "level": "acceptance",
+          "precondition": "tenant كثيف الاستخدام أو فشل نقل عميل",
+          "action": "تفعيل حصة أو تجربة tenant move",
+          "expected": "لا تتضرر tenants الأخرى ويثبت عدم فقد السجلات بالعد والمجاميع",
+          "execution_status": "not_run",
+          "evidence": null
+        }
+      ],
+      "required_quality_profiles": ["tenant_security", "recovery", "arabic_ux"],
+      "evidence": []
+    }
+  ],
+  "dependency_layers": [
+    ["DISC-101", "TEN-001", "UX-001", "OPS-001"],
+    ["DISC-102", "TEN-002", "TEN-003"],
+    ["IAM-001", "IAM-002"],
+    ["IAM-003", "UX-002", "AUD-001"],
+    ["ORG-001", "OPS-002"],
+    ["EMP-001"],
+    ["UX-003", "EMP-002", "ATT-001", "APR-001", "DOC-001"],
+    ["ATT-002", "LEV-001", "EXP-001", "NOT-001", "ATS-001", "PER-001", "AST-001", "SEC-001"],
+    ["ATT-003", "LEV-002", "INT-001", "BIL-001", "SUP-001", "SEC-002"],
+    ["PAY-001", "PLT-001"],
+    ["PAY-002", "ADV-001", "QA-001"],
+    ["EOS-001", "PMT-001", "ANA-001"],
+    ["REC-001", "AI-001", "ENT-001"],
+    ["RPT-001", "QA-002"],
+    ["ENT-002"]
+  ],
+  "initial_implementation": ["TEN-001", "TEN-002"],
+  "contract_gaps": [
+    {
+      "area": "IAM permissions/delegations",
+      "stories": ["IAM-002", "IAM-003"],
+      "next_action": "Expand versioned API contract before transport implementation."
+    },
+    {
+      "area": "subscription/invoice/refund/platform/analytics/SSO",
+      "stories": ["BIL-001", "PLT-001", "ANA-001", "ENT-001"],
+      "next_action": "Define provider-neutral contracts; current 85 endpoints do not cover these features."
+    }
+  ],
+  "release_gates": {
+    "production_requires": ["DISC-101", "DISC-102", "QA-002"],
+    "country_payroll_requires": ["DISC-102"],
+    "pilot_with_real_data_requires": ["SEC-001", "OPS-002"]
+  },
+  "external_actions": {
+    "issues_created": false,
+    "people_assigned": false,
+    "production_deployment": false
+  }
+}

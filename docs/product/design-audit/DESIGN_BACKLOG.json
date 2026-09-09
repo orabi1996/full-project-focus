@@ -1,0 +1,1162 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-09-09",
+  "status": "draft_for_delivery_planning",
+  "review_method": "source_review; visual_review_blocked",
+  "implemented": false,
+  "issues_created": false,
+  "priority_definition": {
+    "P0": "حالة مضللة في الأمان أو العملية؛ تعالج قبل الاستخدام التشغيلي لهذه الوظيفة",
+    "P1": "عائق لمهمة رئيسية أو اتساق أساسي؛ مانع إغلاق دفعة نطاقه",
+    "P2": "تحسين وحدة أو إنتاجية بعد الأساس"
+  },
+  "items": [
+    {
+      "id": "DES-001",
+      "title_ar": "استكمال الجولة البصرية وتسجيل خط الأساس",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 0,
+      "owner_role": "UI/UX + QA",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [],
+      "source_files": [
+        "src/components/layout/AppLayout.tsx"
+      ],
+      "depends_on": [],
+      "deliverable_ar": "كتالوج صور مرتبط بكل وجهة وتبويب ونموذج ومقاس ودور ولغة وثيم وcommit",
+      "acceptance_criteria_ar": [
+        "لكل وجهة من 20 وجهة صورة مكتب وهاتف أو سبب موثق لتعذرها",
+        "تسجل النوافذ والأقسام الداخلية في سجل التغطية؛ لا تُحسب بمجرد زيارة الصفحة الأم",
+        "تراجع مهام الموظف وHR والمالية بأسماء وبيانات اصطناعية",
+        "الملاحظات المصدرية تُؤكد أو تُرفض بصريًا دون تحويل المخاطر تلقائيًا إلى عيوب"
+      ],
+      "effort_person_days_estimate": [
+        3,
+        5
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-002",
+      "title_ar": "إزالة ادعاءات نجاح أمان الحساب غير المنفذة",
+      "status": "implemented_unavailable_ui",
+      "priority": "P0",
+      "phase": 1,
+      "owner_role": "Frontend + Backend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-01"
+      ],
+      "source_files": [
+        "src/components/layout/AccountSecurityModal.tsx"
+      ],
+      "depends_on": [],
+      "deliverable_ar": "حالات أمان حقيقية أو إتاحة محدودة واضحة",
+      "acceptance_criteria_ar": [
+        "Given خدمة الهوية غير موصولة When فتح الأمان Then لا تظهر MFA مفعلة ولا نجاح تغيير كلمة المرور",
+        "When فشل تغيير كلمة المرور Then يبقى خطأ واضح ولا تعرض رسالة نجاح",
+        "When تأكيد نجاح الخدمة Then تظهر النتيجة ويعاد جلب حالة الحساب",
+        "إنهاء الجلسات يظهر نتيجة الخدمة ويعالج الفشل الجزئي"
+      ],
+      "effort_person_days_estimate": [
+        1,
+        3
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري.",
+      "implementation": {
+        "date": "2026-09-09",
+        "scope": "Removed simulated security operations; explicit unavailable/unknown state in Arabic and English. No identity mutations or MFA integration enabled.",
+        "delivery_note": "DES-002_IMPLEMENTATION.ar.md",
+        "automated_tests": [
+          "src/components/layout/AccountSecurityPanel.test.tsx",
+          "e2e/account-security.spec.ts"
+        ],
+        "ci_evidence": "GitHub Actions checks on the commit that introduces this implementation."
+      }
+    },
+    {
+      "id": "DES-003",
+      "title_ar": "تمييز المحاكاة من حالة التكامل الفعلية",
+      "status": "planned",
+      "priority": "P0",
+      "phase": 1,
+      "owner_role": "Frontend + Backend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-02"
+      ],
+      "source_files": [
+        "src/components/integrations/IntegrationsView.tsx"
+      ],
+      "depends_on": [],
+      "deliverable_ar": "حالة capability لكل موصل مع آخر تحقق",
+      "acceptance_criteria_ar": [
+        "لا تعرض connected من مصفوفة ثابتة في الوضع الحي",
+        "تسجيل webhook لا يساوي نجاح إرسال حدث",
+        "يعرض pending ثم نتيجة مؤكدة ووقت مرجعها، أو غير متاح",
+        "وضع التجربة يبين صراحة أن المزامنة لم تُرسل"
+      ],
+      "effort_person_days_estimate": [
+        1,
+        3
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-004",
+      "title_ar": "تصحيح صدق التقارير والأرقام والصيغ",
+      "status": "planned",
+      "priority": "P0",
+      "phase": 1,
+      "owner_role": "Frontend + Backend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-03"
+      ],
+      "source_files": [
+        "src/components/reports/ReportsView.tsx"
+      ],
+      "depends_on": [],
+      "deliverable_ar": "لا بيانات بدل أرقام بديلة، وصيغ متاحة فعلًا",
+      "acceptance_criteria_ar": [
+        "Given عدد الموظفين صفر Then لا تستبدله الواجهة بـ78 أو 38",
+        "التقرير غير المنفذ لا ينتج صف حالة باسم تقرير معتمد",
+        "اختيار CSV ينتج CSV؛ PDF/Excel لا يظهران كمتاحين دون تنفيذ",
+        "نتائج التصفية ومعاينة التقرير تطابق الصفوف والأعمدة المصدرة"
+      ],
+      "effort_person_days_estimate": [
+        2,
+        4
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-005",
+      "title_ar": "تصحيح نتيجة استيراد وربط أجهزة البصمة",
+      "status": "planned",
+      "priority": "P0",
+      "phase": 1,
+      "owner_role": "Frontend + Backend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-04"
+      ],
+      "source_files": [
+        "src/components/shifts/ShiftsView.tsx"
+      ],
+      "depends_on": [],
+      "deliverable_ar": "وسم إجراء غير متاح أو نتيجة استيراد مؤكدة",
+      "acceptance_criteria_ar": [
+        "لا يظهر عدد 450 نجاحًا من زر محلي",
+        "الملف غير الصالح يعرض أخطاء الصفوف دون تغيير سجلات صحيحة",
+        "يظهر عدد مقبول ومرفوض ومكرر بعد نتيجة المعالجة فقط"
+      ],
+      "effort_person_days_estimate": [
+        1,
+        3
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-006",
+      "title_ar": "اعتماد سلم الخطوط والقراءة v0.2",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 1,
+      "owner_role": "UI/UX",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-05",
+        "UX-06"
+      ],
+      "source_files": [
+        "src/styles.css",
+        "src/lib/theme/MaterialDesignProvider.tsx"
+      ],
+      "depends_on": [
+        "DES-001"
+      ],
+      "deliverable_ar": "عينات Cairo/English للدليل وملف وESS ومصفوفة typography",
+      "acceptance_criteria_ar": [
+        "نص العمل 16px والجدول/label الأساسي 14px في العينة",
+        "الوزن الافتراضي 400–500 و600–700 للعناوين والأفعال؛ 900 ليس الافتراضي",
+        "تختبر أسماء عربية طويلة ومبالغ سالبة و200% تكبير",
+        "يسجل اعتماد بديل PART8 قبل استبدال tokens القائمة"
+      ],
+      "effort_person_days_estimate": [
+        2,
+        3
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-007",
+      "title_ar": "توحيد الألوان والأيقونات والحركة",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 2,
+      "owner_role": "UI/UX + Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-07"
+      ],
+      "source_files": [
+        "src/styles.css",
+        "src/components/ui/IconSymbol.tsx"
+      ],
+      "depends_on": [
+        "DES-006"
+      ],
+      "deliverable_ar": "semantic tokens للثيمين مع دليل أيقونات",
+      "acceptance_criteria_ar": [
+        "الأيقونة الوظيفية من مجموعة واحدة مع اسم قابل للوصول للزر",
+        "التباين مقاس للأزواج المستخدمة في الحالة العادية والمحددة",
+        "الحالة لها نص ولا تعتمد على اللون وحده",
+        "reduced-motion يلغي النبض والحركات غير الضرورية"
+      ],
+      "effort_person_days_estimate": [
+        2,
+        4
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-008",
+      "title_ar": "تطوير الرأس والقائمة والمسار الحالي",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 2,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-08",
+        "UX-09"
+      ],
+      "source_files": [
+        "src/components/layout/AppHeader.tsx",
+        "src/components/layout/AppSidebar.tsx",
+        "src/components/layout/AppLayout.tsx"
+      ],
+      "depends_on": [
+        "DES-006",
+        "DES-007"
+      ],
+      "deliverable_ar": "غلاف متجاوب مع بحث مرن ونمط تنقل ثابت",
+      "acceptance_criteria_ar": [
+        "في 360px لا تُحجب القائمة أو الحساب أو الإشعارات",
+        "لزر الطي اسم، وللوجهة الحالية دلالة aria-current مناسبة",
+        "الاسم الطويل متاح كاملًا عند التركيز/الفتح",
+        "الرجوع للصفحة يحفظ البحث والمرشحات والسياق؛ لا تغيير صلاحيات في التنفيذ"
+      ],
+      "effort_person_days_estimate": [
+        3,
+        5
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-009",
+      "title_ar": "بناء قوالب النوافذ والحقول والحالات",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 2,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-11",
+        "UX-12"
+      ],
+      "source_files": [
+        "src/components/ui/dialog.tsx",
+        "src/components/ui/input.tsx",
+        "src/components/layout/AppLayout.tsx"
+      ],
+      "depends_on": [
+        "DES-006",
+        "DES-007"
+      ],
+      "deliverable_ar": "FormField وFormDialog وEmptyState وErrorState وAsyncAction",
+      "acceptance_criteria_ar": [
+        "رسالة الخطأ مرتبطة بالحقل وملخص الأخطاء يقود إليه",
+        "Tab محصور في الحوار وEscape يعالج dirty state ثم يعيد التركيز",
+        "في شاشة قصيرة ولوحة هاتف يمكن الوصول لآخر حقل وللحفظ",
+        "حالة الشبكة لا تمسح المدخلات ولا تعلن نجاحًا قبل التأكيد"
+      ],
+      "effort_person_days_estimate": [
+        3,
+        5
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-010",
+      "title_ar": "توحيد الجداول والفلاتر والتصدير",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 2,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-05",
+        "UX-20"
+      ],
+      "source_files": [
+        "src/components/ui/table.tsx",
+        "src/components/employees/EmployeesView.tsx"
+      ],
+      "depends_on": [
+        "DES-006",
+        "DES-007",
+        "DES-009"
+      ],
+      "deliverable_ar": "DataTable وFilterBar وMoney/Date/Identifier",
+      "acceptance_criteria_ar": [
+        "sort وfilter وpagination والتحديد بأعداد واضحة",
+        "لا بيانات تختلف عن لا نتائج وعن فشل التحميل",
+        "يختبر 1000 سجل اصطناعي ولا تعرض كل الصفوف بلا سبب",
+        "الأرقام والعملة والتاريخ لها تنسيق موحد واتجاه معزول"
+      ],
+      "effort_person_days_estimate": [
+        4,
+        6
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-011",
+      "title_ar": "استكمال العربية والإنجليزية في الأسطح المشتركة",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 2,
+      "owner_role": "Frontend + UI/UX",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-13",
+        "UX-15"
+      ],
+      "source_files": [
+        "src/components/layout/AppHeader.tsx",
+        "src/routes/__root.tsx",
+        "src/lib/context/AppContext.tsx"
+      ],
+      "depends_on": [
+        "DES-008",
+        "DES-009"
+      ],
+      "deliverable_ar": "قاموس نصوص وسياق locale يشمل portals والتنبيهات",
+      "acceptance_criteria_ar": [
+        "التبديل يغير النص والاتجاه والخط ويستمر بعد إعادة التحميل",
+        "العربية والإنجليزية تراجعان في حوار وقائمة وتنبيه وحقل تاريخ",
+        "لا M07 أو SVG Vector Engine في عناوين مهمة المستخدم",
+        "IBAN والبريد والمبالغ لا تنعكس حروفها عند تبديل اللغة"
+      ],
+      "effort_person_days_estimate": [
+        3,
+        5
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-012",
+      "title_ar": "إعادة تنظيم Dashboard حسب الدور",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 3,
+      "owner_role": "UI/UX + Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-14"
+      ],
+      "source_files": [
+        "src/components/dashboard/DashboardView.tsx"
+      ],
+      "depends_on": [
+        "DES-008",
+        "DES-010",
+        "DES-011"
+      ],
+      "deliverable_ar": "قوالب موظف ومدير وHR ومالية",
+      "acceptance_criteria_ar": [
+        "مهمة اليوم والاستثناءات أعلى المعلومات الزخرفية",
+        "كل KPI يحمل فترة وتعريفًا ورابط قائمة مفلترة",
+        "بطاقات التنقل روابط/أزرار تدعم Enter والتركيز",
+        "لا يساوي تغيير الدور إظهار جميع بيانات المؤشرات"
+      ],
+      "effort_person_days_estimate": [
+        3,
+        5
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-013",
+      "title_ar": "تطوير دليل الموظفين والإضافة والاستيراد",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 3,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-05",
+        "UX-10"
+      ],
+      "source_files": [
+        "src/components/employees/EmployeesView.tsx"
+      ],
+      "depends_on": [
+        "DES-010",
+        "DES-011"
+      ],
+      "deliverable_ar": "دليل بمكونات مشتركة وwizard إضافة واستيراد",
+      "acceptance_criteria_ar": [
+        "الحقول المطلوبة مميزة ولا يعاد إدخالها عند رجوع خطوة",
+        "الاستيراد يعرض معاينة أخطاء وتكرارات وأثر قبل التأكيد",
+        "فتح موظف ثم العودة يحفظ المرشحات والصفحة",
+        "الموبايل يعرض الاسم والحالة والإجراء الأساسي دون قص"
+      ],
+      "effort_person_days_estimate": [
+        4,
+        6
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-014",
+      "title_ar": "توحيد ملف الموظف وتقليل ازدواجية النوافذ",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 3,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-10",
+        "UX-20"
+      ],
+      "source_files": [
+        "src/components/employees/EmployeeFullProfileView.tsx",
+        "src/components/employees/EmployeeProfileModal.tsx"
+      ],
+      "depends_on": [
+        "DES-009",
+        "DES-010",
+        "DES-011",
+        "DES-013"
+      ],
+      "deliverable_ar": "صفحة ملف مرجعية وdrawer مختصر",
+      "acceptance_criteria_ar": [
+        "المعاينة والصفحة تقرآن نموذج بيانات واحدًا",
+        "قائمة الأقسام تعمل عند 360px ولا تضغط 7 تبويبات ثابتة",
+        "إغلاق تعديل غير محفوظ يتطلب قرارًا واضحًا",
+        "الأجر والوثائق الحساسة تعرض حسب الإذن مع السبب المناسب للحجب"
+      ],
+      "effort_person_days_estimate": [
+        3,
+        5
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-015",
+      "title_ar": "تحويل الخدمة الذاتية إلى واجهة استخدام حقيقية",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 3,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-17"
+      ],
+      "source_files": [
+        "src/components/ess/EssMobileView.tsx"
+      ],
+      "depends_on": [
+        "DES-008",
+        "DES-009",
+        "DES-011"
+      ],
+      "deliverable_ar": "واجهة يومي/طلباتي/مستنداتي/ملفي دون إطار هاتف",
+      "acceptance_criteria_ar": [
+        "لا border/notch للهاتف داخل صفحة الموبايل",
+        "القسيمة والرصيد والطلبات تقرأ دون تكبير أو قص",
+        "فشل إذن الموقع أو GPS يعرض شرحًا وطريق تصحيح مسموحًا",
+        "لا تطلب موافقة موقع عند مجرد فتح صفحة لا تحتاجه"
+      ],
+      "effort_person_days_estimate": [
+        3,
+        5
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-016",
+      "title_ar": "تنظيم صندوق الموافقات وتفاصيل الطلب",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 3,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-16"
+      ],
+      "source_files": [
+        "src/components/workflow/WorkflowView.tsx"
+      ],
+      "depends_on": [
+        "DES-009",
+        "DES-010",
+        "DES-011"
+      ],
+      "deliverable_ar": "Inbox وrequest detail حسب النوع وApprovalTimeline",
+      "acceptance_criteria_ar": [
+        "كل payload معروف له renderer عربي/إنجليزي دون String(object)",
+        "تظهر الخطوة الحالية والسبب والمرفقات وصاحب الطلب",
+        "الاعتماد والرفض لهما أثر مفهوم قبل التأكيد",
+        "الفشل الجزئي في batch يترك المتعثر قابلًا للمراجعة ولا يعيد إرسال الناجح"
+      ],
+      "effort_person_days_estimate": [
+        3,
+        5
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-017",
+      "title_ar": "تبسيط الإجازات والرصيد وأثر الطلب",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 3,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [],
+      "source_files": [
+        "src/components/leaves/LeavesView.tsx"
+      ],
+      "depends_on": [
+        "DES-009",
+        "DES-011",
+        "DES-016"
+      ],
+      "deliverable_ar": "رصيد مفصل وتقويم ونموذج طلب",
+      "acceptance_criteria_ar": [
+        "المتاح والمحجوز والمستهلك معرفة بوضوح",
+        "تاريخ عكسي أو رصيد غير كافٍ يعرض رسالة موضعية",
+        "الأيام المتأثرة معروضة قبل التقديم من نتيجة موثوقة",
+        "الإلغاء لا يعرض عودة رصيد قبل تأكيد الحالة"
+      ],
+      "effort_person_days_estimate": [
+        2,
+        4
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-018",
+      "title_ar": "توحيد الحضور والورديات وإعداد الجهاز",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 3,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-04"
+      ],
+      "source_files": [
+        "src/components/attendance/AttendanceView.tsx",
+        "src/components/shifts/ShiftsView.tsx",
+        "src/components/attendance/BiometricDevicesPanel.tsx"
+      ],
+      "depends_on": [
+        "DES-005",
+        "DES-009",
+        "DES-010",
+        "DES-011"
+      ],
+      "deliverable_ar": "سطح للاستثناءات وجدول أسبوعي ومصدر واحد للجهاز",
+      "acceptance_criteria_ar": [
+        "يمكن الوصول من التأخير إلى البصمة والسياسة وطلب التصحيح",
+        "الوردية العابرة لمنتصف الليل تشرح اليومين",
+        "إعداد الجهاز لا يتباين بين حضور ودوامات",
+        "الجدول له طريقة استعراض قابلة للعمل على الهاتف"
+      ],
+      "effort_person_days_estimate": [
+        4,
+        6
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-019",
+      "title_ar": "إعادة تنظيم مساحة مسير الرواتب",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 4,
+      "owner_role": "Frontend + UI/UX",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [],
+      "source_files": [
+        "src/components/payroll/PayrollView.tsx",
+        "src/components/payroll/PayrollPaymentsPanel.tsx",
+        "src/components/payroll/BankTransferPanel.tsx",
+        "src/components/payroll/PayrollReconciliationPanel.tsx"
+      ],
+      "depends_on": [
+        "DES-009",
+        "DES-010",
+        "DES-011",
+        "DES-016",
+        "DES-018"
+      ],
+      "deliverable_ar": "مساحة مسير مراحلها وسياقها ثابتان",
+      "acceptance_criteria_ar": [
+        "الشهر والشركة والعملة والحالة ظاهرة أثناء مراجعة البنود",
+        "الإعداد والاعتماد والدفع والمطابقة حالات منفصلة",
+        "تصدير البنك لا يغيّر حالة الدفع",
+        "كل مبلغ متغير يفتح مصدرًا وتفسيرًا أو يصرح بغياب الدليل"
+      ],
+      "effort_person_days_estimate": [
+        4,
+        7
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-020",
+      "title_ar": "تنظيم السلف والمخالصات والنفقات",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 4,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [],
+      "source_files": [
+        "src/components/payroll/LoansTreasuryPanel.tsx",
+        "src/components/payroll/PayrollView.tsx",
+        "src/components/expenses/ExpensesView.tsx"
+      ],
+      "depends_on": [
+        "DES-009",
+        "DES-010",
+        "DES-011",
+        "DES-019"
+      ],
+      "deliverable_ar": "جداول سداد وصرف ومطالبة ومخالصة",
+      "acceptance_criteria_ar": [
+        "السلفة المعتمدة مميزة عن المصروفة والمستقطعة",
+        "المبلغ المتبقي يفسر بالأقساط والتسويات",
+        "حد النفقات التحذيري مميز عن المانع",
+        "تأكيد المخالصة يعرض أثر البنود ومرجعها"
+      ],
+      "effort_person_days_estimate": [
+        3,
+        5
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-021",
+      "title_ar": "تنظيم خزينة الوثائق والعهد والطباعة",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 4,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-18",
+        "UX-20"
+      ],
+      "source_files": [
+        "src/components/documents/DocumentVaultView.tsx",
+        "src/components/documents/OfficialDocumentModal.tsx",
+        "src/components/assets/AssetsView.tsx"
+      ],
+      "depends_on": [
+        "DES-009",
+        "DES-010",
+        "DES-011"
+      ],
+      "deliverable_ar": "خزينة مصدرية ومعاينة ورفع وتحقق وإصدار منفصلة",
+      "acceptance_criteria_ar": [
+        "اختيار الملف لا يظهر تم الرفع للسحابة",
+        "كل نسخة وحالة انتهاء لها معنى وتاريخ",
+        "تنزيل الملف ينفذ أو يظهر غير متاح بدل رسالة نجاح شكلية",
+        "قوالب A4 والاسم العربي الطويل لا تقص ولا تطبع أزرار الواجهة"
+      ],
+      "effort_person_days_estimate": [
+        4,
+        6
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-022",
+      "title_ar": "إعادة تصميم مركز التقارير",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 4,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-03"
+      ],
+      "source_files": [
+        "src/components/reports/ReportsView.tsx",
+        "src/components/payroll/MonthlyReportsPanel.tsx"
+      ],
+      "depends_on": [
+        "DES-004",
+        "DES-010",
+        "DES-011",
+        "DES-019"
+      ],
+      "deliverable_ar": "كتالوج وpreview وباني وdownload job",
+      "acceptance_criteria_ar": [
+        "الاسم والغرض والفترة والفلاتر والإجمالي ظاهرة في المعاينة",
+        "الصيغ المتاحة تطابق المنفذ فعليًا",
+        "تجهيز ملف كبير له تقدم وحالة فشل وإعادة محاولة",
+        "المعاينة والتصدير يتفقان في ترتيب وأسماء الأعمدة"
+      ],
+      "effort_person_days_estimate": [
+        3,
+        5
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-023",
+      "title_ar": "تحسين المنشأة والشجرة والتخطيط التنظيمي",
+      "status": "planned",
+      "priority": "P2",
+      "phase": 5,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [],
+      "source_files": [
+        "src/components/organization/OrganizationView.tsx",
+        "src/components/organization/OrgChartSvg.tsx",
+        "src/components/organization/OrganizationPlanningPanels.tsx"
+      ],
+      "depends_on": [
+        "DES-009",
+        "DES-010",
+        "DES-011"
+      ],
+      "deliverable_ar": "إعدادات منظمة وشجرة وقائمة بديلة",
+      "acceptance_criteria_ar": [
+        "إيجاد قسم ممكن بلوحة المفاتيح دون SVG",
+        "موقع ومنصب ومركز تكلفة لها تسميات متميزة",
+        "الشجرة تعالج الاسم الطويل وفقدان الأب بسلوك موثق",
+        "لا يحتاج تعديل وحدة إلى التنقل بين نوافذ متداخلة"
+      ],
+      "effort_person_days_estimate": [
+        3,
+        5
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-024",
+      "title_ar": "تحسين فهم الصلاحيات وأثر التغيير",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 5,
+      "owner_role": "Frontend + UI/UX",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [],
+      "source_files": [
+        "src/components/rbac/RbacView.tsx",
+        "src/components/rbac/GroupPermissionsPanel.tsx",
+        "src/components/rbac/UserPermissionsPanel.tsx"
+      ],
+      "depends_on": [
+        "DES-009",
+        "DES-010",
+        "DES-011"
+      ],
+      "deliverable_ar": "effective access وreview تغييرات",
+      "acceptance_criteria_ar": [
+        "توضح الموروث والمباشر والمنع ومصدر كل نتيجة",
+        "تغيير مجموعة يعرض عدد الأعضاء والأثر قبل الحفظ",
+        "المصفوفة قابلة للقراءة والبحث في شاشة صغيرة",
+        "فشل الحفظ لا يثبت شارة نجاح"
+      ],
+      "effort_person_days_estimate": [
+        3,
+        5
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-025",
+      "title_ar": "تحسين التوظيف وتخطيط القوى العاملة",
+      "status": "planned",
+      "priority": "P2",
+      "phase": 5,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-19"
+      ],
+      "source_files": [
+        "src/components/recruitment/RecruitmentView.tsx"
+      ],
+      "depends_on": [
+        "DES-009",
+        "DES-010",
+        "DES-011"
+      ],
+      "deliverable_ar": "Kanban/List وملف مرشح وعرض وخطة ميزانية",
+      "acceptance_criteria_ar": [
+        "لا تضغط 6 أعمدة على هاتف؛ تبديل قائمة متاح",
+        "تغيير المرحلة ممكن دون drag",
+        "عرض العمل له مراجعة قبل الإرسال وحالة مؤكدة",
+        "المقاعد المخططة والمشغولة والمفتوحة منفصلة عن التكلفة"
+      ],
+      "effort_person_days_estimate": [
+        3,
+        5
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-026",
+      "title_ar": "تحسين الأداء ودورة التقييم",
+      "status": "planned",
+      "priority": "P2",
+      "phase": 5,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [],
+      "source_files": [
+        "src/components/performance/PerformanceView.tsx"
+      ],
+      "depends_on": [
+        "DES-009",
+        "DES-010",
+        "DES-011"
+      ],
+      "deliverable_ar": "تقييم واضح بمعاني درجات ومسودة وبديل 9-box",
+      "acceptance_criteria_ar": [
+        "تظهر معاني المحاور والدرجات قبل التقييم",
+        "المسودة لا تضيع عند انتقال آمن",
+        "الـ9-box لها جدول مكافئ قابل للوصول",
+        "النتيجة لا تظهر اعتمادًا قبل اكتمال الخطوات"
+      ],
+      "effort_person_days_estimate": [
+        2,
+        4
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-027",
+      "title_ar": "تحسين سجلات التكامل والتدقيق",
+      "status": "planned",
+      "priority": "P2",
+      "phase": 5,
+      "owner_role": "Frontend",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [
+        "UX-02"
+      ],
+      "source_files": [
+        "src/components/audit/AuditView.tsx",
+        "src/components/integrations/IntegrationsView.tsx"
+      ],
+      "depends_on": [
+        "DES-003",
+        "DES-010",
+        "DES-011"
+      ],
+      "deliverable_ar": "سجل محاولات وbefore/after وتعريف وقت",
+      "acceptance_criteria_ar": [
+        "الحالة مرتبطة بمرجع وتوقيت ومنطقة زمنية",
+        "قيم قبل وبعد مع أسماء حقول مفهومة دون كشف غير مصرح",
+        "الفلاتر والبحث يمكن مشاركتها بمرجع آمن",
+        "إعادة محاولة فاشلة لا تحاكي نجاحًا"
+      ],
+      "effort_person_days_estimate": [
+        2,
+        4
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-028",
+      "title_ar": "تدقيق شامل للمكونات وإمكانية الوصول",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 5,
+      "owner_role": "QA",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [],
+      "source_files": [
+        "src/components/ui/dialog.tsx",
+        "src/components/ui/tabs.tsx",
+        "src/styles.css"
+      ],
+      "depends_on": [
+        "DES-007",
+        "DES-008",
+        "DES-009",
+        "DES-010",
+        "DES-011"
+      ],
+      "deliverable_ar": "مصفوفة قياسات وkeyboard وAR/EN وdark",
+      "acceptance_criteria_ar": [
+        "قياس التباين الفعلي وعدم الاعتماد على أسماء الألوان",
+        "200% نص و320px reflow مع توثيق استثناء الجداول",
+        "تسلسل تركيز واضح واسترجاعه بعد إغلاق dialog",
+        "مراجعة touch targets حسب WCAG2.2 وقاعدة المنتج 44px"
+      ],
+      "effort_person_days_estimate": [
+        3,
+        5
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-029",
+      "title_ar": "اختبار المهام وقياس أثر التصميم",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 5,
+      "owner_role": "Product Manager + UI/UX",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [],
+      "source_files": [
+        "src/components/layout/AppLayout.tsx"
+      ],
+      "depends_on": [
+        "DES-012",
+        "DES-013",
+        "DES-014",
+        "DES-015",
+        "DES-016",
+        "DES-017",
+        "DES-018",
+        "DES-019",
+        "DES-020",
+        "DES-021",
+        "DES-022"
+      ],
+      "deliverable_ar": "مقارنة 5 مهام بbaseline",
+      "acceptance_criteria_ar": [
+        "6–8 مستخدمين موزعين على الأدوار مع بيانات اختبار",
+        "تسجل المدة والإكمال والأخطاء وسهولة المهمة",
+        "التحسن المستهدف لا يوصف بأنه محقق قبل القياس",
+        "تراجع أولويات المشاكل المكتشفة وتبقى موانع P0/P1 ظاهرة"
+      ],
+      "effort_person_days_estimate": [
+        2,
+        4
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    },
+    {
+      "id": "DES-030",
+      "title_ar": "إغلاق الدفعة وتوثيق الاستثناءات وخطة العودة",
+      "status": "planned",
+      "priority": "P1",
+      "phase": 5,
+      "owner_role": "Tech Lead + QA",
+      "reviewers": [
+        "Product Manager",
+        "UI/UX",
+        "Tech Lead",
+        "QA"
+      ],
+      "finding_refs": [],
+      "source_files": [
+        "src/components/layout/AppLayout.tsx"
+      ],
+      "depends_on": [
+        "DES-002",
+        "DES-003",
+        "DES-004",
+        "DES-005",
+        "DES-006",
+        "DES-007",
+        "DES-008",
+        "DES-009",
+        "DES-010",
+        "DES-011",
+        "DES-012",
+        "DES-013",
+        "DES-014",
+        "DES-015",
+        "DES-016",
+        "DES-017",
+        "DES-018",
+        "DES-019",
+        "DES-020",
+        "DES-021",
+        "DES-022",
+        "DES-023",
+        "DES-024",
+        "DES-025",
+        "DES-026",
+        "DES-027",
+        "DES-028",
+        "DES-029"
+      ],
+      "deliverable_ar": "قرار إصدار للنطاق وPRs موثقة وصور",
+      "acceptance_criteria_ar": [
+        "صفر P0/P1 مفتوحة في النطاق المعتمد",
+        "كل وحدة لها نتيجة بصرية ومهام قبول أو استثناء معلن يمنع وصفها مكتملة",
+        "لا تغيير غير مقصود لمنطق الرواتب أو صلاحيات البيانات",
+        "نسخة سابقة وخطة تعطيل flag وإعادة نشر موثقتان دون إعادة كتابة Git"
+      ],
+      "effort_person_days_estimate": [
+        1,
+        2
+      ],
+      "estimate_note": "جهد أولي للفريق، لا يساوي المدة التقويمية؛ يعاد التقدير بعد الدليل البصري."
+    }
+  ]
+}

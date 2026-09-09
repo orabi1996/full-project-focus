@@ -1,0 +1,88 @@
+{
+  "schema_version": "0.1.0",
+  "architecture_version": "draft-2026-09-08",
+  "status": "proposal",
+  "runtime_enabled": false,
+  "service_shape": "modular_monolith",
+  "source_of_truth": "postgresql",
+  "hosting_baseline": "supabase_plus_tanstack_start",
+  "tenant_strategy": {
+    "target": "shared_database_shared_schema",
+    "tenant_key": "tenant_id",
+    "membership_table": "tenant_memberships",
+    "company_role": "legal_entity_within_tenant",
+    "rls_required": true,
+    "storage_prefix": "tenant/{tenant_id}",
+    "cross_tenant_client_queries": false,
+    "separate_database_trigger": "enterprise_requirement_and_measured_isolation_need"
+  },
+  "layers": [
+    "transport",
+    "application_commands_queries",
+    "domain_policies",
+    "repositories_and_transactions",
+    "postgresql_and_private_storage",
+    "outbox_and_workers",
+    "integration_adapters"
+  ],
+  "domains": [
+    { "id": "identity_access", "owner": "identity", "release": "r0" },
+    { "id": "tenant_organization", "owner": "organization", "release": "r0" },
+    { "id": "people_employment", "owner": "people", "release": "r1" },
+    { "id": "time_attendance", "owner": "time", "release": "r1" },
+    { "id": "leave_requests", "owner": "leave_workflow", "release": "r1" },
+    { "id": "payroll_settlement", "owner": "payroll_finance", "release": "r1" },
+    { "id": "documents_assets", "owner": "documents", "release": "r1" },
+    { "id": "reporting_audit", "owner": "governance", "release": "r1" },
+    { "id": "notifications", "owner": "notifications", "release": "r1" },
+    { "id": "integrations", "owner": "integration", "release": "r1" },
+    { "id": "subscription_entitlement", "owner": "commerce", "release": "r0" },
+    { "id": "learning_bridge", "owner": "integration_with_product_owner", "release": "later" }
+  ],
+  "transactional_operations": [
+    "leave_decision_and_reservation_settlement",
+    "attendance_import_idempotency_and_result",
+    "payroll_snapshot_and_lock",
+    "payment_reference_and_reconciliation",
+    "settlement_close_and_eligible_items",
+    "subscription_period_and_entitlement"
+  ],
+  "event_delivery": {
+    "pattern": "transactional_outbox",
+    "delivery": "at_least_once",
+    "consumer_requirement": "idempotent",
+    "dead_letter_required": true,
+    "event_versioning": true,
+    "sensitive_payloads": "references_and_minimum_summary_only"
+  },
+  "security_controls": [
+    "session_authentication",
+    "tenant_context",
+    "application_authorization",
+    "postgres_rls",
+    "private_storage_signed_urls",
+    "service_role_server_only",
+    "audit_append_only",
+    "mfa_for_sensitive_roles",
+    "csrf_and_webhook_signature",
+    "rate_limiting_and_idempotency"
+  ],
+  "frontend_transition": {
+    "current_compatibility_layer": "AppContext",
+    "target": "route_page_feature_query_command",
+    "migration": "domain_by_domain",
+    "live_mode_mock_fallback": false,
+    "sensitive_data_local_storage": false
+  },
+  "environments": ["local", "ci", "staging", "pilot", "production"],
+  "non_functional_targets": {
+    "interactive_query_p95_ms": 500,
+    "normal_command_p95_ms": 1000,
+    "payroll_lock_target_seconds": 30,
+    "beta_availability_target": "99.5%",
+    "beta_rpo": "24h",
+    "beta_rto": "4h",
+    "accessibility_target": "WCAG_2_2_AA_core_tasks"
+  },
+  "open_decisions": ["O-01", "O-02", "O-03", "O-04", "O-05", "O-06", "O-07", "O-08", "O-09"]
+}

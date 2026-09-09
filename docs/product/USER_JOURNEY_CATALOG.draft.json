@@ -1,0 +1,407 @@
+{
+  "schema_version": "0.1.0",
+  "catalog_version": "draft-2026-09-08",
+  "status": "proposal",
+  "runtime_enabled": false,
+  "default_locale": "ar",
+  "supported_locales": ["ar", "en"],
+  "actor_types": [
+    "visitor",
+    "employee_or_org_member",
+    "candidate",
+    "identity_provider",
+    "commerce_service",
+    "notification_service",
+    "attendance_device",
+    "payment_provider",
+    "security_function"
+  ],
+  "state_machine": [
+    "draft",
+    "submitted",
+    "pending_approval",
+    "processing",
+    "completed",
+    "rejected",
+    "failed_retryable",
+    "failed_terminal",
+    "cancelled",
+    "expired"
+  ],
+  "global_guards": [
+    "active_session",
+    "tenant_membership",
+    "released_feature",
+    "subscription_entitlement",
+    "role_permission_and_scope",
+    "entity_and_period_status",
+    "separation_of_duties",
+    "idempotency_for_sensitive_commands",
+    "append_only_audit"
+  ],
+  "journeys": [
+    {
+      "id": "J-01",
+      "slug": "secure-entry",
+      "primary_role": "employee_or_org_member",
+      "participants": ["identity_provider", "support_agent"],
+      "entry": "landing_or_invitation_link",
+      "outcome": "authenticated_active_membership_or_onboarding_required",
+      "critical": true,
+      "steps": [
+        "validate_invite_or_login_context",
+        "authenticate_and_verify_mfa",
+        "resolve_membership_and_entitlements",
+        "load_authorization_and_first_route",
+        "notify_and_audit"
+      ],
+      "failure_codes": [
+        "invite_expired",
+        "invalid_credentials",
+        "mfa_timeout",
+        "membership_inactive",
+        "rate_limited"
+      ],
+      "metrics": ["login_success_rate", "time_to_first_allowed_route", "invite_acceptance_rate"]
+    },
+    {
+      "id": "J-02",
+      "slug": "tenant-onboarding",
+      "primary_role": "org_owner",
+      "participants": ["org_admin", "hr_manager", "commerce_service", "notification_service"],
+      "entry": "trial_or_sales_provisioning",
+      "outcome": "onboarding_ready",
+      "critical": true,
+      "steps": [
+        "verify_terms_and_business_identity",
+        "create_tenant_and_legal_entity",
+        "configure_timezone_currency_and_policy",
+        "invite_first_members",
+        "run_first_value_checklist",
+        "notify_and_audit"
+      ],
+      "failure_codes": [
+        "identity_incomplete",
+        "unsupported_locale_or_currency",
+        "seat_limit",
+        "import_partial_failure"
+      ],
+      "metrics": ["time_to_onboarding_ready", "checklist_completion_rate", "activation_rate"]
+    },
+    {
+      "id": "J-03",
+      "slug": "member-invitation-and-link",
+      "primary_role": "org_admin",
+      "participants": ["hr_manager", "employee", "identity_provider"],
+      "entry": "people_members_invite",
+      "outcome": "active_membership_linked_or_pending_match",
+      "critical": true,
+      "steps": [
+        "assign_role_scope_and_effective_date",
+        "validate_seat_sod_and_membership",
+        "send_opaque_invitation",
+        "accept_and_verify_member",
+        "match_employee_record",
+        "activate_and_audit"
+      ],
+      "failure_codes": [
+        "seat_limit",
+        "invitation_exists",
+        "invitation_expired",
+        "employee_match_ambiguous",
+        "role_grant_denied"
+      ],
+      "metrics": ["invite_acceptance_rate", "time_to_employee_link", "ambiguous_match_rate"]
+    },
+    {
+      "id": "J-04",
+      "slug": "employee-lifecycle",
+      "primary_role": "hr_manager",
+      "participants": [
+        "hr_operator",
+        "line_manager",
+        "payroll_officer",
+        "asset_manager",
+        "finance_officer",
+        "employee"
+      ],
+      "entry": "hire_or_employment_change",
+      "outcome": "dated_employment_or_closed_settlement",
+      "critical": true,
+      "steps": [
+        "create_person_and_employment",
+        "validate_identity_dates_and_uniqueness",
+        "approve_sensitive_change",
+        "create_onboarding_tasks",
+        "operate_with_versioned_changes",
+        "run_exit_checklist_and_settlement",
+        "audit_lifecycle"
+      ],
+      "failure_codes": [
+        "employment_overlap",
+        "required_document_missing",
+        "manager_scope_invalid",
+        "settlement_dispute"
+      ],
+      "metrics": ["time_to_productive_employee", "first_time_complete_rate", "time_to_close_exit"]
+    },
+    {
+      "id": "J-05",
+      "slug": "employee-self-service-day",
+      "primary_role": "employee",
+      "participants": ["attendance_device", "line_manager", "hr_manager", "payroll_officer"],
+      "entry": "ess_home",
+      "outcome": "daily_action_recorded_with_status",
+      "critical": true,
+      "steps": [
+        "load_employee_day_card",
+        "submit_punch_or_request",
+        "validate_link_timezone_and_policy",
+        "reserve_or_submit_workflow",
+        "notify_status_and_next_action",
+        "publish_payslip_when_available",
+        "audit_self_service_action"
+      ],
+      "failure_codes": [
+        "employee_unlinked",
+        "device_not_trusted",
+        "balance_insufficient",
+        "network_timeout",
+        "session_expired"
+      ],
+      "metrics": ["ess_task_completion_rate", "self_service_success_rate", "support_deflection"]
+    },
+    {
+      "id": "J-06",
+      "slug": "attendance-exception",
+      "primary_role": "attendance_officer",
+      "participants": [
+        "employee",
+        "line_manager",
+        "hr_manager",
+        "payroll_officer",
+        "attendance_device"
+      ],
+      "entry": "punch_import_or_correction_request",
+      "outcome": "resolved_attendance_fact_or_rejected_exception",
+      "critical": true,
+      "steps": [
+        "ingest_raw_punch_with_source_checksum",
+        "validate_device_time_shift_and_duplicate",
+        "create_exception_and_route_scope",
+        "approve_or_reject_with_reason",
+        "process_attendance_projection",
+        "publish_payroll_eligible_fact",
+        "audit_decision"
+      ],
+      "failure_codes": [
+        "duplicate_batch",
+        "device_key_invalid",
+        "future_timestamp",
+        "scope_denied",
+        "period_locked"
+      ],
+      "metrics": ["auto_match_rate", "exception_sla", "duplicate_rate"]
+    },
+    {
+      "id": "J-07",
+      "slug": "leave-request",
+      "primary_role": "employee",
+      "participants": ["line_manager", "hr_manager", "payroll_officer"],
+      "entry": "ess_leave_or_leave_inbox",
+      "outcome": "settled_leave_ledger_or_released_reservation",
+      "critical": true,
+      "steps": [
+        "calculate_working_days_and_balance",
+        "reserve_balance_transactionally",
+        "route_to_effective_manager",
+        "approve_reject_or_request_change",
+        "settle_ledger_or_release_reservation",
+        "publish_payroll_event",
+        "notify_and_audit"
+      ],
+      "failure_codes": [
+        "overlap",
+        "balance_changed",
+        "manager_missing",
+        "policy_exception",
+        "period_locked"
+      ],
+      "metrics": ["approval_cycle_time", "first_time_complete_rate", "overlap_conflict_rate"]
+    },
+    {
+      "id": "J-08",
+      "slug": "payroll-cycle",
+      "primary_role": "payroll_officer",
+      "participants": [
+        "hr_manager",
+        "finance_officer",
+        "org_owner",
+        "employee",
+        "payment_provider"
+      ],
+      "entry": "payroll_period_cutoff",
+      "outcome": "reconciled_payment_and_payslip",
+      "critical": true,
+      "steps": [
+        "freeze_period_and_policy_version",
+        "collect_approved_facts_and_snapshots",
+        "calculate_and_surface_warnings",
+        "independent_review",
+        "lock_run_with_four_eyes",
+        "execute_or_record_payment",
+        "reconcile_provider_result",
+        "publish_restricted_payslip",
+        "audit_full_run"
+      ],
+      "failure_codes": [
+        "source_missing",
+        "four_eyes_violation",
+        "reconciliation_required",
+        "payment_partial",
+        "provider_timeout",
+        "restricted_field_denied"
+      ],
+      "metrics": [
+        "on_time_payroll_rate",
+        "adjustment_rate",
+        "reconciliation_variance",
+        "payslip_delivery_rate"
+      ]
+    },
+    {
+      "id": "J-09",
+      "slug": "advance-expense-settlement",
+      "primary_role": "finance_officer",
+      "participants": ["employee", "hr_manager", "payroll_officer", "asset_manager", "org_owner"],
+      "entry": "advance_expense_or_employee_exit",
+      "outcome": "paid_matched_obligation_or_closed_settlement",
+      "critical": true,
+      "steps": [
+        "submit_amount_reason_and_evidence",
+        "validate_limit_duplicate_and_eligibility",
+        "review_and_approve_threshold",
+        "disburse_or_create_installments",
+        "match_receipt_and_asset_clearance",
+        "close_settlement_or_open_dispute",
+        "audit_financial_change"
+      ],
+      "failure_codes": [
+        "duplicate_evidence",
+        "disbursement_account_blocked",
+        "installment_exceeds_net",
+        "asset_dispute",
+        "sod_violation"
+      ],
+      "metrics": ["approval_cycle_time", "evidence_match_rate", "settlement_close_time"]
+    },
+    {
+      "id": "J-10",
+      "slug": "recruit-to-hire",
+      "primary_role": "recruiter",
+      "participants": [
+        "line_manager",
+        "hr_manager",
+        "candidate",
+        "payroll_officer",
+        "asset_manager"
+      ],
+      "entry": "vacancy_or_candidate_source",
+      "outcome": "accepted_offer_and_single_employee_record",
+      "critical": false,
+      "steps": [
+        "approve_vacancy_and_scope",
+        "capture_candidate_consent",
+        "move_candidate_through_stages",
+        "approve_and_send_offer",
+        "accept_before_expiry",
+        "convert_idempotently_to_employment",
+        "emit_hired_tasks_and_audit"
+      ],
+      "failure_codes": [
+        "duplicate_person",
+        "offer_expired",
+        "range_not_approved",
+        "retention_expired"
+      ],
+      "metrics": ["time_to_hire", "stage_conversion", "duplicate_prevention_rate"]
+    },
+    {
+      "id": "J-11",
+      "slug": "performance-cycle",
+      "primary_role": "performance_lead",
+      "participants": ["line_manager", "employee", "hr_manager"],
+      "entry": "cycle_open",
+      "outcome": "acknowledged_review_or_open_appeal",
+      "critical": false,
+      "steps": [
+        "configure_cycle_and_template",
+        "set_weighted_goals_within_scope",
+        "employee_check_ins_and_evidence",
+        "manager_submit_review",
+        "calibrate_and_lock",
+        "acknowledge_or_appeal",
+        "audit_versioned_review"
+      ],
+      "failure_codes": ["weights_invalid", "manager_changed", "cycle_locked", "scope_denied"],
+      "metrics": ["cycle_completion_rate", "appeal_rate", "goal_checkin_adoption"]
+    },
+    {
+      "id": "J-12",
+      "slug": "asset-integration-report-support",
+      "primary_role": "org_admin",
+      "participants": [
+        "asset_manager",
+        "org_admin",
+        "auditor",
+        "support_agent",
+        "security_function"
+      ],
+      "entry": "asset_connection_report_or_ticket",
+      "outcome": "traceable_operational_result_or_scoped_support_resolution",
+      "critical": true,
+      "steps": [
+        "select_resource_and_scope",
+        "validate_permission_and_sensitive_fields",
+        "approve_assignment_connection_or_export",
+        "run_inspection_sync_or_report_job",
+        "handle_retry_dlq_or_stale_projection",
+        "expire_links_and_break_glass",
+        "audit_access_and_result"
+      ],
+      "failure_codes": [
+        "signature_invalid",
+        "stale_projection",
+        "export_reason_required",
+        "break_glass_expired",
+        "asset_dispute"
+      ],
+      "metrics": [
+        "sync_success_rate",
+        "report_time_to_ready",
+        "support_first_response",
+        "restricted_access_events"
+      ]
+    }
+  ],
+  "deep_link_policy": {
+    "authorization_rechecked_on_open": true,
+    "sensitive_values_in_query_string": false,
+    "opaque_resource_ids": true,
+    "expired_link_behavior": "return_to_scoped_inbox"
+  },
+  "notification_policy": {
+    "channels": ["in_app", "email", "sms_optional", "push_optional"],
+    "no_sensitive_values_in_email": true,
+    "idempotent_event_delivery": true,
+    "retry_with_dead_letter": true,
+    "template_version_required": true
+  },
+  "open_decisions": [
+    "country_and_payroll_policy",
+    "identity_and_mfa_provider",
+    "payment_provider",
+    "first_attendance_adapter",
+    "support_break_glass_approver"
+  ]
+}

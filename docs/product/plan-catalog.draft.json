@@ -1,0 +1,256 @@
+{
+  "schema_version": "0.1.0",
+  "catalog_version": "draft-2026-09-08",
+  "status": "proposal",
+  "runtime_enabled": false,
+  "prices_are_hypotheses": true,
+  "currency": "SAR",
+  "tax_included": false,
+  "assumption_refs": ["H01", "H02", "H05", "H08", "H12"],
+  "source_documents": [
+    "PART_02_PRODUCT_STRATEGY.ar.md",
+    "SUBSCRIPTIONS_AND_ENTITLEMENTS.ar.md",
+    "MVP_SCOPE_AND_ACCEPTANCE.ar.md"
+  ],
+  "billing_proposal": {
+    "unit": "unique_managed_person_day",
+    "calendar": "gregorian_month",
+    "default_timezone": "Asia/Riyadh",
+    "minimum_applies": "per_paid_local_day",
+    "rounding": "once_per_final_invoice_line_to_currency_minor_unit",
+    "upgrade_price_effective": "next_local_day_after_approved_upgrade",
+    "downgrade_effective": "next_renewal_after_limit_resolution",
+    "annual_billing_enabled": false,
+    "past_due_grace_calendar_days": 14,
+    "historical_read_only_people_billable": false,
+    "count_multiple_assignments_once_per_tenant": true
+  },
+  "trial_proposal": {
+    "synthetic_demo_days": 14,
+    "card_required": false,
+    "auto_convert_to_paid": false,
+    "real_employee_data_before_readiness_allowed": false,
+    "paid_pilot_requires_separate_agreement": true,
+    "paid_pilot_payroll_cycles": 2
+  },
+  "enforcement_requirements": {
+    "requires_released_and_verified_feature": true,
+    "requires_contract_entitlement": true,
+    "requires_role_permission_and_tenant_scope": true,
+    "requires_operation_within_limits": true,
+    "plan_change_grants_roles": false,
+    "limit_reached_deletes_records": false,
+    "commercial_read_only_preserves_authorized_history_export": true,
+    "contract_limit_means_unlimited": false
+  },
+  "baseline_controls": [
+    "tenant_and_file_isolation",
+    "rbac_and_data_scopes",
+    "separation_of_duties",
+    "mfa_for_sensitive_roles",
+    "audit_trail",
+    "backup_and_tested_restore",
+    "authorized_exit_export"
+  ],
+  "features": {
+    "core_hr": { "release_target": "beta", "delivery_status": "planned" },
+    "time_scheduling": { "release_target": "beta", "delivery_status": "planned" },
+    "attendance_import": { "release_target": "beta", "delivery_status": "planned" },
+    "leave_requests": { "release_target": "beta", "delivery_status": "planned" },
+    "payroll_runs": { "release_target": "beta", "delivery_status": "planned" },
+    "salary_advances": { "release_target": "beta", "delivery_status": "planned" },
+    "payment_reconciliation": { "release_target": "beta", "delivery_status": "planned" },
+    "ess": { "release_target": "beta", "delivery_status": "planned" },
+    "standard_reports": { "release_target": "beta", "delivery_status": "planned" },
+    "data_exports": { "release_target": "beta", "delivery_status": "planned" },
+    "private_documents": { "release_target": "beta", "delivery_status": "planned" },
+    "settlement_checks": { "release_target": "beta", "delivery_status": "planned" },
+    "scheduled_reports": { "release_target": "growth", "delivery_status": "planned" },
+    "extra_automations": { "release_target": "growth", "delivery_status": "planned" },
+    "live_connectors": { "release_target": "growth", "delivery_status": "planned" },
+    "enterprise_sso": { "release_target": "enterprise", "delivery_status": "planned" },
+    "enterprise_support": { "release_target": "enterprise", "delivery_status": "planned" }
+  },
+  "plans": [
+    {
+      "id": "basic",
+      "name_ar": "الأساسية",
+      "name_en": "Basic",
+      "sellable": false,
+      "release_target": "growth",
+      "pricing": {
+        "kind": "hypothesis_per_managed_person_month",
+        "amount_minor": 1500,
+        "currency_minor_unit_digits": 2,
+        "minimum_billable_people": { "kind": "fixed", "value": 50 }
+      },
+      "limits": {
+        "managed_people": { "kind": "fixed", "value": 100 },
+        "specialist_accounts": { "kind": "fixed", "value": 5 },
+        "legal_entities": { "kind": "fixed", "value": 1 },
+        "locations": { "kind": "fixed", "value": 3 },
+        "payroll_countries": { "kind": "fixed", "value": 1 },
+        "document_storage_gib": { "kind": "fixed", "value": 5 },
+        "validated_attendance_import_formats": { "kind": "fixed", "value": 1 },
+        "live_connector_slots_when_released": { "kind": "fixed", "value": 0 },
+        "extra_active_automations_when_released": { "kind": "fixed", "value": 5 }
+      },
+      "features": [
+        "core_hr",
+        "time_scheduling",
+        "attendance_import",
+        "leave_requests",
+        "payroll_runs",
+        "salary_advances",
+        "payment_reconciliation",
+        "ess",
+        "standard_reports",
+        "data_exports",
+        "private_documents",
+        "settlement_checks",
+        "extra_automations"
+      ],
+      "ess_and_manager_accounts": "included_with_managed_people",
+      "ai_features": [],
+      "support": {
+        "status": "proposed_not_contracted",
+        "channels": ["tickets", "email"],
+        "timezone": "Asia/Riyadh",
+        "working_days": ["sun", "mon", "tue", "wed", "thu"],
+        "working_hours": { "start": "09:00", "end": "17:00" },
+        "p1_first_response_target_business_minutes": 240,
+        "resolution_time_guaranteed": false
+      }
+    },
+    {
+      "id": "professional",
+      "name_ar": "الاحترافية",
+      "name_en": "Professional",
+      "sellable": false,
+      "release_target": "beta",
+      "pricing": {
+        "kind": "hypothesis_per_managed_person_month",
+        "amount_minor": 2000,
+        "currency_minor_unit_digits": 2,
+        "minimum_billable_people": { "kind": "fixed", "value": 100 }
+      },
+      "limits": {
+        "managed_people": { "kind": "fixed", "value": 500 },
+        "specialist_accounts": { "kind": "fixed", "value": 20 },
+        "legal_entities": { "kind": "fixed", "value": 5 },
+        "locations": { "kind": "fixed", "value": 20 },
+        "payroll_countries": { "kind": "fixed", "value": 1 },
+        "document_storage_gib": { "kind": "fixed", "value": 25 },
+        "validated_attendance_import_formats": { "kind": "fixed", "value": 1 },
+        "live_connector_slots_when_released": { "kind": "fixed", "value": 1 },
+        "extra_active_automations_when_released": { "kind": "fixed", "value": 25 }
+      },
+      "features": [
+        "core_hr",
+        "time_scheduling",
+        "attendance_import",
+        "leave_requests",
+        "payroll_runs",
+        "salary_advances",
+        "payment_reconciliation",
+        "ess",
+        "standard_reports",
+        "data_exports",
+        "private_documents",
+        "settlement_checks",
+        "scheduled_reports",
+        "extra_automations",
+        "live_connectors"
+      ],
+      "ess_and_manager_accounts": "included_with_managed_people",
+      "ai_features": [],
+      "support": {
+        "status": "proposed_not_contracted",
+        "channels": ["tickets", "email"],
+        "timezone": "Asia/Riyadh",
+        "working_days": ["sun", "mon", "tue", "wed", "thu"],
+        "working_hours": { "start": "09:00", "end": "17:00" },
+        "p1_first_response_target_business_minutes": 60,
+        "onboarding_owner": true,
+        "periodic_success_review": true,
+        "resolution_time_guaranteed": false
+      }
+    },
+    {
+      "id": "enterprise",
+      "name_ar": "المؤسسات",
+      "name_en": "Enterprise",
+      "sellable": false,
+      "release_target": "enterprise",
+      "pricing": {
+        "kind": "contract_required",
+        "minimum_billable_people": { "kind": "contract" }
+      },
+      "limits": {
+        "managed_people": { "kind": "contract" },
+        "specialist_accounts": { "kind": "contract" },
+        "legal_entities": { "kind": "contract" },
+        "locations": { "kind": "contract" },
+        "payroll_countries": { "kind": "fixed", "value": 1 },
+        "document_storage_gib": { "kind": "contract" },
+        "validated_attendance_import_formats": { "kind": "fixed", "value": 1 },
+        "live_connector_slots_when_released": { "kind": "contract" },
+        "extra_active_automations_when_released": { "kind": "contract" }
+      },
+      "features": [
+        "core_hr",
+        "time_scheduling",
+        "attendance_import",
+        "leave_requests",
+        "payroll_runs",
+        "salary_advances",
+        "payment_reconciliation",
+        "ess",
+        "standard_reports",
+        "data_exports",
+        "private_documents",
+        "settlement_checks",
+        "scheduled_reports",
+        "extra_automations",
+        "live_connectors",
+        "enterprise_sso",
+        "enterprise_support"
+      ],
+      "ess_and_manager_accounts": "included_with_contract_managed_people",
+      "ai_features": [],
+      "support": {
+        "status": "contract_and_readiness_required",
+        "channels": ["tickets", "email", "contract_escalation"],
+        "p1_24x7_requires_staffing_and_contract": true,
+        "first_response_target": { "kind": "contract" },
+        "resolution_time_guaranteed": false
+      }
+    }
+  ],
+  "add_ons": [
+    {
+      "id": "document_storage_25gib",
+      "sellable": false,
+      "release_target": "growth",
+      "quantity_gib": 25,
+      "pricing": { "kind": "hypothesis_monthly", "amount_minor": 6000 },
+      "cost_validation_required": true
+    },
+    {
+      "id": "custom_connector",
+      "sellable": false,
+      "release_target": "growth",
+      "pricing": { "kind": "contract_required" },
+      "access_and_integration_acceptance_required": true
+    },
+    {
+      "id": "messaging",
+      "sellable": false,
+      "release_target": "growth",
+      "pricing": { "kind": "approved_provider_rate_card_required" },
+      "channels": ["sms", "whatsapp"],
+      "spend_cap_required": true,
+      "in_app_transactional_notifications_depend_on_balance": false
+    }
+  ]
+}

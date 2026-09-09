@@ -81,8 +81,8 @@ function flatten(node: LaidOutNode, acc: LaidOutNode[] = []): LaidOutNode[] {
 
 export const defaultCompanyTree: OrgChartNodeData = {
   id: "comp-root",
-  titleAr: "شركة فوكس للحلول التقنية والبرمجيات",
-  titleEn: "Focus Tech & Business Solutions Co.",
+  titleAr: "مجموعة كلاسيرا العالمية - قطاع رأس المال البشري",
+  titleEn: "Classera Pulse - Human Capital Solutions",
   subtitle: "م. عبد العزيز الفهد • الرئيس التنفيذي",
   managerName: "م. عبد العزيز الفهد",
   code: "HQ-01",
@@ -507,7 +507,7 @@ export const OrgChartSvg: React.FC<OrgChartSvgProps> = ({
         <div
           className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
           style={{
-            backgroundImage: `radial-gradient(#0B57D0 1.5px, transparent 1.5px)`,
+            backgroundImage: `radial-gradient(#004BCE 1.5px, transparent 1.5px)`,
             backgroundSize: "24px 24px",
           }}
         />
@@ -530,12 +530,12 @@ export const OrgChartSvg: React.FC<OrgChartSvgProps> = ({
           >
             <defs>
               <linearGradient id="primaryGradient" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#0B57D0" />
-                <stop offset="100%" stopColor="#041E49" />
+                <stop offset="0%" stopColor="#004BCE" />
+                <stop offset="100%" stopColor="#07152B" />
               </linearGradient>
               <linearGradient id="divisionGradient" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#EBF2FA" />
-                <stop offset="100%" stopColor="#D3E3FD" />
+                <stop offset="0%" stopColor="#EBF4FF" />
+                <stop offset="100%" stopColor="#D6E8FF" />
               </linearGradient>
               <filter id="cardShadow" x="-10%" y="-10%" width="130%" height="130%">
                 <feDropShadow dx="0" dy="4" stdDeviation="6" floodOpacity="0.08" />
@@ -556,7 +556,7 @@ export const OrgChartSvg: React.FC<OrgChartSvgProps> = ({
                     key={`${from.id}->${to.id}`}
                     d={`M ${startX} ${startY} V ${midY} H ${endX} V ${endY}`}
                     fill="none"
-                    stroke="#0B57D0"
+                    stroke="#004BCE"
                     strokeWidth="2.5"
                     strokeOpacity="0.45"
                     strokeLinecap="round"
@@ -600,9 +600,9 @@ export const OrgChartSvg: React.FC<OrgChartSvgProps> = ({
                         isMatched
                           ? "#F59E0B"
                           : isSelected
-                          ? "#0B57D0"
+                          ? "#004BCE"
                           : node.kind === "company"
-                          ? "#0B57D0"
+                          ? "#004BCE"
                           : "#E0E2EC"
                       }
                       strokeWidth={isMatched ? 3 : isSelected ? 2.5 : 1.5}
@@ -633,7 +633,7 @@ export const OrgChartSvg: React.FC<OrgChartSvgProps> = ({
                         node.kind === "company"
                           ? "#FFFFFF"
                           : node.kind === "division"
-                          ? "#0B57D0"
+                          ? "#004BCE"
                           : "#52606D"
                       }
                       fontSize="9"
@@ -659,7 +659,7 @@ export const OrgChartSvg: React.FC<OrgChartSvgProps> = ({
                       x={NODE_W / 2}
                       y={64}
                       textAnchor="middle"
-                      fill={node.kind === "company" ? "rgba(255,255,255,0.8)" : "#0B57D0"}
+                      fill={node.kind === "company" ? "rgba(255,255,255,0.8)" : "#004BCE"}
                       fontSize="10"
                       fontWeight="bold"
                     >
@@ -684,7 +684,7 @@ export const OrgChartSvg: React.FC<OrgChartSvgProps> = ({
                         transform={`translate(${NODE_W / 2}, ${NODE_H})`}
                         onClick={(e) => toggleCollapse(node.id, e as unknown as React.MouseEvent)}
                       >
-                        <circle r={10} fill="#0B57D0" stroke="#FFFFFF" strokeWidth={2} />
+                        <circle r={10} fill="#004BCE" stroke="#FFFFFF" strokeWidth={2} />
                         <text
                           y={3.5}
                           textAnchor="middle"

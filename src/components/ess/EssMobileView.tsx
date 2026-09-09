@@ -160,31 +160,35 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
   return (
     <div className="space-y-6">
-      {/* Header (Google M3 Style) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      {/* Executive Page Header */}
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol
-              name="smartphone"
-              source="material"
-              filled
-              size={26}
-              className="text-primary"
-            />
-            بوابة الخدمة الذاتية وتطبيق الجوال الذكي (M07)
-          </h1>
-          <p className="text-xs text-muted-foreground font-medium mt-1">
-            تجربة الخدمة الذاتية الموحدة للموظف: تسجيل الحضور بالـ GPS، تقديم الإجازات، قسيمة
-            الراتب، وشهادات التعريف
-          </p>
+          <div className="flex items-center gap-2.5">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+              <IconSymbol name="smartphone" source="material" filled size={24} className="text-primary" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-black text-foreground">
+                  بوابة الخدمة الذاتية وتطبيق الجوال الذكي
+                </h1>
+                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                  الخدمة الذاتية الذكية (ESS)
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                تجربة الخدمة الذاتية الموحدة للموظف: تسجيل الحضور بالـ GPS، تقديم الإجازات، قسيمة الراتب، وشهادات التعريف
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Centered Mobile Phone Mockup Simulation */}
+      {/* Responsive Mobile Phone Mockup Simulation */}
       <div className="flex justify-center py-2">
-        <div className="w-full max-w-sm rounded-[44px] border-[6px] border-slate-900 bg-card p-5 shadow-2xl space-y-4 relative overflow-hidden ring-4 ring-primary/20">
-          {/* Phone Speaker & Dynamic Island Notch */}
-          <div className="mx-auto h-5 w-32 rounded-full bg-slate-900 mb-2 flex items-center justify-center">
+        <div className="w-full max-w-sm sm:rounded-[44px] sm:border-[6px] sm:border-slate-900 rounded-3xl border border-border/80 bg-card p-4 sm:p-5 sm:shadow-2xl shadow-xs space-y-4 relative overflow-hidden sm:ring-4 sm:ring-primary/20">
+          {/* Phone Speaker & Dynamic Island Notch (visible on desktop) */}
+          <div className="hidden sm:flex mx-auto h-5 w-32 rounded-full bg-slate-900 mb-2 items-center justify-center">
             <div className="h-2.5 w-2.5 rounded-full bg-slate-950 mr-2" />
           </div>
 

@@ -307,7 +307,7 @@ export function generateDocumentHtml(
   <div class="sheet">
     <div class="header">
       <div>
-        <h1>${company.legalNameAr || "شركة فوكس للحلول والتقنية المحدودة"}</h1>
+        <h1>${company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري"}</h1>
         <p>سجل تجاري: 1010789654 • الرقم الضريبي: 300098765400003</p>
         <p>المملكة العربية السعودية - الرياض - المقر الرئيسي</p>
       </div>
@@ -343,7 +343,7 @@ export function generateDocumentHtml(
     <div class="footer">
       <div>
         <p style="font-weight: bold; margin: 0; font-size: 12px;">إدارة الموارد البشرية والتدقيق السحابي</p>
-        <p style="font-size: 10px; color: #64748b; margin: 2px 0;">شركة فوكس للحلول والتقنية المحدودة</p>
+        <p style="font-size: 10px; color: #64748b; margin: 2px 0;">كلاسيرا بالس لحلول رأس المال البشري</p>
         <div class="stamp">ختم الموارد البشرية المعتمد ✓</div>
       </div>
       <div class="qr-box">
@@ -499,7 +499,7 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "doc-6",
       employeeId: "company-hq",
-      employeeName: company.legalNameAr || "شركة فوكس للحلول والتقنية المحدودة",
+      employeeName: company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري",
       title: "السجل التجاري الرئيسي للمنشأة (CR)",
       category: "company",
       docNumber: "1010098765",
@@ -517,7 +517,7 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "doc-7",
       employeeId: "company-hq",
-      employeeName: company.legalNameAr || "شركة فوكس للحلول والتقنية المحدودة",
+      employeeName: company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري",
       title: "شهادة تسجيل ضريبة القيمة المضافة (ZATCA)",
       category: "company",
       docNumber: "300098127300003",
@@ -532,7 +532,7 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "doc-8",
       employeeId: "company-hq",
-      employeeName: company.legalNameAr || "شركة فوكس للحلول والتقنية المحدودة",
+      employeeName: company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري",
       title: "شهادة السعودة والامتثال بنطاقات (النطاق البلاتيني)",
       category: "company",
       docNumber: "SAUD-2026-0091",
@@ -987,7 +987,7 @@ export const DocumentVaultView: React.FC = () => {
     const emp = employees.find((e) => e.id === newDoc.employeeId);
     const ownerName =
       newDoc.employeeId === "company-hq"
-        ? company.legalNameAr || "شركة فوكس للحلول والتقنية المحدودة"
+        ? company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري"
         : emp
           ? `${emp.firstNameAr} ${emp.lastNameAr}`
           : "موظف عام";
@@ -1142,22 +1142,27 @@ export const DocumentVaultView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Enterprise Header Section */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      {/* Executive Page Header */}
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol
-              name="folder_open"
-              source="material"
-              filled
-              size={26}
-              className="text-primary"
-            />
-            خزينة ومستودع الوثائق السحابي المؤسسي (Enterprise Document Vault)
-          </h1>
-          <p className="text-xs text-muted-foreground font-medium mt-1">
-            الأرشفة الرقمية المشفرة، حوكمة عقود قوى، رادار الامتثال وتكاليف التجديد، ومركز إصدار الخطابات المعتمدة
-          </p>
+          <div className="flex items-center gap-2.5">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+              <IconSymbol name="folder_open" source="material" filled size={24} className="text-primary" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-black text-foreground">
+                  خزينة ومستودع الوثائق السحابي
+                </h1>
+                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                  أرشفة مشفرة AES-256
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                الأرشفة الرقمية المشفرة، حوكمة عقود قوى، رادار الامتثال وتكاليف التجديد، ومركز إصدار الخطابات المعتمدة
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -1165,7 +1170,7 @@ export const DocumentVaultView: React.FC = () => {
             onClick={() => setIsRequestDocModalOpen(true)}
             variant="outline"
             size="sm"
-            className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
+            className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
           >
             <Send className="h-4 w-4 text-primary" />
             طلب وثيقة من موظف
@@ -1175,7 +1180,7 @@ export const DocumentVaultView: React.FC = () => {
             onClick={() => openOfficialGenerator("salary_certificate")}
             variant="outline"
             size="sm"
-            className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
+            className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
           >
             <Stamp className="h-4 w-4 text-primary" />
             إصدار خطاب معتمد
@@ -1184,7 +1189,7 @@ export const DocumentVaultView: React.FC = () => {
           <Button
             onClick={() => setIsUploadModalOpen(true)}
             size="sm"
-            className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-5"
+            className="classera-btn-primary rounded-full font-bold text-xs gap-1.5 shadow-xs h-10 px-5 cursor-pointer"
           >
             <Upload className="h-4 w-4" />
             رفع وأرشفة وثيقة
@@ -1195,10 +1200,10 @@ export const DocumentVaultView: React.FC = () => {
       {/* Top 5 High-Impact KPI Badges */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         {/* Total Documents */}
-        <div className="rounded-3xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">إجمالي الوثائق والأرشفة</span>
-            <p className="text-xl font-black text-foreground mt-0.5">{totalCount} وثيقة</p>
+            <p className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">{totalCount} وثيقة</p>
             <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-0.5">
               <Lock className="h-3 w-3" /> تشفير سحابي AES-256
             </span>
@@ -1209,10 +1214,10 @@ export const DocumentVaultView: React.FC = () => {
         </div>
 
         {/* Qiwa Contracts */}
-        <div className="rounded-3xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">عقود قوى الموثقة</span>
-            <p className="text-xl font-black text-foreground mt-0.5">{contractsCount} عقود</p>
+            <p className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">{contractsCount} عقود</p>
             <span className="text-[10px] text-primary font-bold flex items-center gap-1 mt-0.5">
               <CheckCircle2 className="h-3 w-3" /> امتثال 100% لوزارة العمل
             </span>
@@ -1223,55 +1228,55 @@ export const DocumentVaultView: React.FC = () => {
         </div>
 
         {/* Expiring Soon (<30 Days) */}
-        <div className="rounded-3xl border border-amber-300 bg-amber-500/10 p-4 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-amber-800">تنبيهات التجديد (&lt;30 يوم)</span>
-            <p className="text-xl font-black text-amber-700 mt-0.5">{expiringSoonCount} وثائق</p>
-            <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1 mt-0.5">
+            <p className="text-xl font-black text-amber-700 mt-0.5 font-tabular-nums font-mono">{expiringSoonCount} وثائق</p>
+            <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1 mt-0.5 font-tabular-nums">
               <Clock className="h-3 w-3" /> تكلفة متوقعة: {totalEstimatedFees.toLocaleString()} ر.س
             </span>
           </div>
-          <div className="h-11 w-11 rounded-2xl bg-amber-600/20 flex items-center justify-center text-amber-700">
+          <div className="h-11 w-11 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
             <AlertTriangle className="h-5 w-5" />
           </div>
         </div>
 
         {/* Expired Docs */}
-        <div className="rounded-3xl border border-destructive/30 bg-destructive/10 p-4 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-destructive">وثائق منتهية (مخالفة)</span>
-            <p className="text-xl font-black text-destructive mt-0.5">{expiredCount} وثائق</p>
+            <p className="text-xl font-black text-destructive mt-0.5 font-tabular-nums font-mono">{expiredCount} وثائق</p>
             <span className="text-[10px] text-destructive font-bold flex items-center gap-1 mt-0.5">
               <ShieldAlert className="h-3 w-3" /> خطر غرامات مالية
             </span>
           </div>
-          <div className="h-11 w-11 rounded-2xl bg-destructive/20 flex items-center justify-center text-destructive">
+          <div className="h-11 w-11 rounded-2xl bg-destructive/10 flex items-center justify-center text-destructive">
             <AlertCircle className="h-5 w-5" />
           </div>
         </div>
 
-        {/* Pending HR Review */}
-        <div className="rounded-3xl border border-purple-300 bg-purple-500/10 p-4 shadow-xs flex items-center justify-between">
+        {/* Pending Audit */}
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-purple-800">بانتظار تدقيق واعتماد HR</span>
-            <p className="text-xl font-black text-purple-700 mt-0.5">{pendingReviewCount} وثيقة</p>
-            <span className="text-[10px] text-purple-700 font-bold flex items-center gap-1 mt-0.5">
-              <History className="h-3 w-3" /> مرفوعة من الموظفين
+            <span className="text-[11px] font-bold text-primary">بانتظار التدقيق والاعتماد</span>
+            <p className="text-xl font-black text-primary mt-0.5 font-tabular-nums font-mono">{pendingReviewCount} وثيقة</p>
+            <span className="text-[10px] text-muted-foreground font-bold flex items-center gap-1 mt-0.5">
+              <Sparkles className="h-3 w-3 text-primary" /> مراجعة المطابقة الرقمية
             </span>
           </div>
-          <div className="h-11 w-11 rounded-2xl bg-purple-600/20 flex items-center justify-center text-purple-700">
+          <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
             <UserCheck className="h-5 w-5" />
           </div>
         </div>
       </div>
 
       {/* Main 5 Navigation Tabs (Enterprise Business Modules) */}
-      <div className="border-b border-border/80">
-        <nav className="flex space-x-2 rtl:space-x-reverse overflow-x-auto text-xs font-bold pb-2">
+      <div className="w-full">
+        <nav className="classera-tabs-strip">
           <button
             type="button"
             onClick={() => setMainTab("vault")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
               mainTab === "vault"
                 ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -1284,7 +1289,7 @@ export const DocumentVaultView: React.FC = () => {
           <button
             type="button"
             onClick={() => setMainTab("letters")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
               mainTab === "letters"
                 ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -1297,7 +1302,7 @@ export const DocumentVaultView: React.FC = () => {
           <button
             type="button"
             onClick={() => setMainTab("audit_pipeline")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
               mainTab === "audit_pipeline"
                 ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -1306,7 +1311,7 @@ export const DocumentVaultView: React.FC = () => {
             <UserCheck className="h-4 w-4" />
             مسار تدقيق واعتماد الوثائق
             {pendingReviewCount > 0 && (
-              <Badge className="bg-purple-600 text-white rounded-full text-[10px] h-5 px-1.5 font-bold">
+              <Badge className="bg-primary text-white rounded-full text-[10px] h-5 px-1.5 font-bold">
                 {pendingReviewCount}
               </Badge>
             )}
@@ -1315,7 +1320,7 @@ export const DocumentVaultView: React.FC = () => {
           <button
             type="button"
             onClick={() => setMainTab("compliance_radar")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
               mainTab === "compliance_radar"
                 ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -1328,7 +1333,7 @@ export const DocumentVaultView: React.FC = () => {
           <button
             type="button"
             onClick={() => setMainTab("company_policies")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap text-xs font-bold cursor-pointer ${
               mainTab === "company_policies"
                 ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -2479,13 +2484,13 @@ export const DocumentVaultView: React.FC = () => {
               <div className="rounded-2xl border-2 border-primary/20 bg-card p-6 space-y-4 relative overflow-hidden shadow-inner text-center">
                 {/* Background Watermark */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none select-none">
-                  <span className="text-7xl font-black rotate-[-25deg]">FOCUS HRMS</span>
+                  <span className="text-7xl font-black rotate-[-25deg]">CLASSERA PULSE</span>
                 </div>
 
                 <div className="flex justify-between items-center border-b border-border/60 pb-3">
                   <div className="text-start">
                     <span className="text-xs font-black text-foreground block">
-                      {company.legalNameAr || "شركة فوكس للحلول والتقنية المحدودة"}
+                      {company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري"}
                     </span>
                     <span className="text-[10px] text-muted-foreground">
                       مستودع الأرشفة الرقمية والحوكمة السحابية
@@ -2752,7 +2757,7 @@ export const DocumentVaultView: React.FC = () => {
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
               >
                 <option value="company-hq">
-                  🏢 {company.legalNameAr || "شركة فوكس القابضة"} (وثائق المنشأة)
+                  🏢 {company.legalNameAr || "مجموعة كلاسيرا القابضة"} (وثائق المنشأة)
                 </option>
                 {employees.map((emp) => (
                   <option key={emp.id} value={emp.id}>
@@ -3024,7 +3029,7 @@ export const DocumentVaultView: React.FC = () => {
                   <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
                     <div className="space-y-1 text-start">
                       <h1 className="text-base font-black text-slate-900">
-                        {company.legalNameAr || "شركة فوكس للحلول والتقنية المحدودة"}
+                        {company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري"}
                       </h1>
                       <p className="text-[11px] text-slate-600 font-medium">
                         سجل تجاري: 1010789654 • الرقم الضريبي: 300098765400003
@@ -3091,7 +3096,7 @@ export const DocumentVaultView: React.FC = () => {
                   {/* Certification Body Text */}
                   <div className="space-y-3 text-justify text-slate-800 text-xs leading-6">
                     <p>
-                      تشهد إدارة الموارد البشرية والشؤون القانونية بشركة فوكس للحلول والتقنية بأن المستند الموضح أعلاه معتمد وموثق رسمياً بالأرشيف السحابي للمنشأة، ومطابق لكافة الأنظمة والتعليمات المنصوص عليها بنظام العمل في المملكة العربية السعودية.
+                      تشهد إدارة الموارد البشرية والشؤون القانونية بمنظومة كلاسيرا بالس بأن المستند الموضح أعلاه معتمد وموثق رسمياً بالأرشيف السحابي للمنشأة، ومطابق لكافة الأنظمة والتعليمات المنصوص عليها بنظام العمل في المملكة العربية السعودية.
                     </p>
                     {sidePrintDoc.notes && (
                       <p className="p-2.5 rounded-lg bg-slate-100 border border-slate-200 text-[11px] text-slate-700 font-medium">
@@ -3107,7 +3112,7 @@ export const DocumentVaultView: React.FC = () => {
                   <div className="border-t-2 border-slate-900 pt-5 mt-6 flex justify-between items-end">
                     <div className="space-y-1 text-start">
                       <p className="font-bold text-slate-900">إدارة الموارد البشرية والتدقيق</p>
-                      <p className="text-[11px] text-slate-600">شركة فوكس للحلول والتقنية المحدودة</p>
+                      <p className="text-[11px] text-slate-600">كلاسيرا بالس لحلول رأس المال البشري</p>
                       <div className="h-14 w-32 border-2 border-dashed border-emerald-600 rounded-lg flex items-center justify-center text-emerald-700 font-black text-[10px] mt-1 rotate-[-3deg]">
                         ختم الموارد البشرية المعتمد
                       </div>

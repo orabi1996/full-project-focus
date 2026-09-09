@@ -200,7 +200,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
       appliedDate: new Date().toISOString().split("T")[0],
       source: "website",
       notesCount: 0,
-      cvUrl: "https://cdn.focus-hrms.com/resumes/applicant.pdf",
+      cvUrl: "https://cdn.classera-pulse.com/resumes/applicant.pdf",
     });
     toast.success(`تم استلام طلب التقديم لـ (${applicantName}) ونقله فورياً لمرحلة الفرز في الـ ATS!`);
     setIsApplyModalOpen(false);
@@ -302,28 +302,39 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
   return (
     <div className="space-y-6">
-      {/* Header (Google M3 Style) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      {/* Executive Page Header */}
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol name="person_search" source="material" filled size={26} className="text-primary" />
-            {section === "ats"
-              ? "بوابة استقطاب وتتبع المترشحين ATS (M09)"
-              : "تخطيط القوى العاملة والميزانيات (M10)"}
-          </h1>
-          <p className="text-xs text-muted-foreground font-medium mt-1">
-            {section === "ats"
-              ? "تتبع مراحل التوظيف (Kanban)، بطاقات المقابلات، العروض الوظيفية، والتعيين المباشر في النظام"
-              : "مقارنة العدد الحالي بالمستهدف ونمذجة تكلفة خطط التعيين والإحلال"}
-          </p>
+          <div className="flex items-center gap-2.5">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+              <IconSymbol name="person_search" source="material" filled size={24} className="text-primary" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-black text-foreground">
+                  {section === "ats"
+                    ? "بوابة استقطاب وتتبع المترشحين (ATS)"
+                    : "تخطيط القوى العاملة والميزانيات"}
+                </h1>
+                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                  {section === "ats" ? "نظام استقطاب ذكي ATS" : "تخطيط استراتيجي وإحلال"}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                {section === "ats"
+                  ? "تتبع مراحل التوظيف (Kanban)، بطاقات المقابلات، العروض الوظيفية، والتعيين المباشر في النظام"
+                  : "مقارنة العدد الحالي بالمستهدف ونمذجة تكلفة خطط التعيين والإحلال"}
+              </p>
+            </div>
+          </div>
         </div>
 
         {section === "ats" && canManageRecruitment && (
-          <div className="flex flex-wrap gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Button
               onClick={() => setIsAddJobOpen(true)}
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-5"
+              className="classera-btn-primary rounded-full font-bold text-xs gap-1.5 shadow-xs h-10 px-5 cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               نشر وظيفة شاغرة
@@ -335,7 +346,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
               }}
               variant="outline"
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
+              className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
             >
               <Globe className="h-4 w-4 text-emerald-600" />
               محاكاة تقديم مرشح جديد
@@ -346,22 +357,18 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList
-          className={`grid max-w-md bg-muted/60 p-1 rounded-2xl border border-border/60 ${
-            section === "ats" ? "grid-cols-2" : "grid-cols-1"
-          }`}
-        >
+        <TabsList className="classera-tabs-strip max-w-md">
           {section === "ats" ? (
             <>
-              <TabsTrigger value="pipeline" className="rounded-xl text-xs font-bold py-2">
+              <TabsTrigger value="pipeline" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
                 لوحة المرشحين (Kanban) ({candidates.length})
               </TabsTrigger>
-              <TabsTrigger value="jobs" className="rounded-xl text-xs font-bold py-2">
+              <TabsTrigger value="jobs" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
                 الوظائف الشاغرة ({jobOpenings.length})
               </TabsTrigger>
             </>
           ) : (
-            <TabsTrigger value="workforce" className="rounded-xl text-xs font-bold py-2">
+            <TabsTrigger value="workforce" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
               تخطيط الميزانيات ({workforcePlans.length})
             </TabsTrigger>
           )}

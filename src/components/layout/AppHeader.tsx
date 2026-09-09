@@ -342,7 +342,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                 </div>
                 <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[160px]">
-                  {session?.user?.email || currentUser.email || "hr.admin@focus-hrms.sa"}
+                  {session?.user?.email || currentUser.email || "hr.admin@classera.com"}
                 </span>
               </div>
             </button>
@@ -373,7 +373,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`}
                   </h4>
                   <p className="text-[11px] font-mono text-primary font-bold truncate">
-                    {session?.user?.email || currentUser.email || "hr.admin@focus-hrms.sa"}
+                    {session?.user?.email || currentUser.email || "hr.admin@classera.com"}
                   </p>
                   <p className="text-[10px] text-muted-foreground font-medium truncate">
                     {currentUser.jobTitleAr}
@@ -476,7 +476,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <AccountSecurityModal
           isOpen={isSecurityModalOpen}
           onClose={() => setIsSecurityModalOpen(false)}
-          userEmail={session?.user?.email || currentUser.email || "hr.admin@focus-hrms.sa"}
+          userEmail={session?.user?.email || currentUser.email || "hr.admin@classera.com"}
         />
       </div>
     </header>

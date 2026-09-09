@@ -51,32 +51,37 @@ export const RbacView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* ========================================================= */}
-      {/* 1. Header (Google Material 3 Style) */}
+      {/* 1. Executive Page Header */}
       {/* ========================================================= */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol
-              name="admin_panel_settings"
-              source="material"
-              filled
-              size={24}
-              className="text-primary"
-            />
-            {t.nav.rbac} ومجموعات الصلاحيات (RBAC & Security)
-          </h1>
-          <p className="text-xs text-muted-foreground font-medium mt-1">
-            إدارة مجموعات الصلاحيات، تعيين المستخدمين، مصفوفة الشاشات الـ 20 الدقيقة (قراءة، إدخال، تعديل، حذف، اعتماد)، ونطاقات الأمان
-          </p>
+          <div className="flex items-center gap-2.5">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+              <IconSymbol name="admin_panel_settings" source="material" filled size={24} className="text-primary" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-black text-foreground">
+                  {t.nav.rbac} ومصفوفة الصلاحيات والحوكمة
+                </h1>
+                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                  حوكمة أمنية وصلاحيات متقدمة
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                إدارة مجموعات الصلاحيات، تعيين المستخدمين، مصفوفة الشاشات الـ 20 الدقيقة (قراءة، إدخال، تعديل، حذف، اعتماد)، ونطاقات الأمان
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
           <Badge
             variant="outline"
-            className="rounded-full px-3 py-1 font-bold text-xs gap-1.5 border-primary/30 text-primary bg-primary/5"
+            className="rounded-full px-3 py-1 font-bold text-xs gap-1.5 border-primary/30 text-primary bg-primary/5 shadow-xs"
           >
             <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-            منظومة الأمان المؤسسي M3
+            نطاق أمان مؤسسي معتمد
           </Badge>
         </div>
       </div>
@@ -86,7 +91,7 @@ export const RbacView: React.FC = () => {
       {/* ========================================================= */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
         {/* Metric 1: Groups */}
-        <div className="bg-card p-4 rounded-3xl border border-border/80 shadow-xs flex items-center gap-3">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center gap-3">
           <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-2xs">
             <Shield className="h-5 w-5" />
           </div>
@@ -94,29 +99,29 @@ export const RbacView: React.FC = () => {
             <span className="text-[11px] font-bold text-muted-foreground block">
               مجموعات الصلاحيات
             </span>
-            <span className="text-lg font-black text-foreground">
+            <span className="text-lg font-black text-foreground font-tabular-nums font-mono">
               {permissionGroups.length} مجموعات
             </span>
           </div>
         </div>
 
         {/* Metric 2: Covered Screens */}
-        <div className="bg-card p-4 rounded-3xl border border-border/80 shadow-xs flex items-center gap-3">
-          <div className="h-11 w-11 rounded-2xl bg-sky-500/10 flex items-center justify-center text-sky-600 shadow-2xs">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center gap-3">
+          <div className="h-11 w-11 rounded-2xl bg-secondary flex items-center justify-center text-primary shadow-2xs">
             <Layers className="h-5 w-5" />
           </div>
           <div>
             <span className="text-[11px] font-bold text-muted-foreground block">
               الشاشات والوحدات
             </span>
-            <span className="text-lg font-black text-foreground">
+            <span className="text-lg font-black text-foreground font-tabular-nums font-mono">
               {ALL_SYSTEM_SCREENS.length} شاشة ووحدة
             </span>
           </div>
         </div>
 
         {/* Metric 3: Assigned Users */}
-        <div className="bg-card p-4 rounded-3xl border border-border/80 shadow-xs flex items-center gap-3">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center gap-3">
           <div className="h-11 w-11 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 shadow-2xs">
             <Users className="h-5 w-5" />
           </div>
@@ -124,22 +129,22 @@ export const RbacView: React.FC = () => {
             <span className="text-[11px] font-bold text-muted-foreground block">
               المستخدمين المعينين
             </span>
-            <span className="text-lg font-black text-foreground">
+            <span className="text-lg font-black text-foreground font-tabular-nums font-mono">
               {totalAssignedUsers} من {employees.length} موظف
             </span>
           </div>
         </div>
 
         {/* Metric 4: Security Scopes */}
-        <div className="bg-card p-4 rounded-3xl border border-border/80 shadow-xs flex items-center gap-3">
-          <div className="h-11 w-11 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-600 shadow-2xs">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center gap-3">
+          <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-2xs">
             <Lock className="h-5 w-5" />
           </div>
           <div>
             <span className="text-[11px] font-bold text-muted-foreground block">
               نطاقات الأمان (Scopes)
             </span>
-            <span className="text-lg font-black text-foreground">
+            <span className="text-lg font-black text-foreground font-tabular-nums font-mono">
               5 مستويات عزل
             </span>
           </div>
@@ -147,13 +152,13 @@ export const RbacView: React.FC = () => {
       </div>
 
       {/* ========================================================= */}
-      {/* 3. Navigation Tabs (Pill Style) */}
+      {/* 3. Navigation Tabs */}
       {/* ========================================================= */}
-      <div className="flex items-center gap-1.5 bg-muted/40 p-1.5 rounded-full border border-border/80 w-fit overflow-x-auto custom-scrollbar">
+      <div className="classera-tabs-strip w-full">
         <button
           type="button"
           onClick={() => setActiveTab("groups")}
-          className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
             activeTab === "groups"
               ? "bg-primary text-primary-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-card/60"
@@ -166,7 +171,7 @@ export const RbacView: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab("users")}
-          className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
             activeTab === "users"
               ? "bg-primary text-primary-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-card/60"
@@ -179,7 +184,7 @@ export const RbacView: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab("matrix")}
-          className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
             activeTab === "matrix"
               ? "bg-primary text-primary-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-card/60"
@@ -192,7 +197,7 @@ export const RbacView: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab("audit")}
-          className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
             activeTab === "audit"
               ? "bg-primary text-primary-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground hover:bg-card/60"

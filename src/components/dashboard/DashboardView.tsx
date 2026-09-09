@@ -181,7 +181,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
   // Saudization Pie Data
   const saudizationPieData = [
-    { name: "موظفون سعوديون", value: saudiEmployees.length, color: "#0B57D0" },
+    { name: "موظفون سعوديون", value: saudiEmployees.length, color: "#004BCE" },
     { name: "موظفون مقيمون", value: expatriateEmployees, color: "#10b981" },
   ];
 
@@ -444,8 +444,8 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                   >
                     <defs>
                       <linearGradient id="presentGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#0B57D0" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#0B57D0" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#004BCE" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#004BCE" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="lateGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
@@ -461,7 +461,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                       type="monotone"
                       dataKey="present"
                       name="حضور في الموعد"
-                      stroke="#0B57D0"
+                      stroke="#004BCE"
                       fillOpacity={1}
                       fill="url(#presentGrad)"
                       strokeWidth={2.5}
@@ -567,7 +567,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip />
-                  <Bar dataKey="count" name="عدد الموظفين" fill="#0B57D0" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="count" name="عدد الموظفين" fill="#004BCE" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

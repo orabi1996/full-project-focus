@@ -123,23 +123,34 @@ export const PerformanceView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header (Google M3 Style) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      {/* Executive Page Header */}
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol name="stars" source="material" filled size={24} className="text-primary" />
-            {t.performance.cycles} وإدارة الأداء (360° Review - M09)
-          </h1>
-          <p className="text-xs text-muted-foreground font-medium mt-1">
-            تقييمات الأداء متعددة الأطراف (الذاتي، المدير المباشر، الزملاء) ومصفوفة المواهب 9-Box Grid
-          </p>
+          <div className="flex items-center gap-2.5">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+              <IconSymbol name="stars" source="material" filled size={24} className="text-primary" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-black text-foreground">
+                  {t.performance.cycles} وإدارة الأداء المؤسسي
+                </h1>
+                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                  تقييم شامل 360°
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                تقييمات الأداء متعددة الأطراف (الذاتي، المدير المباشر، الزملاء) ومصفوفة المواهب 9-Box Grid
+              </p>
+            </div>
+          </div>
         </div>
         {canManage && (
-          <div className="flex flex-wrap gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Button
               onClick={() => setIsSubmitEvaluationOpen(true)}
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-4"
+              className="classera-btn-primary rounded-full font-bold text-xs gap-1.5 shadow-xs h-10 px-5 cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               إجراء تقييم موظف (360°)
@@ -148,7 +159,7 @@ export const PerformanceView: React.FC = () => {
               onClick={() => setIsAddCycleOpen(true)}
               variant="outline"
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
+              className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
             >
               <Plus className="h-4 w-4 text-primary" />
               إطلاق دورة تقييم جديدة
@@ -159,14 +170,14 @@ export const PerformanceView: React.FC = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-3 max-w-md bg-muted/60 p-1 rounded-full border border-border/60">
-          <TabsTrigger value="cycles" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+        <TabsList className="classera-tabs-strip max-w-md">
+          <TabsTrigger value="cycles" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
             دورات التقييم ({performanceCycles.length})
           </TabsTrigger>
-          <TabsTrigger value="ninebox" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger value="ninebox" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
             مصفوفة 9-Box Grid
           </TabsTrigger>
-          <TabsTrigger value="evaluations" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger value="evaluations" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
             سجل التقييمات ({evaluations.length})
           </TabsTrigger>
         </TabsList>

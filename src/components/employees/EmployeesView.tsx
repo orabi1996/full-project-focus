@@ -396,7 +396,7 @@ export const EmployeesView: React.FC = () => {
       dependentsCount: 1,
       bloodType: "O+",
       subsidiaryId: newEmp.subsidiaryId || "sub-1",
-      subsidiaryName: sub?.nameAr || "فوكس للتقنية",
+      subsidiaryName: sub?.nameAr || "كلاسيرا للتقنية",
       departmentId: newEmp.departmentId || "dept-tech",
       departmentName: dept?.nameAr || "تقنية المعلومات",
       jobTitleAr: newEmp.jobTitleAr || "اختصاصي تقنية",
@@ -479,16 +479,27 @@ export const EmployeesView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Page Header (Google M3 Style) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      {/* Executive Page Header */}
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol name="badge" source="material" filled size={26} className="text-primary" />
-            دليل وملفات الموظفين الموحد (Employee Directory)
-          </h1>
-          <p className="text-xs text-muted-foreground font-medium mt-1">
-            سجلات الموظفين الشاملة، العقود الموثقة بقوى، الهيكل الوظيفي، وبطاقات التعديل 360°
-          </p>
+          <div className="flex items-center gap-2.5">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+              <IconSymbol name="badge" source="material" filled size={24} className="text-primary" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-black text-foreground">
+                  دليل وملفات الموظفين الموحد
+                </h1>
+                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                  موثق مع منصة قوى
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                سجلات الموظفين الشاملة، العقود الموثقة بقوى، الهيكل الوظيفي، وبطاقات التعديل 360°
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -496,7 +507,7 @@ export const EmployeesView: React.FC = () => {
             onClick={handleExportSelectedOrAll}
             variant="outline"
             size="sm"
-            className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
+            className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
           >
             <Download className="h-4 w-4 text-emerald-600" />
             تصدير كشف الموظفين (CSV)
@@ -509,7 +520,7 @@ export const EmployeesView: React.FC = () => {
                 setIsAddWizardOpen(true);
               }}
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-5"
+              className="classera-btn-primary rounded-full font-bold text-xs gap-1.5 shadow-xs h-10 px-5 cursor-pointer"
             >
               <UserPlus className="h-4 w-4" />
               إضافة موظف جديد
@@ -520,10 +531,10 @@ export const EmployeesView: React.FC = () => {
 
       {/* Primary KPI Stats Summary Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">إجمالي الموظفين</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5">{totalEmployees}</h4>
+            <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">{totalEmployees}</h4>
             <span className="text-[10px] text-emerald-600 font-bold">100% عقود سارية</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center text-primary">
@@ -531,23 +542,23 @@ export const EmployeesView: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-emerald-300 bg-emerald-500/10 p-4 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-emerald-800">🇸🇦 الكوادر الوطنية</span>
-            <h4 className="text-xl font-black text-emerald-700 mt-0.5">
+            <span className="text-[11px] font-bold text-emerald-700">🇸🇦 الكوادر الوطنية</span>
+            <h4 className="text-xl font-black text-emerald-700 mt-0.5 font-tabular-nums font-mono">
               {saudiEmployees} ({saudizationRate}%)
             </h4>
             <span className="text-[10px] text-emerald-700 font-bold">نطاق بلاتيني معتمد</span>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-emerald-600/20 flex items-center justify-center text-emerald-700">
+          <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
             <ShieldCheck className="h-5 w-5" />
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">🌍 الكوادر المقيمة</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5">{expatEmployees}</h4>
+            <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">{expatEmployees}</h4>
             <span className="text-[10px] text-muted-foreground font-bold">إقامات مهنية موثقة</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
@@ -555,32 +566,32 @@ export const EmployeesView: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-amber-300 bg-amber-500/10 p-4 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-amber-800">تحت التجربة (90 يوم)</span>
-            <h4 className="text-xl font-black text-amber-700 mt-0.5">{probationCount} موظفين</h4>
+            <span className="text-[11px] font-bold text-amber-700">تحت التجربة (90 يوم)</span>
+            <h4 className="text-xl font-black text-amber-700 mt-0.5 font-tabular-nums font-mono">{probationCount} موظفين</h4>
             <span className="text-[10px] text-amber-700 font-bold">بانتظار تقييم التثبيت</span>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-amber-600/20 flex items-center justify-center text-amber-700">
+          <div className="h-10 w-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
             <Calendar className="h-5 w-5" />
           </div>
         </div>
 
-        <div className="rounded-2xl border border-blue-300 bg-blue-500/10 p-4 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-blue-800">في إجازة رسمية</span>
-            <h4 className="text-xl font-black text-blue-700 mt-0.5">{onLeaveCount} موظف</h4>
-            <span className="text-[10px] text-blue-700 font-bold">إجازات سنوية معتمدة</span>
+            <span className="text-[11px] font-bold text-primary">في إجازة رسمية</span>
+            <h4 className="text-xl font-black text-primary mt-0.5 font-tabular-nums font-mono">{onLeaveCount} موظف</h4>
+            <span className="text-[10px] text-primary font-bold">إجازات سنوية معتمدة</span>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-blue-600/20 flex items-center justify-center text-blue-700">
+          <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
             <UserCheck className="h-5 w-5" />
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">وثائق وإقامات قريبة</span>
-            <h4 className="text-xl font-black text-destructive mt-0.5">
+            <h4 className="text-xl font-black text-destructive mt-0.5 font-tabular-nums font-mono">
               {expiringDocsCount} تنبيهات
             </h4>
             <span className="text-[10px] text-destructive font-bold">أقل من 60 يوماً</span>
@@ -937,7 +948,7 @@ export const EmployeesView: React.FC = () => {
 
           <div className="overflow-x-auto rounded-2xl border border-border/60">
             <table className="w-full text-xs">
-              <thead className="border-b border-border/60 bg-muted/40 font-bold text-muted-foreground">
+              <thead className="classera-table-head">
                 <tr>
                   <th className="py-3 px-3 text-center w-10">
                     <input
@@ -963,7 +974,7 @@ export const EmployeesView: React.FC = () => {
                   return (
                     <tr
                       key={emp.id}
-                      className={`hover:bg-muted/20 transition-colors group ${
+                      className={`classera-table-row group ${
                         isSelected ? "bg-primary/5" : ""
                       }`}
                     >
@@ -1018,7 +1029,7 @@ export const EmployeesView: React.FC = () => {
                           {emp.departmentName}
                         </span>
                         <span className="text-[10px] text-muted-foreground">
-                          {emp.subsidiaryName || "فوكس للتقنية"}
+                          {emp.subsidiaryName || "كلاسيرا للتقنية"}
                         </span>
                       </td>
                       <td className="py-3 px-4">
@@ -1389,7 +1400,7 @@ export const EmployeesView: React.FC = () => {
                   type="email"
                   value={newEmp.email}
                   onChange={(e) => setNewEmp({ ...newEmp, email: e.target.value })}
-                  placeholder="ahmed@focus-hrms.com"
+                  placeholder="ahmed@classera-pulse.com"
                   className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>

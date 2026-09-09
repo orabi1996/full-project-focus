@@ -923,7 +923,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   </select>
                 ) : (
                   <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                    {employee.subsidiaryName || "فوكس للتقنية"}
+                    {employee.subsidiaryName || "كلاسيرا للتقنية"}
                   </p>
                 )}
               </div>

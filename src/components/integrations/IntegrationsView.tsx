@@ -104,12 +104,17 @@ export const IntegrationsView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header (Google M3 Style) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      {/* Header */}
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol name="hub" source="material" filled size={24} className="text-primary" />
-            {t.system.integrations} والربط الحكومي والمحاسبي (M18)
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+              <IconSymbol name="hub" source="material" filled size={16} />
+              منظومة التكامل والربط الحكومي والمحاسبي
+            </span>
+          </div>
+          <h1 className="text-2xl font-black text-foreground mt-2">
+            {t.system.integrations} والربط الحكومي والمحاسبي
           </h1>
           <p className="text-xs text-muted-foreground font-medium mt-1">
             ربط منصات قوى، مقيم، التأمينات (GOSI)، مدد، وتوليد قيود اليومية التلقائية لأنظمة ERP
@@ -120,7 +125,7 @@ export const IntegrationsView: React.FC = () => {
             <Button
               onClick={() => setIsSyncJournalOpen(true)}
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-4"
+              className="classera-btn-primary h-10 px-5 text-xs gap-1.5"
             >
               <RotateCw className="h-4 w-4" />
               ترحيل القيود إلى ERP الآن
@@ -155,14 +160,14 @@ export const IntegrationsView: React.FC = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-3 max-w-md bg-muted/60 p-1 rounded-full border border-border/60">
-          <TabsTrigger value="journals" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+        <TabsList className="classera-tabs-strip w-auto max-w-lg">
+          <TabsTrigger value="journals" className="rounded-full text-xs font-bold py-2.5 px-4 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm">
             القيود المحاسبية ({accountingJournals.length})
           </TabsTrigger>
-          <TabsTrigger value="erp" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger value="erp" className="rounded-full text-xs font-bold py-2.5 px-4 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm">
             أنظمة ERP
           </TabsTrigger>
-          <TabsTrigger value="webhooks" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger value="webhooks" className="rounded-full text-xs font-bold py-2.5 px-4 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm">
             Webhooks & API
           </TabsTrigger>
         </TabsList>

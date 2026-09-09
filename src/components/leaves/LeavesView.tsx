@@ -122,30 +122,34 @@ export const LeavesView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header (Google M3 Style) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      {/* Executive Page Header */}
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol
-              name="event_available"
-              source="material"
-              filled
-              size={24}
-              className="text-primary"
-            />
-            {t.leaves.balance} وإدارة العطلات (M06)
-          </h1>
-          <p className="text-xs text-muted-foreground font-medium mt-1">
-            إدارة أرصدة الإجازات السنوية والمرضية، التقديم، وحجز الرصيد وفق معايير نظام العمل
-            السعودي
-          </p>
+          <div className="flex items-center gap-2.5">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+              <IconSymbol name="event_available" source="material" filled size={24} className="text-primary" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-black text-foreground">
+                  {t.leaves.balance} وإدارة العطلات والغياب
+                </h1>
+                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                  متوافق مع قوى ونظام العمل
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                إدارة أرصدة الإجازات السنوية والمرضية، التقديم، وحجز الرصيد وفق معايير نظام العمل السعودي
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <Button
             onClick={() => setIsApplyModalOpen(true)}
             size="sm"
-            className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-4"
+            className="classera-btn-primary rounded-full font-bold text-xs gap-1.5 shadow-xs h-10 px-5 cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             {t.leaves.applyLeave}
@@ -156,7 +160,7 @@ export const LeavesView: React.FC = () => {
                 onClick={() => accrueLeaveBalances(new Date().getFullYear())}
                 size="sm"
                 variant="secondary"
-                className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs"
+                className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs cursor-pointer"
               >
                 <TrendingUp className="h-4 w-4 text-primary" />
                 ترحيل الاستحقاق الشهري
@@ -165,7 +169,7 @@ export const LeavesView: React.FC = () => {
                 onClick={() => setIsAddTypeModalOpen(true)}
                 variant="outline"
                 size="sm"
-                className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
+                className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
               >
                 <Settings className="h-4 w-4 text-primary" />
                 إضافة نوع إجازة
@@ -174,7 +178,7 @@ export const LeavesView: React.FC = () => {
                 onClick={() => setIsAdjustBalanceOpen(true)}
                 variant="secondary"
                 size="sm"
-                className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs"
+                className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs cursor-pointer"
               >
                 <Sliders className="h-4 w-4 text-primary" />
                 تعديل رصيد يدوي
@@ -189,7 +193,7 @@ export const LeavesView: React.FC = () => {
         {leaveBalances.map((bal) => (
           <div
             key={bal.leaveTypeId}
-            className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-3.5 relative overflow-hidden hover:border-primary/50 hover:shadow-md transition-all"
+            className="classera-kpi-card p-5 shadow-xs space-y-3.5 relative overflow-hidden"
           >
             <div className="flex items-center justify-between">
               <span className="font-black text-xs text-foreground">
@@ -197,51 +201,51 @@ export const LeavesView: React.FC = () => {
               </span>
               <div
                 className="h-3.5 w-3.5 rounded-full shadow-xs"
-                style={{ backgroundColor: bal.color || "#0B57D0" }}
+                style={{ backgroundColor: bal.color || "#004BCE" }}
               />
             </div>
 
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-foreground">{bal.availableBalance}</span>
-              <span className="text-xs text-muted-foreground font-bold">يوم متاح</span>
+              <span className="text-3xl font-black text-foreground font-tabular-nums font-mono">{bal.availableBalance}</span>
+              <span className="text-xs text-muted-foreground font-bold font-sans">يوم متاح</span>
             </div>
 
             <div className="grid grid-cols-3 gap-2 border-t border-border/60 pt-3 text-[11px] text-muted-foreground text-center">
               <div>
                 <p>المستحق السنوي</p>
-                <p className="font-bold text-foreground mt-0.5">{bal.annualEntitlement}</p>
+                <p className="font-bold text-foreground mt-0.5 font-tabular-nums font-mono">{bal.annualEntitlement}</p>
               </div>
               <div>
                 <p>المستخدم</p>
-                <p className="font-bold text-foreground mt-0.5">{bal.usedDays}</p>
+                <p className="font-bold text-foreground mt-0.5 font-tabular-nums font-mono">{bal.usedDays}</p>
               </div>
               <div>
                 <p className="text-amber-600 font-semibold">المحجوز</p>
-                <p className="font-bold text-amber-600 mt-0.5">{bal.reservedDays}</p>
+                <p className="font-bold text-amber-600 mt-0.5 font-tabular-nums font-mono">{bal.reservedDays}</p>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Tabs Layout (Google M3 Tabs) */}
+      {/* Tabs Layout */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-lg bg-muted/60 p-1 rounded-full border border-border/60">
+        <TabsList className="classera-tabs-strip max-w-lg">
           <TabsTrigger
             value="balances"
-            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
           >
             التقويم والجدولة
           </TabsTrigger>
           <TabsTrigger
             value="types"
-            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
           >
             أنواع وسياسات الإجازات
           </TabsTrigger>
           <TabsTrigger
             value="law"
-            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
           >
             نظام العمل السعودي (قوى)
           </TabsTrigger>

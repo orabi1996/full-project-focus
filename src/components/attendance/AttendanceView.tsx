@@ -264,18 +264,23 @@ export const AttendanceView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header & Quick Punch Actions */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol
-              name="schedule"
-              source="material"
-              filled
-              size={26}
-              className="text-primary"
-            />
-            نظام إدارة الحضور والورديات والعمل الإضافي (M07)
-          </h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
+              <IconSymbol
+                name="schedule"
+                source="material"
+                filled
+                size={26}
+                className="text-primary"
+              />
+              نظام إدارة الحضور والورديات والعمل الإضافي
+            </h1>
+            <Badge variant="secondary" className="classera-badge-pulse font-bold text-[11px] rounded-full px-3 py-0.5">
+              الامتثال للائحة العمل السعودية
+            </Badge>
+          </div>
           <p className="text-xs text-muted-foreground font-medium mt-1">
             البصمة الذكية GPS، السياج الجغرافي، واحتساب الساعات الإضافية وفق المادة 107 من نظام
             العمل السعودي
@@ -285,7 +290,7 @@ export const AttendanceView: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2.5">
           <Button
             onClick={() => handlePunch("in")}
-            className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-xs h-10 px-4"
+            className="rounded-full classera-btn-primary text-white font-bold text-xs gap-1.5 shadow-md shadow-blue-500/20 h-10 px-5 cursor-pointer"
           >
             <Clock className="h-4 w-4" />
             تسجيل حضور GPS
@@ -293,7 +298,7 @@ export const AttendanceView: React.FC = () => {
           <Button
             onClick={() => handlePunch("out")}
             variant="outline"
-            className="rounded-full font-bold text-xs gap-1.5 text-foreground hover:bg-secondary border-border/80 h-10 px-4 shadow-xs"
+            className="rounded-full font-bold text-xs gap-1.5 text-foreground hover:bg-secondary border-border/80 h-10 px-4 shadow-xs cursor-pointer"
           >
             <Clock className="h-4 w-4 text-amber-600" />
             تسجيل انصراف
@@ -302,7 +307,7 @@ export const AttendanceView: React.FC = () => {
             onClick={() => setIsCorrectionModalOpen(true)}
             variant="secondary"
             size="sm"
-            className="rounded-full text-xs font-bold gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs"
+            className="rounded-full text-xs font-bold gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs cursor-pointer"
           >
             <Compass className="h-4 w-4 text-primary" />
             تصحيح بصمة
@@ -311,7 +316,7 @@ export const AttendanceView: React.FC = () => {
             <Button
               onClick={() => setIsOvertimeModalOpen(true)}
               size="sm"
-              className="rounded-full text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground h-10 px-4 shadow-xs"
+              className="rounded-full text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground h-10 px-4 shadow-xs cursor-pointer"
             >
               <Zap className="h-4 w-4 text-amber-300" />
               طلب عمل إضافي
@@ -322,12 +327,12 @@ export const AttendanceView: React.FC = () => {
 
       {/* Attendance & Overtime KPI Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-5 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">
               نسبة الانضباط والالتزام
             </span>
-            <p className="text-2xl font-black text-emerald-600 mt-0.5">{attendanceRate}%</p>
+            <p className="text-2xl font-black text-emerald-600 mt-0.5 font-tabular-nums font-mono">{attendanceRate}%</p>
             <span className="text-[10px] text-muted-foreground font-bold">
               {presentCount} حاضر من {totalEmployeesCount}
             </span>
@@ -337,16 +342,16 @@ export const AttendanceView: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-5 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">
               العمل الإضافي المعتمد
             </span>
-            <p className="text-2xl font-black text-foreground mt-0.5">
+            <p className="text-2xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">
               {totalOvertimeApprovedHours}{" "}
-              <span className="text-xs font-normal text-muted-foreground">ساعة</span>
+              <span className="text-xs font-normal text-muted-foreground font-sans">ساعة</span>
             </p>
-            <span className="text-[10px] text-primary font-bold">
+            <span className="text-[10px] text-primary font-bold font-tabular-nums">
               {totalOvertimeApprovedAmount.toLocaleString()} ر.س مخصص شهري
             </span>
           </div>
@@ -355,12 +360,12 @@ export const AttendanceView: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-5 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">
               حالات التأخير والانصراف المبكر
             </span>
-            <p className="text-2xl font-black text-amber-600 mt-0.5">{lateCount}</p>
+            <p className="text-2xl font-black text-amber-600 mt-0.5 font-tabular-nums font-mono">{lateCount}</p>
             <span className="text-[10px] text-amber-600 font-bold">ضمن فترة السماح القانونية</span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
@@ -368,15 +373,15 @@ export const AttendanceView: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-5 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">طلبات تصحيح البصمة</span>
-            <p className="text-2xl font-black text-indigo-600 mt-0.5">{pendingCorrectionsCount}</p>
+            <p className="text-2xl font-black text-primary mt-0.5 font-tabular-nums font-mono">{pendingCorrectionsCount}</p>
             <span className="text-[10px] text-muted-foreground font-bold">
               بانتظار اعتماد المشرفين
             </span>
           </div>
-          <div className="h-11 w-11 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
+          <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
             <FileCheck className="h-6 w-6" />
           </div>
         </div>
@@ -384,16 +389,16 @@ export const AttendanceView: React.FC = () => {
 
       {/* Main Tabs Hub */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
-        <TabsList className="bg-muted/40 p-1 rounded-2xl border border-border/60">
-          <TabsTrigger value="timesheet" className="rounded-xl text-xs font-bold gap-1.5">
+        <TabsList className="classera-tabs-strip">
+          <TabsTrigger value="timesheet" className="rounded-xl text-xs font-bold gap-1.5 py-2">
             <Clock className="h-3.5 w-3.5" />
             سجل الدوام والتايم شيت اليومي
           </TabsTrigger>
-          <TabsTrigger value="biometric" className="rounded-xl text-xs font-bold gap-1.5">
+          <TabsTrigger value="biometric" className="rounded-xl text-xs font-bold gap-1.5 py-2">
             <ShieldCheck className="h-3.5 w-3.5 text-primary" />
             أجهزة البصمة والاعتماد
           </TabsTrigger>
-          <TabsTrigger value="overtime" className="rounded-xl text-xs font-bold gap-1.5">
+          <TabsTrigger value="overtime" className="rounded-xl text-xs font-bold gap-1.5 py-2">
             <Zap className="h-3.5 w-3.5 text-amber-500" />
             الساعات والعمل الإضافي (م107)
             {overtimeRecords.filter((o) => o.status === "pending").length > 0 && (
@@ -402,16 +407,16 @@ export const AttendanceView: React.FC = () => {
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="corrections" className="rounded-xl text-xs font-bold gap-1.5">
-            <FileCheck className="h-3.5 w-3.5 text-indigo-500" />
+          <TabsTrigger value="corrections" className="rounded-xl text-xs font-bold gap-1.5 py-2">
+            <FileCheck className="h-3.5 w-3.5 text-primary" />
             طلبات تصحيح البصمة
             {pendingCorrectionsCount > 0 && (
-              <Badge className="mr-1 bg-indigo-600 text-white rounded-full text-[10px] h-4 px-1.5">
+              <Badge className="mr-1 bg-primary text-white rounded-full text-[10px] h-4 px-1.5">
                 {pendingCorrectionsCount}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="policies" className="rounded-xl text-xs font-bold gap-1.5">
+          <TabsTrigger value="policies" className="rounded-xl text-xs font-bold gap-1.5 py-2">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
             ضوابط نظام العمل والسياج الجغرافي
           </TabsTrigger>

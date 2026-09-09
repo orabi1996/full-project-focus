@@ -36,12 +36,17 @@ export const AuditView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header (Google M3 Style) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      {/* Header */}
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol name="verified_user" source="material" filled size={24} className="text-primary" />
-            {t.system.auditLog} والأمان المؤسسي (M14)
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+              <IconSymbol name="verified_user" source="material" filled size={16} />
+              سجل التدقيق والأمان المؤسسي
+            </span>
+          </div>
+          <h1 className="text-2xl font-black text-foreground mt-2">
+            {t.system.auditLog} والأمان المؤسسي
           </h1>
           <p className="text-xs text-muted-foreground font-medium mt-1">
             سجل تدقيق غير قابل للتعديل (Append-Only Log) يوثق كافة التعديلات الحساسة والاعتمادات

@@ -139,7 +139,7 @@ function mapEmployee(
     subsidiaryId: row.subsidiary_id ?? "",
     subsidiaryName: row.subsidiary_id
       ? subsidiaries.get(row.subsidiary_id)?.name_ar
-      : "فوكس للتقنية وتطوير البرمجيات",
+      : "كلاسيرا للتقنية وتطوير البرمجيات",
     departmentId: row.department_id ?? "unassigned",
     departmentName: department?.name ?? defaultDeptName,
     jobTitleAr,

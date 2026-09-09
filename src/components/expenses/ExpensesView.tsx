@@ -118,12 +118,17 @@ export const ExpensesView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header (Google M3 Style) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      {/* Header */}
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol name="receipt_long" source="material" filled size={24} className="text-primary" />
-            {t.expenses.claims} وإدارة النفقات والمصروفات (M12)
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+              <IconSymbol name="receipt_long" source="material" filled size={16} />
+              النفقات والمصروفات المؤسسية
+            </span>
+          </div>
+          <h1 className="text-2xl font-black text-foreground mt-2">
+            {t.expenses.claims} وإدارة النفقات والمصروفات
           </h1>
           <p className="text-xs text-muted-foreground font-medium mt-1">
             إدارة فواتير ومصروفات الأعمال، حدود السياسات والتحقق، والاعتماد والترحيل المالي
@@ -135,7 +140,7 @@ export const ExpensesView: React.FC = () => {
             <Button
               onClick={() => setIsClaimModalOpen(true)}
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-4"
+              className="classera-btn-primary h-10 px-5 text-xs gap-1.5"
             >
               <Plus className="h-4 w-4" />
               {t.expenses.newClaim}
@@ -167,21 +172,23 @@ export const ExpensesView: React.FC = () => {
       {/* Expense Policy Categories */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {expenseCategories.map((cat) => (
-          <div key={cat.id} className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-3 hover:border-primary/40 transition-all">
+          <div key={cat.id} className="classera-kpi-card p-5 space-y-3">
             <div className="flex items-center justify-between">
               <span className="font-black text-xs text-foreground">{cat.nameAr}</span>
-              <Receipt className="h-4 w-4 text-primary" />
+              <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <Receipt className="h-4 w-4" />
+              </div>
             </div>
             <div className="space-y-1.5 text-xs text-muted-foreground pt-2 border-t border-border/60 font-medium">
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span>حد التحذير:</span>
-                <span className="font-bold text-amber-600 font-mono">
+                <span className="font-bold text-amber-600 font-mono font-tabular-nums">
                   {cat.maxLimitWarning.toLocaleString()} ر.س
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span>الحد المانع:</span>
-                <span className="font-bold text-destructive font-mono">
+                <span className="font-bold text-destructive font-mono font-tabular-nums">
                   {cat.maxLimitBlock.toLocaleString()} ر.س
                 </span>
               </div>
@@ -201,7 +208,7 @@ export const ExpensesView: React.FC = () => {
 
         <div className="overflow-x-auto rounded-2xl border border-border/60">
           <table className="w-full text-xs">
-            <thead className="border-b border-border/60 bg-muted/40 font-bold text-muted-foreground">
+            <thead className="classera-table-head">
               <tr>
                 <th className="py-3 px-4 text-start">التصنيف</th>
                 <th className="py-3 px-4 text-start">المورد / الجهة</th>
@@ -213,12 +220,12 @@ export const ExpensesView: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-border/60">
               {expenseClaims.map((c) => (
-                <tr key={c.id} className="hover:bg-muted/20 transition-colors">
+                <tr key={c.id} className="classera-table-row">
                   <td className="py-3 px-4 font-bold text-foreground">{c.categoryNameAr}</td>
                   <td className="py-3 px-4 font-semibold">{c.merchantName}</td>
                   <td className="py-3 px-4 text-muted-foreground font-medium">{c.description}</td>
-                  <td className="py-3 px-4 text-muted-foreground font-mono">{c.spentAt}</td>
-                  <td className="py-3 px-4 font-black text-primary font-mono">
+                  <td className="py-3 px-4 text-muted-foreground font-mono font-tabular-nums">{c.spentAt}</td>
+                  <td className="py-3 px-4 font-black text-primary font-mono font-tabular-nums">
                     {c.amount.toLocaleString()} {c.currency}
                   </td>
                   <td className="py-3 px-4">

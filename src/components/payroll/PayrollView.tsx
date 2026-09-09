@@ -275,19 +275,31 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      {/* Executive Page Header */}
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol name="account_balance_wallet" source="material" filled size={26} className="text-primary" />
-            {section === "payroll"
-              ? "مسيرات الرواتب وملفات حماية الأجور WPS (M10)"
-              : "إدارة السلف ومكافأة نهاية الخدمة والمخالصات (M11)"}
-          </h1>
-          <p className="text-xs text-muted-foreground font-medium mt-1">
-            {section === "payroll"
-              ? "محرك احتساب الرواتب الآلي، خصومات التأمينات (GOSI)، حماية الأجور (WPS SIF)، وقسائم الرواتب المعتمدة"
-              : "إدارة السلف الشهرية، وجدولة الأقساط، ومخالصات نهاية الخدمة (EOSB) المتوافقة مع قوى ونظام العمل"}
-          </p>
+          <div className="flex items-center gap-2.5">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+              <IconSymbol name="account_balance_wallet" source="material" filled size={24} className="text-primary" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-black text-foreground">
+                  {section === "payroll"
+                    ? "مسيرات الرواتب وملفات حماية الأجور (WPS)"
+                    : "إدارة السلف ومكافأة نهاية الخدمة والمخالصات"}
+                </h1>
+                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                  {section === "payroll" ? "موثق مع حماية الأجور WPS" : "متوافق مع قوى ونظام العمل"}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                {section === "payroll"
+                  ? "محرك احتساب الرواتب الآلي، خصومات التأمينات (GOSI)، حماية الأجور (WPS SIF)، وقسائم الرواتب المعتمدة"
+                  : "إدارة السلف الشهرية، وجدولة الأقساط، ومخالصات نهاية الخدمة (EOSB) المتوافقة مع قوى ونظام العمل"}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -298,7 +310,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                 setIsRunModalOpen(true);
               }}
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-5"
+              className="classera-btn-primary rounded-full font-bold text-xs gap-1.5 shadow-xs h-10 px-5 cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               تشغيل مسير رواتب جديد
@@ -309,7 +321,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
               onClick={() => setIsSettlementModalOpen(true)}
               variant="outline"
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
+              className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
             >
               <FileCheck className="h-4 w-4 text-primary" />
               احتساب مخالصة نهاية الخدمة
@@ -320,7 +332,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
               onClick={() => setIsLoanModalOpen(true)}
               variant="secondary"
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs"
+              className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs cursor-pointer"
             >
               <DollarSign className="h-4 w-4 text-primary" />
               طلب سلفة مالية جديدة
@@ -331,39 +343,37 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList
-          className={`grid h-auto w-full max-w-6xl gap-1 bg-muted/60 p-1 rounded-2xl border border-border/60 ${section === "payroll" ? "grid-cols-4 sm:grid-cols-5 lg:grid-cols-9" : "grid-cols-2"}`}
-        >
+        <TabsList className="classera-tabs-strip">
           {section === "payroll" ? (
             <>
-              <TabsTrigger value="runs" className="rounded-xl text-xs font-bold py-2">
+              <TabsTrigger value="runs" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
                 مسيرات الرواتب الشهرية ({payrollRuns.length})
               </TabsTrigger>
-              <TabsTrigger value="distribution" className="rounded-xl text-xs font-bold py-2">
+              <TabsTrigger value="distribution" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
                 توزيع الرواتب حسب الإدارة
               </TabsTrigger>
-              <TabsTrigger value="salaryFiles" className="rounded-xl text-xs font-bold py-2">
+              <TabsTrigger value="salaryFiles" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
                 ملفات الرواتب
               </TabsTrigger>
-              <TabsTrigger value="payments" className="rounded-xl text-xs font-bold py-2">
+              <TabsTrigger value="payments" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
                 دفع الرواتب
               </TabsTrigger>
-              <TabsTrigger value="bank" className="rounded-xl text-xs font-bold py-2">
+              <TabsTrigger value="bank" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
                 التحويل البنكي
               </TabsTrigger>
-              <TabsTrigger value="reports" className="rounded-xl text-xs font-bold py-2">
+              <TabsTrigger value="reports" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
                 التقارير الشهرية
               </TabsTrigger>
-              <TabsTrigger value="reconciliation" className="rounded-xl text-xs font-bold py-2">
+              <TabsTrigger value="reconciliation" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
                 تسويات الرواتب
               </TabsTrigger>
             </>
           ) : (
             <>
-              <TabsTrigger value="loans" className="rounded-xl text-xs font-bold py-2">
+              <TabsTrigger value="loans" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
                 سجل السلف والأقساط ({loans.length})
               </TabsTrigger>
-              <TabsTrigger value="settlements" className="rounded-xl text-xs font-bold py-2">
+              <TabsTrigger value="settlements" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
                 مخالصات نهاية الخدمة ({settlements.length})
               </TabsTrigger>
             </>
@@ -461,27 +471,27 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
 
               {/* Totals Summary Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-                <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-                  <span className="text-muted-foreground font-bold">إجمالي الراتب الأساسي</span>
-                  <p className="text-lg font-black text-foreground mt-1 font-mono">
+                <div className="classera-kpi-card p-4">
+                  <span className="text-muted-foreground font-bold text-xs">إجمالي الراتب الأساسي</span>
+                  <p className="text-lg font-black text-foreground mt-1 font-mono font-tabular-nums">
                     {selectedRun.totalBasicSalary.toLocaleString()} ر.س
                   </p>
                 </div>
-                <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-                  <span className="text-muted-foreground font-bold">البدلات والعمل الإضافي</span>
-                  <p className="text-lg font-black text-emerald-600 mt-1 font-mono">
+                <div className="classera-kpi-card p-4">
+                  <span className="text-muted-foreground font-bold text-xs">البدلات والعمل الإضافي</span>
+                  <p className="text-lg font-black text-emerald-600 mt-1 font-mono font-tabular-nums">
                     +{(selectedRun.totalAllowances + selectedRun.totalOvertimeAmount).toLocaleString()} ر.س
                   </p>
                 </div>
-                <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-                  <span className="text-muted-foreground font-bold">الاستقطاعات والتأمينات</span>
-                  <p className="text-lg font-black text-destructive mt-1 font-mono">
+                <div className="classera-kpi-card p-4">
+                  <span className="text-muted-foreground font-bold text-xs">الاستقطاعات والتأمينات</span>
+                  <p className="text-lg font-black text-destructive mt-1 font-mono font-tabular-nums">
                     -{selectedRun.totalDeductions.toLocaleString()} ر.س
                   </p>
                 </div>
-                <div className="rounded-2xl border border-primary/20 bg-secondary/30 p-4">
-                  <span className="text-primary font-bold">صافي المسير النهائي</span>
-                  <p className="text-xl font-black text-primary mt-1 font-mono">
+                <div className="classera-kpi-card p-4">
+                  <span className="text-primary font-bold text-xs">صافي المسير النهائي</span>
+                  <p className="text-xl font-black text-primary mt-1 font-mono font-tabular-nums">
                     {selectedRun.totalNetSalary.toLocaleString()} ر.س
                   </p>
                 </div>
@@ -516,7 +526,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
               {/* Employee Breakdown Table */}
               <div className="overflow-x-auto rounded-2xl border border-border/60">
                 <table className="w-full text-xs">
-                  <thead className="border-b border-border/60 bg-muted/40 font-bold text-muted-foreground">
+                  <thead className="classera-table-head">
                     <tr>
                       <th className="py-3 px-3 text-start">الموظف</th>
                       <th className="py-3 px-3 text-start">الراتب الأساسي</th>
@@ -530,7 +540,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
                   </thead>
                   <tbody className="divide-y divide-border/60">
                     {filteredRunDetails.map((item) => (
-                      <tr key={item.id} className="hover:bg-muted/20 transition-colors group">
+                      <tr key={item.id} className="classera-table-row group">
                         <td className="py-3 px-3">
                           <button
                             type="button"

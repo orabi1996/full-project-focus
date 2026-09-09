@@ -318,27 +318,32 @@ export const WorkflowView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header & Quick Action */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      {/* Executive Page Header */}
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol
-              name="approval"
-              source="material"
-              filled
-              size={26}
-              className="text-primary"
-            />
-            محرك الطلبات ومسارات الاعتماد الذكية (M05)
-          </h1>
-          <p className="text-xs text-muted-foreground font-medium mt-1">
-            إدارة تدفقات الموافقات متعددة المستويات، تفويض الصلاحيات، والاعتماد الإلكتروني الموثق
-          </p>
+          <div className="flex items-center gap-2.5">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+              <IconSymbol name="approval" source="material" filled size={24} className="text-primary" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-black text-foreground">
+                  محرك الطلبات ومسارات الاعتماد الذكية
+                </h1>
+                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                  حوكمة ومسارات إلكترونية
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                إدارة تدفقات الموافقات متعددة المستويات، تفويض الصلاحيات، والاعتماد الإلكتروني الموثق
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
           {activeDelegation && (
-            <Badge className="bg-amber-500/10 text-amber-700 border-amber-300 rounded-full px-3 py-1 text-xs gap-1.5 font-bold">
+            <Badge className="bg-amber-500/10 text-amber-700 border-amber-300 rounded-full px-3 py-1 text-xs gap-1.5 font-bold shadow-xs">
               <ArrowLeftRight className="h-3.5 w-3.5 text-amber-600" />
               تفويض مفعل: {activeDelegation.delegateName.split(" ")[0]}
             </Badge>
@@ -346,7 +351,7 @@ export const WorkflowView: React.FC = () => {
 
           <Button
             onClick={() => setIsNewRequestOpen(true)}
-            className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs gap-1.5 shadow-xs h-10 px-5"
+            className="classera-btn-primary rounded-full font-bold text-xs gap-1.5 shadow-xs h-10 px-5 cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             تقديم طلب جديد
@@ -356,12 +361,12 @@ export const WorkflowView: React.FC = () => {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-5 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">
               صندوق الوارد (بانتظار الاعتماد)
             </span>
-            <p className="text-2xl font-black text-amber-600 mt-0.5">{pendingInbox.length}</p>
+            <p className="text-2xl font-black text-amber-600 mt-0.5 font-tabular-nums font-mono">{pendingInbox.length}</p>
             <span className="text-[10px] text-muted-foreground font-bold">تتطلب اتخاذ قرار</span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
@@ -369,11 +374,11 @@ export const WorkflowView: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-5 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">طلباتي المقدمة</span>
-            <p className="text-2xl font-black text-foreground mt-0.5">{myRequests.length}</p>
-            <span className="text-[10px] text-emerald-600 font-bold">
+            <p className="text-2xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">{myRequests.length}</p>
+            <span className="text-[10px] text-emerald-600 font-bold font-tabular-nums">
               {myRequests.filter((r) => r.status === "approved").length} معتمد •{" "}
               {myRequests.filter((r) => r.status === "pending_approval").length} جاري
             </span>
@@ -383,29 +388,29 @@ export const WorkflowView: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-5 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">
               سلاسل الاعتماد النشطة
             </span>
-            <p className="text-2xl font-black text-indigo-600 mt-0.5">
+            <p className="text-2xl font-black text-primary mt-0.5 font-tabular-nums font-mono">
               {approvalChains.filter((c) => c.status === "active").length}
             </p>
             <span className="text-[10px] text-muted-foreground font-bold">
               تغطي كافة أقسام المنشأة
             </span>
           </div>
-          <div className="h-11 w-11 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
+          <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
             <Layers className="h-6 w-6" />
           </div>
         </div>
 
-        <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-5 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">
               قواعد تفويض الصلاحيات
             </span>
-            <p className="text-2xl font-black text-emerald-600 mt-0.5">
+            <p className="text-2xl font-black text-emerald-600 mt-0.5 font-tabular-nums font-mono">
               {delegationRules.filter((d) => d.status === "active").length}
             </p>
             <span className="text-[10px] text-muted-foreground font-bold">
@@ -420,8 +425,8 @@ export const WorkflowView: React.FC = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
-        <TabsList className="bg-muted/40 p-1 rounded-2xl border border-border/60">
-          <TabsTrigger value="inbox" className="rounded-xl text-xs font-bold gap-1.5">
+        <TabsList className="classera-tabs-strip">
+          <TabsTrigger value="inbox" className="rounded-xl text-xs font-bold gap-1.5 py-2">
             <Clock className="h-3.5 w-3.5 text-amber-500" />
             صندوق الوارد للاعتماد
             {pendingInbox.length > 0 && (
@@ -430,18 +435,18 @@ export const WorkflowView: React.FC = () => {
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="my_requests" className="rounded-xl text-xs font-bold gap-1.5">
+          <TabsTrigger value="my_requests" className="rounded-xl text-xs font-bold gap-1.5 py-2">
             <Send className="h-3.5 w-3.5 text-primary" />
             طلباتي ومتابعة الحالات
             <Badge className="mr-1 bg-muted text-foreground border border-border rounded-full text-[10px] h-4 px-1.5">
               {myRequests.length}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="chains" className="rounded-xl text-xs font-bold gap-1.5">
-            <Layers className="h-3.5 w-3.5 text-indigo-500" />
+          <TabsTrigger value="chains" className="rounded-xl text-xs font-bold gap-1.5 py-2">
+            <Layers className="h-3.5 w-3.5 text-primary" />
             مصمم مسارات الاعتماد ({approvalChains.length})
           </TabsTrigger>
-          <TabsTrigger value="delegations" className="rounded-xl text-xs font-bold gap-1.5">
+          <TabsTrigger value="delegations" className="rounded-xl text-xs font-bold gap-1.5 py-2">
             <ArrowLeftRight className="h-3.5 w-3.5 text-emerald-600" />
             تفويض الصلاحيات ({delegationRules.length})
           </TabsTrigger>

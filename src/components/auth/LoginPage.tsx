@@ -205,7 +205,7 @@ export function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@focus-hrms.com"
+                  placeholder="admin@classera-pulse.com"
                   required
                   autoFocus
                   className="w-full h-11 rounded-2xl border border-border/80 bg-muted/40 px-4 text-xs font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-[#00B5FF]/60 focus:border-[#00B5FF] transition-all shadow-xs"

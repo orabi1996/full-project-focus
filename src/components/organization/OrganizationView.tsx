@@ -139,8 +139,8 @@ export const OrganizationView: React.FC = () => {
 
     return {
       id: "__company__",
-      titleAr: company.legalNameAr || "شركة فوكس القابضة",
-      titleEn: company.legalNameEn || "Focus Holding Co.",
+      titleAr: company.legalNameAr || "مجموعة كلاسيرا القابضة",
+      titleEn: company.legalNameEn || "Classera Holding Group",
       subtitle: `سجل تجاري ${company.crNumber || "1010892341"}`,
       managerName: "م. عبد العزيز الفهد • الرئيس التنفيذي",
       code: company.id || "HQ-01",
@@ -243,24 +243,34 @@ export const OrganizationView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Page Header (Google M3 Style) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      {/* Executive Page Header */}
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <Building2 className="h-6 w-6 text-primary" />
-            {t.org.companyProfile} والهيكل التنظيمي (M02)
-          </h1>
-          <p className="text-xs text-muted-foreground font-medium mt-1">
-            إدارة المنشأة الرئيسية، الشركات التابعة، شجرة الهيكل التنظيمي SVG، والمواقع الجغرافية
-            بنطاق السياج الذكي (Geofencing)
-          </p>
+          <div className="flex items-center gap-2.5">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+              <Building2 className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-black text-foreground">
+                  {t.org.companyProfile} والهيكل التنظيمي
+                </h1>
+                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                  الهيكل المؤسسي والحوكمة
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                إدارة المنشأة الرئيسية، الشركات التابعة، شجرة الهيكل التنظيمي SVG، والمواقع الجغرافية بنطاق السياج الذكي (Geofencing)
+              </p>
+            </div>
+          </div>
         </div>
         {canManage && (
-          <div className="flex flex-wrap gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Button
               onClick={() => setIsAddDeptOpen(true)}
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-4"
+              className="classera-btn-primary rounded-full font-bold text-xs gap-1.5 shadow-xs h-10 px-5 cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               {t.org.addDepartment}
@@ -269,7 +279,7 @@ export const OrganizationView: React.FC = () => {
               onClick={() => setIsAddSubOpen(true)}
               variant="outline"
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
+              className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
             >
               <Plus className="h-4 w-4 text-primary" />
               إضافة شركة تابعة
@@ -278,7 +288,7 @@ export const OrganizationView: React.FC = () => {
               onClick={() => setIsAddLocOpen(true)}
               variant="secondary"
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs"
+              className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs cursor-pointer"
             >
               <MapPin className="h-4 w-4 text-primary" />
               إضافة موقع وسياج GPS
@@ -289,12 +299,12 @@ export const OrganizationView: React.FC = () => {
 
       {/* Primary KPI Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">
               المنشأة والشركات التابعة
             </span>
-            <h4 className="text-xl font-black text-foreground mt-0.5">
+            <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">
               {subsidiaries.length + 1} كيانات قانونية
             </h4>
             <span className="text-[10px] text-primary font-bold">سجلات تجارية مستقلة</span>
@@ -304,10 +314,10 @@ export const OrganizationView: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">الإدارات والأقسام</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5">
+            <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">
               {orgUnits.length} إدارات عامة
             </h4>
             <span className="text-[10px] text-emerald-600 font-bold">هيكل إداري موحد</span>
@@ -317,12 +327,12 @@ export const OrganizationView: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">
               فروع العمل وسياج GPS
             </span>
-            <h4 className="text-xl font-black text-foreground mt-0.5">
+            <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">
               {workLocations.length} مواقع معتمدة
             </h4>
             <span className="text-[10px] text-amber-600 font-bold">نصف قطر 150م - 300م</span>
@@ -332,64 +342,64 @@ export const OrganizationView: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs flex items-center justify-between">
+        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">
               إجمالي القوى العاملة
             </span>
-            <h4 className="text-xl font-black text-foreground mt-0.5">
+            <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">
               {employees.length} موظف مسجل
             </h4>
-            <span className="text-[10px] text-purple-600 font-bold">100% عقود موثقة (قوى)</span>
+            <span className="text-[10px] text-primary font-bold">100% عقود موثقة (قوى)</span>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-600">
+          <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
             <Users className="h-5 w-5" />
           </div>
         </div>
       </div>
 
-      {/* Tabs Menu (Google M3 Segmented / Primary Tabs) */}
+      {/* Tabs Menu */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-3xl border border-border/60 bg-muted/60 p-1 sm:grid-cols-4 xl:grid-cols-7">
+        <TabsList className="classera-tabs-strip">
           <TabsTrigger
             value="company"
-            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5"
           >
             بيانات المنشأة
           </TabsTrigger>
           <TabsTrigger
             value="orgchart"
-            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5"
           >
             {t.org.orgChart} الشجري SVG
           </TabsTrigger>
           <TabsTrigger
             value="structure"
-            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5"
           >
             {t.org.departments} ({orgUnits.length})
           </TabsTrigger>
           <TabsTrigger
             value="subsidiaries"
-            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5"
           >
             {t.org.subsidiaries} ({subsidiaries.length})
           </TabsTrigger>
           <TabsTrigger
             value="locations"
-            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5"
           >
             {t.org.locations} ({workLocations.length})
           </TabsTrigger>
           <TabsTrigger
             value="positions"
-            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5"
           >
             المناصب ({jobPositions.length})
           </TabsTrigger>
           <TabsTrigger
             value="cost-centers"
-            className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5"
           >
             مراكز التكلفة ({costCenters.length})
           </TabsTrigger>
@@ -418,7 +428,7 @@ export const OrganizationView: React.FC = () => {
                 {!selectedUnit ? (
                   <div className="space-y-2.5 text-xs text-muted-foreground">
                     <p className="font-bold text-foreground text-sm">
-                      {company.legalNameAr || "شركة فوكس القابضة"}
+                      {company.legalNameAr || "مجموعة كلاسيرا القابضة"}
                     </p>
                     <p>
                       السجل التجاري:{" "}
@@ -432,7 +442,7 @@ export const OrganizationView: React.FC = () => {
                         {company.taxNumber || "310298374600003"}
                       </span>
                     </p>
-                    <p>{company.headquartersAddress || "الرياض - طريق الملك فهد - برج فوكس"}</p>
+                    <p>{company.headquartersAddress || "الرياض - طريق الملك فهد - أبراج العليا"}</p>
                     <div className="pt-2">
                       <Badge variant="outline" className="text-[10px] rounded-full">
                         {employees.length} موظف مسجل • {orgUnits.length} وحدة تنظيمية
@@ -799,7 +809,7 @@ export const OrganizationView: React.FC = () => {
                 type="text"
                 value={newSub.nameAr}
                 onChange={(e) => setNewSub({ ...newSub, nameAr: e.target.value })}
-                placeholder="مثال: فوكس للحلول التقنية المتقدمة"
+                placeholder="مثال: كلاسيرا للحلول التعليمية والتقنية"
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>

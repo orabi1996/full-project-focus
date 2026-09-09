@@ -105,12 +105,17 @@ export const AssetsView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header (Google M3 Style) */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
+      {/* Header */}
+      <div className="classera-page-header">
         <div>
-          <h1 className="text-xl font-black text-foreground flex items-center gap-2.5">
-            <IconSymbol name="devices" source="material" filled size={24} className="text-primary" />
-            {t.assets.catalog} ومستندات المنشأة (M11)
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+              <IconSymbol name="devices" source="material" filled size={16} />
+              إدارة الأصول واللوائح
+            </span>
+          </div>
+          <h1 className="text-2xl font-black text-foreground mt-2">
+            {t.assets.catalog} ومستندات المنشأة
           </h1>
           <p className="text-xs text-muted-foreground font-medium mt-1">
             إدارة عهد الموظفين والأجهزة، تتبع إخلاء الطرف، واللوائح الداخلية وإقرارات الموظفين
@@ -121,7 +126,7 @@ export const AssetsView: React.FC = () => {
             <Button
               onClick={() => setIsAddAssetOpen(true)}
               size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs h-10 px-4"
+              className="classera-btn-primary h-10 px-5 text-xs gap-1.5"
             >
               <Plus className="h-4 w-4" />
               تسجيل عهدة جديدة
@@ -141,11 +146,11 @@ export const AssetsView: React.FC = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-2 max-w-xs bg-muted/60 p-1 rounded-full border border-border/60">
-          <TabsTrigger value="assets" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+        <TabsList className="classera-tabs-strip w-auto max-w-md">
+          <TabsTrigger value="assets" className="rounded-full text-xs font-bold py-2.5 px-4 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm">
             {t.assets.catalog} ({assets.length})
           </TabsTrigger>
-          <TabsTrigger value="docs" className="rounded-full text-xs font-bold py-2 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-xs">
+          <TabsTrigger value="docs" className="rounded-full text-xs font-bold py-2.5 px-4 data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm">
             {t.assets.companyDocs} ({companyDocs.length})
           </TabsTrigger>
         </TabsList>

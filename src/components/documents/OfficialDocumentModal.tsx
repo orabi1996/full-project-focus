@@ -367,7 +367,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
             <div className="space-y-4 text-justify text-slate-800 text-xs leading-6">
               <p>
                 تحية طيبة وبعد ،،<br />
-                تشهد شركة فوكس للتقنية بأن الموظف / <strong>{employee.firstNameAr} {employee.lastNameAr}</strong> (هوية رقم: <span className="font-mono font-bold">{employee.nationalIdOrIqama}</span>) قد أنهى خدمته لدى الشركة بصورة نظامية، وقد تم تسليمه كافة مستحقاته النظامية ومكافأة نهاية الخدمة وفقاً للمادتين 84 و 85 من نظام العمل السعودي.
+                تشهد إدارة الموارد البشرية بمنظومة كلاسيرا بالس بأن الموظف / <strong>{employee.firstNameAr} {employee.lastNameAr}</strong> (هوية رقم: <span className="font-mono font-bold">{employee.nationalIdOrIqama}</span>) قد أنهى خدمته لدى الشركة بصورة نظامية، وقد تم تسليمه كافة مستحقاته النظامية ومكافأة نهاية الخدمة وفقاً للمادتين 84 و 85 من نظام العمل السعودي.
               </p>
               <p>
                 كما تشهد الشركة بأن الموظف قد قام بإخلاء طرفه وتسليم كافة العهد والأصول والمستندات المسلمة إليه أثناء فترة عمله، وبهذا تعتبر ذمته بريئة تجاه الشركة من أي التزامات وظيفية أو مالية حتى تاريخه.
@@ -380,7 +380,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
             <div className="space-y-4 text-justify text-slate-800 text-xs leading-6">
               <p>
                 تحية طيبة وبعد ،،<br />
-                تشهد إدارة الموارد البشرية بشركة فوكس للتقنية بأن الموظف / <strong>{employee.firstNameAr} {employee.lastNameAr}</strong> قد عمل لدينا في وظيفة (<strong>{employee.jobTitleAr}</strong>) في قطاع ({employee.departmentName}) خلال الفترة من (<span className="font-mono font-bold">{employee.hireDate}</span>) وحتى تاريخه.
+                تشهد إدارة الموارد البشرية بمنظومة كلاسيرا بالس بأن الموظف / <strong>{employee.firstNameAr} {employee.lastNameAr}</strong> قد عمل لدينا في وظيفة (<strong>{employee.jobTitleAr}</strong>) في قطاع ({employee.departmentName}) خلال الفترة من (<span className="font-mono font-bold">{employee.hireDate}</span>) وحتى تاريخه.
               </p>
               <p>
                 وخلال فترة خدمته تميز بالانضباط المهني والكفاءة العالية وحسن السيرة والسلوك والالتزام بقوانين العمل. وقد أُعطيت له هذه الشهادة بناءً على طلبه كشهادة خبرة دون أدنى مسؤولية على الشركة.
@@ -391,7 +391,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
           {/* DOCUMENT BODY 6: QIWA CONTRACT */}
           {currentDocType === "employment_contract" && (
             <div className="space-y-3 text-slate-800 text-xs leading-5">
-              <p className="font-bold">الطرف الأول (صاحب العمل): شركة فوكس للتقنية وحلول الأعمال</p>
+              <p className="font-bold">الطرف الأول (صاحب العمل): كلاسيرا بالس لحلول رأس المال البشري</p>
               <p className="font-bold">
                 الطرف الثاني (الموظف): {employee.firstNameAr} {employee.lastNameAr} - هوية رقم (
                 {employee.nationalIdOrIqama})
@@ -423,7 +423,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
           <div className="border-t-2 border-slate-900 pt-6 mt-8 flex justify-between items-end">
             <div className="space-y-1">
               <p className="font-bold text-slate-900">إدارة الموارد البشرية والشؤون القانونية</p>
-              <p className="text-[11px] text-slate-600">شركة فوكس للتقنية وحلول الأعمال</p>
+              <p className="text-[11px] text-slate-600">كلاسيرا بالس لحلول رأس المال البشري</p>
               <div className="h-16 w-36 border-2 border-dashed border-emerald-600 rounded-lg flex items-center justify-center text-emerald-700 font-black text-[11px] mt-2 rotate-[-4deg]">
                 ختم الموارد البشرية المعتمد
               </div>

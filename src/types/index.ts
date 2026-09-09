@@ -263,6 +263,7 @@ export interface Employee {
   // Job Structure & Career
   jobGrade?: string;
   costCenter?: string;
+  costCenterId?: string | null;
   contractStartDate?: string;
   contractEndDate?: string;
   qiwaContractNo?: string;

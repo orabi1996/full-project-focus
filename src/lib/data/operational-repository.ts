@@ -1027,6 +1027,31 @@ export async function updateJobPositionRecord(
   if (error) throw new Error(error.message);
 }
 
+export async function deleteOrganizationUnitRecord(id: string) {
+  const { error } = await enterpriseSupabase.from("departments").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteSubsidiaryRecord(id: string) {
+  const { error } = await enterpriseSupabase.from("subsidiaries").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteWorkLocationRecord(id: string) {
+  const { error } = await enterpriseSupabase.from("work_locations").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteCostCenterRecord(id: string) {
+  const { error } = await enterpriseSupabase.from("cost_centers").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteJobPositionRecord(id: string) {
+  const { error } = await enterpriseSupabase.from("job_positions").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function createRoleDefinitionRecord(
   role: Omit<RoleDefinition, "id" | "userCount" | "permissions"> & { dataScope: string },
 ) {

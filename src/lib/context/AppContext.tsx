@@ -76,6 +76,11 @@ import {
   fetchOperationalSnapshot,
   markNotificationReadRecord,
   returnAssetRecord,
+  deleteCostCenterRecord,
+  deleteJobPositionRecord,
+  deleteOrganizationUnitRecord,
+  deleteSubsidiaryRecord,
+  deleteWorkLocationRecord,
   updateCandidateRecord,
   updateCompanyRecord,
   updateCostCenterRecord,
@@ -207,13 +212,16 @@ interface AppContextType {
   updateCompany: (profile: CompanyProfile) => Promise<boolean>;
   addOrgUnit: (unit: Omit<OrgUnit, "id" | "employeeCount">) => Promise<boolean>;
   updateOrgUnit: (id: string, unit: Omit<OrgUnit, "id" | "employeeCount">) => Promise<boolean>;
+  deleteOrgUnit: (id: string) => Promise<boolean>;
   addSubsidiary: (subsidiary: Omit<Subsidiary, "id" | "employeeCount">) => Promise<boolean>;
   updateSubsidiary: (
     id: string,
     subsidiary: Omit<Subsidiary, "id" | "employeeCount">,
   ) => Promise<boolean>;
+  deleteSubsidiary: (id: string) => Promise<boolean>;
   addWorkLocation: (location: Omit<WorkLocation, "id">) => Promise<boolean>;
   updateWorkLocation: (id: string, location: Omit<WorkLocation, "id">) => Promise<boolean>;
+  deleteWorkLocation: (id: string) => Promise<boolean>;
   addCostCenter: (
     center: Omit<CostCenter, "id" | "employeeCount" | "managerName">,
   ) => Promise<boolean>;
@@ -221,11 +229,13 @@ interface AppContextType {
     id: string,
     center: Omit<CostCenter, "id" | "employeeCount" | "managerName">,
   ) => Promise<boolean>;
+  deleteCostCenter: (id: string) => Promise<boolean>;
   addJobPosition: (position: Omit<JobPosition, "id" | "filledHeadcount">) => Promise<boolean>;
   updateJobPosition: (
     id: string,
     position: Omit<JobPosition, "id" | "filledHeadcount">,
   ) => Promise<boolean>;
+  deleteJobPosition: (id: string) => Promise<boolean>;
   addRole: (
     role: Omit<RoleDefinition, "id" | "userCount" | "permissions"> & { dataScope: DataScope },
   ) => RoleDefinition;
@@ -752,6 +762,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const deleteOrgUnit = (id: string) => {
+    const target = orgUnits.find((u) => u.id === id);
+    // Unassign employees belonging to this department
+    setEmployees((prev) =>
+      prev.map((emp) => (emp.departmentId === id ? { ...emp, departmentId: "" } : emp)),
+    );
+    // Reparent child org units
+    setOrgUnits((prev) =>
+      prev
+        .filter((u) => u.id !== id)
+        .map((u) => (u.parentId === id ? { ...u, parentId: target?.parentId ?? null } : u)),
+    );
+    return persistLiveChange(
+      () => deleteOrganizationUnitRecord(id),
+      `org-unit:delete:${id}`,
+    ).then(({ ok }) => {
+      if (ok && target) {
+        logAuditEvent(
+          "حذف وحدة تنظيمية",
+          "OrgUnit",
+          id,
+          target.nameAr,
+          "تم إزالة الوحدة من الهيكل التنظيمي وإعادة ربط التبعيات",
+        );
+      }
+      return ok;
+    });
+  };
+
   const addSubsidiary = (subsidiary: Omit<Subsidiary, "id" | "employeeCount">) => {
     const newSubsidiary: Subsidiary = { ...subsidiary, id: `sub-${Date.now()}`, employeeCount: 0 };
     setSubsidiaries((prev) => [newSubsidiary, ...prev]);
@@ -793,6 +832,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const deleteSubsidiary = (id: string) => {
+    const target = subsidiaries.find((s) => s.id === id);
+    // Unassign employees
+    setEmployees((prev) =>
+      prev.map((emp) => (emp.subsidiaryId === id ? { ...emp, subsidiaryId: "" } : emp)),
+    );
+    // Unassign org units
+    setOrgUnits((prev) =>
+      prev.map((u) => (u.subsidiaryId === id ? { ...u, subsidiaryId: null } : u)),
+    );
+    setSubsidiaries((prev) => prev.filter((s) => s.id !== id));
+    return persistLiveChange(
+      () => deleteSubsidiaryRecord(id),
+      `subsidiary:delete:${id}`,
+    ).then(({ ok }) => {
+      if (ok && target) {
+        logAuditEvent(
+          "حذف شركة تابعة",
+          "Subsidiary",
+          id,
+          target.nameAr,
+          "تم إزالة الكيان التابع وتحديث بيانات المنسوبين",
+        );
+      }
+      return ok;
+    });
+  };
+
   const addWorkLocation = (location: Omit<WorkLocation, "id">) => {
     const newLocation: WorkLocation = { ...location, id: `loc-${Date.now()}` };
     setWorkLocations((prev) => [newLocation, ...prev]);
@@ -828,6 +895,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id,
           location.nameAr,
           "تم تعديل بيانات الموقع والسياج الجغرافي",
+        );
+      }
+      return ok;
+    });
+  };
+
+  const deleteWorkLocation = (id: string) => {
+    const target = workLocations.find((l) => l.id === id);
+    const fallbackLocationId = workLocations.find((l) => l.id !== id)?.id || "";
+    // Reassign employees to fallback location
+    setEmployees((prev) =>
+      prev.map((emp) =>
+        emp.workLocationId === id ? { ...emp, workLocationId: fallbackLocationId } : emp,
+      ),
+    );
+    setWorkLocations((prev) => prev.filter((l) => l.id !== id));
+    return persistLiveChange(
+      () => deleteWorkLocationRecord(id),
+      `work-location:delete:${id}`,
+    ).then(({ ok }) => {
+      if (ok && target) {
+        logAuditEvent(
+          "حذف موقع عمل",
+          "WorkLocation",
+          id,
+          target.nameAr,
+          "تم إزالة الموقع الجغرافي وإعادة توجيه الموظفين",
         );
       }
       return ok;
@@ -887,6 +981,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const deleteCostCenter = (id: string) => {
+    const target = costCenters.find((c) => c.id === id);
+    // Unassign org units referencing this cost center
+    setOrgUnits((prev) =>
+      prev.map((u) => (u.costCenterId === id ? { ...u, costCenterId: null } : u)),
+    );
+    setCostCenters((prev) => prev.filter((c) => c.id !== id));
+    return persistLiveChange(
+      () => deleteCostCenterRecord(id),
+      `cost-center:delete:${id}`,
+    ).then(({ ok }) => {
+      if (ok && target) {
+        logAuditEvent(
+          "حذف مركز تكلفة",
+          "CostCenter",
+          id,
+          target.nameAr,
+          "تم حذف مركز التكلفة من المنظومة",
+        );
+      }
+      return ok;
+    });
+  };
+
   const addJobPosition = (position: Omit<JobPosition, "id" | "filledHeadcount">) => {
     const newPosition: JobPosition = {
       ...position,
@@ -926,6 +1044,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id,
           position.titleAr,
           "تم تعديل المنصب والعدد المخطط",
+        );
+      }
+      return ok;
+    });
+  };
+
+  const deleteJobPosition = (id: string) => {
+    const target = jobPositions.find((p) => p.id === id);
+    setJobPositions((prev) => prev.filter((p) => p.id !== id));
+    return persistLiveChange(
+      () => deleteJobPositionRecord(id),
+      `job-position:delete:${id}`,
+    ).then(({ ok }) => {
+      if (ok && target) {
+        logAuditEvent(
+          "حذف منصب وظيفي",
+          "JobPosition",
+          id,
+          target.titleAr,
+          "تم إزالة المنصب من الهيكل التنظيمي",
         );
       }
       return ok;
@@ -1402,14 +1540,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       hour12: false,
     });
 
-    // Check geofence against Headquarters
+    // Check geofence against assigned work location or headquarters
     let geofenceValid = true;
     if (coords) {
-      // Mock simple distance check
-      const hqLat = mockWorkLocations[0].latitude;
-      const hqLng = mockWorkLocations[0].longitude;
-      const dist = Math.sqrt(Math.pow(coords.lat - hqLat, 2) + Math.pow(coords.lng - hqLng, 2));
-      geofenceValid = dist < 0.05;
+      const assignedLoc =
+        workLocations.find((l) => l.id === currentUser.workLocationId) ||
+        workLocations[0] ||
+        mockWorkLocations[0];
+      if (assignedLoc) {
+        // Haversine formula for exact distance in meters
+        const R = 6371e3;
+        const φ1 = (coords.lat * Math.PI) / 180;
+        const φ2 = (assignedLoc.latitude * Math.PI) / 180;
+        const Δφ = ((assignedLoc.latitude - coords.lat) * Math.PI) / 180;
+        const Δλ = ((assignedLoc.longitude - coords.lng) * Math.PI) / 180;
+        const a =
+          Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+          Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distanceMeters = R * c;
+        geofenceValid = distanceMeters <= assignedLoc.radiusMeters;
+      }
     }
 
     setAttendanceRecords((prev) => {
@@ -2223,14 +2374,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateCompany,
         addOrgUnit,
         updateOrgUnit,
+        deleteOrgUnit,
         addSubsidiary,
         updateSubsidiary,
+        deleteSubsidiary,
         addWorkLocation,
         updateWorkLocation,
+        deleteWorkLocation,
         addCostCenter,
         updateCostCenter,
+        deleteCostCenter,
         addJobPosition,
         updateJobPosition,
+        deleteJobPosition,
         addRole,
         submitRequest,
         approveRequest,

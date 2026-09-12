@@ -11,8 +11,11 @@ export default defineConfig({
       include: [
         "src/lib/auth/permissions.ts",
         "src/lib/auth/roles.ts",
+        "src/lib/auth/account-security.ts",
         "src/lib/config/runtime-config.ts",
         "src/lib/data/reliable-mutation.ts",
+        "src/lib/data/core-mappers.ts",
+        "src/lib/business/biometric-payload.ts",
         "src/lib/utils/payroll-calculator.ts",
         "src/lib/utils/eosb-calculator.ts",
         "src/lib/utils/export-helpers.ts",

@@ -5,6 +5,7 @@ import { enterDemo, failOnPageErrors, openModule } from "./helpers";
 const modules = [
   ["organization", "المنشأة والهيكل التنظيمي"],
   ["employees", "دليل وملفات الموظفين"],
+  ["documents", "مستودع الوثائق والمستندات"],
   ["rbac", "الصلاحيات والأمان"],
   ["workflow", "الطلبات والاعتمادات"],
   ["leaves", "الإجازات والعطلات"],

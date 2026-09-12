@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { recomputeDay } from "@/lib/business/attendance.functions";
+import { parseBiometricPayload } from "@/lib/business/biometric-payload";
 
 /**
  * Endpoint for physical fingerprint terminals.
@@ -15,24 +16,23 @@ export const Route = createFileRoute("/api/public/biometric/punch")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        let payload: any;
+        let body: unknown;
         try {
-          payload = await request.json();
+          body = await request.json();
         } catch {
           return json({ error: "invalid json" }, 400);
         }
 
-        const deviceId = String(payload?.device_id ?? "").trim();
-        const token = String(payload?.token ?? request.headers.get("x-device-token") ?? "").trim();
-        const employeeRef = String(payload?.employee_no ?? payload?.employee_id ?? "").trim();
-        const punchType = payload?.punch_type === "out" ? "out" : "in";
-        const punchTime = payload?.punch_time
+        const parsed = parseBiometricPayload(body, request.headers.get("x-device-token"));
+        if (!parsed.success) return json({ error: "invalid punch payload" }, 400);
+        const payload = parsed.data;
+        const deviceId = payload.device_id;
+        const token = payload.token;
+        const employeeRef = payload.employee_no ?? payload.employee_id!;
+        const punchType = payload.punch_type;
+        const punchTime = payload.punch_time
           ? new Date(payload.punch_time).toISOString()
           : new Date().toISOString();
-
-        if (!deviceId || !token || !employeeRef) {
-          return json({ error: "device_id, token and employee_no are required" }, 400);
-        }
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -64,7 +64,7 @@ export const Route = createFileRoute("/api/public/biometric/punch")({
           longitude: payload?.longitude ?? null,
           approval_status: device.auto_approve ? "approved" : "pending",
         });
-        if (error) return json({ error: error.message }, 500);
+        if (error) return json({ error: "unable to store punch" }, 500);
 
         await supabaseAdmin
           .from("biometric_devices")

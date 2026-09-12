@@ -50,7 +50,7 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
     let punchQuery = supabase
       .from("punches")
       .select("employee_id, punch_time, punch_type")
-      .neq("approval_status", "rejected")
+      .eq("approval_status", "approved")
       .gte("punch_time", `${data.fromDate}T00:00:00Z`)
       .lte("punch_time", `${data.toDate}T23:59:59Z`)
       .order("punch_time");
@@ -303,7 +303,7 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
     .from("punches")
     .select("punch_time, punch_type")
     .eq("employee_id", employeeId)
-    .neq("approval_status", "rejected")
+    .eq("approval_status", "approved")
     .gte("punch_time", `${day}T00:00:00Z`)
     .lte("punch_time", `${day}T23:59:59Z`)
     .order("punch_time");

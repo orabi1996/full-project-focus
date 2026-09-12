@@ -1,3 +1,4 @@
+import { generateDocumentHtml } from "../../lib/utils/document-html";
 import React, { useState, useMemo, useRef } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { IconSymbol } from "../ui/IconSymbol";
@@ -91,14 +92,7 @@ export interface StoredDocument {
   departmentName?: string;
   title: string;
   category:
-    | "iqama_id"
-    | "passport"
-    | "contract"
-    | "gosi"
-    | "medical"
-    | "license"
-    | "company"
-    | "policy";
+    "iqama_id" | "passport" | "contract" | "gosi" | "medical" | "license" | "company" | "policy";
   docNumber?: string;
   issuingAuthority?: string;
   fileName: string;
@@ -144,217 +138,6 @@ export interface CompanyPolicy {
 type MainTab = "vault" | "letters" | "audit_pipeline" | "compliance_radar" | "company_policies";
 type ViewMode = "grid" | "table";
 
-export function generateDocumentHtml(
-  doc: StoredDocument,
-  company: { legalNameAr?: string },
-): string {
-  const currentDate = new Date().toLocaleDateString("ar-SA", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-  const refNo = doc.docNumber || `DOC-2026-${Math.floor(100000 + Math.random() * 900000)}`;
-
-  return `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${doc.title} - ${doc.employeeName}</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
-    body {
-      font-family: 'Cairo', system-ui, -apple-system, sans-serif;
-      margin: 0;
-      padding: 36px;
-      background: #f8fafc;
-      color: #0f172a;
-      direction: rtl;
-    }
-    .sheet {
-      max-width: 800px;
-      margin: 0 auto;
-      background: #ffffff;
-      padding: 40px 48px;
-      border-radius: 16px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.06);
-      border: 1px solid #e2e8f0;
-      position: relative;
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      border-bottom: 2px solid #0f172a;
-      padding-bottom: 18px;
-      margin-bottom: 20px;
-    }
-    .header h1 {
-      font-size: 17px;
-      font-weight: 900;
-      margin: 0 0 4px 0;
-      color: #0f172a;
-    }
-    .header p {
-      font-size: 11px;
-      color: #475569;
-      margin: 2px 0;
-    }
-    .meta {
-      text-align: left;
-      font-family: monospace;
-      font-size: 11px;
-    }
-    .title-banner {
-      background: #f1f5f9;
-      border-top: 1px solid #cbd5e1;
-      border-bottom: 1px solid #cbd5e1;
-      padding: 10px;
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    .title-banner h2 {
-      margin: 0;
-      font-size: 15px;
-      font-weight: 900;
-      color: #0f172a;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px 24px;
-      background: #f8fafc;
-      padding: 16px;
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-      margin-bottom: 20px;
-      font-size: 12px;
-    }
-    .grid div {
-      display: flex;
-      justify-content: space-between;
-      border-bottom: 1px dashed #e2e8f0;
-      padding-bottom: 4px;
-    }
-    .grid div span.label {
-      color: #64748b;
-      font-weight: 600;
-    }
-    .grid div span.val {
-      color: #0f172a;
-      font-weight: 700;
-    }
-    .content-box {
-      font-size: 12px;
-      line-height: 1.8;
-      color: #1e293b;
-      margin-bottom: 28px;
-      text-align: justify;
-    }
-    .footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      border-top: 2px solid #0f172a;
-      padding-top: 20px;
-      margin-top: 32px;
-    }
-    .stamp {
-      border: 2px dashed #059669;
-      color: #059669;
-      padding: 6px 14px;
-      border-radius: 8px;
-      font-size: 11px;
-      font-weight: 900;
-      display: inline-block;
-      transform: rotate(-3deg);
-      margin-top: 6px;
-    }
-    .qr-box {
-      text-align: center;
-      font-size: 9px;
-      color: #64748b;
-    }
-    .qr-placeholder {
-      width: 56px;
-      height: 56px;
-      border: 2px solid #0f172a;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 4px auto;
-      font-weight: 900;
-      font-size: 9px;
-      background: #f1f5f9;
-    }
-    @media print {
-      body {
-        padding: 0;
-        background: #fff;
-      }
-      .sheet {
-        box-shadow: none;
-        border: none;
-        padding: 20px;
-        max-width: 100%;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="sheet">
-    <div class="header">
-      <div>
-        <h1>${company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري"}</h1>
-        <p>سجل تجاري: 1010789654 • الرقم الضريبي: 300098765400003</p>
-        <p>المملكة العربية السعودية - الرياض - المقر الرئيسي</p>
-      </div>
-      <div class="meta">
-        <p><strong>المرجع:</strong> ${refNo}</p>
-        <p><strong>التاريخ:</strong> ${currentDate}</p>
-      </div>
-    </div>
-
-    <div class="title-banner">
-      <h2>شهادة وتوثيق مستند رسمي: ${doc.title}</h2>
-    </div>
-
-    <div class="grid">
-      <div><span class="label">صاحب الوثيقة / المنشأة:</span><span class="val">${doc.employeeName}</span></div>
-      <div><span class="label">الرقم الوظيفي:</span><span class="val font-mono">${doc.employeeNo || "منشأة"}</span></div>
-      <div><span class="label">رقم الوثيقة / السجل:</span><span class="val font-mono">${doc.docNumber || "—"}</span></div>
-      <div><span class="label">الجهة الحكومية / المصدرة:</span><span class="val">${doc.issuingAuthority || "رسمي"}</span></div>
-      <div><span class="label">تصنيف المستند:</span><span class="val">${doc.category}</span></div>
-      <div><span class="label">تاريخ الإصدار / الرفع:</span><span class="val font-mono">${doc.uploadDate}</span></div>
-      <div><span class="label">تاريخ انتهاء الصلاحية:</span><span class="val font-mono">${doc.expiryDate || "ساري بدون انتهاء"}</span></div>
-      <div><span class="label">مستوى السرية والوصول:</span><span class="val">${doc.confidentiality}</span></div>
-      <div><span class="label">حالة الصلاحية:</span><span class="val">${doc.status === "valid" ? "ساري المفعول وموثق" : doc.status === "expiring_soon" ? "ينتهي قريباً" : "منتهي الصلاحية"}</span></div>
-      <div><span class="label">المعتمد والمراجع:</span><span class="val">${doc.verifiedBy || "إدارة الموارد البشرية"}</span></div>
-    </div>
-
-    <div class="content-box">
-      <p>تشهد إدارة الموارد البشرية والشؤون الإدارية بأن هذا المستند معتمد ومحفوظ رسمياً بالأرشيف السحابي المشفر للشركة وفقاً للأنظمة واللوائح والقرارات الوزارية المعمول بها في المملكة العربية السعودية.</p>
-      ${doc.notes ? `<p><strong>ملاحظات التوثيق الرسمية:</strong> ${doc.notes}</p>` : ""}
-      <p style="font-size: 10px; color: #64748b;">تم التحقق من الوثيقة إلكترونياً برقم الأرشيف المعتمد (${doc.id.toUpperCase()}) بمعيار الأمان المشفر AES-256.</p>
-    </div>
-
-    <div class="footer">
-      <div>
-        <p style="font-weight: bold; margin: 0; font-size: 12px;">إدارة الموارد البشرية والتدقيق السحابي</p>
-        <p style="font-size: 10px; color: #64748b; margin: 2px 0;">كلاسيرا بالس لحلول رأس المال البشري</p>
-        <div class="stamp">ختم الموارد البشرية المعتمد ✓</div>
-      </div>
-      <div class="qr-box">
-        <div class="qr-placeholder">QR CODE</div>
-        <span>رمز التحقق الإلكتروني</span>
-      </div>
-    </div>
-  </div>
-</body>
-</html>`;
-}
-
 export const DocumentVaultView: React.FC = () => {
   const { employees, company, language, t } = useApp();
 
@@ -390,7 +173,9 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "doc-1",
       employeeId: employees[0]?.id || "emp-1",
-      employeeName: employees[0] ? `${employees[0].firstNameAr} ${employees[0].lastNameAr}` : "م. عبد العزيز الفهد",
+      employeeName: employees[0]
+        ? `${employees[0].firstNameAr} ${employees[0].lastNameAr}`
+        : "م. عبد العزيز الفهد",
       employeeNo: employees[0]?.employeeNo || "EMP-1001",
       departmentName: employees[0]?.departmentName || "الإدارة التنفيذية",
       title: "الهوية الوطنية المعتمدة للمدير التنفيذي",
@@ -420,7 +205,9 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "doc-2",
       employeeId: employees[1]?.id || "emp-2",
-      employeeName: employees[1] ? `${employees[1].firstNameAr} ${employees[1].lastNameAr}` : "د. طارق المنصور",
+      employeeName: employees[1]
+        ? `${employees[1].firstNameAr} ${employees[1].lastNameAr}`
+        : "د. طارق المنصور",
       employeeNo: employees[1]?.employeeNo || "EMP-1002",
       departmentName: employees[1]?.departmentName || "تقنية المعلومات",
       title: "جواز السفر الدبلوماسي والمهني",
@@ -440,7 +227,9 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "doc-3",
       employeeId: employees[2]?.id || "emp-2",
-      employeeName: employees[2] ? `${employees[2].firstNameAr} ${employees[2].lastNameAr}` : "أ. نورة التميمي",
+      employeeName: employees[2]
+        ? `${employees[2].firstNameAr} ${employees[2].lastNameAr}`
+        : "أ. نورة التميمي",
       employeeNo: employees[2]?.employeeNo || "EMP-1003",
       departmentName: employees[2]?.departmentName || "الموارد البشرية",
       title: "عقد العمل الموحد الموثق إلكترونياً (منصة قوى)",
@@ -460,7 +249,9 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "doc-4",
       employeeId: employees[3]?.id || "emp-3",
-      employeeName: employees[3] ? `${employees[3].firstNameAr} ${employees[3].lastNameAr}` : "م. ريان القحطاني",
+      employeeName: employees[3]
+        ? `${employees[3].firstNameAr} ${employees[3].lastNameAr}`
+        : "م. ريان القحطاني",
       employeeNo: employees[3]?.employeeNo || "EMP-1004",
       departmentName: employees[3]?.departmentName || "الهندسة والعمليات",
       title: "شهادة بيان مدد وأجور التأمينات الاجتماعية (GOSI)",
@@ -479,7 +270,9 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "doc-5",
       employeeId: employees[4]?.id || "emp-4",
-      employeeName: employees[4] ? `${employees[4].firstNameAr} ${employees[4].lastNameAr}` : "أ. هيفاء الشهري",
+      employeeName: employees[4]
+        ? `${employees[4].firstNameAr} ${employees[4].lastNameAr}`
+        : "أ. هيفاء الشهري",
       employeeNo: employees[4]?.employeeNo || "EMP-1005",
       departmentName: employees[4]?.departmentName || "التسويق والمبيعات",
       title: "شهادة الفحص الطبي المهني المعتمد (إصدار الإقامة)",
@@ -547,7 +340,9 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "doc-9",
       employeeId: employees[0]?.id || "emp-1",
-      employeeName: employees[0] ? `${employees[0].firstNameAr} ${employees[0].lastNameAr}` : "م. عبد العزيز الفهد",
+      employeeName: employees[0]
+        ? `${employees[0].firstNameAr} ${employees[0].lastNameAr}`
+        : "م. عبد العزيز الفهد",
       employeeNo: employees[0]?.employeeNo || "EMP-1001",
       departmentName: "الإدارة التنفيذية",
       title: "شهادة الاعتماد المهني - الهيئة السعودية للمهندسين (SCE)",
@@ -565,7 +360,9 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "doc-10",
       employeeId: employees[1]?.id || "emp-2",
-      employeeName: employees[1] ? `${employees[1].firstNameAr} ${employees[1].lastNameAr}` : "د. طارق المنصور",
+      employeeName: employees[1]
+        ? `${employees[1].firstNameAr} ${employees[1].lastNameAr}`
+        : "د. طارق المنصور",
       employeeNo: employees[1]?.employeeNo || "EMP-1002",
       departmentName: "تقنية المعلومات",
       title: "تحديث العنوان الوطني الموحد (SPL)",
@@ -586,7 +383,9 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "req-1",
       employeeId: employees[4]?.id || "emp-5",
-      employeeName: employees[4] ? `${employees[4].firstNameAr} ${employees[4].lastNameAr}` : "أ. هيفاء الشهري",
+      employeeName: employees[4]
+        ? `${employees[4].firstNameAr} ${employees[4].lastNameAr}`
+        : "أ. هيفاء الشهري",
       documentTitle: "تحديث شهادة الفحص الطبي الدوري السنوي",
       category: "medical",
       dueDate: "2026-09-15",
@@ -597,7 +396,9 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "req-2",
       employeeId: employees[1]?.id || "emp-2",
-      employeeName: employees[1] ? `${employees[1].firstNameAr} ${employees[1].lastNameAr}` : "د. طارق المنصور",
+      employeeName: employees[1]
+        ? `${employees[1].firstNameAr} ${employees[1].lastNameAr}`
+        : "د. طارق المنصور",
       documentTitle: "تجديد جواز السفر المهني",
       category: "passport",
       dueDate: "2026-09-20",
@@ -608,7 +409,9 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "req-3",
       employeeId: employees[3]?.id || "emp-4",
-      employeeName: employees[3] ? `${employees[3].firstNameAr} ${employees[3].lastNameAr}` : "م. ريان القحطاني",
+      employeeName: employees[3]
+        ? `${employees[3].firstNameAr} ${employees[3].lastNameAr}`
+        : "م. ريان القحطاني",
       documentTitle: "شهادة الآيبان البنكي الصادرة من البنك",
       category: "gosi",
       dueDate: "2026-08-30",
@@ -629,7 +432,8 @@ export const DocumentVaultView: React.FC = () => {
       fileSize: "4.8 MB",
       status: "active",
       approvedByMinistry: true,
-      description: "اللائحة الرسمية المنظمة لعلاقات العمل وساعات الدوام والعطلات الرسمية ومكافآت نهاية الخدمة المعتمدة عبر منصة قوى.",
+      description:
+        "اللائحة الرسمية المنظمة لعلاقات العمل وساعات الدوام والعطلات الرسمية ومكافآت نهاية الخدمة المعتمدة عبر منصة قوى.",
     },
     {
       id: "pol-2",
@@ -640,7 +444,8 @@ export const DocumentVaultView: React.FC = () => {
       fileSize: "2.1 MB",
       status: "active",
       approvedByMinistry: true,
-      description: "جدول المخالفات المرورية والمسلكية وضوابط التحقيق الإداري والخصومات المتوافقة مع نظام العمل السعودي.",
+      description:
+        "جدول المخالفات المرورية والمسلكية وضوابط التحقيق الإداري والخصومات المتوافقة مع نظام العمل السعودي.",
     },
     {
       id: "pol-3",
@@ -651,7 +456,8 @@ export const DocumentVaultView: React.FC = () => {
       fileSize: "1.6 MB",
       status: "active",
       approvedByMinistry: false,
-      description: "ضوابط العمل خارج المقر، توثيق ساعات الحضور عبر تطبيق الجوال، وسياسات الأمن السيبراني ومكافحة تسريب البيانات.",
+      description:
+        "ضوابط العمل خارج المقر، توثيق ساعات الحضور عبر تطبيق الجوال، وسياسات الأمن السيبراني ومكافحة تسريب البيانات.",
     },
     {
       id: "pol-4",
@@ -662,7 +468,8 @@ export const DocumentVaultView: React.FC = () => {
       fileSize: "3.4 MB",
       status: "active",
       approvedByMinistry: false,
-      description: "حدود الاعتمادات المالية والمشتريات والتوظيف والترقيات وسلسلة الموافقات المعتمدة من مجلس الإدارة.",
+      description:
+        "حدود الاعتمادات المالية والمشتريات والتوظيف والترقيات وسلسلة الموافقات المعتمدة من مجلس الإدارة.",
     },
   ]);
 
@@ -817,8 +624,7 @@ export const DocumentVaultView: React.FC = () => {
   ]);
 
   // Bulk Selection Handlers
-  const isAllSelected =
-    filteredDocs.length > 0 && selectedDocIds.length === filteredDocs.length;
+  const isAllSelected = filteredDocs.length > 0 && selectedDocIds.length === filteredDocs.length;
 
   const handleToggleSelectAll = () => {
     if (isAllSelected) {
@@ -844,16 +650,16 @@ export const DocumentVaultView: React.FC = () => {
       "عنوان الوثيقة": d.title,
       "صاحب الوثيقة / المنشأة": d.employeeName,
       "الرقم الوظيفي": d.employeeNo || "منشأة",
-      "الإدارة": d.departmentName || "عام",
+      الإدارة: d.departmentName || "عام",
       "رقم الوثيقة / المرجع": d.docNumber || "غير محدد",
       "الجهة المصدرة": d.issuingAuthority || "رسمي",
-      "التصنيف": d.category,
+      التصنيف: d.category,
       "مستوى السرية": d.confidentiality,
       "اسم الملف": d.fileName,
       "حجم الملف": d.fileSize,
       "تاريخ الرفع": d.uploadDate,
       "تاريخ الانتهاء": d.expiryDate || "غير محدد",
-      "الحالة": d.status,
+      الحالة: d.status,
       "المراجع المعتمد": d.verifiedBy || "غير معتمد",
     }));
 
@@ -1003,7 +809,7 @@ export const DocumentVaultView: React.FC = () => {
       issuingAuthority: newDoc.issuingAuthority || "الجهة المعتمدة",
       fileName: selectedUploadFile
         ? selectedUploadFile.name
-        : (newDoc.fileName || `${newDoc.title.toLowerCase().replace(/\s+/g, "_")}.pdf`),
+        : newDoc.fileName || `${newDoc.title.toLowerCase().replace(/\s+/g, "_")}.pdf`,
       fileSize: selectedUploadFileSize || "1.4 MB",
       uploadDate: new Date().toISOString().split("T")[0],
       expiryDate: newDoc.expiryDate || undefined,
@@ -1019,7 +825,8 @@ export const DocumentVaultView: React.FC = () => {
       notes: newDoc.notes,
       verifiedBy: "مسؤول الموارد البشرية",
       verifiedAt: new Date().toLocaleDateString("ar-SA"),
-      renewalFeeEstimated: newDoc.category === "iqama_id" ? 650 : newDoc.category === "contract" ? 120 : 0,
+      renewalFeeEstimated:
+        newDoc.category === "iqama_id" ? 650 : newDoc.category === "contract" ? 120 : 0,
       fileUrl: selectedUploadFile ? URL.createObjectURL(selectedUploadFile) : undefined,
       versions: [],
     };
@@ -1052,8 +859,7 @@ export const DocumentVaultView: React.FC = () => {
     }
 
     const isExpiringSoon =
-      new Date(newRenewalExpiry).getTime() - new Date().getTime() <
-      30 * 24 * 60 * 60 * 1000;
+      new Date(newRenewalExpiry).getTime() - new Date().getTime() < 30 * 24 * 60 * 60 * 1000;
 
     const newStatus: StoredDocument["status"] =
       new Date(newRenewalExpiry) < new Date()
@@ -1091,7 +897,9 @@ export const DocumentVaultView: React.FC = () => {
       versions: [previousVersion, ...(selectedDocForPreview.versions || [])],
     });
     setIsRenewModalOpen(false);
-    toast.success(`تم تجديد صلاحية (${selectedDocForPreview.title}) حتى ${newRenewalExpiry} وأرشفة النسخة السابقة بنجاح!`);
+    toast.success(
+      `تم تجديد صلاحية (${selectedDocForPreview.title}) حتى ${newRenewalExpiry} وأرشفة النسخة السابقة بنجاح!`,
+    );
   };
 
   // Submit Document Request
@@ -1119,7 +927,9 @@ export const DocumentVaultView: React.FC = () => {
     };
 
     setDocumentRequests([reqItem, ...documentRequests]);
-    toast.success(`تم إرسال طلب استيفاء (${newRequest.documentTitle}) للموظف (${emp.firstNameAr}) بنجاح!`);
+    toast.success(
+      `تم إرسال طلب استيفاء (${newRequest.documentTitle}) للموظف (${emp.firstNameAr}) بنجاح!`,
+    );
     setIsRequestDocModalOpen(false);
     setNewRequest({
       employeeId: employees[0]?.id || "",
@@ -1146,19 +956,29 @@ export const DocumentVaultView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2.5">
             <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
-              <IconSymbol name="folder_open" source="material" filled size={24} className="text-primary" />
+              <IconSymbol
+                name="folder_open"
+                source="material"
+                filled
+                size={24}
+                className="text-primary"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-black text-foreground">
                   خزينة ومستودع الوثائق السحابي
                 </h1>
-                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                <Badge
+                  variant="outline"
+                  className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5"
+                >
                   أرشفة مشفرة AES-256
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                الأرشفة الرقمية المشفرة، حوكمة عقود قوى، رادار الامتثال وتكاليف التجديد، ومركز إصدار الخطابات المعتمدة
+                الأرشفة الرقمية المشفرة، حوكمة عقود قوى، رادار الامتثال وتكاليف التجديد، ومركز إصدار
+                الخطابات المعتمدة
               </p>
             </div>
           </div>
@@ -1201,8 +1021,12 @@ export const DocumentVaultView: React.FC = () => {
         {/* Total Documents */}
         <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">إجمالي الوثائق والأرشفة</span>
-            <p className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">{totalCount} وثيقة</p>
+            <span className="text-[11px] font-bold text-muted-foreground">
+              إجمالي الوثائق والأرشفة
+            </span>
+            <p className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">
+              {totalCount} وثيقة
+            </p>
             <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-0.5">
               <Lock className="h-3 w-3" /> تشفير سحابي AES-256
             </span>
@@ -1216,7 +1040,9 @@ export const DocumentVaultView: React.FC = () => {
         <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">عقود قوى الموثقة</span>
-            <p className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">{contractsCount} عقود</p>
+            <p className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">
+              {contractsCount} عقود
+            </p>
             <span className="text-[10px] text-primary font-bold flex items-center gap-1 mt-0.5">
               <CheckCircle2 className="h-3 w-3" /> امتثال 100% لوزارة العمل
             </span>
@@ -1229,8 +1055,12 @@ export const DocumentVaultView: React.FC = () => {
         {/* Expiring Soon (<30 Days) */}
         <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-amber-800">تنبيهات التجديد (&lt;30 يوم)</span>
-            <p className="text-xl font-black text-amber-700 mt-0.5 font-tabular-nums font-mono">{expiringSoonCount} وثائق</p>
+            <span className="text-[11px] font-bold text-amber-800">
+              تنبيهات التجديد (&lt;30 يوم)
+            </span>
+            <p className="text-xl font-black text-amber-700 mt-0.5 font-tabular-nums font-mono">
+              {expiringSoonCount} وثائق
+            </p>
             <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1 mt-0.5 font-tabular-nums">
               <Clock className="h-3 w-3" /> تكلفة متوقعة: {totalEstimatedFees.toLocaleString()} ر.س
             </span>
@@ -1244,7 +1074,9 @@ export const DocumentVaultView: React.FC = () => {
         <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-destructive">وثائق منتهية (مخالفة)</span>
-            <p className="text-xl font-black text-destructive mt-0.5 font-tabular-nums font-mono">{expiredCount} وثائق</p>
+            <p className="text-xl font-black text-destructive mt-0.5 font-tabular-nums font-mono">
+              {expiredCount} وثائق
+            </p>
             <span className="text-[10px] text-destructive font-bold flex items-center gap-1 mt-0.5">
               <ShieldAlert className="h-3 w-3" /> خطر غرامات مالية
             </span>
@@ -1258,7 +1090,9 @@ export const DocumentVaultView: React.FC = () => {
         <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-primary">بانتظار التدقيق والاعتماد</span>
-            <p className="text-xl font-black text-primary mt-0.5 font-tabular-nums font-mono">{pendingReviewCount} وثيقة</p>
+            <p className="text-xl font-black text-primary mt-0.5 font-tabular-nums font-mono">
+              {pendingReviewCount} وثيقة
+            </p>
             <span className="text-[10px] text-muted-foreground font-bold flex items-center gap-1 mt-0.5">
               <ShieldCheck className="h-3 w-3 text-primary" /> مراجعة المطابقة الرقمية
             </span>
@@ -1550,7 +1384,9 @@ export const DocumentVaultView: React.FC = () => {
             {/* Results bar */}
             <div className="flex justify-between items-center px-1 text-xs border-t border-border/60 pt-2.5">
               <span className="font-bold text-muted-foreground">
-                عرض <span className="text-foreground font-black font-mono">{filteredDocs.length}</span> وثيقة
+                عرض{" "}
+                <span className="text-foreground font-black font-mono">{filteredDocs.length}</span>{" "}
+                وثيقة
               </span>
               <button
                 type="button"
@@ -1946,7 +1782,8 @@ export const DocumentVaultView: React.FC = () => {
                 مركز إصدار الخطابات والشهادات الرسمية المعتمدة (Corporate Letterhead Generator)
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                توليد الخطابات المعتمدة رقمياً باللغتين العربية والإنجليزية مع الأختام ورموز التحقق QR
+                توليد الخطابات المعتمدة رقمياً باللغتين العربية والإنجليزية مع الأختام ورموز التحقق
+                QR
               </p>
             </div>
           </div>
@@ -1960,7 +1797,8 @@ export const DocumentVaultView: React.FC = () => {
                 </div>
                 <h3 className="font-black text-sm text-foreground">شهادة تعريف وتفاصيل الراتب</h3>
                 <p className="text-xs text-muted-foreground mt-1 leading-5">
-                  خطاب رسمي يوضح الراتب الأساسي والبدلات الشهرية موجه للبنوك، شركات التمويل، أو السفارات.
+                  خطاب رسمي يوضح الراتب الأساسي والبدلات الشهرية موجه للبنوك، شركات التمويل، أو
+                  السفارات.
                 </p>
               </div>
               <Button
@@ -1977,9 +1815,12 @@ export const DocumentVaultView: React.FC = () => {
                 <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-3">
                   <CreditCard className="h-6 w-6" />
                 </div>
-                <h3 className="font-black text-sm text-foreground">خطاب فتح حساب بنكي وتحويل راتب</h3>
+                <h3 className="font-black text-sm text-foreground">
+                  خطاب فتح حساب بنكي وتحويل راتب
+                </h3>
                 <p className="text-xs text-muted-foreground mt-1 leading-5">
-                  خطاب موجه للبنوك والمصارف السعودية لفتح حساب جاري للرواتب والالتزام بنظام حماية الأجور WPS.
+                  خطاب موجه للبنوك والمصارف السعودية لفتح حساب جاري للرواتب والالتزام بنظام حماية
+                  الأجور WPS.
                 </p>
               </div>
               <Button
@@ -1996,9 +1837,12 @@ export const DocumentVaultView: React.FC = () => {
                 <div className="h-12 w-12 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center mb-3">
                   <Globe className="h-6 w-6" />
                 </div>
-                <h3 className="font-black text-sm text-foreground">خطاب طلب تأشيرة وسفارة (شنغن / بريطانيا)</h3>
+                <h3 className="font-black text-sm text-foreground">
+                  خطاب طلب تأشيرة وسفارة (شنغن / بريطانيا)
+                </h3>
                 <p className="text-xs text-muted-foreground mt-1 leading-5">
-                  شهادة عمل باللغة الإنجليزية (No Objection Certificate) موجهة للقنصليات والسفارات لطلب تأشيرة سفر سياحية أو عمل.
+                  شهادة عمل باللغة الإنجليزية (No Objection Certificate) موجهة للقنصليات والسفارات
+                  لطلب تأشيرة سفر سياحية أو عمل.
                 </p>
               </div>
               <Button
@@ -2017,7 +1861,8 @@ export const DocumentVaultView: React.FC = () => {
                 </div>
                 <h3 className="font-black text-sm text-foreground">عقد عمل سعودي موحد (قوى)</h3>
                 <p className="text-xs text-muted-foreground mt-1 leading-5">
-                  نسخة طبق الأصل من عقد العمل الموثق مع منصة قوى وفق أحدث تعديلات نظام العمل السعودي.
+                  نسخة طبق الأصل من عقد العمل الموثق مع منصة قوى وفق أحدث تعديلات نظام العمل
+                  السعودي.
                 </p>
               </div>
               <Button
@@ -2053,9 +1898,12 @@ export const DocumentVaultView: React.FC = () => {
                 <div className="h-12 w-12 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center mb-3">
                   <ShieldCheck className="h-6 w-6" />
                 </div>
-                <h3 className="font-black text-sm text-foreground">شهادة إخلاء طرف ومخالصة نهائية</h3>
+                <h3 className="font-black text-sm text-foreground">
+                  شهادة إخلاء طرف ومخالصة نهائية
+                </h3>
                 <p className="text-xs text-muted-foreground mt-1 leading-5">
-                  إبراء ذمة الموظف بعد انتهاء الخدمة وتسليم العهد وفق المادتين 84 و 85 من نظام العمل السعودي.
+                  إبراء ذمة الموظف بعد انتهاء الخدمة وتسليم العهد وفق المادتين 84 و 85 من نظام العمل
+                  السعودي.
                 </p>
               </div>
               <Button
@@ -2081,7 +1929,8 @@ export const DocumentVaultView: React.FC = () => {
                   الوثائق المرفوعة من الموظفين وبانتظار تدقيق واعتماد HR ({pendingReviewCount})
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  مراجعة الوثائق المرفوعة حديثاً من تطبيق الخدمة الذاتية (ESS) والتأكد من مطابقتها قبل اعتمادها
+                  مراجعة الوثائق المرفوعة حديثاً من تطبيق الخدمة الذاتية (ESS) والتأكد من مطابقتها
+                  قبل اعتمادها
                 </p>
               </div>
             </div>
@@ -2101,7 +1950,9 @@ export const DocumentVaultView: React.FC = () => {
                       <div>
                         <h4 className="font-black text-sm text-foreground">{doc.title}</h4>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          الموظف: <span className="font-bold text-foreground">{doc.employeeName}</span> ({doc.employeeNo}) • {doc.departmentName}
+                          الموظف:{" "}
+                          <span className="font-bold text-foreground">{doc.employeeName}</span> (
+                          {doc.employeeNo}) • {doc.departmentName}
                         </p>
                         <p className="text-[11px] text-purple-700 font-medium mt-1">
                           ملاحظات الموظف: {doc.notes || "لا توجد ملاحظات"}
@@ -2144,7 +1995,8 @@ export const DocumentVaultView: React.FC = () => {
 
               {pendingReviewCount === 0 && (
                 <div className="text-center py-8 text-muted-foreground text-xs font-medium">
-                  🎉 رائع! تم تدقيق واعتماد كافة الوثائق المرفوعة من الموظفين بنجاح ولا توجد طلبات معلقة.
+                  🎉 رائع! تم تدقيق واعتماد كافة الوثائق المرفوعة من الموظفين بنجاح ولا توجد طلبات
+                  معلقة.
                 </div>
               )}
             </div>
@@ -2193,8 +2045,12 @@ export const DocumentVaultView: React.FC = () => {
                         <span className="font-bold text-foreground block">{req.documentTitle}</span>
                         <span className="text-[10px] text-muted-foreground">{req.notes}</span>
                       </td>
-                      <td className="py-3 px-4 font-mono text-muted-foreground">{req.requestedAt}</td>
-                      <td className="py-3 px-4 font-mono font-bold text-foreground">{req.dueDate}</td>
+                      <td className="py-3 px-4 font-mono text-muted-foreground">
+                        {req.requestedAt}
+                      </td>
+                      <td className="py-3 px-4 font-mono font-bold text-foreground">
+                        {req.dueDate}
+                      </td>
                       <td className="py-3 px-4">
                         <Badge
                           variant="outline"
@@ -2217,7 +2073,9 @@ export const DocumentVaultView: React.FC = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => toast.success(`تم إرسال تذكير عاجل للموظف (${req.employeeName}) بنجاح!`)}
+                          onClick={() =>
+                            toast.success(`تم إرسال تذكير عاجل للموظف (${req.employeeName}) بنجاح!`)
+                          }
                           className="rounded-full text-xs font-bold gap-1 border-border/80 hover:bg-secondary h-8 px-3"
                         >
                           <Send className="h-3 w-3 text-primary" />
@@ -2244,12 +2102,15 @@ export const DocumentVaultView: React.FC = () => {
                   رادار الامتثال الحكومي وتقدير رسوم التجديد (Compliance & Government Fees Radar)
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  حساب التكاليف الحكومية لرسوم الإقامات، عقود قوى، السجلات التجارية، وتفادي الغرامات المالية
+                  حساب التكاليف الحكومية لرسوم الإقامات، عقود قوى، السجلات التجارية، وتفادي الغرامات
+                  المالية
                 </p>
               </div>
 
               <div className="bg-emerald-500/10 border border-emerald-200 rounded-2xl p-3 px-5 text-center">
-                <span className="text-[11px] font-bold text-emerald-800 block">إجمالي رسوم التجديد المتوقعة</span>
+                <span className="text-[11px] font-bold text-emerald-800 block">
+                  إجمالي رسوم التجديد المتوقعة
+                </span>
                 <span className="text-xl font-black text-emerald-700 font-mono">
                   {totalEstimatedFees.toLocaleString()} ر.س
                 </span>
@@ -2277,10 +2138,16 @@ export const DocumentVaultView: React.FC = () => {
                       <tr key={doc.id} className="hover:bg-muted/20 transition-colors">
                         <td className="py-3 px-4 font-bold text-foreground">{doc.title}</td>
                         <td className="py-3 px-4">{doc.employeeName}</td>
-                        <td className="py-3 px-4 font-mono font-bold text-amber-700">{doc.expiryDate}</td>
-                        <td className="py-3 px-4 font-medium text-muted-foreground">{doc.issuingAuthority}</td>
+                        <td className="py-3 px-4 font-mono font-bold text-amber-700">
+                          {doc.expiryDate}
+                        </td>
+                        <td className="py-3 px-4 font-medium text-muted-foreground">
+                          {doc.issuingAuthority}
+                        </td>
                         <td className="py-3 px-4 font-mono font-bold text-foreground">
-                          {doc.renewalFeeEstimated ? `${doc.renewalFeeEstimated.toLocaleString()} ر.س` : "رسوم دورية"}
+                          {doc.renewalFeeEstimated
+                            ? `${doc.renewalFeeEstimated.toLocaleString()} ر.س`
+                            : "رسوم دورية"}
                         </td>
                         <td className="py-3 px-4 font-mono font-bold text-destructive">
                           {doc.category === "iqama_id"
@@ -2322,7 +2189,8 @@ export const DocumentVaultView: React.FC = () => {
                 لوائح وسياسات المنشأة المعتمدة (Company Policies & Handbooks)
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                اللوائح المعتمدة من وزارة الموارد البشرية، لائحة تنظيم العمل، دليل الجزاءات، وسياسات الحوكمة
+                اللوائح المعتمدة من وزارة الموارد البشرية، لائحة تنظيم العمل، دليل الجزاءات، وسياسات
+                الحوكمة
               </p>
             </div>
           </div>
@@ -2335,7 +2203,10 @@ export const DocumentVaultView: React.FC = () => {
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Badge variant="secondary" className="rounded-full font-mono text-[10px] font-bold">
+                    <Badge
+                      variant="secondary"
+                      className="rounded-full font-mono text-[10px] font-bold"
+                    >
                       {policy.version}
                     </Badge>
                     {policy.approvedByMinistry && (
@@ -2431,7 +2302,8 @@ export const DocumentVaultView: React.FC = () => {
                     معاينة وتدقيق الوثيقة: {selectedDocForPreview.title}
                   </DialogTitle>
                   <DialogDescription className="text-xs font-medium mt-0.5">
-                    صاحب المستند: {selectedDocForPreview.employeeName} ({selectedDocForPreview.employeeNo || "المنشأة"})
+                    صاحب المستند: {selectedDocForPreview.employeeName} (
+                    {selectedDocForPreview.employeeNo || "المنشأة"})
                   </DialogDescription>
                 </div>
                 <Badge
@@ -2456,7 +2328,9 @@ export const DocumentVaultView: React.FC = () => {
               {/* Document Specs */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3.5 rounded-2xl bg-muted/30 border border-border/60">
                 <div>
-                  <span className="text-muted-foreground block text-[10px]">رقم الوثيقة / المرجع:</span>
+                  <span className="text-muted-foreground block text-[10px]">
+                    رقم الوثيقة / المرجع:
+                  </span>
                   <span className="font-mono font-bold text-foreground">
                     {selectedDocForPreview.docNumber || "غير متوفر"}
                   </span>
@@ -2469,7 +2343,9 @@ export const DocumentVaultView: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[10px]">حجم ونوع الملف:</span>
-                  <span className="font-mono font-bold">{selectedDocForPreview.fileSize} (PDF)</span>
+                  <span className="font-mono font-bold">
+                    {selectedDocForPreview.fileSize} (PDF)
+                  </span>
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[10px]">تاريخ الانتهاء:</span>
@@ -2537,7 +2413,9 @@ export const DocumentVaultView: React.FC = () => {
                       >
                         <span className="font-mono font-bold">{ver.version}</span>
                         <span className="text-muted-foreground">{ver.uploadDate}</span>
-                        <span className="text-muted-foreground">{ver.fileName} ({ver.fileSize})</span>
+                        <span className="text-muted-foreground">
+                          {ver.fileName} ({ver.fileSize})
+                        </span>
                         <span className="text-primary font-medium">{ver.notes}</span>
                       </div>
                     ))}
@@ -2853,7 +2731,9 @@ export const DocumentVaultView: React.FC = () => {
               >
                 <option value="internal">🏢 داخلي للمنشأة (Internal)</option>
                 <option value="confidential">🔒 سري للموارد البشرية والمالية (Confidential)</option>
-                <option value="strictly_confidential">🛡️ سري للغاية - الإدارة العليا (Strictly Confidential)</option>
+                <option value="strictly_confidential">
+                  🛡️ سري للغاية - الإدارة العليا (Strictly Confidential)
+                </option>
                 <option value="public">🌐 متاح لجميع الموظفين (Public)</option>
               </select>
             </div>
@@ -2949,10 +2829,7 @@ export const DocumentVaultView: React.FC = () => {
       {sidePrintDoc && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
           {/* Backdrop Click to Close */}
-          <div
-            className="flex-1 cursor-pointer"
-            onClick={() => setSidePrintDoc(null)}
-          />
+          <div className="flex-1 cursor-pointer" onClick={() => setSidePrintDoc(null)} />
 
           {/* Side Drawer Container */}
           <div className="w-full max-w-2xl sm:max-w-3xl bg-card h-full shadow-2xl flex flex-col border-r border-border/80 animate-in slide-in-from-left duration-300 overflow-hidden">
@@ -3033,7 +2910,9 @@ export const DocumentVaultView: React.FC = () => {
                       <p className="text-[11px] text-slate-600 font-medium">
                         سجل تجاري: 1010789654 • الرقم الضريبي: 300098765400003
                       </p>
-                      <p className="text-[11px] text-slate-600">المملكة العربية السعودية - الرياض</p>
+                      <p className="text-[11px] text-slate-600">
+                        المملكة العربية السعودية - الرياض
+                      </p>
                     </div>
                     <div className="text-end space-y-1 font-mono text-[11px]">
                       <p className="font-bold text-slate-900">
@@ -3056,8 +2935,12 @@ export const DocumentVaultView: React.FC = () => {
                   <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 space-y-2 text-xs">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <span className="font-semibold text-slate-600">صاحب الوثيقة / المنشأة:</span>{" "}
-                        <span className="font-bold text-slate-900">{sidePrintDoc.employeeName}</span>
+                        <span className="font-semibold text-slate-600">
+                          صاحب الوثيقة / المنشأة:
+                        </span>{" "}
+                        <span className="font-bold text-slate-900">
+                          {sidePrintDoc.employeeName}
+                        </span>
                       </div>
                       <div>
                         <span className="font-semibold text-slate-600">الرقم الوظيفي:</span>{" "}
@@ -3072,7 +2955,9 @@ export const DocumentVaultView: React.FC = () => {
                         </span>
                       </div>
                       <div>
-                        <span className="font-semibold text-slate-600">الجهة الحكومية / المصدرة:</span>{" "}
+                        <span className="font-semibold text-slate-600">
+                          الجهة الحكومية / المصدرة:
+                        </span>{" "}
                         <span className="font-bold text-slate-900">
                           {sidePrintDoc.issuingAuthority || "رسمي"}
                         </span>
@@ -3095,7 +2980,9 @@ export const DocumentVaultView: React.FC = () => {
                   {/* Certification Body Text */}
                   <div className="space-y-3 text-justify text-slate-800 text-xs leading-6">
                     <p>
-                      تشهد إدارة الموارد البشرية والشؤون القانونية بمنظومة كلاسيرا بالس بأن المستند الموضح أعلاه معتمد وموثق رسمياً بالأرشيف السحابي للمنشأة، ومطابق لكافة الأنظمة والتعليمات المنصوص عليها بنظام العمل في المملكة العربية السعودية.
+                      تشهد إدارة الموارد البشرية والشؤون القانونية بمنظومة كلاسيرا بالس بأن المستند
+                      الموضح أعلاه معتمد وموثق رسمياً بالأرشيف السحابي للمنشأة، ومطابق لكافة الأنظمة
+                      والتعليمات المنصوص عليها بنظام العمل في المملكة العربية السعودية.
                     </p>
                     {sidePrintDoc.notes && (
                       <p className="p-2.5 rounded-lg bg-slate-100 border border-slate-200 text-[11px] text-slate-700 font-medium">
@@ -3111,7 +2998,9 @@ export const DocumentVaultView: React.FC = () => {
                   <div className="border-t-2 border-slate-900 pt-5 mt-6 flex justify-between items-end">
                     <div className="space-y-1 text-start">
                       <p className="font-bold text-slate-900">إدارة الموارد البشرية والتدقيق</p>
-                      <p className="text-[11px] text-slate-600">كلاسيرا بالس لحلول رأس المال البشري</p>
+                      <p className="text-[11px] text-slate-600">
+                        كلاسيرا بالس لحلول رأس المال البشري
+                      </p>
                       <div className="h-14 w-32 border-2 border-dashed border-emerald-600 rounded-lg flex items-center justify-center text-emerald-700 font-black text-[10px] mt-1 rotate-[-3deg]">
                         ختم الموارد البشرية المعتمد
                       </div>

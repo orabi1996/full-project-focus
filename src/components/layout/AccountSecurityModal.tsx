@@ -1,11 +1,5 @@
 import React, { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "../ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
@@ -27,6 +21,9 @@ import {
   Moon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "../../lib/auth/AuthContext";
+import { changeAccountPassword } from "../../lib/auth/account-security";
+import { supabase } from "../../integrations/supabase/client";
 import { useApp } from "../../lib/context/AppContext";
 
 interface AccountSecurityModalProps {
@@ -41,6 +38,8 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
   userEmail,
 }) => {
   const { language, setLanguage, currentUser } = useApp();
+  const { session, isDemo } = useAuth();
+  const [isTerminatingSessions, setIsTerminatingSessions] = useState(false);
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -48,14 +47,6 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-
-  // 2FA state
-  const [is2FAEnabled, setIs2FAEnabled] = useState(true);
-
-  // Notification preferences state
-  const [emailAlerts, setEmailAlerts] = useState(true);
-  const [whatsappAlerts, setWhatsappAlerts] = useState(true);
-  const [systemPushAlerts, setSystemPushAlerts] = useState(true);
 
   // Password strength calculation
   const getPasswordStrength = (pass: string) => {
@@ -74,7 +65,11 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
 
   const strength = getPasswordStrength(newPassword);
 
-  const handleUpdatePassword = (e: React.FormEvent) => {
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    if (isDemo || !session?.user.email) {
+      e.preventDefault();
+      return;
+    }
     e.preventDefault();
     if (!currentPassword) {
       toast.error("يرجى إدخال كلمة المرور الحالية");
@@ -90,17 +85,38 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
     }
 
     setIsUpdatingPassword(true);
-    setTimeout(() => {
-      setIsUpdatingPassword(false);
+    try {
+      await changeAccountPassword(
+        supabase.auth,
+        { id: session.user.id, email: session.user.email },
+        currentPassword,
+        newPassword,
+      );
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      toast.success("تم تحديث كلمة المرور بنجاح وتأمين الحساب!");
-    }, 600);
+      toast.success("تم تحديث كلمة المرور بنجاح");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر تحديث كلمة المرور");
+    } finally {
+      setIsUpdatingPassword(false);
+    }
   };
 
-  const handleTerminateOtherSessions = () => {
-    toast.success("تم تسجيل الخروج بنجاح من كافة الأجهزة والجلسات الأخرى!");
+  const handleTerminateOtherSessions = async () => {
+    if (isDemo || !session) return;
+    setIsTerminatingSessions(true);
+    try {
+      const { error } = await supabase.auth.signOut({ scope: "others" });
+      if (error) throw error;
+      toast.success(
+        "تم إلغاء تجديد الجلسات الأخرى؛ تنتهي صلاحية رموز الدخول الحالية عند انتهاء مدتها",
+      );
+    } catch {
+      toast.error("تعذر إنهاء الجلسات الأخرى. حاول مجددًا.");
+    } finally {
+      setIsTerminatingSessions(false);
+    }
   };
 
   return (
@@ -154,18 +170,30 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
 
           {/* TAB 1: Password & Security */}
           <TabsContent value="security" className="space-y-5 pt-3">
-            <form onSubmit={handleUpdatePassword} className="space-y-3.5 rounded-2xl border border-border/70 p-4 bg-muted/20">
+            {isDemo && (
+              <p className="text-xs text-muted-foreground">
+                تغيير كلمة المرور وإدارة الجلسات متاحان للحسابات المسجلة فقط.
+              </p>
+            )}
+            <form
+              onSubmit={handleUpdatePassword}
+              className="space-y-3.5 rounded-2xl border border-border/70 p-4 bg-muted/20"
+            >
               <h4 className="text-xs font-black flex items-center gap-1.5 text-foreground">
                 <Lock className="h-3.5 w-3.5 text-primary" />
                 تغيير كلمة المرور
               </h4>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-muted-foreground">
+                <label
+                  htmlFor="account-current-password"
+                  className="text-[11px] font-bold text-muted-foreground"
+                >
                   كلمة المرور الحالية *
                 </label>
                 <div className="relative">
                   <input
+                    id="account-current-password"
                     type={showPassword ? "text" : "password"}
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
@@ -175,19 +203,28 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "إخفاء كلمات المرور" : "إظهار كلمات المرور"}
                     className="absolute left-3 top-2.5 text-muted-foreground hover:text-foreground"
                   >
-                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {showPassword ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
                   </button>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-muted-foreground">
+                  <label
+                    htmlFor="account-new-password"
+                    className="text-[11px] font-bold text-muted-foreground"
+                  >
                     كلمة المرور الجديدة *
                   </label>
                   <input
+                    id="account-new-password"
                     type={showPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -197,10 +234,14 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-muted-foreground">
+                  <label
+                    htmlFor="account-confirm-password"
+                    className="text-[11px] font-bold text-muted-foreground"
+                  >
                     تأكيد كلمة المرور الجديدة *
                   </label>
                   <input
+                    id="account-confirm-password"
                     type={showPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -229,7 +270,7 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
               <Button
                 type="submit"
                 size="sm"
-                disabled={isUpdatingPassword}
+                disabled={isUpdatingPassword || isDemo || !session}
                 className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground h-8 px-4"
               >
                 {isUpdatingPassword ? "جارٍ الحفظ والتحديث..." : "تحديث كلمة المرور"}
@@ -249,20 +290,11 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
                   </Badge>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  طلب رمز تحقق إضافي عبر رسالة SMS أو تطبيق المصادقة عند تسجيل الدخول من جهاز جديد.
+                  إعداد المصادقة الثنائية غير متاح في هذه الواجهة حاليًا؛ لا تعكس هذه الشاشة حالة
+                  تفعيلها في الحساب.
                 </p>
               </div>
-              <Switch
-                checked={is2FAEnabled}
-                onCheckedChange={(val) => {
-                  setIs2FAEnabled(val);
-                  toast.success(
-                    val
-                      ? "تم تفعيل المصادقة الثنائية (2FA) بنجاح لحسابك!"
-                      : "تم إيقاف المصادقة الثنائية",
-                  );
-                }}
-              />
+              <Badge variant="outline">غير متاح</Badge>
             </div>
 
             {/* Active Sessions */}
@@ -276,6 +308,7 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
                   size="sm"
                   variant="outline"
                   onClick={handleTerminateOtherSessions}
+                  disabled={isDemo || !session || isTerminatingSessions}
                   className="rounded-full text-[11px] font-bold h-7 gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
                 >
                   <LogOut className="h-3 w-3" />
@@ -283,20 +316,10 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
                 </Button>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-xl bg-card border border-border/60 text-xs">
-                <div className="flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <div>
-                    <span className="font-bold block">متصفح Chrome على نظام Windows</span>
-                    <span className="text-[10px] text-muted-foreground">
-                      المملكة العربية السعودية، الرياض • IP: 158.140.22.81 (هذه الجلسة)
-                    </span>
-                  </div>
-                </div>
-                <Badge variant="default" className="text-[10px] font-bold bg-emerald-600">
-                  نشط الآن
-                </Badge>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                الحساب الحالي: {session?.user.email ?? "وضع تجريبي"}. قائمة الأجهزة ومواقعها غير
+                متاحة حاليًا.
+              </p>
             </div>
           </TabsContent>
 
@@ -304,6 +327,9 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
           <TabsContent value="notifications" className="space-y-3 pt-3">
             <div className="rounded-2xl border border-border/70 p-4 bg-muted/20 space-y-3 text-start">
               <h4 className="text-xs font-black">قنوات استلام الإشعارات</h4>
+              <p className="text-xs text-muted-foreground">
+                إعداد قنوات الإشعارات وحفظ تفضيلاتها غير متاحين حاليًا.
+              </p>
 
               <div className="flex items-center justify-between py-2 border-b border-border/50">
                 <div>
@@ -312,7 +338,7 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
                     استلام طلبات الإجازات ومسيرات الرواتب وتحديثات الوثائق على البريد
                   </span>
                 </div>
-                <Switch checked={emailAlerts} onCheckedChange={setEmailAlerts} />
+                <Switch aria-label="إشعارات البريد الإلكتروني" disabled checked={false} />
               </div>
 
               <div className="flex items-center justify-between py-2 border-b border-border/50">
@@ -322,23 +348,25 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
                     تنبيهات فورية عند إيداع الراتب، والطلبات العاجلة لاعتمادات العمليات
                   </span>
                 </div>
-                <Switch checked={whatsappAlerts} onCheckedChange={setWhatsappAlerts} />
+                <Switch aria-label="إشعارات الرسائل" disabled checked={false} />
               </div>
 
               <div className="flex items-center justify-between py-2">
                 <div>
-                  <span className="text-xs font-bold block">إشعارات المتصفح الفورية (Push Alerts)</span>
+                  <span className="text-xs font-bold block">
+                    إشعارات المتصفح الفورية (Push Alerts)
+                  </span>
                   <span className="text-[10px] text-muted-foreground">
                     تنبيهات سطح المكتب أثناء العمل على النظام لطلبات الموظفين والموافقات
                   </span>
                 </div>
-                <Switch checked={systemPushAlerts} onCheckedChange={setSystemPushAlerts} />
+                <Switch aria-label="إشعارات المتصفح" disabled checked={false} />
               </div>
             </div>
 
             <Button
               size="sm"
-              onClick={() => toast.success("تم حفظ تفضيلات الإشعارات بنجاح!")}
+              disabled
               className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground h-8 px-5"
             >
               حفظ التفضيلات
@@ -380,7 +408,8 @@ export const AccountSecurityModal: React.FC<AccountSecurityModalProps> = ({
             <div className="rounded-2xl border border-border/70 p-4 bg-muted/20 space-y-2">
               <h4 className="text-xs font-black">التوقيت المؤسسي المعتمد</h4>
               <p className="text-[11px] text-muted-foreground">
-                توقيت مكة المكرمة / الرياض (GMT+3) - مطابق لحسابات مسيرات التأمينات ونظام العمل السعودي.
+                توقيت مكة المكرمة / الرياض (GMT+3) - مطابق لحسابات مسيرات التأمينات ونظام العمل
+                السعودي.
               </p>
             </div>
           </TabsContent>

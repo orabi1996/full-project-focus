@@ -68,9 +68,9 @@ export const AttendanceView: React.FC = () => {
     "operations_manager",
   ].includes(currentRole);
 
-  const [activeTab, setActiveTab] = useState<"timesheet" | "biometric" | "overtime" | "corrections" | "policies">(
-    "timesheet",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "timesheet" | "biometric" | "overtime" | "corrections" | "policies"
+  >("timesheet");
 
   // Filters State
   const [searchTerm, setSearchTerm] = useState("");
@@ -208,7 +208,12 @@ export const AttendanceView: React.FC = () => {
       "ساعات العمل": r.workedHours,
       "التأخير (دقائق)": r.lateMinutes,
       "ساعات إضافية": r.overtimeHours,
-      "السياج الجغرافي": r.geofenceValid ? "داخل المقر" : "خارج النطاق",
+      "السياج الجغرافي":
+        r.geofenceValid === undefined
+          ? "غير متحقق"
+          : r.geofenceValid
+            ? "داخل المقر"
+            : "خارج النطاق",
       الحالة: r.status === "present" ? "حاضر" : r.status === "late" ? "متأخر" : "غائب",
     }));
     exportToCSV(`Attendance_Report_${new Date().toISOString().split("T")[0]}`, data);
@@ -275,13 +280,16 @@ export const AttendanceView: React.FC = () => {
               />
               نظام إدارة الحضور والورديات والعمل الإضافي
             </h1>
-            <Badge variant="secondary" className="classera-badge-pulse font-bold text-[11px] rounded-full px-3 py-0.5">
+            <Badge
+              variant="secondary"
+              className="classera-badge-pulse font-bold text-[11px] rounded-full px-3 py-0.5"
+            >
               الامتثال للائحة العمل السعودية
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground font-medium mt-1">
-            تسجيل البصمة والموقع الجغرافي GPS، السياج الجغرافي، واحتساب الساعات الإضافية وفق المادة 107 من نظام
-            العمل السعودي
+            تسجيل البصمة والموقع الجغرافي GPS، السياج الجغرافي، واحتساب الساعات الإضافية وفق المادة
+            107 من نظام العمل السعودي
           </p>
         </div>
 
@@ -330,7 +338,9 @@ export const AttendanceView: React.FC = () => {
             <span className="text-[11px] font-bold text-muted-foreground">
               نسبة الانضباط والالتزام
             </span>
-            <p className="text-2xl font-black text-emerald-600 mt-0.5 font-tabular-nums font-mono">{attendanceRate}%</p>
+            <p className="text-2xl font-black text-emerald-600 mt-0.5 font-tabular-nums font-mono">
+              {attendanceRate}%
+            </p>
             <span className="text-[10px] text-muted-foreground font-bold">
               {presentCount} حاضر من {totalEmployeesCount}
             </span>
@@ -363,7 +373,9 @@ export const AttendanceView: React.FC = () => {
             <span className="text-[11px] font-bold text-muted-foreground">
               حالات التأخير والانصراف المبكر
             </span>
-            <p className="text-2xl font-black text-amber-600 mt-0.5 font-tabular-nums font-mono">{lateCount}</p>
+            <p className="text-2xl font-black text-amber-600 mt-0.5 font-tabular-nums font-mono">
+              {lateCount}
+            </p>
             <span className="text-[10px] text-amber-600 font-bold">ضمن فترة السماح القانونية</span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
@@ -374,7 +386,9 @@ export const AttendanceView: React.FC = () => {
         <div className="classera-kpi-card p-5 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">طلبات تصحيح البصمة</span>
-            <p className="text-2xl font-black text-primary mt-0.5 font-tabular-nums font-mono">{pendingCorrectionsCount}</p>
+            <p className="text-2xl font-black text-primary mt-0.5 font-tabular-nums font-mono">
+              {pendingCorrectionsCount}
+            </p>
             <span className="text-[10px] text-muted-foreground font-bold">
               بانتظار اعتماد المشرفين
             </span>
@@ -605,9 +619,16 @@ export const AttendanceView: React.FC = () => {
                                 ? "جهاز البصمة"
                                 : rec.punchSource === "correction_request"
                                   ? "طلب مصحح"
-                                  : "تعديل إداري"}
+                                  : rec.punchSource === "manual_admin"
+                                    ? "تعديل إداري"
+                                    : "غير محدد"}
                           </span>
-                          {rec.geofenceValid ? (
+                          {rec.geofenceValid === undefined ? (
+                            <span
+                              className="h-2 w-2 rounded-full bg-muted-foreground"
+                              title="لم يتم التحقق من السياج"
+                            />
+                          ) : rec.geofenceValid ? (
                             <span
                               className="h-2 w-2 rounded-full bg-emerald-500"
                               title="داخل السياج"

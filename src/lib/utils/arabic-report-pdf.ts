@@ -1,3 +1,4 @@
+import { escapeHtml } from "./escape-html";
 import { getActiveBrandLogoPath } from "../../components/common/AppLogo";
 
 export interface ReportSection {
@@ -26,34 +27,39 @@ export function openArabicReportPdf(options: ArabicReportOptions) {
   if (!win) throw new Error("المتصفح منع فتح نافذة الطباعة — اسمح بالنوافذ المنبثقة");
 
   const cardsHtml = (options.cards ?? [])
-    .map((c) => `<div class="card"><span>${c.label}</span><b>${c.value}</b></div>`)
+    .map(
+      (c) =>
+        `<div class="card"><span>${escapeHtml(c.label)}</span><b>${escapeHtml(c.value)}</b></div>`,
+    )
     .join("");
 
   const sectionsHtml = options.sections
     .map(
       (section) => `
-      <h2>${section.title}</h2>
+      <h2>${escapeHtml(section.title)}</h2>
       <table>
-        <thead><tr>${section.columns.map((c) => `<th>${c}</th>`).join("")}</tr></thead>
+        <thead><tr>${section.columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr></thead>
         <tbody>${
           section.rows.length
             ? section.rows
-                .map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`)
+                .map(
+                  (row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`,
+                )
                 .join("")
             : `<tr><td colspan="${section.columns.length}" class="empty">لا توجد بيانات</td></tr>`
         }</tbody>
         ${
           section.totals
-            ? `<tfoot><tr>${section.totals.map((cell) => `<td>${cell}</td>`).join("")}</tr></tfoot>`
+            ? `<tfoot><tr>${section.totals.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr></tfoot>`
             : ""
         }
       </table>
-      ${section.note ? `<p class="note">${section.note}</p>` : ""}`,
+      ${section.note ? `<p class="note">${escapeHtml(section.note)}</p>` : ""}`,
     )
     .join("");
 
   win.document.write(`<!doctype html>
-<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${options.title} | Classera Pulse</title>
+<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${escapeHtml(options.title)} | Classera Pulse</title>
 <style>
   *{box-sizing:border-box}
   body{font-family:"Segoe UI",Tahoma,Arial,sans-serif;margin:22px;color:#1c1b1f}
@@ -78,8 +84,8 @@ export function openArabicReportPdf(options: ArabicReportOptions) {
 </style></head><body>
 <div class="rep-header">
   <div>
-    <h1>${options.title}</h1>
-    <div class="sub">${options.subtitle ?? ""} — صدر في ${new Date().toLocaleString("ar-SA")}</div>
+    <h1>${escapeHtml(options.title)}</h1>
+    <div class="sub">${escapeHtml(options.subtitle ?? "")} — صدر في ${new Date().toLocaleString("ar-SA")}</div>
   </div>
   <div class="rep-brand">
     <img src="${window.location.origin}${getActiveBrandLogoPath()}" class="rep-logo" alt="Classera Pulse" onerror="this.style.display='none'" />
@@ -88,7 +94,7 @@ export function openArabicReportPdf(options: ArabicReportOptions) {
 ${cardsHtml ? `<div class="cards">${cardsHtml}</div>` : ""}
 ${sectionsHtml}
 <div class="foot">
-  <span>${options.footer ?? "تقرير آلي معتمد مستخرج من منصة كلاسيرا بالس لإدارة رأس المال البشري (Classera Pulse HCM)."}</span>
+  <span>${escapeHtml(options.footer ?? "تقرير آلي معتمد مستخرج من منصة كلاسيرا بالس لإدارة رأس المال البشري (Classera Pulse HCM).")}</span>
   <span>Classera Pulse HCM © ${new Date().getFullYear()}</span>
 </div>
 <script>window.onload=()=>{window.focus();window.print();}</script>

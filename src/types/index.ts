@@ -522,8 +522,8 @@ export interface DailyAttendanceRecord {
   earlyDepartureMinutes: number;
   workedHours: number;
   overtimeHours: number;
-  punchSource: "biometric_device" | "mobile_gps" | "manual_admin" | "correction_request";
-  geofenceValid: boolean;
+  punchSource?: "biometric_device" | "mobile_gps" | "manual_admin" | "correction_request";
+  geofenceValid?: boolean;
   violationsCount: number;
   reviewedByPayroll: boolean;
 }

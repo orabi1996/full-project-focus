@@ -19,7 +19,9 @@ const EmployeesView = lazy(() =>
   import("../employees/EmployeesView").then((module) => ({ default: module.EmployeesView })),
 );
 const DocumentVaultView = lazy(() =>
-  import("../documents/DocumentVaultView").then((module) => ({ default: module.DocumentVaultView })),
+  import("../documents/DocumentVaultView").then((module) => ({
+    default: module.DocumentVaultView,
+  })),
 );
 const RbacView = lazy(() =>
   import("../rbac/RbacView").then((module) => ({ default: module.RbacView })),
@@ -90,7 +92,8 @@ const VALID_TABS = new Set([
 ]);
 
 export const AppLayout: React.FC = () => {
-  const { language, direction, currentRole, requests } = useApp();
+  const { direction, currentRole, requests, dataMode, isDataLoading, dataError, refreshCoreData } =
+    useApp();
   const pendingRequestsCount = requests?.filter((r) => r.status === "pending_approval").length || 0;
   const initialTab =
     typeof window === "undefined" ? "dashboard" : window.location.hash.replace("#", "");
@@ -134,7 +137,14 @@ export const AppLayout: React.FC = () => {
       case "employees":
         return <EmployeesView />;
       case "documents":
-        return <DocumentVaultView />;
+        return dataMode === "demo" ? (
+          <DocumentVaultView />
+        ) : (
+          <div role="status" className="rounded-2xl border bg-card p-8 text-center text-sm">
+            مستودع الوثائق متاح للعرض التجريبي. رفع الملفات وحفظها للحسابات الحقيقية لم يُربط بخدمة
+            التخزين بعد.
+          </div>
+        );
       case "rbac":
         return <RbacView />;
       case "workflow":
@@ -225,7 +235,29 @@ export const AppLayout: React.FC = () => {
                   </div>
                 }
               >
-                {renderActiveView()}
+                {dataMode === "live" && (isDataLoading || dataError) ? (
+                  <div
+                    role={dataError ? "alert" : "status"}
+                    className="rounded-2xl border bg-card p-8 text-center text-sm"
+                  >
+                    <p>
+                      {isDataLoading
+                        ? "جارٍ تحميل بيانات المؤسسة…"
+                        : "تعذر تحميل بيانات المؤسسة. تحقق من الاتصال أو الصلاحيات."}
+                    </p>
+                    {!isDataLoading && dataError && (
+                      <button
+                        type="button"
+                        className="mt-4 rounded-lg bg-primary px-4 py-2 text-primary-foreground"
+                        onClick={() => void refreshCoreData().catch(() => undefined)}
+                      >
+                        إعادة المحاولة
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  renderActiveView()
+                )}
               </Suspense>
             </ViewErrorBoundary>
           </div>

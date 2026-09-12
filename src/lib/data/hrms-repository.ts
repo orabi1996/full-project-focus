@@ -1,3 +1,4 @@
+import { mapEmployee, mapAttendance } from "./core-mappers";
 import { supabase } from "../../integrations/supabase/client";
 import type { Database } from "../../integrations/supabase/types";
 import {
@@ -15,7 +16,6 @@ import type {
   ServiceRequest,
 } from "../../types";
 
-type AttendanceRow = Database["public"]["Tables"]["attendance_records"]["Row"];
 type RequestRow = RequestExtendedRow;
 
 export interface CoreSnapshot {
@@ -23,152 +23,6 @@ export interface CoreSnapshot {
   orgUnits: OrgUnit[];
   attendanceRecords: DailyAttendanceRecord[];
   requests: ServiceRequest[];
-}
-
-function splitName(fullName: string) {
-  const cleaned = fullName.replace(/\(مدير النظام\)/g, "").trim();
-  if (cleaned.includes("@") || !cleaned) {
-    return {
-      firstName: "أ. عبد العزيز",
-      lastName: "الفهد",
-    };
-  }
-  const parts = cleaned.split(/\s+/).filter(Boolean);
-  return {
-    firstName: parts[0] ?? cleaned,
-    lastName: parts.slice(1).join(" ") || "—",
-  };
-}
-
-function mapEmployee(
-  row: EmployeeExtendedRow,
-  departments: Map<string, DepartmentRow>,
-  subsidiaries: Map<string, { name_ar: string }>,
-  locations: Map<string, { name_ar: string }>,
-): Employee {
-  const isEmailOrEmpty =
-    !row.full_name ||
-    row.full_name.includes("@") ||
-    (row.first_name_ar && row.first_name_ar.includes("@"));
-  const isAdminEmail =
-    row.email?.toLowerCase().includes("admin") ||
-    row.email?.toLowerCase().includes("hr");
-
-  const defaultFirstName = isAdminEmail ? "أ. عبد العزيز" : "موظف";
-  const defaultLastName = isAdminEmail ? "الفهد" : "عام";
-
-  const firstNameAr =
-    row.first_name_ar && !row.first_name_ar.includes("@")
-      ? row.first_name_ar
-      : isEmailOrEmpty
-        ? defaultFirstName
-        : splitName(row.full_name).firstName;
-
-  const lastNameAr =
-    row.last_name_ar && row.last_name_ar !== "—" && !row.last_name_ar.includes("@")
-      ? row.last_name_ar.replace(/\(مدير النظام\)/g, "").trim()
-      : isEmailOrEmpty
-        ? defaultLastName
-        : splitName(row.full_name).lastName;
-
-  const defaultJobTitle = isAdminEmail
-    ? "مدير عام النظام والموارد البشرية"
-    : "اختصاصي شؤون الموظفين";
-
-  const jobTitleAr =
-    row.job_title && row.job_title !== "غير محدد" && row.job_title !== ""
-      ? row.job_title
-      : defaultJobTitle;
-
-  const defaultBasicSalary = isAdminEmail ? 24000 : 8500;
-  const defaultTotalSalary = isAdminEmail ? 31500 : 11000;
-
-  const basicSalary =
-    Number(row.basic_salary) > 0 ? Number(row.basic_salary) : defaultBasicSalary;
-  const totalSalary =
-    Number(row.total_salary) > 0
-      ? Number(row.total_salary)
-      : Number(row.basic_salary) > 0
-        ? Number(row.basic_salary)
-        : defaultTotalSalary;
-
-  const defaultCompletionScore = isAdminEmail ? 95 : 50;
-  const completionScore =
-    Number(row.completion_score) > 0
-      ? Number(row.completion_score)
-      : defaultCompletionScore;
-
-  const nationalId =
-    row.national_id_or_iqama && row.national_id_or_iqama !== "غير مسجل"
-      ? row.national_id_or_iqama
-      : isAdminEmail
-        ? "1010998877"
-        : "1087654321";
-
-  const nationality =
-    row.nationality && row.nationality !== "غير محدد"
-      ? row.nationality
-      : "سعودي";
-
-  const department = row.department_id ? departments.get(row.department_id) : undefined;
-  const defaultDeptName = isAdminEmail ? "الإدارة العامة والموارد البشرية" : "غير محدد";
-
-  return {
-    id: row.id,
-    employeeNo: row.employee_no,
-    firstNameAr,
-    lastNameAr,
-    firstNameEn:
-      row.first_name_en && !row.first_name_en.includes("@")
-        ? row.first_name_en
-        : "Abdulaziz",
-    lastNameEn:
-      row.last_name_en && row.last_name_en !== "—" ? row.last_name_en : "Al-Fahad",
-    email: row.email ?? "",
-    personalEmail: row.personal_email ?? undefined,
-    phone: row.phone || (isAdminEmail ? "+966 50 123 4567" : "+966 55 000 0000"),
-    nationalIdOrIqama: nationalId,
-    nationality,
-    gender: row.gender === "female" ? "female" : "male",
-    birthDate: row.birth_date ?? "1990-01-01",
-    maritalStatus:
-      row.marital_status === "married" ||
-      row.marital_status === "divorced" ||
-      row.marital_status === "widowed"
-        ? row.marital_status
-        : "married",
-    subsidiaryId: row.subsidiary_id ?? "",
-    subsidiaryName: row.subsidiary_id
-      ? subsidiaries.get(row.subsidiary_id)?.name_ar
-      : "كلاسيرا للتقنية وتطوير البرمجيات",
-    departmentId: row.department_id ?? "unassigned",
-    departmentName: department?.name ?? defaultDeptName,
-    jobTitleAr,
-    jobTitleEn: row.job_title || "Super Admin & HR Director",
-    jobPositionId: row.job_position_id,
-    managerId: row.manager_id,
-    workLocationId: row.work_location_id ?? "",
-    workLocationName: row.work_location_id
-      ? locations.get(row.work_location_id)?.name_ar
-      : "المقر الرئيسي - برج العليا (الرياض)",
-    hireDate: row.hire_date || "2021-01-01",
-    contractType:
-      row.contract_type === "part_time" ||
-      row.contract_type === "contractor" ||
-      row.contract_type === "seasonal" ||
-      row.contract_type === "internship"
-        ? row.contract_type
-        : "full_time",
-    probationEndDate: row.probation_end_date ?? undefined,
-    status: (row.status as Employee["status"]) || "active",
-    completionScore,
-    basicSalary,
-    totalSalary,
-    customFields: {
-      ...(row.metadata && typeof row.metadata === "object" ? row.metadata : {}),
-      userId: row.user_id,
-    },
-  };
 }
 
 function mapOrgUnit(row: DepartmentRow): OrgUnit {
@@ -187,35 +41,6 @@ function mapOrgUnit(row: DepartmentRow): OrgUnit {
     managerEmployeeId: row.manager_employee_id ?? undefined,
     status: row.status === "inactive" ? "inactive" : "active",
     employeeCount: 0,
-  };
-}
-
-function mapAttendance(
-  row: AttendanceRow,
-  employees: Map<string, Employee>,
-): DailyAttendanceRecord {
-  const employee = employees.get(row.employee_id);
-  const status =
-    row.status === "leave" ? "on_leave" : row.status === "remote" ? "present" : row.status;
-
-  return {
-    id: row.id,
-    employeeId: row.employee_id,
-    employeeNo: employee?.employeeNo ?? "—",
-    employeeName: employee ? `${employee.firstNameAr} ${employee.lastNameAr}` : "موظف",
-    departmentName: employee?.departmentName ?? "غير محدد",
-    workDate: row.work_date,
-    actualIn: row.check_in ?? undefined,
-    actualOut: row.check_out ?? undefined,
-    status,
-    lateMinutes: status === "late" ? 15 : 0,
-    earlyDepartureMinutes: 0,
-    workedHours: Number(row.worked_hours),
-    overtimeHours: 0,
-    punchSource: "manual_admin",
-    geofenceValid: true,
-    violationsCount: status === "late" || status === "absent" ? 1 : 0,
-    reviewedByPayroll: false,
   };
 }
 
@@ -353,7 +178,6 @@ export async function fetchCoreSnapshot(): Promise<CoreSnapshot> {
     const manager = unit.managerEmployeeId ? employeeMap.get(unit.managerEmployeeId) : undefined;
     unit.managerName = manager ? `${manager.firstNameAr} ${manager.lastNameAr}` : unit.managerName;
   }
-
 
   return {
     employees,

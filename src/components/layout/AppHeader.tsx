@@ -144,7 +144,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           className="hidden md:inline-flex items-center gap-2 h-9 rounded-full px-3.5 border border-border/70 bg-muted/30 text-xs font-semibold text-muted-foreground"
           title={
             dataError
-              ? `الوضع المحلي: ${dataError}`
+              ? "تعذر تحميل البيانات"
               : dataMode === "live"
                 ? "متصل بالنظام السحابي المباشر"
                 : "النسخة التجريبية التفاعلية"
@@ -161,11 +161,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           />
           <span className="text-[11px] font-medium">
             {dataError
-              ? "الوضع المحلي"
+              ? "خطأ في التحميل"
               : dataMode === "live"
-                ? isSaving
-                  ? "جارٍ المزامنة..."
-                  : "سحابي مباشر"
+                ? isDataLoading
+                  ? "جارٍ التحميل..."
+                  : isSaving
+                    ? "جارٍ المزامنة..."
+                    : "سحابي مباشر"
                 : "نسخة تجريبية"}
           </span>
         </div>
@@ -338,8 +340,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-black text-foreground">
                     {language === "ar"
-                      ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`.replace(/\(مدير النظام\)/g, "").trim()
-                      : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`.replace(/\(مدير النظام\)/g, "").trim()}
+                      ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
+                          .replace(/\(مدير النظام\)/g, "")
+                          .trim()
+                      : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`
+                          .replace(/\(مدير النظام\)/g, "")
+                          .trim()}
                   </span>
                   <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                 </div>
@@ -371,13 +377,21 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 <div className="space-y-0.5 overflow-hidden">
                   <h4 className="text-xs font-black text-foreground truncate">
                     {language === "ar"
-                      ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`.replace(/\(مدير النظام\)/g, "").trim()
-                      : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`.replace(/\(مدير النظام\)/g, "").trim()}
+                      ? `${currentUser.firstNameAr} ${currentUser.lastNameAr}`
+                          .replace(/\(مدير النظام\)/g, "")
+                          .trim()
+                      : `${currentUser.firstNameEn} ${currentUser.lastNameEn}`
+                          .replace(/\(مدير النظام\)/g, "")
+                          .trim()}
                   </h4>
                   <p className="text-[11px] font-mono text-primary font-bold truncate">
                     {session?.user?.email?.includes("focus-hrms")
                       ? "hr.admin@classera.com"
-                      : session?.user?.email || (currentUser.email?.includes("focus-hrms") ? "hr.admin@classera.com" : currentUser.email) || "hr.admin@classera.com"}
+                      : session?.user?.email ||
+                        (currentUser.email?.includes("focus-hrms")
+                          ? "hr.admin@classera.com"
+                          : currentUser.email) ||
+                        "hr.admin@classera.com"}
                   </p>
                   <p className="text-[10px] text-muted-foreground font-medium truncate">
                     {currentUser.jobTitleAr || "مدير عام المنظومة"}

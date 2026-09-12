@@ -359,6 +359,19 @@ const AppContext: React.Context<AppContextType | null> =
   globalScope.__hrmsAppContext ?? createContext<AppContextType | null>(null);
 globalScope.__hrmsAppContext = AppContext;
 
+const EMPTY_COMPANY: CompanyProfile = {
+  id: "",
+  legalNameAr: "",
+  legalNameEn: "",
+  taxNumber: "",
+  crNumber: "",
+  country: "",
+  currency: "SAR",
+  timezone: "Asia/Riyadh",
+  headquartersAddress: "",
+  fiscalYearStartMonth: 1,
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session, role: authenticatedRole, isDemo } = useAuth();
   const [language, setLanguageState] = useState<Language>("ar");
@@ -379,25 +392,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isDemo) setSimulatedRole(role);
   };
   const dataMode: "demo" | "live" = session && !isDemo ? "live" : "demo";
-  const [isDataLoading, setIsDataLoading] = useState(false);
+  const [isDataLoading, setIsDataLoading] = useState(!isDemo);
   const [dataError, setDataError] = useState<string | null>(null);
   const [pendingMutationCount, setPendingMutationCount] = useState(0);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const activeMutationKeys = useRef(new Set<string>());
   const isSaving = pendingMutationCount > 0;
 
+  const permissionStorageScope = isDemo ? "demo" : (session?.user.id ?? "signed-out");
+
   // State variables
-  const [company, setCompany] = useState<CompanyProfile>(mockCompany);
-  const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>(mockSubsidiaries);
-  const [orgUnits, setOrgUnits] = useState<OrgUnit[]>(mockOrgUnits);
-  const [workLocations, setWorkLocations] = useState<WorkLocation[]>(mockWorkLocations);
-  const [costCenters, setCostCenters] = useState<CostCenter[]>(mockCostCenters);
-  const [jobPositions, setJobPositions] = useState<JobPosition[]>(mockJobPositions);
-  const [employees, setEmployees] = useState<Employee[]>(mockEmployees);
-  const [roles, setRoles] = useState<RoleDefinition[]>(mockRoles);
+  const [company, setCompany] = useState<CompanyProfile>(isDemo ? mockCompany : EMPTY_COMPANY);
+  const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>(isDemo ? mockSubsidiaries : []);
+  const [orgUnits, setOrgUnits] = useState<OrgUnit[]>(isDemo ? mockOrgUnits : []);
+  const [workLocations, setWorkLocations] = useState<WorkLocation[]>(
+    isDemo ? mockWorkLocations : [],
+  );
+  const [costCenters, setCostCenters] = useState<CostCenter[]>(isDemo ? mockCostCenters : []);
+  const [jobPositions, setJobPositions] = useState<JobPosition[]>(isDemo ? mockJobPositions : []);
+  const [employees, setEmployees] = useState<Employee[]>(isDemo ? mockEmployees : []);
+  const [roles, setRoles] = useState<RoleDefinition[]>(isDemo ? mockRoles : []);
   const [permissionGroups, setPermissionGroups] = useState<PermissionGroup[]>(() => {
     try {
-      const stored = localStorage.getItem("focus_hrms_permission_groups");
+      const stored = localStorage.getItem(`focus_hrms_permission_groups:${permissionStorageScope}`);
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -412,7 +429,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     Record<string, Record<string, ScreenActionPermissions>>
   >(() => {
     try {
-      const stored = localStorage.getItem("focus_hrms_user_perm_overrides");
+      const stored = localStorage.getItem(
+        `focus_hrms_user_perm_overrides:${permissionStorageScope}`,
+      );
       if (stored) return JSON.parse(stored);
     } catch {
       // Storage may be unavailable or contain an invalid cached value.
@@ -422,53 +441,82 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     try {
-      localStorage.setItem("focus_hrms_permission_groups", JSON.stringify(permissionGroups));
+      localStorage.setItem(
+        `focus_hrms_permission_groups:${permissionStorageScope}`,
+        JSON.stringify(permissionGroups),
+      );
     } catch {
       // Storage may be unavailable or contain an invalid cached value.
     }
-  }, [permissionGroups]);
+  }, [permissionGroups, permissionStorageScope]);
 
   useEffect(() => {
     try {
-      localStorage.setItem("focus_hrms_user_perm_overrides", JSON.stringify(userPermissionOverrides));
+      localStorage.setItem(
+        `focus_hrms_user_perm_overrides:${permissionStorageScope}`,
+        JSON.stringify(userPermissionOverrides),
+      );
     } catch {
       // Storage may be unavailable or contain an invalid cached value.
     }
-  }, [userPermissionOverrides]);
-  const [approvalChains, setApprovalChains] = useState<ApprovalChain[]>(mockApprovalChains);
-  const [delegationRules, setDelegationRules] = useState<DelegationRule[]>(mockDelegationRules);
-  const [requests, setRequests] = useState<ServiceRequest[]>(mockRequests);
-  const [leaveTypes, setLeaveTypes] = useState<LeaveTypePolicy[]>(mockLeaveTypes);
-  const [leaveBalances, setLeaveBalances] =
-    useState<EmployeeLeaveBalance[]>(mockEmployeeLeaveBalances);
-  const [shifts, setShifts] = useState<ShiftDefinition[]>(mockShifts);
-  const [attendanceRecords, setAttendanceRecords] =
-    useState<DailyAttendanceRecord[]>(mockAttendanceRecords);
-  const [overtimeRecords, setOvertimeRecords] = useState<OvertimeRecord[]>(mockOvertimeRecords);
-  const [attendanceCorrections, setAttendanceCorrections] = useState<AttendanceCorrectionRequest[]>(
-    mockAttendanceCorrectionRequests,
+  }, [userPermissionOverrides, permissionStorageScope]);
+  const [approvalChains, setApprovalChains] = useState<ApprovalChain[]>(
+    isDemo ? mockApprovalChains : [],
   );
-  const [payrollGroups, setPayrollGroups] = useState<PayrollGroup[]>(mockPayrollGroups);
-  const [payrollRuns, setPayrollRuns] = useState<PayrollRun[]>(mockPayrollRuns);
-  const [payrollDetails, setPayrollDetails] = useState<EmployeePayrollDetail[]>(mockPayrollDetails);
-  const [loans, setLoans] = useState<LoanRecord[]>(mockLoans);
-  const [settlements, setSettlements] = useState<FinalSettlementRecord[]>(mockSettlements);
-  const [expenseCategories, setExpenseCategories] =
-    useState<ExpenseCategory[]>(mockExpenseCategories);
-  const [expenseClaims, setExpenseClaims] = useState<ExpenseClaim[]>(mockExpenseClaims);
-  const [performanceCycles, setPerformanceCycles] =
-    useState<PerformanceCycle[]>(mockPerformanceCycles);
-  const [evaluations, setEvaluations] = useState<EvaluationRecord[]>(mockEvaluations);
-  const [workforcePlans, setWorkforcePlans] = useState<WorkforcePlan[]>(mockWorkforcePlans);
-  const [jobOpenings, setJobOpenings] = useState<JobOpening[]>(mockJobOpenings);
-  const [candidates, setCandidates] = useState<Candidate[]>(mockCandidates);
-  const [jobOffers, setJobOffers] = useState<JobOffer[]>(mockJobOffers);
-  const [assets, setAssets] = useState<HardwareAsset[]>(mockAssets);
-  const [companyDocs, setCompanyDocs] = useState<CompanyDocument[]>(mockCompanyDocs);
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(mockAuditLogs);
-  const [notifications, setNotifications] = useState<AppNotification[]>(mockNotifications);
-  const [accountingJournals, setAccountingJournals] =
-    useState<AccountingJournalEntry[]>(mockAccountingJournals);
+  const [delegationRules, setDelegationRules] = useState<DelegationRule[]>(
+    isDemo ? mockDelegationRules : [],
+  );
+  const [requests, setRequests] = useState<ServiceRequest[]>(isDemo ? mockRequests : []);
+  const [leaveTypes, setLeaveTypes] = useState<LeaveTypePolicy[]>(isDemo ? mockLeaveTypes : []);
+  const [leaveBalances, setLeaveBalances] = useState<EmployeeLeaveBalance[]>(
+    isDemo ? mockEmployeeLeaveBalances : [],
+  );
+  const [shifts, setShifts] = useState<ShiftDefinition[]>(isDemo ? mockShifts : []);
+  const [attendanceRecords, setAttendanceRecords] = useState<DailyAttendanceRecord[]>(
+    isDemo ? mockAttendanceRecords : [],
+  );
+  const [overtimeRecords, setOvertimeRecords] = useState<OvertimeRecord[]>(
+    isDemo ? mockOvertimeRecords : [],
+  );
+  const [attendanceCorrections, setAttendanceCorrections] = useState<AttendanceCorrectionRequest[]>(
+    isDemo ? mockAttendanceCorrectionRequests : [],
+  );
+  const [payrollGroups, setPayrollGroups] = useState<PayrollGroup[]>(
+    isDemo ? mockPayrollGroups : [],
+  );
+  const [payrollRuns, setPayrollRuns] = useState<PayrollRun[]>(isDemo ? mockPayrollRuns : []);
+  const [payrollDetails, setPayrollDetails] = useState<EmployeePayrollDetail[]>(
+    isDemo ? mockPayrollDetails : [],
+  );
+  const [loans, setLoans] = useState<LoanRecord[]>(isDemo ? mockLoans : []);
+  const [settlements, setSettlements] = useState<FinalSettlementRecord[]>(
+    isDemo ? mockSettlements : [],
+  );
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>(
+    isDemo ? mockExpenseCategories : [],
+  );
+  const [expenseClaims, setExpenseClaims] = useState<ExpenseClaim[]>(
+    isDemo ? mockExpenseClaims : [],
+  );
+  const [performanceCycles, setPerformanceCycles] = useState<PerformanceCycle[]>(
+    isDemo ? mockPerformanceCycles : [],
+  );
+  const [evaluations, setEvaluations] = useState<EvaluationRecord[]>(isDemo ? mockEvaluations : []);
+  const [workforcePlans, setWorkforcePlans] = useState<WorkforcePlan[]>(
+    isDemo ? mockWorkforcePlans : [],
+  );
+  const [jobOpenings, setJobOpenings] = useState<JobOpening[]>(isDemo ? mockJobOpenings : []);
+  const [candidates, setCandidates] = useState<Candidate[]>(isDemo ? mockCandidates : []);
+  const [jobOffers, setJobOffers] = useState<JobOffer[]>(isDemo ? mockJobOffers : []);
+  const [assets, setAssets] = useState<HardwareAsset[]>(isDemo ? mockAssets : []);
+  const [companyDocs, setCompanyDocs] = useState<CompanyDocument[]>(isDemo ? mockCompanyDocs : []);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(isDemo ? mockAuditLogs : []);
+  const [notifications, setNotifications] = useState<AppNotification[]>(
+    isDemo ? mockNotifications : [],
+  );
+  const [accountingJournals, setAccountingJournals] = useState<AccountingJournalEntry[]>(
+    isDemo ? mockAccountingJournals : [],
+  );
   const [activeEmployeeModalId, setActiveEmployeeModalId] = useState<string | null>(null);
 
   const openEmployeeProfile = useCallback((employeeOrId: string | Employee) => {
@@ -483,18 +531,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveEmployeeModalId(null);
   }, []);
 
+  const refreshVersion = useRef(0);
+  useEffect(
+    () => () => {
+      refreshVersion.current += 1;
+    },
+    [],
+  );
+
   const refreshCoreData = useCallback(async () => {
     if (!session || isDemo) return;
+    const version = ++refreshVersion.current;
     setIsDataLoading(true);
     setDataError(null);
     try {
       const snapshot = await fetchCoreSnapshot();
+      const operational = await fetchOperationalSnapshot(snapshot.employees, snapshot.orgUnits);
+      if (version !== refreshVersion.current) return;
       setEmployees(snapshot.employees);
       setOrgUnits(snapshot.orgUnits);
       setAttendanceRecords(snapshot.attendanceRecords);
       setRequests(snapshot.requests);
-      const operational = await fetchOperationalSnapshot(snapshot.employees, snapshot.orgUnits);
-      if (operational.company) setCompany(operational.company);
+      setCompany(operational.company ?? EMPTY_COMPANY);
       setSubsidiaries(operational.subsidiaries);
       setWorkLocations(operational.workLocations);
       setCostCenters(operational.costCenters);
@@ -525,10 +583,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error) {
       const normalizedError =
         error instanceof Error ? error : new Error("تعذر تحميل بيانات النظام");
-      setDataError(normalizedError.message);
+      if (version === refreshVersion.current) setDataError(normalizedError.message);
       throw normalizedError;
     } finally {
-      setIsDataLoading(false);
+      if (version === refreshVersion.current) setIsDataLoading(false);
     }
   }, [session, isDemo]);
 
@@ -537,6 +595,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       void refreshCoreData().catch(() => undefined);
       return;
     }
+    if (!isDemo) return;
     setEmployees(mockEmployees);
     setCompany(mockCompany);
     setSubsidiaries(mockSubsidiaries);
@@ -570,18 +629,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotifications(mockNotifications);
     setAccountingJournals(mockAccountingJournals);
     setDataError(null);
-  }, [dataMode, refreshCoreData]);
+  }, [dataMode, refreshCoreData, isDemo]);
 
   // Active user representation based on role and auth identity
   const currentUser: Employee =
     (dataMode === "live"
-      ? employees.find(
-          (e) =>
-            (session?.user?.id && e.customFields?.userId === session.user.id) ||
-            (session?.user?.email &&
-              e.email &&
-              e.email.toLowerCase() === session.user.email.toLowerCase()),
-        )
+      ? employees.find((e) => session?.user?.id && e.customFields?.userId === session.user.id)
       : employees.find((e) => {
           if (
             session?.user?.email &&
@@ -597,12 +650,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (currentRole === "line_manager") return e.id === "emp-01"; // Khalid (Engineering Manager)
           return e.id === "emp-05"; // Mohammed (Employee ESS)
         })) ||
-    (dataMode === "demo" ? employees[0] || mockEmployees[0] : {
-      id: "", employeeNo: "", firstNameAr: "حساب غير مرتبط بموظف", lastNameAr: "", firstNameEn: "Unlinked account", lastNameEn: "",
-      email: session?.user?.email ?? "", phone: "", nationalIdOrIqama: "", nationality: "", gender: "male", birthDate: "", maritalStatus: "single",
-      subsidiaryId: "", departmentId: "", jobTitleAr: "", jobTitleEn: "", workLocationId: "", hireDate: "", contractType: "full_time", status: "draft",
-      completionScore: 0, basicSalary: 0, totalSalary: 0,
-    });
+    (dataMode === "demo"
+      ? employees[0] || mockEmployees[0]
+      : {
+          id: "",
+          employeeNo: "",
+          firstNameAr: "حساب غير مرتبط بموظف",
+          lastNameAr: "",
+          firstNameEn: "Unlinked account",
+          lastNameEn: "",
+          email: session?.user?.email ?? "",
+          phone: "",
+          nationalIdOrIqama: "",
+          nationality: "",
+          gender: "male",
+          birthDate: "",
+          maritalStatus: "single",
+          subsidiaryId: "",
+          departmentId: "",
+          jobTitleAr: "",
+          jobTitleEn: "",
+          workLocationId: "",
+          hireDate: "",
+          contractType: "full_time",
+          status: "draft",
+          completionScore: 0,
+          basicSalary: 0,
+          totalSalary: 0,
+        });
 
   const setLanguage = (lang: Language) => setLanguageState(lang);
   const toggleLanguage = () => setLanguageState((prev) => (prev === "ar" ? "en" : "ar"));
@@ -774,21 +849,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .filter((u) => u.id !== id)
         .map((u) => (u.parentId === id ? { ...u, parentId: target?.parentId ?? null } : u)),
     );
-    return persistLiveChange(
-      () => deleteOrganizationUnitRecord(id),
-      `org-unit:delete:${id}`,
-    ).then(({ ok }) => {
-      if (ok && target) {
-        logAuditEvent(
-          "حذف وحدة تنظيمية",
-          "OrgUnit",
-          id,
-          target.nameAr,
-          "تم إزالة الوحدة من الهيكل التنظيمي وإعادة ربط التبعيات",
-        );
-      }
-      return ok;
-    });
+    return persistLiveChange(() => deleteOrganizationUnitRecord(id), `org-unit:delete:${id}`).then(
+      ({ ok }) => {
+        if (ok && target) {
+          logAuditEvent(
+            "حذف وحدة تنظيمية",
+            "OrgUnit",
+            id,
+            target.nameAr,
+            "تم إزالة الوحدة من الهيكل التنظيمي وإعادة ربط التبعيات",
+          );
+        }
+        return ok;
+      },
+    );
   };
 
   const addSubsidiary = (subsidiary: Omit<Subsidiary, "id" | "employeeCount">) => {
@@ -843,21 +917,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((u) => (u.subsidiaryId === id ? { ...u, subsidiaryId: null } : u)),
     );
     setSubsidiaries((prev) => prev.filter((s) => s.id !== id));
-    return persistLiveChange(
-      () => deleteSubsidiaryRecord(id),
-      `subsidiary:delete:${id}`,
-    ).then(({ ok }) => {
-      if (ok && target) {
-        logAuditEvent(
-          "حذف شركة تابعة",
-          "Subsidiary",
-          id,
-          target.nameAr,
-          "تم إزالة الكيان التابع وتحديث بيانات المنسوبين",
-        );
-      }
-      return ok;
-    });
+    return persistLiveChange(() => deleteSubsidiaryRecord(id), `subsidiary:delete:${id}`).then(
+      ({ ok }) => {
+        if (ok && target) {
+          logAuditEvent(
+            "حذف شركة تابعة",
+            "Subsidiary",
+            id,
+            target.nameAr,
+            "تم إزالة الكيان التابع وتحديث بيانات المنسوبين",
+          );
+        }
+        return ok;
+      },
+    );
   };
 
   const addWorkLocation = (location: Omit<WorkLocation, "id">) => {
@@ -911,21 +984,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ),
     );
     setWorkLocations((prev) => prev.filter((l) => l.id !== id));
-    return persistLiveChange(
-      () => deleteWorkLocationRecord(id),
-      `work-location:delete:${id}`,
-    ).then(({ ok }) => {
-      if (ok && target) {
-        logAuditEvent(
-          "حذف موقع عمل",
-          "WorkLocation",
-          id,
-          target.nameAr,
-          "تم إزالة الموقع الجغرافي وإعادة توجيه الموظفين",
-        );
-      }
-      return ok;
-    });
+    return persistLiveChange(() => deleteWorkLocationRecord(id), `work-location:delete:${id}`).then(
+      ({ ok }) => {
+        if (ok && target) {
+          logAuditEvent(
+            "حذف موقع عمل",
+            "WorkLocation",
+            id,
+            target.nameAr,
+            "تم إزالة الموقع الجغرافي وإعادة توجيه الموظفين",
+          );
+        }
+        return ok;
+      },
+    );
   };
 
   const addCostCenter = (center: Omit<CostCenter, "id" | "employeeCount" | "managerName">) => {
@@ -988,21 +1060,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((u) => (u.costCenterId === id ? { ...u, costCenterId: null } : u)),
     );
     setCostCenters((prev) => prev.filter((c) => c.id !== id));
-    return persistLiveChange(
-      () => deleteCostCenterRecord(id),
-      `cost-center:delete:${id}`,
-    ).then(({ ok }) => {
-      if (ok && target) {
-        logAuditEvent(
-          "حذف مركز تكلفة",
-          "CostCenter",
-          id,
-          target.nameAr,
-          "تم حذف مركز التكلفة من المنظومة",
-        );
-      }
-      return ok;
-    });
+    return persistLiveChange(() => deleteCostCenterRecord(id), `cost-center:delete:${id}`).then(
+      ({ ok }) => {
+        if (ok && target) {
+          logAuditEvent(
+            "حذف مركز تكلفة",
+            "CostCenter",
+            id,
+            target.nameAr,
+            "تم حذف مركز التكلفة من المنظومة",
+          );
+        }
+        return ok;
+      },
+    );
   };
 
   const addJobPosition = (position: Omit<JobPosition, "id" | "filledHeadcount">) => {
@@ -1053,21 +1124,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteJobPosition = (id: string) => {
     const target = jobPositions.find((p) => p.id === id);
     setJobPositions((prev) => prev.filter((p) => p.id !== id));
-    return persistLiveChange(
-      () => deleteJobPositionRecord(id),
-      `job-position:delete:${id}`,
-    ).then(({ ok }) => {
-      if (ok && target) {
-        logAuditEvent(
-          "حذف منصب وظيفي",
-          "JobPosition",
-          id,
-          target.titleAr,
-          "تم إزالة المنصب من الهيكل التنظيمي",
-        );
-      }
-      return ok;
-    });
+    return persistLiveChange(() => deleteJobPositionRecord(id), `job-position:delete:${id}`).then(
+      ({ ok }) => {
+        if (ok && target) {
+          logAuditEvent(
+            "حذف منصب وظيفي",
+            "JobPosition",
+            id,
+            target.titleAr,
+            "تم إزالة المنصب من الهيكل التنظيمي",
+          );
+        }
+        return ok;
+      },
+    );
   };
 
   const addRole = (
@@ -1110,9 +1180,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updatePermissionGroup = (groupId: string, updates: Partial<PermissionGroup>) => {
-    setPermissionGroups((prev) =>
-      prev.map((g) => (g.id === groupId ? { ...g, ...updates } : g)),
-    );
+    setPermissionGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, ...updates } : g)));
     logAuditEvent(
       "تحديث مجموعة صلاحيات",
       "PermissionGroup",
@@ -1435,7 +1503,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     totalDays: number;
     reason: string;
   }): Promise<boolean> => {
-    const balance = leaveBalances.find((b) => b.leaveTypeId === payload.leaveTypeId);
+    if (
+      !Number.isFinite(payload.totalDays) ||
+      payload.totalDays <= 0 ||
+      payload.endDate < payload.startDate
+    )
+      return false;
+    const ownsBalance = (b: EmployeeLeaveBalance) =>
+      b.leaveTypeId === payload.leaveTypeId &&
+      (b.employeeId === currentUser.id || (dataMode === "demo" && !b.employeeId));
+    const balance = leaveBalances.find(ownsBalance);
     if (!balance || balance.availableBalance < payload.totalDays) {
       return false;
     }
@@ -1443,7 +1520,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Reserve balance
     setLeaveBalances((prev) =>
       prev.map((b) =>
-        b.leaveTypeId === payload.leaveTypeId
+        ownsBalance(b)
           ? {
               ...b,
               reservedDays: b.reservedDays + payload.totalDays,
@@ -1797,8 +1874,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         (sum, record) => sum + (record.earlyDepartureMinutes || 0),
         0,
       );
-      const biometricOvertime = attendance.reduce((sum, record) => sum + (record.overtimeHours || 0), 0);
-      const violationsCount = attendance.reduce((sum, record) => sum + (record.violationsCount || 0), 0);
+      const biometricOvertime = attendance.reduce(
+        (sum, record) => sum + (record.overtimeHours || 0),
+        0,
+      );
+      const violationsCount = attendance.reduce(
+        (sum, record) => sum + (record.violationsCount || 0),
+        0,
+      );
 
       // Approved leaves aggregation for this month
       const approvedLeaves = requests.filter(
@@ -1855,9 +1938,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .reduce((sum, loan) => sum + loan.monthlyInstallment, 0);
 
       // Penalties / disciplinary fines calculation (e.g. 50 SAR or half-day wage per violation)
-      const penaltiesAmount = violationsCount > 0
-        ? Number((violationsCount * Math.max(50, Math.round((employee.basicSalary / 240) * 4))).toFixed(2))
-        : 0;
+      const penaltiesAmount =
+        violationsCount > 0
+          ? Number(
+              (
+                violationsCount * Math.max(50, Math.round((employee.basicSalary / 240) * 4))
+              ).toFixed(2),
+            )
+          : 0;
 
       const nationalityStr = (employee.nationality || "").toLowerCase();
       const isSaudi =
@@ -2003,8 +2091,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await updatePayrollRunStatusServer({ data: { runId, status: "locked" } });
     }, `payroll:lock:${runId}`);
     if (!ok) return;
-    if (dataMode === "demo") setPayrollRuns((prev) => prev.map((run) =>
-      run.id === runId ? { ...run, status: "confirmed_locked", lockedAt: new Date().toISOString() } : run));
+    if (dataMode === "demo")
+      setPayrollRuns((prev) =>
+        prev.map((run) =>
+          run.id === runId
+            ? { ...run, status: "confirmed_locked", lockedAt: new Date().toISOString() }
+            : run,
+        ),
+      );
     logAuditEvent("قفل وتأكيد مسير الرواتب", "PayrollRun", runId, runId, "تم تأكيد قفل المسيّر");
   };
 

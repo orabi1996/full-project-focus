@@ -87,7 +87,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
     t,
   } = useApp();
 
-  const employee = employees.find((e) => e.id === employeeId) || employees[0] || null;
+  const employee = employees.find((e) => e.id === employeeId) || null;
 
   // Edit Mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -106,74 +106,36 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
     if (employee) {
       const hireYear = employee.hireDate ? employee.hireDate.split("-")[0] : "2024";
       setFormData({
-        avatarUrl: employee.avatarUrl,
-        firstNameAr: employee.firstNameAr,
-        lastNameAr: employee.lastNameAr,
-        firstNameEn: employee.firstNameEn,
-        lastNameEn: employee.lastNameEn,
-        nationalIdOrIqama: employee.nationalIdOrIqama,
-        nationalIdExpiry: employee.nationalIdExpiry || "2030-05-15",
-        passportNo: employee.passportNo || "",
-        passportExpiry: employee.passportExpiry || "",
-        nationality: employee.nationality,
-        birthDate: employee.birthDate,
-        gender: employee.gender,
-        maritalStatus: employee.maritalStatus,
-        bloodType: employee.bloodType || "O+",
-        dependentsCount: employee.dependentsCount || 0,
-        email: employee.email,
-        personalEmail: employee.personalEmail || "",
-        phone: employee.phone,
-        departmentId: employee.departmentId,
-        departmentName: employee.departmentName,
-        subsidiaryId: employee.subsidiaryId,
-        subsidiaryName: employee.subsidiaryName,
-        jobTitleAr: employee.jobTitleAr,
-        jobTitleEn: employee.jobTitleEn,
-        jobGrade: employee.jobGrade || "L4 - اختصاصي أول",
-        costCenter: employee.costCenter || "CC-101 - تقنية المعلومات",
-        workType: employee.workType || "hybrid",
-        workLocationId: employee.workLocationId,
-        workLocationName: employee.workLocationName,
-        hireDate: employee.hireDate,
-        contractStartDate: employee.contractStartDate || employee.hireDate,
-        contractEndDate: employee.contractEndDate || "2027-03-01",
-        qiwaContractNo: employee.qiwaContractNo || `QIWA-${hireYear}-9981`,
-        yearsOfService: employee.yearsOfService || 3,
-        contractType: employee.contractType,
-        status: employee.status,
-        basicSalary: employee.basicSalary,
-        housingAllowance: employee.housingAllowance || Math.round(employee.basicSalary * 0.25),
-        transportAllowance: employee.transportAllowance || Math.round(employee.basicSalary * 0.08),
-        otherAllowances: employee.otherAllowances || 0,
-        totalSalary: employee.totalSalary,
-        bankName: employee.bankName || "مصرف الراجحي (Al Rajhi Bank)",
-        iban: employee.iban || "SA44 8000 0201 6080 1000 1234",
-        gosiNumber: employee.gosiNumber || "7788990011",
-        managerId: employee.managerId,
-        managerName: employee.managerName,
-        educationDegree: employee.educationDegree || "بكالوريوس علوم حاسب ونظم معلومات",
-        university: employee.university || "جامعة الملك سعود",
-        graduationYear: employee.graduationYear || 2015,
-        certifications: employee.certifications || [
-          "PMP Certified",
-          "AWS Solutions Architect",
-          "Scrum Master",
-        ],
-        languages: employee.languages || ["العربية (اللغة الأم)", "الإنجليزية (طلاقة احترافية)"],
-        nationalAddress: employee.nationalAddress || {
-          buildingNo: "7214",
-          street: "شارع التخصصي",
-          district: "حي النخيل",
-          city: "الرياض",
-          postalCode: "12383",
-          additionalNo: "3310",
+        ...employee,
+        nationalIdExpiry: employee.nationalIdExpiry ?? "",
+        passportNo: employee.passportNo ?? "",
+        passportExpiry: employee.passportExpiry ?? "",
+        bloodType: employee.bloodType ?? "",
+        personalEmail: employee.personalEmail ?? "",
+        jobGrade: employee.jobGrade ?? "",
+        costCenter: employee.costCenter ?? "",
+        contractStartDate: employee.contractStartDate ?? "",
+        contractEndDate: employee.contractEndDate ?? "",
+        qiwaContractNo: employee.qiwaContractNo ?? "",
+        housingAllowance: employee.housingAllowance ?? 0,
+        transportAllowance: employee.transportAllowance ?? 0,
+        otherAllowances: employee.otherAllowances ?? 0,
+        bankName: employee.bankName ?? "",
+        iban: employee.iban ?? "",
+        gosiNumber: employee.gosiNumber ?? "",
+        educationDegree: employee.educationDegree ?? "",
+        university: employee.university ?? "",
+        certifications: employee.certifications ?? [],
+        languages: employee.languages ?? [],
+        nationalAddress: employee.nationalAddress ?? {
+          buildingNo: "",
+          street: "",
+          district: "",
+          city: "",
+          postalCode: "",
+          additionalNo: "",
         },
-        emergencyContact: employee.emergencyContact || {
-          name: "سعود المهيري",
-          relation: "شقيق",
-          phone: "+966 50 111 2233",
-        },
+        emergencyContact: employee.emergencyContact ?? { name: "", relation: "", phone: "" },
       });
       setIsEditing(false);
     }
@@ -181,12 +143,12 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
 
   if (!employee) return null;
 
-  const canEdit = ["super_admin", "hr_manager", "payroll_officer"].includes(currentRole);
+  const canEdit = ["super_admin", "hr_manager"].includes(currentRole);
 
   const empLeaveBalance = (employee && leaveBalances.find((b) => b.employeeId === employee.id)) || {
-    availableBalance: 21,
-    allocatedAnnualDays: 21,
-    usedDays: 5,
+    availableBalance: 0,
+    allocatedAnnualDays: 0,
+    usedDays: 0,
     reservedDays: 0,
   };
 
@@ -240,11 +202,11 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
       return;
     }
 
-    const basic = Number(formData.basicSalary) || employee.basicSalary;
-    const housing = Number(formData.housingAllowance) || Math.round(basic * 0.25);
-    const transport = Number(formData.transportAllowance) || Math.round(basic * 0.08);
+    const basic = Number(formData.basicSalary ?? employee.basicSalary);
+    const housing = Number(formData.housingAllowance ?? 0);
+    const transport = Number(formData.transportAllowance ?? 0);
     const other = Number(formData.otherAllowances) || 0;
-    const total = basic + housing + transport + other;
+    const total = Number(formData.totalSalary ?? employee.totalSalary);
 
     const selectedDept = orgUnits.find((u) => u.id === formData.departmentId);
     const selectedSub = subsidiaries.find((s) => s.id === formData.subsidiaryId);
@@ -425,7 +387,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   variant="secondary"
                   className="text-[11px] rounded-full px-3 py-0.5 font-bold"
                 >
-                  {formData.jobGrade || employee.jobGrade || "L4 - اختصاصي أول"}
+                  {formData.jobGrade || employee.jobGrade || "—"}
                 </Badge>
                 <Badge
                   variant="outline"
@@ -444,7 +406,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                 {formData.departmentName || employee.departmentName} •{" "}
                 <span className="font-mono font-bold text-foreground">{employee.employeeNo}</span> •{" "}
                 <span className="text-primary font-bold">
-                  {formData.costCenter || employee.costCenter || "CC-101"}
+                  {formData.costCenter || employee.costCenter || "—"}
                 </span>
               </p>
 
@@ -486,7 +448,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
           <div className="rounded-2xl border border-border/60 bg-muted/20 p-3.5 text-xs">
             <span className="text-muted-foreground font-bold">الراتب الأساسي</span>
             <p className="text-base font-black text-foreground mt-0.5 font-mono">
-              {(Number(formData.basicSalary) || employee.basicSalary).toLocaleString()} ر.س
+              {Number(formData.basicSalary ?? employee.basicSalary).toLocaleString()} ر.س
             </p>
           </div>
           <div className="rounded-2xl border border-border/60 bg-muted/20 p-3.5 text-xs">
@@ -504,7 +466,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
           <div className="rounded-2xl border border-border/60 bg-muted/20 p-3.5 text-xs">
             <span className="text-muted-foreground font-bold">سنوات الخدمة في الشركة</span>
             <p className="text-base font-bold text-foreground mt-0.5 font-mono">
-              {employee.yearsOfService || 3} سنوات
+              {employee.yearsOfService ?? "—"} سنوات
             </p>
           </div>
           <div className="rounded-2xl border border-border/60 bg-muted/20 p-3.5 text-xs col-span-2 sm:col-span-1">
@@ -663,7 +625,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   />
                 ) : (
                   <p className="font-mono font-bold text-emerald-600 bg-muted/20 p-2.5 rounded-2xl">
-                    {employee.nationalIdExpiry || "2030-05-15"}
+                    {employee.nationalIdExpiry || "—"}
                   </p>
                 )}
               </div>
@@ -695,7 +657,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   />
                 ) : (
                   <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                    {employee.passportNo || "KSA-99881122"}
+                    {employee.passportNo || "—"}
                   </p>
                 )}
               </div>
@@ -703,7 +665,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
               <div className="space-y-1.5">
                 <label className="font-bold text-muted-foreground">فصيلة الدم</label>
                 <p className="font-bold text-primary bg-primary/10 p-2.5 rounded-2xl font-mono">
-                  {employee.bloodType || "O+"}
+                  {employee.bloodType || "—"}
                 </p>
               </div>
 
@@ -768,8 +730,8 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     المدينة والحي
                   </span>
                   <span className="font-bold text-foreground">
-                    {employee.nationalAddress?.city || "الرياض"} -{" "}
-                    {employee.nationalAddress?.district || "حي النخيل"}
+                    {employee.nationalAddress?.city || "—"} -{" "}
+                    {employee.nationalAddress?.district || "—"}
                   </span>
                 </div>
                 <div className="bg-muted/20 p-3 rounded-2xl">
@@ -777,7 +739,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     اسم الشارع
                   </span>
                   <span className="font-bold text-foreground">
-                    {employee.nationalAddress?.street || "شارع التخصصي"}
+                    {employee.nationalAddress?.street || "—"}
                   </span>
                 </div>
                 <div className="bg-muted/20 p-3 rounded-2xl">
@@ -785,7 +747,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     رقم المبنى
                   </span>
                   <span className="font-mono font-black text-primary">
-                    {employee.nationalAddress?.buildingNo || "7214"}
+                    {employee.nationalAddress?.buildingNo || "—"}
                   </span>
                 </div>
                 <div className="bg-muted/20 p-3 rounded-2xl">
@@ -793,8 +755,8 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     الرمز البريدي والإضافي
                   </span>
                   <span className="font-mono font-bold text-foreground">
-                    {employee.nationalAddress?.postalCode || "12383"} -{" "}
-                    {employee.nationalAddress?.additionalNo || "3310"}
+                    {employee.nationalAddress?.postalCode || "—"} -{" "}
+                    {employee.nationalAddress?.additionalNo || "—"}
                   </span>
                 </div>
               </div>
@@ -811,19 +773,19 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                 <div className="flex justify-between bg-muted/20 p-3 rounded-2xl">
                   <span className="text-muted-foreground font-bold">اسم جهة الاتصال:</span>
                   <span className="font-bold text-foreground">
-                    {employee.emergencyContact?.name || "سعود المهيري"}
+                    {employee.emergencyContact?.name || "—"}
                   </span>
                 </div>
                 <div className="flex justify-between bg-muted/20 p-3 rounded-2xl">
                   <span className="text-muted-foreground font-bold">صلة القرابة:</span>
                   <span className="font-bold text-foreground">
-                    {employee.emergencyContact?.relation || "شقيق"}
+                    {employee.emergencyContact?.relation || "—"}
                   </span>
                 </div>
                 <div className="flex justify-between bg-muted/20 p-3 rounded-2xl">
                   <span className="text-muted-foreground font-bold">رقم الهاتف المباشر:</span>
                   <span className="font-mono font-bold text-primary">
-                    {employee.emergencyContact?.phone || "+966 50 111 2233"}
+                    {employee.emergencyContact?.phone || "—"}
                   </span>
                 </div>
               </div>
@@ -871,7 +833,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   />
                 ) : (
                   <p className="font-bold text-primary bg-primary/10 p-2.5 rounded-2xl">
-                    {employee.jobGrade || "L5 - مدير تنفيذي أول"}
+                    {employee.jobGrade || "—"}
                   </p>
                 )}
               </div>
@@ -881,7 +843,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   مركز التكلفة (Cost Center)
                 </label>
                 <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                  {employee.costCenter || "CC-101 - تقنية المعلومات"}
+                  {employee.costCenter || "—"}
                 </p>
               </div>
 
@@ -922,7 +884,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   </select>
                 ) : (
                   <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                    {employee.subsidiaryName || "كلاسيرا للتقنية"}
+                    {employee.subsidiaryName || "—"}
                   </p>
                 )}
               </div>
@@ -967,7 +929,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   </select>
                 ) : (
                   <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                    {employee.managerName || "لا يوجد مدير مباشر"}
+                    {employee.managerName || "—"}
                   </p>
                 )}
               </div>
@@ -977,7 +939,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   رقم العقد الموحد في قوى (QIWA ID)
                 </label>
                 <p className="font-mono font-bold text-emerald-600 bg-muted/20 p-2.5 rounded-2xl">
-                  {employee.qiwaContractNo || "QIWA-2021-99812"}
+                  {employee.qiwaContractNo || "—"}
                 </p>
               </div>
 
@@ -985,7 +947,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                 <label className="font-bold text-muted-foreground">تاريخ بداية العقد ونهايته</label>
                 <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
                   {employee.contractStartDate || employee.hireDate} ➔{" "}
-                  {employee.contractEndDate || "2027-03-01"}
+                  {employee.contractEndDate || "—"}
                 </p>
               </div>
             </div>
@@ -1008,7 +970,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                 {isEditing ? (
                   <input
                     type="number"
-                    value={formData.basicSalary || ""}
+                    value={formData.basicSalary ?? ""}
                     onChange={(e) => {
                       const b = Number(e.target.value);
                       const h = Math.round(b * 0.25);
@@ -1033,22 +995,14 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
               <div className="space-y-1.5">
                 <label className="font-bold text-muted-foreground">بدل السكن (25%)</label>
                 <p className="font-mono font-bold text-emerald-600 bg-muted/20 p-2.5 rounded-2xl">
-                  +
-                  {(
-                    employee.housingAllowance || Math.round(employee.basicSalary * 0.25)
-                  ).toLocaleString()}{" "}
-                  ر.س
+                  +{(employee.housingAllowance ?? 0).toLocaleString()} ر.س
                 </p>
               </div>
 
               <div className="space-y-1.5">
                 <label className="font-bold text-muted-foreground">بدل النقل والمواصلات</label>
                 <p className="font-mono font-bold text-emerald-600 bg-muted/20 p-2.5 rounded-2xl">
-                  +
-                  {(
-                    employee.transportAllowance || Math.round(employee.basicSalary * 0.08)
-                  ).toLocaleString()}{" "}
-                  ر.س
+                  +{(employee.transportAllowance ?? 0).toLocaleString()} ر.س
                 </p>
               </div>
 
@@ -1066,7 +1020,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   البنك المعتمد لتحويل الراتب
                 </label>
                 <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                  {employee.bankName || "مصرف الراجحي (Al Rajhi Bank)"}
+                  {employee.bankName || "—"}
                 </p>
               </div>
 
@@ -1075,7 +1029,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   رقم الآيبان الدولي (IBAN - نظام حماية الأجور)
                 </label>
                 <p className="font-mono font-black text-foreground bg-muted/20 p-2.5 rounded-2xl text-xs">
-                  {employee.iban || "SA44 8000 0201 6080 1000 1234"}
+                  {employee.iban || "—"}
                 </p>
               </div>
 
@@ -1085,7 +1039,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   <span className="font-bold text-emerald-800 flex items-center gap-1.5 text-xs">
                     <Shield className="h-4 w-4 text-emerald-600" />
                     اشتراك المؤسسة العامة للتأمينات الاجتماعية (GOSI) - مسجل برقم:{" "}
-                    {employee.gosiNumber || "7788990011"}
+                    {employee.gosiNumber || "—"}
                   </span>
                   <Badge className="bg-emerald-600 text-white text-[10px] rounded-full">
                     ساري ومطابق لنظام العمل
@@ -1094,7 +1048,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
                   <div className="bg-card/80 p-3 rounded-2xl border border-border/50">
                     <span className="text-muted-foreground block text-[10px]">
-                      استقطاع الموظف (9.75%)
+                      تقدير استقطاع الموظف (9.75%)
                     </span>
                     <span className="font-mono font-bold text-destructive text-sm">
                       -
@@ -1119,7 +1073,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   </div>
                   <div className="bg-card/80 p-3 rounded-2xl border border-border/50">
                     <span className="text-muted-foreground block text-[10px]">
-                      صافي الراتب المحول للحساب
+                      صافي تقديري قبل بقية الاستقطاعات
                     </span>
                     <span className="font-mono font-black text-primary text-sm">
                       {(
@@ -1146,13 +1100,11 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
               </div>
               <div className="bg-muted/20 p-4 rounded-2xl space-y-1.5 text-xs">
                 <span className="font-black text-foreground block text-base">
-                  {employee.educationDegree || "ماجستير هندسة البرمجيات"}
+                  {employee.educationDegree || "—"}
                 </span>
-                <p className="text-muted-foreground font-semibold">
-                  {employee.university || "جامعة الملك فهد للبترول والمعادن"}
-                </p>
+                <p className="text-muted-foreground font-semibold">{employee.university || "—"}</p>
                 <span className="text-[10px] text-primary font-mono font-bold block">
-                  سنة التخرج: {employee.graduationYear || 2013}
+                  سنة التخرج: {employee.graduationYear ?? "—"}
                 </span>
               </div>
             </div>
@@ -1289,7 +1241,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   {
                     type: "contract",
                     title: "عقد العمل الموحد (قوى)",
-                    docNo: employee.qiwaContractNo || "QIWA-2021-99812",
+                    docNo: employee.qiwaContractNo || "—",
                     expiryDate: "2027-03-01",
                     status: "valid",
                   },

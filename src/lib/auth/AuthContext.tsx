@@ -36,38 +36,62 @@ const demoModeEnabled = isDemoModeEnabled(
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [role, setRole] = useState<AuthRole>("employee");
+  const [roleAssignment, setRoleAssignment] = useState<{ userId: string; role: AuthRole } | null>(
+    null,
+  );
+  const role =
+    roleAssignment?.userId === session?.user.id ? (roleAssignment?.role ?? "employee") : "employee";
   const [isLoading, setIsLoading] = useState(true);
   const [isDemo, setIsDemo] = useState(false);
 
-  const loadRole = useCallback(async (userId: string) => {
-    const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId);
-
-    if (!error) setRole(resolvePrimaryRole((data ?? []).map((assignment) => assignment.role)));
-  }, []);
+  useEffect(() => {
+    let active = true;
+    const userId = session?.user.id;
+    setRoleAssignment(null);
+    if (userId) {
+      void (async () => {
+        try {
+          const { data, error } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", userId);
+          if (active && !error)
+            setRoleAssignment({
+              userId,
+              role: resolvePrimaryRole((data ?? []).map((assignment) => assignment.role)),
+            });
+        } catch {
+          // Keep the least-privileged role when the role lookup fails.
+        }
+      })();
+    }
+    return () => {
+      active = false;
+    };
+  }, [session?.user.id]);
 
   useEffect(() => {
     let mounted = true;
+    let authEventReceived = false;
 
     supabase.auth
       .getSession()
       .then(({ data }) => {
-        if (!mounted) return;
+        if (!mounted || authEventReceived) return;
         setSession(data.session);
-        if (data.session?.user.id) void loadRole(data.session.user.id);
       })
       .catch(() => {
-        if (mounted) setSession(null);
+        if (mounted && !authEventReceived) setSession(null);
       })
       .finally(() => {
         if (mounted) setIsLoading(false);
       });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mounted) return;
+      authEventReceived = true;
       setSession(nextSession);
       setIsDemo(false);
-      if (nextSession?.user.id) void loadRole(nextSession.user.id);
-      else setRole("employee");
       setIsLoading(false);
     });
 
@@ -75,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       listener.subscription.unsubscribe();
     };
-  }, [loadRole]);
+  }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });

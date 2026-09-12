@@ -847,32 +847,33 @@ export async function createWorkLocationRecord(location: Omit<WorkLocation, "id"
 }
 
 export async function updateCompanyRecord(company: CompanyProfile) {
-  const { error } = await enterpriseSupabase
-    .from("companies")
-    .update({
-      legal_name_ar: company.legalNameAr,
-      legal_name_en: company.legalNameEn,
-      code: company.code ?? null,
-      entity_type: company.entityType ?? "limited_liability",
-      unified_number: company.unifiedNumber ?? null,
-      cr_number: company.crNumber || null,
-      tax_number: company.taxNumber || null,
-      gosi_number: company.gosiNumber ?? null,
-      labor_office_number: company.laborOfficeNumber ?? null,
-      industry: company.industry ?? null,
-      email: company.email ?? null,
-      phone: company.phone ?? null,
-      website: company.website ?? null,
-      country: company.country,
-      city: company.city ?? null,
-      postal_code: company.postalCode ?? null,
-      logo_url: company.logoUrl ?? null,
-      currency: company.currency,
-      timezone: company.timezone,
-      headquarters_address: company.headquartersAddress,
-      fiscal_year_start_month: company.fiscalYearStartMonth,
-    })
-    .eq("id", company.id);
+  const values = {
+    legal_name_ar: company.legalNameAr,
+    legal_name_en: company.legalNameEn,
+    code: company.code ?? null,
+    entity_type: company.entityType ?? "limited_liability",
+    unified_number: company.unifiedNumber ?? null,
+    cr_number: company.crNumber || null,
+    tax_number: company.taxNumber || null,
+    gosi_number: company.gosiNumber ?? null,
+    labor_office_number: company.laborOfficeNumber ?? null,
+    industry: company.industry ?? null,
+    email: company.email ?? null,
+    phone: company.phone ?? null,
+    website: company.website ?? null,
+    country: company.country,
+    city: company.city ?? null,
+    postal_code: company.postalCode ?? null,
+    logo_url: company.logoUrl ?? null,
+    currency: company.currency,
+    timezone: company.timezone,
+    headquarters_address: company.headquartersAddress,
+    fiscal_year_start_month: company.fiscalYearStartMonth,
+  };
+  const query = company.id
+    ? enterpriseSupabase.from("companies").update(values).eq("id", company.id)
+    : enterpriseSupabase.from("companies").insert(values);
+  const { error } = await query.select("id").single();
   if (error) throw new Error(error.message);
 }
 

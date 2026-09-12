@@ -1,3 +1,4 @@
+import { escapeHtml } from "../../lib/utils/escape-html";
 import React, { useState } from "react";
 import type { Employee } from "../../types";
 import {
@@ -69,7 +70,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>${getDocTitle(currentDocType)} - ${employee.firstNameAr} ${employee.lastNameAr}</title>
+  <title>${getDocTitle(currentDocType)} - ${escapeHtml(employee.firstNameAr)} ${escapeHtml(employee.lastNameAr)}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
     body { font-family: 'Cairo', system-ui, sans-serif; margin: 0; padding: 32px; background: #fff; color: #0f172a; direction: rtl; }
@@ -206,7 +207,9 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
                 <p className="text-[10px] text-slate-600 font-medium">
                   سجل تجاري: 1010789654 • الرقم الضريبي: 300098765400003 • رقم 700: 7001928374
                 </p>
-                <p className="text-[10px] text-slate-600">الرياض - المقر الرئيسي - المملكة العربية السعودية</p>
+                <p className="text-[10px] text-slate-600">
+                  الرياض - المقر الرئيسي - المملكة العربية السعودية
+                </p>
               </div>
             </div>
             <div className="text-end space-y-1 font-mono text-[11px]">
@@ -231,9 +234,10 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
           {currentDocType === "salary_certificate" && (
             <div className="space-y-4 text-justify text-slate-800 text-xs leading-6">
               <p>
-                تحية طيبة وبعد ،،<br />
-                تشهد شركة كلاسيرا بالس لحلول رأس المال البشري بأن الموظف الموضحة بياناته أدناه يعمل لدينا
-                وتحت كفالتنا، وما زال على رأس العمل حتى تاريخ إصدار هذه الشهادة:
+                تحية طيبة وبعد ،،
+                <br />
+                تشهد شركة كلاسيرا بالس لحلول رأس المال البشري بأن الموظف الموضحة بياناته أدناه يعمل
+                لدينا وتحت كفالتنا، وما زال على رأس العمل حتى تاريخ إصدار هذه الشهادة:
               </p>
 
               <div className="rounded-xl border border-slate-300 p-3 space-y-2 bg-slate-50">
@@ -288,10 +292,16 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
                       {employee.basicSalary.toLocaleString()} ر.س
                     </td>
                     <td className="py-2.5 border-l border-slate-300">
-                      {(employee.housingAllowance || Math.round(employee.basicSalary * 0.25)).toLocaleString()} ر.س
+                      {(
+                        employee.housingAllowance || Math.round(employee.basicSalary * 0.25)
+                      ).toLocaleString()}{" "}
+                      ر.س
                     </td>
                     <td className="py-2.5 border-l border-slate-300">
-                      {(employee.transportAllowance || Math.round(employee.basicSalary * 0.08)).toLocaleString()} ر.س
+                      {(
+                        employee.transportAllowance || Math.round(employee.basicSalary * 0.08)
+                      ).toLocaleString()}{" "}
+                      ر.س
                     </td>
                     <td className="py-2.5 font-black bg-slate-50 text-slate-900">
                       {employee.totalSalary.toLocaleString()} ر.س
@@ -311,8 +321,10 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
           {currentDocType === "bank_account_letter" && (
             <div className="space-y-4 text-justify text-slate-800 text-xs leading-6">
               <p>
-                تحية طيبة وبعد ،،<br />
-                يرجى التكرم بفتح حساب بنكي جاري للموظف الموضحة بياناته أدناه، وذلك لغرض تحويل مستحقاته المالية الشهرية عبر نظام حماية الأجور السعودي (WPS):
+                تحية طيبة وبعد ،،
+                <br />
+                يرجى التكرم بفتح حساب بنكي جاري للموظف الموضحة بياناته أدناه، وذلك لغرض تحويل
+                مستحقاته المالية الشهرية عبر نظام حماية الأجور السعودي (WPS):
               </p>
 
               <div className="rounded-xl border border-slate-300 p-3 space-y-2 bg-slate-50">
@@ -341,7 +353,9 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
               </div>
 
               <p>
-                وتؤكد الشركة التزامها بتحويل الراتب الشهري البالغ ({employee.totalSalary.toLocaleString()} ر.س) بانتظام فور تزويدنا برقم الحساب البنكي والآيبان (IBAN) المعتمد.
+                وتؤكد الشركة التزامها بتحويل الراتب الشهري البالغ (
+                {employee.totalSalary.toLocaleString()} ر.س) بانتظام فور تزويدنا برقم الحساب البنكي
+                والآيبان (IBAN) المعتمد.
               </p>
             </div>
           )}
@@ -350,14 +364,28 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
           {currentDocType === "embassy_visa_letter" && (
             <div className="space-y-4 text-justify text-slate-800 text-xs leading-6">
               <p>
-                To Whom It May Concern / Embassy Visa Section,<br />
-                This is to certify that Mr./Ms. <strong>{employee.firstNameEn} {employee.lastNameEn}</strong>, holding {employee.nationality} Nationality, Passport No: <strong>{employee.passportNo || "N/A"}</strong> and National/Iqama ID: <strong>{employee.nationalIdOrIqama}</strong>, is currently employed with FOCUS Technology & Business Solutions as a full-time <strong>{employee.jobTitleEn || employee.jobTitleAr}</strong>.
+                To Whom It May Concern / Embassy Visa Section,
+                <br />
+                This is to certify that Mr./Ms.{" "}
+                <strong>
+                  {employee.firstNameEn} {employee.lastNameEn}
+                </strong>
+                , holding {employee.nationality} Nationality, Passport No:{" "}
+                <strong>{employee.passportNo || "N/A"}</strong> and National/Iqama ID:{" "}
+                <strong>{employee.nationalIdOrIqama}</strong>, is currently employed with FOCUS
+                Technology & Business Solutions as a full-time{" "}
+                <strong>{employee.jobTitleEn || employee.jobTitleAr}</strong>.
               </p>
               <p>
-                The employee has been with our company since <strong>{employee.hireDate}</strong> and receives a total monthly salary of <strong>SAR {employee.totalSalary.toLocaleString()}</strong>.
+                The employee has been with our company since <strong>{employee.hireDate}</strong>{" "}
+                and receives a total monthly salary of{" "}
+                <strong>SAR {employee.totalSalary.toLocaleString()}</strong>.
               </p>
               <p>
-                We confirm that the employee has been granted annual leave and will resume work immediately following their trip. The company guarantees that the employee will return to their position in Saudi Arabia upon completion of their approved travel period.
+                We confirm that the employee has been granted annual leave and will resume work
+                immediately following their trip. The company guarantees that the employee will
+                return to their position in Saudi Arabia upon completion of their approved travel
+                period.
               </p>
             </div>
           )}
@@ -366,11 +394,20 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
           {currentDocType === "clearance_letter" && (
             <div className="space-y-4 text-justify text-slate-800 text-xs leading-6">
               <p>
-                تحية طيبة وبعد ،،<br />
-                تشهد إدارة الموارد البشرية بمنظومة كلاسيرا بالس بأن الموظف / <strong>{employee.firstNameAr} {employee.lastNameAr}</strong> (هوية رقم: <span className="font-mono font-bold">{employee.nationalIdOrIqama}</span>) قد أنهى خدمته لدى الشركة بصورة نظامية، وقد تم تسليمه كافة مستحقاته النظامية ومكافأة نهاية الخدمة وفقاً للمادتين 84 و 85 من نظام العمل السعودي.
+                تحية طيبة وبعد ،،
+                <br />
+                تشهد إدارة الموارد البشرية بمنظومة كلاسيرا بالس بأن الموظف /{" "}
+                <strong>
+                  {employee.firstNameAr} {employee.lastNameAr}
+                </strong>{" "}
+                (هوية رقم: <span className="font-mono font-bold">{employee.nationalIdOrIqama}</span>
+                ) قد أنهى خدمته لدى الشركة بصورة نظامية، وقد تم تسليمه كافة مستحقاته النظامية
+                ومكافأة نهاية الخدمة وفقاً للمادتين 84 و 85 من نظام العمل السعودي.
               </p>
               <p>
-                كما تشهد الشركة بأن الموظف قد قام بإخلاء طرفه وتسليم كافة العهد والأصول والمستندات المسلمة إليه أثناء فترة عمله، وبهذا تعتبر ذمته بريئة تجاه الشركة من أي التزامات وظيفية أو مالية حتى تاريخه.
+                كما تشهد الشركة بأن الموظف قد قام بإخلاء طرفه وتسليم كافة العهد والأصول والمستندات
+                المسلمة إليه أثناء فترة عمله، وبهذا تعتبر ذمته بريئة تجاه الشركة من أي التزامات
+                وظيفية أو مالية حتى تاريخه.
               </p>
             </div>
           )}
@@ -379,11 +416,20 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
           {currentDocType === "experience_certificate" && (
             <div className="space-y-4 text-justify text-slate-800 text-xs leading-6">
               <p>
-                تحية طيبة وبعد ،،<br />
-                تشهد إدارة الموارد البشرية بمنظومة كلاسيرا بالس بأن الموظف / <strong>{employee.firstNameAr} {employee.lastNameAr}</strong> قد عمل لدينا في وظيفة (<strong>{employee.jobTitleAr}</strong>) في قطاع ({employee.departmentName}) خلال الفترة من (<span className="font-mono font-bold">{employee.hireDate}</span>) وحتى تاريخه.
+                تحية طيبة وبعد ،،
+                <br />
+                تشهد إدارة الموارد البشرية بمنظومة كلاسيرا بالس بأن الموظف /{" "}
+                <strong>
+                  {employee.firstNameAr} {employee.lastNameAr}
+                </strong>{" "}
+                قد عمل لدينا في وظيفة (<strong>{employee.jobTitleAr}</strong>) في قطاع (
+                {employee.departmentName}) خلال الفترة من (
+                <span className="font-mono font-bold">{employee.hireDate}</span>) وحتى تاريخه.
               </p>
               <p>
-                وخلال فترة خدمته تميز بالانضباط المهني والكفاءة العالية وحسن السيرة والسلوك والالتزام بقوانين العمل. وقد أُعطيت له هذه الشهادة بناءً على طلبه كشهادة خبرة دون أدنى مسؤولية على الشركة.
+                وخلال فترة خدمته تميز بالانضباط المهني والكفاءة العالية وحسن السيرة والسلوك
+                والالتزام بقوانين العمل. وقد أُعطيت له هذه الشهادة بناءً على طلبه كشهادة خبرة دون
+                أدنى مسؤولية على الشركة.
               </p>
             </div>
           )}
@@ -391,7 +437,9 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
           {/* DOCUMENT BODY 6: QIWA CONTRACT */}
           {currentDocType === "employment_contract" && (
             <div className="space-y-3 text-slate-800 text-xs leading-5">
-              <p className="font-bold">الطرف الأول (صاحب العمل): كلاسيرا بالس لحلول رأس المال البشري</p>
+              <p className="font-bold">
+                الطرف الأول (صاحب العمل): كلاسيرا بالس لحلول رأس المال البشري
+              </p>
               <p className="font-bold">
                 الطرف الثاني (الموظف): {employee.firstNameAr} {employee.lastNameAr} - هوية رقم (
                 {employee.nationalIdOrIqama})

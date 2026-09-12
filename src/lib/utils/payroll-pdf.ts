@@ -1,3 +1,4 @@
+import { escapeHtml } from "./escape-html";
 export interface PayrollPdfRow {
   employeeNo: string;
   employeeName: string;
@@ -43,7 +44,7 @@ export function openMonthlyPayrollPdf(meta: PayrollPdfMeta, rows: PayrollPdfRow[
 
   win.document.write(`<!doctype html>
 <html dir="rtl" lang="ar"><head><meta charset="utf-8">
-<title>تقرير الرواتب — ${meta.period}</title>
+<title>تقرير الرواتب — ${escapeHtml(meta.period)}</title>
 <style>
   *{box-sizing:border-box}
   body{font-family:"Segoe UI",Tahoma,Arial,sans-serif;margin:24px;color:#1c1b1f}
@@ -60,10 +61,12 @@ export function openMonthlyPayrollPdf(meta: PayrollPdfMeta, rows: PayrollPdfRow[
   .foot{margin-top:14px;font-size:10px;color:#888}
   @media print{body{margin:10mm}}
 </style></head><body>
-<h1>${meta.companyName ?? "تقرير الرواتب الشهري"}</h1>
-<div class="sub">الفترة: ${meta.period} — حالة المسيّر: ${meta.status} — تاريخ الإصدار: ${new Date().toLocaleString("ar-EG")}</div>
+<h1>${escapeHtml(meta.companyName ?? "تقرير الرواتب الشهري")}</h1>
+<div class="sub">الفترة: ${escapeHtml(meta.period)} — حالة المسيّر: ${escapeHtml(meta.status)} — تاريخ الإصدار: ${new Date().toLocaleString("ar-EG")}</div>
 <div class="cards">${cards
-    .map((c) => `<div class="card"><span>${c[0]}</span><b>${c[1]}</b></div>`)
+    .map(
+      (c) => `<div class="card"><span>${escapeHtml(c[0])}</span><b>${escapeHtml(c[1])}</b></div>`,
+    )
     .join("")}</div>
 <table>
   <thead><tr>
@@ -72,8 +75,11 @@ export function openMonthlyPayrollPdf(meta: PayrollPdfMeta, rows: PayrollPdfRow[
   </tr></thead>
   <tbody>${rows
     .map(
-      (r, i) => `<tr><td>${i + 1}</td><td>${r.employeeNo}</td><td>${r.employeeName}</td>
-      <td>${r.departmentName}</td><td>${r.workingDays}</td><td>${money(r.gross)}</td>
+      (
+        r,
+        i,
+      ) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.employeeNo)}</td><td>${escapeHtml(r.employeeName)}</td>
+      <td>${escapeHtml(r.departmentName)}</td><td>${escapeHtml(r.workingDays)}</td><td>${money(r.gross)}</td>
       <td>${money(r.loanPaid)}</td><td>${money(r.net)}</td></tr>`,
     )
     .join("")}</tbody>

@@ -60,7 +60,9 @@ export function LoginPage() {
             <div className="h-16 w-16 rounded-full border-2 border-[#00B5FF]/20 border-t-[#00B5FF] animate-spin" />
             <ShieldCheck className="h-6 w-6 text-[#00B5FF] absolute" />
           </div>
-          <p className="text-xs font-bold text-slate-300">جارٍ تهيئة بوابة Classera Pulse الآمنة…</p>
+          <p className="text-xs font-bold text-slate-300">
+            جارٍ تهيئة بوابة Classera Pulse الآمنة…
+          </p>
         </div>
       </div>
     );
@@ -73,10 +75,14 @@ export function LoginPage() {
     setError("");
     setIsSubmitting(true);
 
-    const result = await signIn(email.trim(), password);
-    if (result.error) setError(result.error);
-
-    setIsSubmitting(false);
+    try {
+      const result = await signIn(email.trim(), password);
+      if (result.error) setError(result.error);
+    } catch {
+      setError("تعذر الاتصال بخدمة الدخول. حاول مرة أخرى.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -129,7 +135,8 @@ export function LoginPage() {
                 كفاءة تشغيلية متقدمة لإدارة رأس المال البشري والمنشآت
               </h1>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium max-w-xl">
-                منصة سحابية مؤسسية متكاملة تدعم دورة حياة الموظف من التوظيف إلى نهاية الخدمة، مدعومة باحتساب معتمد للرواتب، الحضور والانصراف، وسير الموافقات المؤسسي.
+                منصة سحابية مؤسسية متكاملة تدعم دورة حياة الموظف من التوظيف إلى نهاية الخدمة، مدعومة
+                باحتساب معتمد للرواتب، الحضور والانصراف، وسير الموافقات المؤسسي.
               </p>
             </div>
 
@@ -155,7 +162,9 @@ export function LoginPage() {
           {/* Compliance & Legal Disclaimer (Required by Security Contract Test) */}
           <div className="relative z-10 pt-8 mt-6 border-t border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[11px] text-slate-400">
             <span>مصمم لدعم متطلبات الموارد البشرية، وتخضع إعدادات الامتثال لاعتماد المنشأة</span>
-            <span className="font-mono font-bold text-[#00B5FF] text-xs shrink-0">Classera Pulse Enterprise</span>
+            <span className="font-mono font-bold text-[#00B5FF] text-xs shrink-0">
+              Classera Pulse Enterprise
+            </span>
           </div>
         </div>
 
@@ -214,7 +223,10 @@ export function LoginPage() {
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label htmlFor="login-password" className="text-xs font-bold text-foreground block">
+                  <label
+                    htmlFor="login-password"
+                    className="text-xs font-bold text-foreground block"
+                  >
                     كلمة المرور *
                   </label>
                 </div>
@@ -288,7 +300,8 @@ export function LoginPage() {
 
       {/* Footer Note */}
       <footer className="w-full max-w-6xl mx-auto text-center py-2 text-[11px] text-slate-400 relative z-10">
-        جميع الحقوق محفوظة © {new Date().getFullYear()} Classera Pulse — Human Capital Management System
+        جميع الحقوق محفوظة © {new Date().getFullYear()} Classera Pulse — Human Capital Management
+        System
       </footer>
     </main>
   );

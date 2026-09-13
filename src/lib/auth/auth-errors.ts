@@ -49,6 +49,65 @@ export function toAuthErrorMessage(error: unknown, fallbackMessage = "تعذر �
     return "البريد الإلكتروني المدخل غير مسجل في المنظومة.";
   }
 
+  // Current Password Incorrect (Re-authentication)
+  if (
+    code === "invalid_current_password" ||
+    rawMessage.includes("current password") ||
+    rawMessage.includes("incorrect current password")
+  ) {
+    return "كلمة المرور الحالية غير صحيحة. يرجى التأكد من إدخالها بدقة.";
+  }
+
+  // MFA TOTP Code Invalid
+  if (
+    code === "mfa_verification_failed" ||
+    code === "invalid_mfa_code" ||
+    code === "mfa_totp_verification_failed" ||
+    rawMessage.includes("invalid totp") ||
+    rawMessage.includes("totp verification failed") ||
+    (rawMessage.includes("mfa") && (rawMessage.includes("invalid") || rawMessage.includes("incorrect") || rawMessage.includes("failed")))
+  ) {
+    return "رمز التحقق من تطبيق المصادقة غير صحيح. يرجى التأكد من الرمز المدخل وإعادة المحاولة.";
+  }
+
+  // MFA Challenge Expired
+  if (
+    code === "mfa_challenge_expired" ||
+    code === "challenge_expired" ||
+    rawMessage.includes("challenge has expired") ||
+    rawMessage.includes("challenge expired")
+  ) {
+    return "انتهت صلاحية جلسة التحقق من الرمز. يرجى إدخال رمز جديد من تطبيق المصادقة.";
+  }
+
+  // MFA Factor Not Found
+  if (
+    code === "mfa_factor_not_found" ||
+    code === "factor_not_found" ||
+    rawMessage.includes("factor not found")
+  ) {
+    return "عامل المصادقة غير مسجل أو تم حذفه مسبقاً.";
+  }
+
+  // MFA Factor Already Exists
+  if (
+    code === "mfa_factor_already_exists" ||
+    code === "factor_already_exists" ||
+    rawMessage.includes("factor already exists")
+  ) {
+    return "عامل المصادقة مسجل ومفعل بالفعل في هذا الحساب.";
+  }
+
+  // Insufficient Assurance Level (AAL2 Required)
+  if (
+    code === "insufficient_aal" ||
+    code === "insufficient_assurance_level" ||
+    rawMessage.includes("insufficient_aal") ||
+    rawMessage.includes("aal2")
+  ) {
+    return "يتطلب هذا الإجراء الأمني مستوى توثيق أعلى عبر تطبيق المصادقة الثنائية (AAL2).";
+  }
+
   // OTP Expired or Invalid Token
   if (
     code === "otp_expired" ||
@@ -129,5 +188,19 @@ export function isOtpExpiredError(error: unknown): boolean {
     code.includes("expired") ||
     raw.includes("expired") ||
     ((raw.includes("token") || raw.includes("otp")) && raw.includes("invalid"))
+  );
+}
+
+export function isMfaVerificationError(error: unknown): boolean {
+  if (!error) return false;
+  const err = error as { message?: string; code?: string };
+  const raw = String(err.message || "").toLowerCase();
+  const code = String(err.code || "").toLowerCase();
+  return (
+    code === "mfa_verification_failed" ||
+    code === "invalid_mfa_code" ||
+    code === "mfa_totp_verification_failed" ||
+    raw.includes("totp") ||
+    (raw.includes("mfa") && (raw.includes("invalid") || raw.includes("failed")))
   );
 }

@@ -2,9 +2,10 @@ import React, { type ReactNode } from "react";
 import { Navigate } from "@tanstack/react-router";
 import { useAuth } from "../../lib/auth/AuthContext";
 import { Loader2 } from "lucide-react";
+import { MfaVerificationGate } from "./MfaVerificationGate";
 
 export function AuthGate({ children }: { children: ReactNode }) {
-  const { session, isDemo, isLoading } = useAuth();
+  const { session, isDemo, isLoading, needsMfa } = useAuth();
 
   if (isLoading) {
     return (
@@ -18,6 +19,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }
 
   if (!session && !isDemo) return <Navigate to="/login" replace />;
+
+  // Enforce AAL2: Block protected application access until MFA challenge succeeds
+  if (needsMfa) {
+    return <MfaVerificationGate />;
+  }
 
   return <>{children}</>;
 }

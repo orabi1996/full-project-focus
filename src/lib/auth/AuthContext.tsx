@@ -1,4 +1,4 @@
-import type { Session, User } from "@supabase/supabase-js";
+import type { Factor, Session, User } from "@supabase/supabase-js";
 import {
   createContext,
   useCallback,
@@ -25,9 +25,15 @@ interface AuthContextValue {
   isDemo: boolean;
   isRecoveryMode: boolean;
   sessionExpired: boolean;
+  aal: "aal1" | "aal2";
+  nextLevel: "aal1" | "aal2";
+  needsMfa: boolean;
+  mfaFactors: Factor[];
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   sendOtp: (email: string) => Promise<{ error?: string }>;
   verifyOtp: (email: string, token: string) => Promise<{ error?: string }>;
+  verifyMfaLogin: (code: string) => Promise<{ error?: string }>;
+  refreshMfaState: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<{ error?: string }>;
   updatePassword: (newPassword: string) => Promise<{ error?: string }>;
   dismissSessionExpired: () => void;
@@ -50,6 +56,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isDemo, setIsDemo] = useState(false);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [aal, setAal] = useState<"aal1" | "aal2">("aal1");
+  const [nextLevel, setNextLevel] = useState<"aal1" | "aal2">("aal1");
+  const [mfaFactors, setMfaFactors] = useState<Factor[]>([]);
 
   const hadActiveSession = useRef(false);
   const isExplicitSignOut = useRef(false);
@@ -64,6 +73,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRole("employee");
     }
   }, []);
+
+  const refreshMfaState = useCallback(async () => {
+    try {
+      const [{ data: aalData }, { data: factorsData }] = await Promise.all([
+        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+        supabase.auth.mfa.listFactors(),
+      ]);
+
+      if (aalData) {
+        setAal((aalData.currentLevel ?? "aal1") as "aal1" | "aal2");
+        setNextLevel((aalData.nextLevel ?? "aal1") as "aal1" | "aal2");
+      }
+      if (factorsData) {
+        setMfaFactors(factorsData.all ?? []);
+      }
+    } catch {
+      // Non-blocking
+    }
+  }, []);
+
+  const needsMfa = Boolean(session && aal === "aal1" && nextLevel === "aal2");
 
   useEffect(() => {
     let mounted = true;
@@ -89,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.session?.user.id) {
           hadActiveSession.current = true;
           void loadRole(data.session.user.id);
+          void refreshMfaState();
         }
       })
       .catch(() => {
@@ -107,7 +138,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (event === "TOKEN_REFRESHED") {
         setSession(nextSession);
-        if (nextSession?.user.id) void loadRole(nextSession.user.id);
+        if (nextSession?.user.id) {
+          void loadRole(nextSession.user.id);
+          void refreshMfaState();
+        }
       } else if (event === "SIGNED_OUT") {
         // Detect unexpected session expiration
         if (hadActiveSession.current && !isExplicitSignOut.current) {
@@ -117,6 +151,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isExplicitSignOut.current = false;
         setSession(null);
         setIsDemo(false);
+        setAal("aal1");
+        setNextLevel("aal1");
+        setMfaFactors([]);
         setRole("employee");
       } else {
         setSession(nextSession);
@@ -124,8 +161,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (nextSession?.user.id) {
           hadActiveSession.current = true;
           void loadRole(nextSession.user.id);
+          void refreshMfaState();
         } else {
           setRole("employee");
+          setAal("aal1");
+          setNextLevel("aal1");
+          setMfaFactors([]);
         }
       }
 
@@ -136,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       listener.subscription.unsubscribe();
     };
-  }, [loadRole]);
+  }, [loadRole, refreshMfaState]);
 
   // Production-grade password login with real error classification
   const signIn = useCallback(
@@ -156,6 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsDemo(false);
           hadActiveSession.current = true;
           if (data.session.user.id) void loadRole(data.session.user.id);
+          await refreshMfaState();
         }
 
         return {};
@@ -163,7 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: toAuthErrorMessage(err) };
       }
     },
-    [loadRole],
+    [loadRole, refreshMfaState],
   );
 
   // Real Supabase OTP generation (sent to registered employee work email)
@@ -208,13 +250,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsDemo(false);
         hadActiveSession.current = true;
         if (data.session.user.id) void loadRole(data.session.user.id);
+        await refreshMfaState();
 
         return {};
       } catch (err) {
         return { error: toAuthErrorMessage(err) };
       }
     },
-    [loadRole],
+    [loadRole, refreshMfaState],
+  );
+
+  // Real Supabase MFA TOTP verification during login (promotes session to AAL2, NEVER enters demo)
+  const verifyMfaLogin = useCallback(
+    async (code: string) => {
+      try {
+        const cleanCode = code.trim().replace(/\s+/g, "");
+        if (cleanCode.length !== 6) {
+          return { error: "يرجى إدخال رمز التحقق المكون من 6 أرقام." };
+        }
+
+        let factors = mfaFactors;
+        if (!factors.length) {
+          const { data } = await supabase.auth.mfa.listFactors();
+          factors = data?.all ?? [];
+          setMfaFactors(factors);
+        }
+
+        const verifiedTotp = factors.find(
+          (f) => f.factor_type === "totp" && f.status === "verified",
+        );
+
+        if (!verifiedTotp) {
+          return { error: "لم يتم العثور على تطبيق مصادقة مفعل لهذا الحساب." };
+        }
+
+        const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+          factorId: verifiedTotp.id,
+          code: cleanCode,
+        });
+
+        if (error) {
+          return { error: toAuthErrorMessage(error) };
+        }
+
+        if (data) {
+          setAal("aal2");
+          setNextLevel("aal2");
+          await refreshMfaState();
+        }
+
+        return {};
+      } catch (err) {
+        return { error: toAuthErrorMessage(err) };
+      }
+    },
+    [mfaFactors, refreshMfaState],
   );
 
   // Real Supabase password reset request
@@ -257,6 +347,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isExplicitSignOut.current = true;
     hadActiveSession.current = false;
     setIsDemo(false);
+    setAal("aal1");
+    setNextLevel("aal1");
+    setMfaFactors([]);
     await supabase.auth.signOut();
   }, []);
 
@@ -269,9 +362,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isDemo,
       isRecoveryMode,
       sessionExpired,
+      aal,
+      nextLevel,
+      needsMfa,
+      mfaFactors,
       signIn,
       sendOtp,
       verifyOtp,
+      verifyMfaLogin,
+      refreshMfaState,
       requestPasswordReset,
       updatePassword,
       dismissSessionExpired,
@@ -293,9 +392,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isDemo,
       isRecoveryMode,
       sessionExpired,
+      aal,
+      nextLevel,
+      needsMfa,
+      mfaFactors,
       signIn,
       sendOtp,
       verifyOtp,
+      verifyMfaLogin,
+      refreshMfaState,
       requestPasswordReset,
       updatePassword,
       dismissSessionExpired,

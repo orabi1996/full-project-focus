@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../integrations/supabase/client";
 import { isDemoModeEnabled } from "../config/runtime-config";
 import { resolvePrimaryRole, type AuthRole } from "./roles";
@@ -51,6 +52,7 @@ const demoModeEnabled = isDemoModeEnabled(
 );
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AuthRole>("employee");
   const [isLoading, setIsLoading] = useState(true);
@@ -63,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hadActiveSession = useRef(false);
   const isExplicitSignOut = useRef(false);
+  const previousUserId = useRef<string | null>(null);
 
   const loadRole = useCallback(async (userId: string) => {
     try {
@@ -116,15 +119,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .getSession()
       .then(({ data }) => {
         if (!mounted) return;
+        const currentUserId = data.session?.user?.id ?? null;
+        previousUserId.current = currentUserId;
         setSession(data.session);
-        if (data.session?.user.id) {
+        if (currentUserId) {
           hadActiveSession.current = true;
-          void loadRole(data.session.user.id);
+          void loadRole(currentUserId);
           void refreshMfaState();
         }
       })
       .catch(() => {
-        if (mounted) setSession(null);
+        if (!mounted) return;
+        previousUserId.current = null;
+        setSession(null);
       })
       .finally(() => {
         if (mounted) setIsLoading(false);
@@ -133,24 +140,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mounted) return;
 
+      const nextUserId = nextSession?.user?.id ?? null;
+
       if (event === "PASSWORD_RECOVERY") {
         setIsRecoveryMode(true);
       }
 
       if (event === "TOKEN_REFRESHED") {
         setSession(nextSession);
-        if (nextSession?.user.id) {
-          void loadRole(nextSession.user.id);
+        if (nextUserId) {
+          previousUserId.current = nextUserId;
+          void loadRole(nextUserId);
           void refreshMfaState();
         }
       } else if (event === "SIGNED_OUT") {
-        clearSensitiveQueryCache();
+        clearSensitiveQueryCache(queryClient);
         // Detect unexpected session expiration
         if (hadActiveSession.current && !isExplicitSignOut.current) {
           setSessionExpired(true);
         }
         hadActiveSession.current = false;
         isExplicitSignOut.current = false;
+        previousUserId.current = null;
         setSession(null);
         setIsDemo(false);
         setAal("aal1");
@@ -158,11 +169,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMfaFactors([]);
         setRole("employee");
       } else {
+        // Clear previous user's cached HR data if authenticated identity changes without full reload
+        if (previousUserId.current && nextUserId && previousUserId.current !== nextUserId) {
+          clearSensitiveQueryCache(queryClient);
+        }
+        previousUserId.current = nextUserId;
         setSession(nextSession);
         setIsDemo(false);
-        if (nextSession?.user.id) {
+        if (nextUserId) {
           hadActiveSession.current = true;
-          void loadRole(nextSession.user.id);
+          void loadRole(nextUserId);
           void refreshMfaState();
         } else {
           setRole("employee");
@@ -179,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       listener.subscription.unsubscribe();
     };
-  }, [loadRole, refreshMfaState]);
+  }, [loadRole, refreshMfaState, queryClient]);
 
   // Production-grade password login with real error classification
   const signIn = useCallback(
@@ -348,13 +364,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     isExplicitSignOut.current = true;
     hadActiveSession.current = false;
+    previousUserId.current = null;
     setIsDemo(false);
     setAal("aal1");
     setNextLevel("aal1");
     setMfaFactors([]);
-    clearSensitiveQueryCache();
+    clearSensitiveQueryCache(queryClient);
     await supabase.auth.signOut();
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

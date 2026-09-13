@@ -41,20 +41,24 @@ export function createQueryClient(): QueryClient {
 }
 
 /**
- * Shared singleton QueryClient instance for non-React contexts or external listeners.
- */
-export const appQueryClient = createQueryClient();
-
-/**
  * Purges sensitive cached HRMS data upon user logout or authentication identity change.
+ * Cancels active in-flight requests and removes sensitive cached queries from the provided client.
+ * Harmless public/static configuration (such as "public_config") is preserved.
  */
-export function clearSensitiveQueryCache(client: QueryClient = appQueryClient): void {
-  client.removeQueries({
+export function clearSensitiveQueryCache(client: QueryClient): void {
+  // 1. Abort any pending in-flight sensitive queries immediately
+  void client.cancelQueries({
     predicate: (query) => {
       const topKey = query.queryKey[0];
-      // Keep only static bootstrap metadata if any; remove all operational & tenant data
       return topKey !== "public_config";
     },
   });
-  client.clear();
+
+  // 2. Remove all sensitive queries from the cache
+  client.removeQueries({
+    predicate: (query) => {
+      const topKey = query.queryKey[0];
+      return topKey !== "public_config";
+    },
+  });
 }

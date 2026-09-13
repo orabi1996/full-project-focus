@@ -90,6 +90,7 @@ describe("Domain Architecture Contract Tests", () => {
       demoStore.employees = [
         ...demoStore.employees,
         {
+          ...demoStore.employees[0],
           id: "emp-test-999",
           employeeNo: "EMP-TEST",
           firstNameAr: "اختبار",
@@ -97,16 +98,6 @@ describe("Domain Architecture Contract Tests", () => {
           firstNameEn: "Test",
           lastNameEn: "System",
           email: "test@domain.local",
-          departmentName: "تقنية المعلومات",
-          jobTitleAr: "مهندس نظم",
-          jobTitleEn: "Systems Engineer",
-          hireDate: "2026-01-01",
-          status: "active",
-          nationality: "SA",
-          basicSalary: 12000,
-          totalSalary: 15000,
-          contractType: "full_time",
-          completionScore: 100,
         },
       ];
       demoStore.notify();

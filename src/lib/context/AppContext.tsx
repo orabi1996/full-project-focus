@@ -171,8 +171,8 @@ export interface AppContextType {
   approveRequest: (requestId: string, note?: string) => Promise<boolean>;
   rejectRequest: (requestId: string, note?: string) => Promise<boolean>;
   returnRequest: (requestId: string, note?: string) => Promise<boolean>;
-  addApprovalChain: (chain: Omit<ApprovalChain, "id">) => void;
-  deleteApprovalChain: (id: string) => void;
+  addApprovalChain: (chain: Omit<ApprovalChain, "id">) => Promise<boolean>;
+  deleteApprovalChain: (id: string) => Promise<boolean>;
   addDelegationRule: (rule: Omit<DelegationRule, "id" | "createdAt" | "status">) => void;
   revokeDelegationRule: (id: string) => void;
 
@@ -184,14 +184,14 @@ export interface AppContextType {
     totalDays: number;
     reason: string;
   }) => Promise<boolean>;
-  addLeaveType: (input: { nameAr: string; maxDaysPerYear: number; isPaid: boolean }) => void;
+  addLeaveType: (input: { nameAr: string; maxDaysPerYear: number; isPaid: boolean }) => Promise<boolean>;
   adjustLeaveBalance: (
     employeeId: string,
     leaveTypeId: string,
     days: number,
     reason: string,
-  ) => void;
-  addShift: (shift: Omit<ShiftDefinition, "id">) => void;
+  ) => Promise<boolean>;
+  addShift: (shift: Omit<ShiftDefinition, "id">) => Promise<boolean>;
 
   // Attendance
   punchInOut: (
@@ -203,51 +203,51 @@ export interface AppContextType {
     correctIn?: string;
     correctOut?: string;
     reason: string;
-  }) => void;
-  submitOvertimeRequest: (record: Omit<OvertimeRecord, "id" | "status" | "createdAt">) => void;
-  approveOvertimeRequest: (id: string) => void;
-  rejectOvertimeRequest: (id: string) => void;
-  approveAttendanceCorrection: (id: string) => void;
-  rejectAttendanceCorrection: (id: string) => void;
+  }) => Promise<boolean>;
+  submitOvertimeRequest: (record: Omit<OvertimeRecord, "id" | "status" | "createdAt">) => Promise<boolean>;
+  approveOvertimeRequest: (id: string) => Promise<boolean>;
+  rejectOvertimeRequest: (id: string) => Promise<boolean>;
+  approveAttendanceCorrection: (id: string) => Promise<boolean>;
+  rejectAttendanceCorrection: (id: string) => Promise<boolean>;
 
   // Payroll & Loans
-  processPayrollRun: (groupId: string, year: number, month: number) => void;
-  lockAndConfirmPayrollRun: (runId: string) => void;
-  markPayrollAsPaid: (runId: string) => void;
-  processAttendance: (fromDate: string, toDate: string) => void;
-  accrueLeaveBalances: (year: number) => void;
+  processPayrollRun: (groupId: string, year: number, month: number) => Promise<boolean>;
+  lockAndConfirmPayrollRun: (runId: string) => Promise<boolean>;
+  markPayrollAsPaid: (runId: string) => Promise<boolean>;
+  processAttendance: (fromDate: string, toDate: string) => Promise<boolean>;
+  accrueLeaveBalances: (year: number) => Promise<boolean>;
   createLoan: (payload: {
     principalAmount: number;
     monthlyInstallment: number;
     totalInstallments: number;
     reason: string;
-  }) => void;
-  createSettlement: (settlement: Omit<FinalSettlementRecord, "id">) => void;
+  }) => Promise<boolean>;
+  createSettlement: (settlement: Omit<FinalSettlementRecord, "id">) => Promise<boolean>;
 
   // Expenses
-  addExpenseClaim: (claim: Omit<ExpenseClaim, "id" | "status" | "policyWarningTriggered">) => void;
-  addExpenseCategory: (input: { nameAr: string; warningLimit: number; blockLimit: number }) => void;
+  addExpenseClaim: (claim: Omit<ExpenseClaim, "id" | "status" | "policyWarningTriggered">) => Promise<boolean>;
+  addExpenseCategory: (input: { nameAr: string; warningLimit: number; blockLimit: number }) => Promise<boolean>;
 
   // Performance
-  addPerformanceCycle: (cycle: Omit<PerformanceCycle, "id">) => void;
-  addEvaluation: (evaluation: Omit<EvaluationRecord, "id">) => void;
+  addPerformanceCycle: (cycle: Omit<PerformanceCycle, "id">) => Promise<boolean>;
+  addEvaluation: (evaluation: Omit<EvaluationRecord, "id">) => Promise<boolean>;
 
   // ATS / Recruitment
-  addJobOpening: (job: Omit<JobOpening, "id">) => void;
-  addCandidate: (candidate: Omit<Candidate, "id">) => void;
-  updateCandidateScore: (candidateId: string, score: number) => void;
-  moveCandidateStage: (candidateId: string, newStage: CandidateStage) => void;
-  sendJobOffer: (offer: Omit<JobOffer, "id" | "status">) => void;
+  addJobOpening: (job: Omit<JobOpening, "id">) => Promise<boolean>;
+  addCandidate: (candidate: Omit<Candidate, "id">) => Promise<boolean>;
+  updateCandidateScore: (candidateId: string, score: number) => Promise<boolean>;
+  moveCandidateStage: (candidateId: string, newStage: CandidateStage) => Promise<boolean>;
+  sendJobOffer: (offer: Omit<JobOffer, "id" | "status">) => Promise<boolean>;
 
   // Assets & Docs
-  addAsset: (asset: Omit<HardwareAsset, "id">) => void;
-  addCompanyDocument: (document: Omit<CompanyDocument, "id" | "acknowledgedCount">) => void;
-  assignAsset: (assetId: string, employeeId: string) => void;
-  returnAsset: (assetId: string) => void;
-  acknowledgeDocument: (docId: string) => void;
+  addAsset: (asset: Omit<HardwareAsset, "id">) => Promise<boolean>;
+  addCompanyDocument: (document: Omit<CompanyDocument, "id" | "acknowledgedCount">) => Promise<boolean>;
+  assignAsset: (assetId: string, employeeId: string) => Promise<boolean>;
+  returnAsset: (assetId: string) => Promise<boolean>;
+  acknowledgeDocument: (docId: string) => Promise<boolean>;
 
   // Notifications & Audit
-  markNotificationRead: (id: string) => void;
+  markNotificationRead: (id: string) => Promise<void>;
   logAuditEvent: (
     action: string,
     entityType: string,
@@ -295,9 +295,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const mappedAuthenticatedRole: UserRole =
     authenticatedRole === "org_admin" ? "super_admin" : authenticatedRole;
   const currentRole = isDemo ? simulatedRole : mappedAuthenticatedRole;
-  const setCurrentRole = (role: UserRole) => {
-    if (isDemo) setSimulatedRole(role);
-  };
+  const setCurrentRole = useCallback(
+    (role: UserRole) => {
+      if (isDemo) setSimulatedRole(role);
+    },
+    [isDemo],
+  );
 
   // Domain bootstrap hook (replaces 2,000 lines of local useState cache)
   const bootstrap = useBootstrapData();
@@ -311,33 +314,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Reliable mutation coordinator integration
   const persistLiveChange = useCallback(
-    (operation: () => Promise<void>, mutationKey?: string) => {
+    async (operation: () => Promise<boolean>, mutationKey?: string) => {
       if (bootstrap.dataMode === "live" && mutationKey && activeMutationKeys.current.has(mutationKey)) {
-        const error = new Error("عملية حفظ مماثلة قيد التنفيذ");
         toast.info("عملية الحفظ نفسها قيد التنفيذ بالفعل");
-        return Promise.resolve({ ok: false, error });
+        return { ok: false, error: new Error("عملية حفظ مماثلة قيد التنفيذ") };
       }
 
       if (bootstrap.dataMode === "live" && mutationKey) activeMutationKeys.current.add(mutationKey);
       setDataError(null);
-      return executeReliableMutation({
-        mode: bootstrap.dataMode,
-        operation,
-        refresh: bootstrap.refreshCoreData,
-        onPendingChange: (pending) =>
-          setPendingMutationCount((count) => Math.max(0, count + (pending ? 1 : -1))),
-        onCommitted: () => {
+      setPendingMutationCount((count) => count + 1);
+
+      try {
+        const ok = await operation();
+        if (ok) {
           if (bootstrap.dataMode === "live") setLastSavedAt(new Date().toISOString());
-        },
-        onRejected: (error) => {
-          setDataError(error.message);
-          toast.error("تعذر حفظ التغييرات. تمت استعادة آخر بيانات مؤكدة من الخادم.");
-        },
-      }).finally(() => {
+          return { ok: true };
+        } else {
+          return { ok: false };
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "تعذر حفظ التغييرات";
+        setDataError(message);
+        toast.error("تعذر حفظ التغييرات. تمت استعادة آخر بيانات مؤكدة من الخادم.");
+        return { ok: false, error: err instanceof Error ? err : new Error(message) };
+      } finally {
         if (mutationKey) activeMutationKeys.current.delete(mutationKey);
-      });
+        setPendingMutationCount((count) => Math.max(0, count - 1));
+      }
     },
-    [bootstrap.dataMode, bootstrap.refreshCoreData],
+    [bootstrap.dataMode],
   );
 
   // Active employee modal navigation
@@ -501,167 +506,127 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Mutators (delegating to domain hooks & keeping compatibility)
       addEmployee: (emp) =>
-        persistLiveChange(() => createEmployee(emp).then(() => undefined), "addEmployee").then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => createEmployee(emp), "addEmployee").then((res) => res.ok),
       updateEmployee: (id, updates) =>
         persistLiveChange(
-          () => updateEmployee(id, updates).then(() => undefined),
+          () => updateEmployee(id, updates),
           `updateEmployee-${id}`,
         ).then((res) => res.ok),
       updateCompany: (prof) =>
-        persistLiveChange(() => orgMutations.updateCompany(prof).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.updateCompany(prof)).then((res) => res.ok),
       addOrgUnit: (unit) =>
-        persistLiveChange(() => orgMutations.addOrgUnit(unit).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.addOrgUnit(unit)).then((res) => res.ok),
       updateOrgUnit: (id, unit) =>
-        persistLiveChange(() => orgMutations.updateOrgUnit(id, unit).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.updateOrgUnit(id, unit)).then((res) => res.ok),
       deleteOrgUnit: (id) =>
-        persistLiveChange(() => orgMutations.deleteOrgUnit(id).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.deleteOrgUnit(id)).then((res) => res.ok),
       addSubsidiary: (sub) =>
-        persistLiveChange(() => orgMutations.addSubsidiary(sub).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.addSubsidiary(sub)).then((res) => res.ok),
       updateSubsidiary: (id, sub) =>
-        persistLiveChange(() => orgMutations.updateSubsidiary(id, sub).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.updateSubsidiary(id, sub)).then((res) => res.ok),
       deleteSubsidiary: (id) =>
-        persistLiveChange(() => orgMutations.deleteSubsidiary(id).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.deleteSubsidiary(id)).then((res) => res.ok),
       addWorkLocation: (loc) =>
-        persistLiveChange(() => orgMutations.addWorkLocation(loc).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.addWorkLocation(loc)).then((res) => res.ok),
       updateWorkLocation: (id, loc) =>
-        persistLiveChange(() => orgMutations.updateWorkLocation(id, loc).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.updateWorkLocation(id, loc)).then((res) => res.ok),
       deleteWorkLocation: (id) =>
-        persistLiveChange(() => orgMutations.deleteWorkLocation(id).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.deleteWorkLocation(id)).then((res) => res.ok),
       addCostCenter: (cc) =>
-        persistLiveChange(() => orgMutations.addCostCenter(cc).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.addCostCenter(cc)).then((res) => res.ok),
       updateCostCenter: (id, cc) =>
-        persistLiveChange(() => orgMutations.updateCostCenter(id, cc).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.updateCostCenter(id, cc)).then((res) => res.ok),
       deleteCostCenter: (id) =>
-        persistLiveChange(() => orgMutations.deleteCostCenter(id).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.deleteCostCenter(id)).then((res) => res.ok),
       addJobPosition: (pos) =>
-        persistLiveChange(() => orgMutations.addJobPosition(pos).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.addJobPosition(pos)).then((res) => res.ok),
       updateJobPosition: (id, pos) =>
-        persistLiveChange(() => orgMutations.updateJobPosition(id, pos).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.updateJobPosition(id, pos)).then((res) => res.ok),
       deleteJobPosition: (id) =>
-        persistLiveChange(() => orgMutations.deleteJobPosition(id).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => orgMutations.deleteJobPosition(id)).then((res) => res.ok),
       addRole: rbacMutations.addRole,
 
       // Workflow Mutators
       submitRequest: (req) =>
         persistLiveChange(
-          () => workflowMutations.submitRequest(req, currentUser.id).then(() => undefined),
+          () => workflowMutations.submitRequest(req, currentUser.id),
           "submitRequest",
         ).then((res) => res.ok),
       approveRequest: (id, note) =>
-        persistLiveChange(() => workflowMutations.approveRequest(id, note).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => workflowMutations.approveRequest(id, note)).then((res) => res.ok),
       rejectRequest: (id, note) =>
-        persistLiveChange(() => workflowMutations.rejectRequest(id, note).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
+        persistLiveChange(() => workflowMutations.rejectRequest(id, note)).then((res) => res.ok),
       returnRequest: (id, note) =>
-        persistLiveChange(() => workflowMutations.returnRequest(id, note).then(() => undefined)).then(
-          (res) => res.ok,
-        ),
-      addApprovalChain: (chain) => void workflowMutations.addApprovalChain(chain),
-      deleteApprovalChain: (id) => void workflowMutations.deleteApprovalChain(id),
-      addDelegationRule: (rule) => void workflowMutations.addDelegationRule(rule),
-      revokeDelegationRule: (id) => void workflowMutations.revokeDelegationRule(id),
+        persistLiveChange(() => workflowMutations.returnRequest(id, note)).then((res) => res.ok),
+      addApprovalChain: (chain) => workflowMutations.addApprovalChain(chain),
+      deleteApprovalChain: (id) => workflowMutations.deleteApprovalChain(id),
+      addDelegationRule: (rule) => workflowMutations.addDelegationRule(rule),
+      revokeDelegationRule: (id) => workflowMutations.revokeDelegationRule(id),
 
       // Leaves Mutators
       applyLeave: (payload) =>
         persistLiveChange(
-          () => leaveMutations.applyLeave(payload, currentUser.id).then(() => undefined),
+          () => leaveMutations.applyLeave(payload, currentUser.id),
           "applyLeave",
         ).then((res) => res.ok),
-      addLeaveType: (input) => void leaveMutations.addLeaveType(input),
+      addLeaveType: (input) => leaveMutations.addLeaveType(input),
       adjustLeaveBalance: (empId, typeId, days, reason) =>
-        void leaveMutations.adjustLeaveBalance(empId, typeId, days, reason),
-      addShift: (shift) => void shiftMutations.addShift(shift),
+        leaveMutations.adjustLeaveBalance(empId, typeId, days, reason),
+      addShift: (shift) => shiftMutations.addShift(shift),
 
       // Attendance Mutators
       punchInOut: (type, coords) => attendanceMutations.punchInOut(type, coords, currentUser.id),
       submitAttendanceCorrection: (payload) =>
-        void attendanceMutations.submitAttendanceCorrection({
+        attendanceMutations.submitAttendanceCorrection({
           ...payload,
           employeeId: currentUser.id,
         }),
-      submitOvertimeRequest: (record) => void attendanceMutations.submitOvertimeRequest(record),
-      approveOvertimeRequest: (id) => void attendanceMutations.approveOvertimeRequest(id),
-      rejectOvertimeRequest: (id) => void attendanceMutations.rejectOvertimeRequest(id),
-      approveAttendanceCorrection: (id) => void attendanceMutations.approveAttendanceCorrection(id),
-      rejectAttendanceCorrection: (id) => void attendanceMutations.rejectAttendanceCorrection(id),
+      submitOvertimeRequest: (record) => attendanceMutations.submitOvertimeRequest(record),
+      approveOvertimeRequest: (id) => attendanceMutations.approveOvertimeRequest(id),
+      rejectOvertimeRequest: (id) => attendanceMutations.rejectOvertimeRequest(id),
+      approveAttendanceCorrection: (id) => attendanceMutations.approveAttendanceCorrection(id),
+      rejectAttendanceCorrection: (id) => attendanceMutations.rejectAttendanceCorrection(id),
 
       // Payroll Mutators
       processPayrollRun: (groupId, year, month) =>
-        void payrollMutations.processPayrollRun(groupId, year, month),
-      lockAndConfirmPayrollRun: (runId) => void payrollMutations.lockAndConfirmPayrollRun(runId),
-      markPayrollAsPaid: (runId) => void payrollMutations.markPayrollAsPaid(runId),
+        payrollMutations.processPayrollRun(groupId, year, month),
+      lockAndConfirmPayrollRun: (runId) => payrollMutations.lockAndConfirmPayrollRun(runId),
+      markPayrollAsPaid: (runId) => payrollMutations.markPayrollAsPaid(runId),
       processAttendance: (fromDate, toDate) =>
-        void attendanceMutations.processAttendance(fromDate, toDate),
-      accrueLeaveBalances: (year) => void leaveMutations.accrueLeaveBalances(year),
+        attendanceMutations.processAttendance(fromDate, toDate),
+      accrueLeaveBalances: (year) => leaveMutations.accrueLeaveBalances(year),
       createLoan: (payload) =>
-        void payrollMutations.createLoan({ ...payload, employeeId: currentUser.id }),
-      createSettlement: (settlement) => void payrollMutations.createSettlement(settlement),
+        payrollMutations.createLoan({ ...payload, employeeId: currentUser.id }),
+      createSettlement: (settlement) => payrollMutations.createSettlement(settlement),
 
       // Expenses Mutators
-      addExpenseClaim: (claim) => void expenseMutations.addExpenseClaim(claim),
-      addExpenseCategory: (input) => void expenseMutations.addExpenseCategory(input),
+      addExpenseClaim: (claim) => expenseMutations.addExpenseClaim(claim),
+      addExpenseCategory: (input) => expenseMutations.addExpenseCategory(input),
 
       // Performance Mutators
-      addPerformanceCycle: (cycle) => void performanceMutations.addPerformanceCycle(cycle),
-      addEvaluation: (evaluation) => void performanceMutations.addEvaluation(evaluation),
+      addPerformanceCycle: (cycle) => performanceMutations.addPerformanceCycle(cycle),
+      addEvaluation: (evaluation) => performanceMutations.addEvaluation(evaluation),
 
       // ATS Mutators
-      addJobOpening: (job) => void recruitmentMutations.addJobOpening(job),
-      addCandidate: (candidate) => void recruitmentMutations.addCandidate(candidate),
+      addJobOpening: (job) => recruitmentMutations.addJobOpening(job),
+      addCandidate: (candidate) => recruitmentMutations.addCandidate(candidate),
       updateCandidateScore: (id, score) =>
-        void recruitmentMutations.updateCandidateScore(id, score),
+        recruitmentMutations.updateCandidateScore(id, score),
       moveCandidateStage: (id, stage) =>
-        void recruitmentMutations.moveCandidateStage(id, stage),
-      sendJobOffer: (offer) => void recruitmentMutations.sendJobOffer(offer),
+        recruitmentMutations.moveCandidateStage(id, stage),
+      sendJobOffer: (offer) => recruitmentMutations.sendJobOffer(offer),
 
       // Assets & Docs Mutators
-      addAsset: (asset) => void assetMutations.addAsset(asset),
-      addCompanyDocument: (doc) => void documentMutations.addCompanyDocument(doc),
-      assignAsset: (assetId, empId) => void assetMutations.assignAsset(assetId, empId),
-      returnAsset: (assetId) => void assetMutations.returnAsset(assetId),
-      acknowledgeDocument: (docId) => void documentMutations.acknowledgeDocument(docId),
+      addAsset: (asset) => assetMutations.addAsset(asset),
+      addCompanyDocument: (doc) => documentMutations.addCompanyDocument(doc),
+      assignAsset: (assetId, empId) => assetMutations.assignAsset(assetId, empId),
+      returnAsset: (assetId) => assetMutations.returnAsset(assetId),
+      acknowledgeDocument: (docId) => documentMutations.acknowledgeDocument(docId),
 
       // Audit & Notification Mutators
-      markNotificationRead: (id) => void notificationMutations.markNotificationRead(id),
+      markNotificationRead: (id) => notificationMutations.markNotificationRead(id),
       logAuditEvent: (action, entityType, entityId, entityName, changesSummary) =>
-        void auditMutations.logAuditEvent(action, entityType, entityId, entityName, changesSummary, {
+        auditMutations.logAuditEvent(action, entityType, entityId, entityName, changesSummary, {
           id: currentUser.id,
           name: `${currentUser.firstNameAr} ${currentUser.lastNameAr}`,
           role: currentRole,

@@ -93,6 +93,10 @@ export const AttendanceView: React.FC = () => {
   const [otHours, setOtHours] = useState(3.0);
   const [otRateType, setOtRateType] = useState<"regular_150" | "holiday_200">("regular_150");
   const [otReason, setOtReason] = useState("");
+  const [isProcessingAttendance, setIsProcessingAttendance] = useState(false);
+  const [isSubmittingCorrection, setIsSubmittingCorrection] = useState(false);
+  const [isSubmittingOvertime, setIsSubmittingOvertime] = useState(false);
+  const [activeActionId, setActiveActionId] = useState<string | null>(null);
 
   const selectedOtEmployee = useMemo(
     () => employees.find((e) => e.id === otEmpId) || employees[0],
@@ -161,12 +165,20 @@ export const AttendanceView: React.FC = () => {
     (c) => c.status === "pending",
   ).length;
 
-  const handleProcessAttendance = () => {
-    const today = new Date();
-    const from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-    const to = today.toISOString().slice(0, 10);
-    processAttendance(from, to);
-    toast.success("تمت معالجة واحتساب ساعات الحضور الإجمالية والتأخيرات لشهر سبتمبر 2026 بنجاح");
+  const handleProcessAttendance = async () => {
+    if (isProcessingAttendance) return;
+    setIsProcessingAttendance(true);
+    try {
+      const today = new Date();
+      const from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+      const to = today.toISOString().slice(0, 10);
+      const ok = await processAttendance(from, to);
+      if (ok) {
+        toast.success("تمت معالجة واحتساب ساعات الحضور الإجمالية والتأخيرات لشهر سبتمبر 2026 بنجاح");
+      }
+    } finally {
+      setIsProcessingAttendance(false);
+    }
   };
 
   const handlePunch = (type: "in" | "out") => {
@@ -214,22 +226,30 @@ export const AttendanceView: React.FC = () => {
     exportToCSV(`Attendance_Report_${new Date().toISOString().split("T")[0]}`, data);
   };
 
-  const handleSubmitCorrection = () => {
+  const handleSubmitCorrection = async () => {
     if (!correctionReason) {
       toast.error("يرجى كتابة سبب تصحيح البصمة");
       return;
     }
-    submitAttendanceCorrection({
-      workDate: correctionDate,
-      correctIn: correctInTime,
-      correctOut: correctOutTime,
-      reason: correctionReason,
-    });
-    setIsCorrectionModalOpen(false);
-    setCorrectionReason("");
+    if (isSubmittingCorrection) return;
+    setIsSubmittingCorrection(true);
+    try {
+      const ok = await submitAttendanceCorrection({
+        workDate: correctionDate,
+        correctIn: correctInTime,
+        correctOut: correctOutTime,
+        reason: correctionReason,
+      });
+      if (ok) {
+        setIsCorrectionModalOpen(false);
+        setCorrectionReason("");
+      }
+    } finally {
+      setIsSubmittingCorrection(false);
+    }
   };
 
-  const handleCreateOvertime = () => {
+  const handleCreateOvertime = async () => {
     if (!otReason.trim()) {
       toast.error("يرجى كتابة مبرر ومهمة العمل الإضافي");
       return;
@@ -238,25 +258,71 @@ export const AttendanceView: React.FC = () => {
       toast.error("عدد ساعات العمل الإضافي يجب أن يكون أكبر من صفر");
       return;
     }
+    if (isSubmittingOvertime) return;
+    setIsSubmittingOvertime(true);
+    try {
+      const ok = await submitOvertimeRequest({
+        employeeId: selectedOtEmployee.id,
+        employeeNo: selectedOtEmployee.employeeNo,
+        employeeName: `${selectedOtEmployee.firstNameAr} ${selectedOtEmployee.lastNameAr}`,
+        departmentName: selectedOtEmployee.departmentName || "قطاع العمليات",
+        workDate: otDate,
+        startTime: otStartTime,
+        endTime: otEndTime,
+        hours: otHours,
+        rateMultiplier: otMultiplier,
+        rateType: otRateType,
+        reason: otReason,
+        hourlyRate: calculatedHourlyRate,
+        totalAmount: calculatedOtTotal,
+      });
+      if (ok) {
+        setIsOvertimeModalOpen(false);
+        setOtReason("");
+      }
+    } finally {
+      setIsSubmittingOvertime(false);
+    }
+  };
 
-    submitOvertimeRequest({
-      employeeId: selectedOtEmployee.id,
-      employeeNo: selectedOtEmployee.employeeNo,
-      employeeName: `${selectedOtEmployee.firstNameAr} ${selectedOtEmployee.lastNameAr}`,
-      departmentName: selectedOtEmployee.departmentName || "قطاع العمليات",
-      workDate: otDate,
-      startTime: otStartTime,
-      endTime: otEndTime,
-      hours: otHours,
-      rateMultiplier: otMultiplier,
-      rateType: otRateType,
-      reason: otReason,
-      hourlyRate: calculatedHourlyRate,
-      totalAmount: calculatedOtTotal,
-    });
+  const handleApproveCorrection = async (id: string) => {
+    if (activeActionId) return;
+    setActiveActionId(id);
+    try {
+      await approveAttendanceCorrection(id);
+    } finally {
+      setActiveActionId(null);
+    }
+  };
 
-    setIsOvertimeModalOpen(false);
-    setOtReason("");
+  const handleRejectCorrection = async (id: string) => {
+    if (activeActionId) return;
+    setActiveActionId(id);
+    try {
+      await rejectAttendanceCorrection(id);
+    } finally {
+      setActiveActionId(null);
+    }
+  };
+
+  const handleApproveOvertime = async (id: string) => {
+    if (activeActionId) return;
+    setActiveActionId(id);
+    try {
+      await approveOvertimeRequest(id);
+    } finally {
+      setActiveActionId(null);
+    }
+  };
+
+  const handleRejectOvertime = async (id: string) => {
+    if (activeActionId) return;
+    setActiveActionId(id);
+    try {
+      await rejectOvertimeRequest(id);
+    } finally {
+      setActiveActionId(null);
+    }
   };
 
   return (
@@ -503,12 +569,13 @@ export const AttendanceView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Button
                   onClick={handleProcessAttendance}
+                  disabled={isProcessingAttendance}
                   variant="secondary"
                   size="sm"
                   className="rounded-full h-9 text-xs font-bold gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4"
                 >
-                  <Compass className="h-3.5 w-3.5 text-primary" />
-                  معالجة البصمات الشهرية
+                  <Compass className={`h-3.5 w-3.5 text-primary ${isProcessingAttendance ? "animate-spin" : ""}`} />
+                  {isProcessingAttendance ? "جاري المعالجة..." : "معالجة البصمات الشهرية"}
                 </Button>
                 <Button
                   onClick={handleExportAttendance}
@@ -760,15 +827,17 @@ export const AttendanceView: React.FC = () => {
                           <div className="flex items-center justify-center gap-1.5">
                             <Button
                               size="sm"
-                              onClick={() => approveOvertimeRequest(ot.id)}
+                              disabled={activeActionId === ot.id}
+                              onClick={() => handleApproveOvertime(ot.id)}
                               className="h-7 text-[11px] rounded-full px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
                             >
-                              اعتماد
+                              {activeActionId === ot.id ? "..." : "اعتماد"}
                             </Button>
                             <Button
                               size="sm"
+                              disabled={activeActionId === ot.id}
                               variant="outline"
-                              onClick={() => rejectOvertimeRequest(ot.id)}
+                              onClick={() => handleRejectOvertime(ot.id)}
                               className="h-7 text-[11px] rounded-full px-2.5 border-destructive/30 text-destructive hover:bg-destructive/10 font-bold"
                             >
                               رفض
@@ -882,15 +951,17 @@ export const AttendanceView: React.FC = () => {
                           <div className="flex items-center justify-center gap-1.5">
                             <Button
                               size="sm"
-                              onClick={() => approveAttendanceCorrection(cor.id)}
+                              disabled={activeActionId === cor.id}
+                              onClick={() => handleApproveCorrection(cor.id)}
                               className="h-7 text-[11px] rounded-full px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
                             >
-                              اعتماد وتصحيح
+                              {activeActionId === cor.id ? "..." : "اعتماد وتصحيح"}
                             </Button>
                             <Button
                               size="sm"
+                              disabled={activeActionId === cor.id}
                               variant="outline"
-                              onClick={() => rejectAttendanceCorrection(cor.id)}
+                              onClick={() => handleRejectCorrection(cor.id)}
                               className="h-7 text-[11px] rounded-full px-2.5 border-destructive/30 text-destructive hover:bg-destructive/10 font-bold"
                             >
                               رفض
@@ -1087,10 +1158,11 @@ export const AttendanceView: React.FC = () => {
           <DialogFooter className="mt-3">
             <Button
               size="sm"
+              disabled={isSubmittingCorrection}
               onClick={handleSubmitCorrection}
               className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
             >
-              إرسال طلب التصحيح
+              {isSubmittingCorrection ? "جاري الإرسال..." : "إرسال طلب التصحيح"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1214,10 +1286,11 @@ export const AttendanceView: React.FC = () => {
           <DialogFooter className="mt-3">
             <Button
               size="sm"
+              disabled={isSubmittingOvertime}
               onClick={handleCreateOvertime}
               className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-9"
             >
-              حفظ واعتماد التكليف
+              {isSubmittingOvertime ? "جاري الحفظ..." : "حفظ واعتماد التكليف"}
             </Button>
           </DialogFooter>
         </DialogContent>

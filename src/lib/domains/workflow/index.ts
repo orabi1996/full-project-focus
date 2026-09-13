@@ -7,9 +7,13 @@ import type {
   ServiceRequest,
 } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
-import { createRequestRecord, updateRequestDecision } from "../../data/hrms-repository";
-import { createApprovalChainRecord } from "../../data/operational-repository";
+import { createRequestRecord } from "../../data/hrms-repository";
+import {
+  createApprovalChainRecord,
+  deleteApprovalChainRecord,
+} from "../../data/operational-repository";
 import { actOnRequestServer } from "../../business/approvals.functions";
+import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
@@ -42,7 +46,7 @@ export function useWorkflow() {
 
 export function useWorkflowMutations() {
   const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const submitRequest = useCallback(
@@ -84,158 +88,178 @@ export function useWorkflowMutations() {
         ],
       };
 
-      if (!isLive) {
-        demoStore.requests = [newReq, ...demoStore.requests];
-        demoStore.notify();
-        toast.success("تم إرسال الطلب بنجاح وهو الآن قيد المراجعة والاعتماد");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `req-submit-${empId}-${req.type}-${Date.now()}`,
+        operation: async () => {
+          await createRequestRecord(empId, req.type, (req.payload || {}) as Record<string, unknown>);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم إرسال الطلب واعتماده في دورة العمل");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.requests = [newReq, ...demoStore.requests];
+          demoStore.notify();
+          toast.success("تم إرسال الطلب بنجاح وهو الآن قيد المراجعة والاعتماد");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إرسال الطلب");
+        },
+      });
 
-      try {
-        await createRequestRecord(empId, req.type, (req.payload || {}) as Record<string, unknown>);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم إرسال الطلب واعتماده في دورة العمل");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر إرسال الطلب");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const approveRequest = useCallback(
     async (requestId: string, note?: string): Promise<boolean> => {
-      if (!isLive) {
-        demoStore.requests = demoStore.requests.map((r) =>
-          r.id === requestId
-            ? {
-                ...r,
-                status: "approved" as const,
-                currentStepIndex: r.totalSteps,
-                updatedAt: new Date().toISOString(),
-                timeline: [
-                  ...r.timeline,
-                  {
-                    id: `tl-${Date.now()}`,
-                    stepNumber: r.currentStepIndex + 1,
-                    actorId: "usr-admin",
-                    actorName: "مدير النظام",
-                    actorRole: "المعتمد",
-                    action: "approved" as const,
-                    note,
-                    timestamp: new Date().toISOString(),
-                  },
-                ],
-              }
-            : r,
-        );
-        demoStore.notify();
-        toast.success("تم اعتماد الطلب رسمياً بنجاح");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `req-approve-${requestId}`,
+        operation: async () => {
+          await actOnRequestServer({ data: { requestId, decision: "approved", note } });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم اعتماد الطلب بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.requests = demoStore.requests.map((r) =>
+            r.id === requestId
+              ? {
+                  ...r,
+                  status: "approved" as const,
+                  currentStepIndex: r.totalSteps,
+                  updatedAt: new Date().toISOString(),
+                  timeline: [
+                    ...r.timeline,
+                    {
+                      id: `tl-${Date.now()}`,
+                      stepNumber: r.currentStepIndex + 1,
+                      actorId: "usr-admin",
+                      actorName: "مدير النظام",
+                      actorRole: "المعتمد",
+                      action: "approved" as const,
+                      note,
+                      timestamp: new Date().toISOString(),
+                    },
+                  ],
+                }
+              : r,
+          );
+          demoStore.notify();
+          toast.success("تم اعتماد الطلب رسمياً بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر اعتماد الطلب");
+        },
+      });
 
-      try {
-        await actOnRequestServer({ data: { requestId, decision: "approved", note } });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم اعتماد الطلب بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر اعتماد الطلب");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const rejectRequest = useCallback(
     async (requestId: string, note?: string): Promise<boolean> => {
-      if (!isLive) {
-        demoStore.requests = demoStore.requests.map((r) =>
-          r.id === requestId
-            ? {
-                ...r,
-                status: "rejected" as const,
-                updatedAt: new Date().toISOString(),
-                timeline: [
-                  ...r.timeline,
-                  {
-                    id: `tl-${Date.now()}`,
-                    stepNumber: r.currentStepIndex + 1,
-                    actorId: "usr-admin",
-                    actorName: "مدير النظام",
-                    actorRole: "المعتمد",
-                    action: "rejected" as const,
-                    note,
-                    timestamp: new Date().toISOString(),
-                  },
-                ],
-              }
-            : r,
-        );
-        demoStore.notify();
-        toast.success("تم رفض الطلب وإشعار الموظف");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `req-reject-${requestId}`,
+        operation: async () => {
+          await actOnRequestServer({ data: { requestId, decision: "rejected", note } });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم رفض الطلب بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.requests = demoStore.requests.map((r) =>
+            r.id === requestId
+              ? {
+                  ...r,
+                  status: "rejected" as const,
+                  updatedAt: new Date().toISOString(),
+                  timeline: [
+                    ...r.timeline,
+                    {
+                      id: `tl-${Date.now()}`,
+                      stepNumber: r.currentStepIndex + 1,
+                      actorId: "usr-admin",
+                      actorName: "مدير النظام",
+                      actorRole: "المعتمد",
+                      action: "rejected" as const,
+                      note,
+                      timestamp: new Date().toISOString(),
+                    },
+                  ],
+                }
+              : r,
+          );
+          demoStore.notify();
+          toast.success("تم رفض الطلب وإشعار الموظف");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر رفض الطلب");
+        },
+      });
 
-      try {
-        await actOnRequestServer({ data: { requestId, decision: "rejected", note } });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم رفض الطلب بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر رفض الطلب");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const returnRequest = useCallback(
     async (requestId: string, note?: string): Promise<boolean> => {
-      if (!isLive) {
-        demoStore.requests = demoStore.requests.map((r) =>
-          r.id === requestId
-            ? {
-                ...r,
-                status: "returned" as const,
-                updatedAt: new Date().toISOString(),
-                timeline: [
-                  ...r.timeline,
-                  {
-                    id: `tl-${Date.now()}`,
-                    stepNumber: r.currentStepIndex,
-                    actorId: "usr-admin",
-                    actorName: "مدير النظام",
-                    actorRole: "المعتمد",
-                    action: "returned" as const,
-                    note,
-                    timestamp: new Date().toISOString(),
-                  },
-                ],
-              }
-            : r,
-        );
-        demoStore.notify();
-        toast.success("تم إعادة الطلب للاستكمال وتعديل الملاحظات");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `req-return-${requestId}`,
+        operation: async () => {
+          await actOnRequestServer({ data: { requestId, decision: "returned", note } });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تمت إعادة الطلب بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.requests = demoStore.requests.map((r) =>
+            r.id === requestId
+              ? {
+                  ...r,
+                  status: "returned" as const,
+                  updatedAt: new Date().toISOString(),
+                  timeline: [
+                    ...r.timeline,
+                    {
+                      id: `tl-${Date.now()}`,
+                      stepNumber: r.currentStepIndex,
+                      actorId: "usr-admin",
+                      actorName: "مدير النظام",
+                      actorRole: "المعتمد",
+                      action: "returned" as const,
+                      note,
+                      timestamp: new Date().toISOString(),
+                    },
+                  ],
+                }
+              : r,
+          );
+          demoStore.notify();
+          toast.success("تم إعادة الطلب للاستكمال وتعديل الملاحظات");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إعادة الطلب");
+        },
+      });
 
-      try {
-        await actOnRequestServer({ data: { requestId, decision: "returned", note } });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تمت إعادة الطلب بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر إعادة الطلب");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const addApprovalChain = useCallback(
@@ -244,33 +268,59 @@ export function useWorkflowMutations() {
         ...chain,
         id: `chain-${Date.now()}`,
       };
-      if (!isLive) {
-        demoStore.approvalChains = [...demoStore.approvalChains, newChain];
-        demoStore.notify();
-        toast.success("تم إنشاء سلسلة الموافقات بنجاح");
-        return true;
-      }
-      try {
-        await createApprovalChainRecord(newChain);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.chains() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم حفظ سلسلة الاعتمادات بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر حفظ سلسلة الاعتمادات");
-        throw err;
-      }
+
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `chain-add-${chain.nameAr}`,
+        operation: async () => {
+          await createApprovalChainRecord(newChain);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.chains() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم حفظ سلسلة الاعتمادات بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.approvalChains = [...demoStore.approvalChains, newChain];
+          demoStore.notify();
+          toast.success("تم إنشاء سلسلة الموافقات بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر حفظ سلسلة الاعتمادات");
+        },
+      });
+
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const deleteApprovalChain = useCallback(
-    (id: string) => {
-      demoStore.approvalChains = demoStore.approvalChains.filter((c) => c.id !== id);
-      demoStore.notify();
-      toast.success("تم حذف مسار الاعتماد");
+    async (id: string): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `chain-delete-${id}`,
+        operation: async () => {
+          await deleteApprovalChainRecord(id);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.chains() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم حذف مسار الاعتماد");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.approvalChains = demoStore.approvalChains.filter((c) => c.id !== id);
+          demoStore.notify();
+          toast.success("تم حذف مسار الاعتماد");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر حذف مسار الاعتماد");
+        },
+      });
+
+      return result.ok;
     },
-    [],
+    [mode, queryClient],
   );
 
   const addDelegationRule = useCallback(

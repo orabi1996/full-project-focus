@@ -154,7 +154,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     if (selectedRun && selectedRun.id !== selectedRunId) setSelectedRunId(selectedRun.id);
   }, [selectedRun, selectedRunId]);
 
-  const handleRunNewPayroll = () => {
+  const [isRunningPayroll, setIsRunningPayroll] = useState(false);
+  const [isCreatingLoan, setIsCreatingLoan] = useState(false);
+  const [isSavingSettlement, setIsSavingSettlement] = useState(false);
+  const [isLockingRun, setIsLockingRun] = useState(false);
+  const [isPayingRun, setIsPayingRun] = useState(false);
+
+  const handleRunNewPayroll = async () => {
     const groupId = payrollGroups.some((group) => group.id === runGroupId)
       ? runGroupId
       : payrollGroups[0]?.id;
@@ -163,13 +169,17 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
       return;
     }
     const targetRunId = `pr-${groupId}-${runYear}-${String(runMonth).padStart(2, "0")}`;
-    processPayrollRun(groupId, runYear, runMonth);
-    setSelectedRunId(targetRunId);
-    setActiveTab("runs");
-    setIsRunModalOpen(false);
-    toast.success(
-      `تم احتساب مسير رواتب ${runMonth}/${runYear} بنجاح وفق سجلات البصمة، الإجازات، والجزاءات المعتمدة`,
-    );
+    setIsRunningPayroll(true);
+    try {
+      const ok = await processPayrollRun(groupId, runYear, runMonth);
+      if (ok) {
+        setSelectedRunId(targetRunId);
+        setActiveTab("runs");
+        setIsRunModalOpen(false);
+      }
+    } finally {
+      setIsRunningPayroll(false);
+    }
   };
 
   const handleExportWPS = () => {
@@ -223,22 +233,29 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     exportToCSV(`Payroll_Run_${selectedRun.periodMonth}_${selectedRun.periodYear}`, data);
   };
 
-  const handleCreateLoan = () => {
+  const handleCreateLoan = async () => {
     if (!loanReason) {
       toast.error("يرجى كتابة سبب طلب السلفة");
       return;
     }
-    createLoan({
-      principalAmount: loanAmount,
-      monthlyInstallment: Math.round(loanAmount / installmentsCount),
-      totalInstallments: installmentsCount,
-      reason: loanReason,
-    });
-    setIsLoanModalOpen(false);
-    setLoanReason("");
+    setIsCreatingLoan(true);
+    try {
+      const ok = await createLoan({
+        principalAmount: loanAmount,
+        monthlyInstallment: Math.round(loanAmount / installmentsCount),
+        totalInstallments: installmentsCount,
+        reason: loanReason,
+      });
+      if (ok) {
+        setIsLoanModalOpen(false);
+        setLoanReason("");
+      }
+    } finally {
+      setIsCreatingLoan(false);
+    }
   };
 
-  const handleCalculateAndSaveSettlement = () => {
+  const handleCalculateAndSaveSettlement = async () => {
     const emp = employees.find((e) => e.id === settlementEmpId);
     if (!emp) return;
 
@@ -261,25 +278,31 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     const leavePayout = Math.round((emp.basicSalary / 30) * 15);
     const netTotal = eosbCalc.finalEOSBAmount + leavePayout;
 
-    createSettlement({
-      employeeId: emp.id,
-      employeeName: `${emp.firstNameAr} ${emp.lastNameAr}`,
-      terminationDate,
-      serviceYears,
-      serviceMonths,
-      eosbAmount: eosbCalc.finalEOSBAmount,
-      leaveBalancePayoutDays: 15,
-      leaveBalancePayoutAmount: leavePayout,
-      pendingSalaryAmount: 0,
-      loanDeductionAmount: 0,
-      noticePeriodServed: true,
-      assetClearanceComplete: false,
-      netSettlementAmount: netTotal,
-      eosbNotes: `مدة الخدمة المحتسبة ${eosbCalc.totalServiceYearsDecimal} سنة بنسبة استحقاق ${eosbCalc.resignationMultiplier}%`,
-      status: "draft",
-    });
-
-    setIsSettlementModalOpen(false);
+    setIsSavingSettlement(true);
+    try {
+      const ok = await createSettlement({
+        employeeId: emp.id,
+        employeeName: `${emp.firstNameAr} ${emp.lastNameAr}`,
+        terminationDate,
+        serviceYears,
+        serviceMonths,
+        eosbAmount: eosbCalc.finalEOSBAmount,
+        leaveBalancePayoutDays: 15,
+        leaveBalancePayoutAmount: leavePayout,
+        pendingSalaryAmount: 0,
+        loanDeductionAmount: 0,
+        noticePeriodServed: true,
+        assetClearanceComplete: false,
+        netSettlementAmount: netTotal,
+        eosbNotes: `مدة الخدمة المحتسبة ${eosbCalc.totalServiceYearsDecimal} سنة بنسبة استحقاق ${eosbCalc.resignationMultiplier}%`,
+        status: "draft",
+      });
+      if (ok) {
+        setIsSettlementModalOpen(false);
+      }
+    } finally {
+      setIsSavingSettlement(false);
+    }
   };
 
   return (
@@ -458,22 +481,38 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   </Button>
                   {canManagePayroll && ["draft", "ready_for_review"].includes(selectedRun.status) && (
                     <Button
-                      onClick={() => lockAndConfirmPayrollRun(selectedRun.id)}
+                      onClick={async () => {
+                        setIsLockingRun(true);
+                        try {
+                          await lockAndConfirmPayrollRun(selectedRun.id);
+                        } finally {
+                          setIsLockingRun(false);
+                        }
+                      }}
+                      disabled={isLockingRun}
                       size="sm"
                       className="rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 h-9 px-4 cursor-pointer"
                     >
                       <Lock className="h-3.5 w-3.5" />
-                      اعتماد وقفل المسير
+                      {isLockingRun ? "جاري الاعتماد..." : "اعتماد وقفل المسير"}
                     </Button>
                   )}
                   {canManagePayroll && selectedRun.status === "confirmed_locked" && (
                     <Button
-                      onClick={() => markPayrollAsPaid(selectedRun.id)}
+                      onClick={async () => {
+                        setIsPayingRun(true);
+                        try {
+                          await markPayrollAsPaid(selectedRun.id);
+                        } finally {
+                          setIsPayingRun(false);
+                        }
+                      }}
+                      disabled={isPayingRun}
                       size="sm"
                       className="rounded-full text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white gap-1.5 h-9 px-4 cursor-pointer"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      إرشادات تأكيد التحويل
+                      {isPayingRun ? "جاري التأكيد..." : "إرشادات تأكيد التحويل"}
                     </Button>
                   )}
                 </div>
@@ -934,10 +973,10 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
             <Button
               size="sm"
               onClick={handleRunNewPayroll}
-              disabled={payrollGroups.length === 0}
+              disabled={payrollGroups.length === 0 || isRunningPayroll}
               className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground px-6 h-10 shadow-xs cursor-pointer"
             >
-              بدء الاحتساب
+              {isRunningPayroll ? "جاري الاحتساب..." : "بدء الاحتساب"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1150,9 +1189,10 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
             <Button
               size="sm"
               onClick={handleCreateLoan}
+              disabled={isCreatingLoan}
               className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 h-10 shadow-xs cursor-pointer"
             >
-              تأكيد وإرسال طلب السلفة
+              {isCreatingLoan ? "جاري الإرسال..." : "تأكيد وإرسال طلب السلفة"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1326,9 +1366,10 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
             <Button
               size="sm"
               onClick={handleCalculateAndSaveSettlement}
+              disabled={isSavingSettlement}
               className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-10 shadow-xs cursor-pointer"
             >
-              احتساب واعتماد المخالصة
+              {isSavingSettlement ? "جاري الاعتماد..." : "احتساب واعتماد المخالصة"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -8,6 +8,7 @@ import {
 } from "../../auth/rbac-definitions";
 import { useAuth } from "../../auth/AuthContext";
 import { createRoleDefinitionRecord } from "../../data/operational-repository";
+import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
@@ -85,7 +86,7 @@ export function useRbacMutations(
   >,
 ) {
   const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const addRole = useCallback(
@@ -101,33 +102,41 @@ export function useRbacMutations(
         permissions: [],
       };
 
-      if (!isLive) {
-        demoStore.roles = [...demoStore.roles, newRole];
-        demoStore.notify();
-        toast.success("تم إضافة الدور الوظيفي بنجاح");
-        return newRole;
-      }
+      const result = await executeReliableMutation<RoleDefinition>({
+        mode,
+        mutationKey: `create-role-${roleInput.code}`,
+        operation: async () => {
+          await createRoleDefinitionRecord({
+            code: newRole.code,
+            nameAr: newRole.nameAr,
+            nameEn: newRole.nameEn,
+            descriptionAr: newRole.descriptionAr,
+            descriptionEn: newRole.descriptionEn,
+            isSystem: newRole.isSystem,
+            dataScope: roleInput.dataScope,
+          });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.rbac.roles() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم حفظ الدور الوظيفي بنجاح");
+          return newRole;
+        },
+        demoOperation: () => {
+          demoStore.roles = [...demoStore.roles, newRole];
+          demoStore.notify();
+          toast.success("تم إضافة الدور الوظيفي بنجاح");
+          return newRole;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر حفظ الدور الوظيفي");
+        },
+      });
 
-      try {
-        await createRoleDefinitionRecord({
-          code: newRole.code,
-          nameAr: newRole.nameAr,
-          nameEn: newRole.nameEn,
-          descriptionAr: newRole.descriptionAr,
-          descriptionEn: newRole.descriptionEn,
-          isSystem: newRole.isSystem,
-          dataScope: roleInput.dataScope,
-        });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.rbac.roles() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم حفظ الدور الوظيفي بنجاح");
-        return newRole;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر حفظ الدور الوظيفي");
-        throw err;
+      if (!result.ok || !result.data) {
+        throw result.error || new Error("تعذر حفظ الدور الوظيفي");
       }
+      return result.data;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const createPermissionGroup = useCallback(

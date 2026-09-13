@@ -16,7 +16,6 @@ import { Badge } from "../ui/badge";
 import {
   getCompanyProfileServer,
   saveCompanyBankAccountServer,
-  saveCompanyProfileServer,
 } from "../../lib/business/company.functions";
 import { useApp } from "../../lib/context/AppContext";
 import type { CompanyProfile } from "../../types";
@@ -95,27 +94,10 @@ export const CompanyProfilePanel: React.FC = () => {
     }
     setBusy(true);
     try {
-      // 1. Update globally in AppContext
-      await updateCompany(companyForm);
-
-      // 2. Persist in database if available
-      try {
-        await saveCompanyProfileServer({
-          data: {
-            id: companyForm.id || undefined,
-            legalNameAr: companyForm.legalNameAr,
-            legalNameEn: companyForm.legalNameEn,
-            crNumber: companyForm.crNumber,
-            taxNumber: companyForm.taxNumber,
-            currency: companyForm.currency,
-            headquartersAddress: companyForm.headquartersAddress,
-          },
-        });
-      } catch (e: any) {
-        console.warn("Database sync warning (fallback to app context):", e?.message);
+      const ok = await updateCompany(companyForm);
+      if (ok) {
+        toast.success("تم حفظ وتحديث بيانات المنشأة في كامل النظام بنجاح");
       }
-
-      toast.success("تم حفظ وتحديث بيانات المنشأة في كامل النظام بنجاح");
     } catch (error: any) {
       toast.error(error?.message ?? "تعذر حفظ بيانات المنشأة");
     } finally {

@@ -6,7 +6,9 @@ import {
   adjustLeaveBalanceRecord,
   createLeaveTypeRecord,
 } from "../../data/operational-repository";
+import { createRequestRecord } from "../../data/hrms-repository";
 import { accrueLeaveBalancesServer } from "../../business/leave.functions";
+import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
@@ -36,7 +38,7 @@ export function useLeaves() {
 
 export function useLeaveMutations() {
   const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const applyLeave = useCallback(
@@ -55,27 +57,40 @@ export function useLeaveMutations() {
         (b) => b.employeeId === empId && b.leaveTypeId === payload.leaveTypeId,
       );
 
-      if (!isLive) {
-        if (targetBalanceIndex >= 0) {
-          demoStore.leaveBalances[targetBalanceIndex].usedDays += payload.totalDays;
-          demoStore.leaveBalances[targetBalanceIndex].availableBalance -= payload.totalDays;
-        }
-        demoStore.notify();
-        toast.success(`تم تقديم طلب الإجازة بنجاح ومدتها (${payload.totalDays}) أيام`);
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `apply-leave-${empId}-${payload.startDate}-${payload.leaveTypeId}`,
+        operation: async () => {
+          await createRequestRecord(empId, "leave", {
+            leaveTypeId: payload.leaveTypeId,
+            startDate: payload.startDate,
+            endDate: payload.endDate,
+            totalDays: payload.totalDays,
+            reason: payload.reason,
+          });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success(`تم تقديم طلب الإجازة بنجاح ومدتها (${payload.totalDays}) أيام`);
+          return true;
+        },
+        demoOperation: () => {
+          if (targetBalanceIndex >= 0) {
+            demoStore.leaveBalances[targetBalanceIndex].usedDays += payload.totalDays;
+            demoStore.leaveBalances[targetBalanceIndex].availableBalance -= payload.totalDays;
+          }
+          demoStore.notify();
+          toast.success(`تم تقديم طلب الإجازة بنجاح ومدتها (${payload.totalDays}) أيام`);
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر تقديم طلب الإجازة");
+        },
+      });
 
-      try {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success(`تم تقديم طلب الإجازة بنجاح ومدتها (${payload.totalDays}) أيام`);
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر تقديم طلب الإجازة");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const addLeaveType = useCallback(
@@ -97,25 +112,30 @@ export function useLeaveMutations() {
         status: "active",
       };
 
-      if (!isLive) {
-        demoStore.leaveTypes = [...demoStore.leaveTypes, newType];
-        demoStore.notify();
-        toast.success("تم إضافة نوع الإجازة الجديد بنجاح");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `add-leave-type-${input.nameAr}`,
+        operation: async () => {
+          await createLeaveTypeRecord(newType);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.types() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم إضافة نوع الإجازة بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.leaveTypes = [...demoStore.leaveTypes, newType];
+          demoStore.notify();
+          toast.success("تم إضافة نوع الإجازة الجديد بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إضافة نوع الإجازة");
+        },
+      });
 
-      try {
-        await createLeaveTypeRecord(newType);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.types() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم إضافة نوع الإجازة بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر إضافة نوع الإجازة");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const adjustLeaveBalance = useCallback(
@@ -125,55 +145,65 @@ export function useLeaveMutations() {
       days: number,
       reason: string,
     ): Promise<boolean> => {
-      if (!isLive) {
-        demoStore.leaveBalances = demoStore.leaveBalances.map((b) => {
-          if (b.employeeId === employeeId && b.leaveTypeId === leaveTypeId) {
-            return {
-              ...b,
-              accruedDays: b.accruedDays + days,
-              availableBalance: b.availableBalance + days,
-            };
-          }
-          return b;
-        });
-        demoStore.notify();
-        toast.success("تم تسوية وتعديل رصيد الإجازة بنجاح");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `adjust-leave-${employeeId}-${leaveTypeId}`,
+        operation: async () => {
+          await adjustLeaveBalanceRecord(employeeId, leaveTypeId, days);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم تسوية وتعديل رصيد الإجازة بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.leaveBalances = demoStore.leaveBalances.map((b) => {
+            if (b.employeeId === employeeId && b.leaveTypeId === leaveTypeId) {
+              return {
+                ...b,
+                accruedDays: b.accruedDays + days,
+                availableBalance: b.availableBalance + days,
+              };
+            }
+            return b;
+          });
+          demoStore.notify();
+          toast.success("تم تسوية وتعديل رصيد الإجازة بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر تسوية رصيد الإجازة");
+        },
+      });
 
-      try {
-        await adjustLeaveBalanceRecord(employeeId, leaveTypeId, days);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم تسوية وتعديل رصيد الإجازة بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر تسوية رصيد الإجازة");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const accrueLeaveBalances = useCallback(
     async (year: number): Promise<boolean> => {
-      if (!isLive) {
-        toast.success(`تم احتساب وترحيل استحقاقات الإجازات لسنة ${year} بنجاح`);
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `accrue-leaves-${year}`,
+        operation: async () => {
+          await accrueLeaveBalancesServer({ data: { year } });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success(`تم استحقاق وترحيل أرصدة الإجازات بنجاح لسنة ${year}`);
+          return true;
+        },
+        demoOperation: () => {
+          toast.success(`تم احتساب وترحيل استحقاقات الإجازات لسنة ${year} بنجاح`);
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر استحقاق أرصدة الإجازات");
+        },
+      });
 
-      try {
-        await accrueLeaveBalancesServer({ data: { year } });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success(`تم استحقاق وترحيل أرصدة الإجازات بنجاح لسنة ${year}`);
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر استحقاق أرصدة الإجازات");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   return {

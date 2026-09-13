@@ -8,6 +8,7 @@ import {
   createJobOpeningRecord,
   updateCandidateRecord,
 } from "../../data/operational-repository";
+import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
@@ -43,7 +44,7 @@ export function useRecruitment() {
 
 export function useRecruitmentMutations() {
   const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const addJobOpening = useCallback(
@@ -53,25 +54,30 @@ export function useRecruitmentMutations() {
         id: `job-${Date.now()}`,
       };
 
-      if (!isLive) {
-        demoStore.jobOpenings = [...demoStore.jobOpenings, newJob];
-        demoStore.notify();
-        toast.success("تم فتح الوظيفة الشاغرة بنجاح");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `create-job-opening-${job.titleAr}`,
+        operation: async () => {
+          await createJobOpeningRecord(newJob);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.openings() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم حفظ الوظيفة الشاغرة بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.jobOpenings = [...demoStore.jobOpenings, newJob];
+          demoStore.notify();
+          toast.success("تم فتح الوظيفة الشاغرة بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر حفظ الوظيفة");
+        },
+      });
 
-      try {
-        await createJobOpeningRecord(newJob);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.openings() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم حفظ الوظيفة الشاغرة بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر حفظ الوظيفة");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const addCandidate = useCallback(
@@ -81,75 +87,90 @@ export function useRecruitmentMutations() {
         id: `cand-${Date.now()}`,
       };
 
-      if (!isLive) {
-        demoStore.candidates = [...demoStore.candidates, newCand];
-        demoStore.notify();
-        toast.success("تم إضافة المرشح الجديد بنجاح");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `create-candidate-${candidate.fullName || candidate.email}`,
+        operation: async () => {
+          await createCandidateRecord(newCand);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.candidates() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم إضافة المرشح بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.candidates = [...demoStore.candidates, newCand];
+          demoStore.notify();
+          toast.success("تم إضافة المرشح الجديد بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إضافة المرشح");
+        },
+      });
 
-      try {
-        await createCandidateRecord(newCand);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.candidates() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم إضافة المرشح بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر إضافة المرشح");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const updateCandidateScore = useCallback(
     async (candidateId: string, score: number): Promise<boolean> => {
-      if (!isLive) {
-        demoStore.candidates = demoStore.candidates.map((c) =>
-          c.id === candidateId ? { ...c, ratingScore: score } : c,
-        );
-        demoStore.notify();
-        toast.success("تم تحديث تقييم المرشح بنجاح");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `update-candidate-score-${candidateId}`,
+        operation: async () => {
+          await updateCandidateRecord(candidateId, { ratingScore: score });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.candidates() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم تحديث تقييم المرشح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.candidates = demoStore.candidates.map((c) =>
+            c.id === candidateId ? { ...c, ratingScore: score } : c,
+          );
+          demoStore.notify();
+          toast.success("تم تحديث تقييم المرشح بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر تحديث تقييم المرشح");
+        },
+      });
 
-      try {
-        await updateCandidateRecord(candidateId, { ratingScore: score });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.candidates() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم تحديث تقييم المرشح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر تحديث تقييم المرشح");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const moveCandidateStage = useCallback(
     async (candidateId: string, newStage: CandidateStage): Promise<boolean> => {
-      if (!isLive) {
-        demoStore.candidates = demoStore.candidates.map((c) =>
-          c.id === candidateId ? { ...c, stage: newStage } : c,
-        );
-        demoStore.notify();
-        toast.success(`تم نقل المرشح إلى مرحلة: ${newStage}`);
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `move-candidate-stage-${candidateId}-${newStage}`,
+        operation: async () => {
+          await updateCandidateRecord(candidateId, { stage: newStage });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.candidates() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم تحديث مرحلة المرشح بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.candidates = demoStore.candidates.map((c) =>
+            c.id === candidateId ? { ...c, stage: newStage } : c,
+          );
+          demoStore.notify();
+          toast.success(`تم نقل المرشح إلى مرحلة: ${newStage}`);
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر تحديث مرحلة المرشح");
+        },
+      });
 
-      try {
-        await updateCandidateRecord(candidateId, { stage: newStage });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.candidates() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success(`تم تحديث مرحلة المرشح بنجاح`);
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر تحديث مرحلة المرشح");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const sendJobOffer = useCallback(
@@ -160,25 +181,30 @@ export function useRecruitmentMutations() {
         status: "sent_to_candidate",
       };
 
-      if (!isLive) {
-        demoStore.jobOffers = [...demoStore.jobOffers, newOffer];
-        demoStore.notify();
-        toast.success("تم إرسال العرض الوظيفي للمرشح بنجاح");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `send-job-offer-${offer.candidateId}-${offer.jobTitle}`,
+        operation: async () => {
+          await createJobOfferRecord(newOffer);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.offers() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم إرسال العرض الوظيفي بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.jobOffers = [...demoStore.jobOffers, newOffer];
+          demoStore.notify();
+          toast.success("تم إرسال العرض الوظيفي للمرشح بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إرسال العرض الوظيفي");
+        },
+      });
 
-      try {
-        await createJobOfferRecord(newOffer);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.offers() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم إرسال العرض الوظيفي بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر إرسال العرض الوظيفي");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   return {

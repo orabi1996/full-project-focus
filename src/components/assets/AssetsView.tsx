@@ -60,46 +60,81 @@ export const AssetsView: React.FC = () => {
   const [docCategory, setDocCategory] = useState<CompanyDocument["category"]>("policy");
   const [docFileUrl, setDocFileUrl] = useState("");
 
-  const handleCreateAsset = () => {
+  const [isSubmittingAsset, setIsSubmittingAsset] = useState(false);
+  const [isSubmittingDoc, setIsSubmittingDoc] = useState(false);
+  const [acknowledgingDocId, setAcknowledgingDocId] = useState<string | null>(null);
+
+  const handleCreateAsset = async () => {
     if (!assetName) {
       toast.error("يرجى كتابة اسم العهدة / الجهاز");
       return;
     }
-    const emp = employees.find((e) => e.id === assignedEmpId);
-    addAsset({
-      assetTag: `TAG-${Math.floor(1000 + Math.random() * 9000)}`,
-      nameAr: assetName,
-      nameEn: assetName,
-      category: assetCategory,
-      serialNumber: assetSerial,
-      assignedToEmployeeId: emp?.id,
-      assignedToEmployeeName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : undefined,
-      status: emp ? "assigned" : "available",
-      assignedDate: emp ? new Date().toISOString().split("T")[0] : undefined,
-    });
-    toast.success(`تم تسجيل العهدة (${assetName}) بنجاح!`);
-    setIsAddAssetOpen(false);
-    setAssetName("");
+    if (isSubmittingAsset) return;
+    setIsSubmittingAsset(true);
+
+    try {
+      const emp = employees.find((e) => e.id === assignedEmpId);
+      const ok = await addAsset({
+        assetTag: `TAG-${Math.floor(1000 + Math.random() * 9000)}`,
+        nameAr: assetName,
+        nameEn: assetName,
+        category: assetCategory,
+        serialNumber: assetSerial,
+        assignedToEmployeeId: emp?.id,
+        assignedToEmployeeName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : undefined,
+        status: emp ? "assigned" : "available",
+        assignedDate: emp ? new Date().toISOString().split("T")[0] : undefined,
+      });
+      if (ok) {
+        toast.success(`تم تسجيل العهدة (${assetName}) بنجاح!`);
+        setIsAddAssetOpen(false);
+        setAssetName("");
+      }
+    } finally {
+      setIsSubmittingAsset(false);
+    }
   };
 
-  const handleCreateDoc = () => {
+  const handleCreateDoc = async () => {
     if (!docTitle || !docFileUrl) {
       toast.error("يرجى كتابة عنوان الوثيقة وإضافة رابط الملف");
       return;
     }
-    addCompanyDocument({
-      titleAr: docTitle,
-      titleEn: docTitle,
-      category: docCategory,
-      version: "v1.0 (2026)",
-      fileUrl: docFileUrl,
-      requiresAcknowledgment: true,
-      visibilityScope: "all",
-    });
-    toast.success(`تم نشر الوثيقة (${docTitle}) وإتاحتها لجميع الموظفين لتأكيد القراءة!`);
-    setIsAddDocOpen(false);
-    setDocTitle("");
-    setDocFileUrl("");
+    if (isSubmittingDoc) return;
+    setIsSubmittingDoc(true);
+
+    try {
+      const ok = await addCompanyDocument({
+        titleAr: docTitle,
+        titleEn: docTitle,
+        category: docCategory,
+        version: "v1.0 (2026)",
+        fileUrl: docFileUrl,
+        requiresAcknowledgment: true,
+        visibilityScope: "all",
+      });
+      if (ok) {
+        toast.success(`تم نشر الوثيقة (${docTitle}) وإتاحتها لجميع الموظفين لتأكيد القراءة!`);
+        setIsAddDocOpen(false);
+        setDocTitle("");
+        setDocFileUrl("");
+      }
+    } finally {
+      setIsSubmittingDoc(false);
+    }
+  };
+
+  const handleAcknowledgeDoc = async (docId: string) => {
+    if (acknowledgingDocId) return;
+    setAcknowledgingDocId(docId);
+    try {
+      const ok = await acknowledgeDocument(docId);
+      if (ok) {
+        toast.success("تم تسجيل إقرارك بالاطلاع على اللائحة بنجاح");
+      }
+    } finally {
+      setAcknowledgingDocId(null);
+    }
   };
 
   return (
@@ -235,13 +270,11 @@ export const AssetsView: React.FC = () => {
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => {
-                      acknowledgeDocument(doc.id);
-                      toast.success("تم تسجيل إقرارك بالاطلاع على اللائحة بنجاح");
-                    }}
+                    disabled={acknowledgingDocId === doc.id}
+                    onClick={() => handleAcknowledgeDoc(doc.id)}
                     className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-3 shadow-xs"
                   >
-                    تأكيد القراءة
+                    {acknowledgingDocId === doc.id ? "جاري التأكيد..." : "تأكيد القراءة"}
                   </Button>
                 </div>
               </div>
@@ -316,8 +349,13 @@ export const AssetsView: React.FC = () => {
           </div>
 
           <DialogFooter className="mt-3">
-            <Button size="sm" onClick={handleCreateAsset} className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9">
-              تأكيد وتسجيل العهدة
+            <Button
+              size="sm"
+              disabled={isSubmittingAsset}
+              onClick={handleCreateAsset}
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
+            >
+              {isSubmittingAsset ? "جاري التسجيل..." : "تأكيد وتسجيل العهدة"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -338,23 +376,23 @@ export const AssetsView: React.FC = () => {
 
           <div className="space-y-3.5 text-xs py-2">
             <div className="space-y-1.5">
-              <label className="font-bold">عنوان الوثيقة / اللائحة *</label>
+              <label className="font-bold">عنوان الوثيقة أو اللائحة (عربي)</label>
               <input
                 type="text"
                 value={docTitle}
                 onChange={(e) => setDocTitle(e.target.value)}
-                placeholder="مثال: سياسة العمل عن بعد وتنظيم أوقات الدوام 2026"
+                placeholder="مثال: لائحة تنظيم العمل الداخلية 2026"
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="font-bold">رابط ملف الوثيقة *</label>
+              <label className="font-bold">رابط الملف / المستند (URL أو PDF)</label>
               <input
-                type="url"
+                type="text"
                 value={docFileUrl}
                 onChange={(e) => setDocFileUrl(e.target.value)}
-                placeholder="https://example.com/policy.pdf"
-                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                placeholder="https://..."
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
             <div className="space-y-1.5">
@@ -374,8 +412,13 @@ export const AssetsView: React.FC = () => {
           </div>
 
           <DialogFooter className="mt-3">
-            <Button size="sm" onClick={handleCreateDoc} className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9">
-              نشر الوثيقة للموظفين
+            <Button
+              size="sm"
+              disabled={isSubmittingDoc}
+              onClick={handleCreateDoc}
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
+            >
+              {isSubmittingDoc ? "جاري النشر..." : "نشر الوثيقة للموظفين"}
             </Button>
           </DialogFooter>
         </DialogContent>

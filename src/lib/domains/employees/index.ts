@@ -44,9 +44,11 @@ export function useEmployee(id?: string | null) {
   };
 }
 
+import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
+
 export function useCreateEmployee() {
   const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const createEmployee = useCallback(
@@ -57,27 +59,31 @@ export function useCreateEmployee() {
         completionScore: 75,
       };
 
-      if (!isLive) {
-        demoStore.employees = [newEmp, ...demoStore.employees];
-        demoStore.notify();
-        toast.success("تم إضافة الموظف بنجاح (وضع العرض التجريبي)");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `create-employee-${newEmp.nationalIdOrIqama || newEmp.employeeNo || newEmp.email}`,
+        operation: async () => {
+          await createEmployeeRecord(newEmp);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.organization.all });
+          toast.success("تم إضافة الموظف وتحديث السجلات بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.employees = [newEmp, ...demoStore.employees];
+          demoStore.notify();
+          toast.success("تم إضافة الموظف بنجاح (وضع العرض التجريبي)");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إضافة الموظف");
+        },
+      });
 
-      try {
-        await createEmployeeRecord(newEmp);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.organization.all });
-        toast.success("تم إضافة الموظف وتحديث السجلات بنجاح");
-        return true;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "تعذر إضافة الموظف";
-        toast.error(message);
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   return { createEmployee };
@@ -85,34 +91,38 @@ export function useCreateEmployee() {
 
 export function useUpdateEmployee() {
   const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const updateEmployee = useCallback(
     async (id: string, updates: Partial<Employee>): Promise<boolean> => {
-      if (!isLive) {
-        demoStore.employees = demoStore.employees.map((e) =>
-          e.id === id ? { ...e, ...updates } : e,
-        );
-        demoStore.notify();
-        toast.success("تم تحديث بيانات الموظف بنجاح (وضع العرض التجريبي)");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `update-employee-${id}`,
+        operation: async () => {
+          await updateEmployeeRecord(id, updates);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.employees.detail(id) });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم حفظ التغييرات وتحديث بيانات الموظف في النظام");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.employees = demoStore.employees.map((e) =>
+            e.id === id ? { ...e, ...updates } : e,
+          );
+          demoStore.notify();
+          toast.success("تم تحديث بيانات الموظف بنجاح (وضع العرض التجريبي)");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر تحديث بيانات الموظف");
+        },
+      });
 
-      try {
-        await updateEmployeeRecord(id, updates);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.employees.detail(id) });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم حفظ التغييرات وتحديث بيانات الموظف في النظام");
-        return true;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "تعذر تحديث بيانات الموظف";
-        toast.error(message);
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   return { updateEmployee };

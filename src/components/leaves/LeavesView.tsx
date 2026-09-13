@@ -86,7 +86,6 @@ export const LeavesView: React.FC = () => {
       reason,
     });
     if (success) {
-      toast.success("تم تقديم طلب الإجازة بنجاح وتحويله لمسار الموافقات الإلكتروني");
       setIsApplyModalOpen(false);
       setReason("");
     } else {
@@ -94,29 +93,41 @@ export const LeavesView: React.FC = () => {
     }
   };
 
-  const handleCreateLeaveType = () => {
+  const [isCreatingType, setIsCreatingType] = useState(false);
+  const [isAdjustingBalance, setIsAdjustingBalance] = useState(false);
+
+  const handleCreateLeaveType = async () => {
     if (!newTypeName) {
       toast.error("يرجى كتابة اسم نوع الإجازة");
       return;
     }
-    addLeaveType({ nameAr: newTypeName, maxDaysPerYear: newTypeDays, isPaid: newTypePaid });
-    toast.success(`تمت إضافة نوع الإجازة (${newTypeName}) بنجاح!`);
-    setIsAddTypeModalOpen(false);
-    setNewTypeName("");
+    setIsCreatingType(true);
+    try {
+      const ok = await addLeaveType({ nameAr: newTypeName, maxDaysPerYear: newTypeDays, isPaid: newTypePaid });
+      if (ok) {
+        setIsAddTypeModalOpen(false);
+        setNewTypeName("");
+      }
+    } finally {
+      setIsCreatingType(false);
+    }
   };
 
-  const handleAdjustBalance = () => {
+  const handleAdjustBalance = async () => {
     if (!adjustReason) {
       toast.error("يرجى كتابة سبب تعديل الرصيد");
       return;
     }
-    const emp = employees.find((e) => e.id === adjustEmpId);
-    adjustLeaveBalance(adjustEmpId, selectedTypeId, adjustDays, adjustReason);
-    toast.success(
-      `تم تعديل الرصيد لـ (${emp?.firstNameAr} ${emp?.lastNameAr}) بمقدار ${adjustDays} يوم وتوثيقه في سجل التدقيق.`,
-    );
-    setIsAdjustBalanceOpen(false);
-    setAdjustReason("");
+    setIsAdjustingBalance(true);
+    try {
+      const ok = await adjustLeaveBalance(adjustEmpId, selectedTypeId, adjustDays, adjustReason);
+      if (ok) {
+        setIsAdjustBalanceOpen(false);
+        setAdjustReason("");
+      }
+    } finally {
+      setIsAdjustingBalance(false);
+    }
   };
 
   return (
@@ -562,9 +573,10 @@ export const LeavesView: React.FC = () => {
             <Button
               size="sm"
               onClick={handleCreateLeaveType}
+              disabled={isCreatingType}
               className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
             >
-              حفظ نوع الإجازة
+              {isCreatingType ? "جاري الحفظ..." : "حفظ نوع الإجازة"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -637,9 +649,10 @@ export const LeavesView: React.FC = () => {
             <Button
               size="sm"
               onClick={handleAdjustBalance}
+              disabled={isAdjustingBalance}
               className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 h-9"
             >
-              تأكيد وتوثيق تعديل الرصيد
+              {isAdjustingBalance ? "جاري التوثيق..." : "تأكيد وتوثيق تعديل الرصيد"}
             </Button>
           </DialogFooter>
         </DialogContent>

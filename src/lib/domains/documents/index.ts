@@ -6,6 +6,7 @@ import {
   acknowledgeDocumentRecord,
   createCompanyDocumentRecord,
 } from "../../data/operational-repository";
+import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
@@ -30,7 +31,7 @@ export function useDocuments() {
 
 export function useDocumentMutations() {
   const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const addCompanyDocument = useCallback(
@@ -41,51 +42,62 @@ export function useDocumentMutations() {
         acknowledgedCount: 0,
       };
 
-      if (!isLive) {
-        demoStore.companyDocs = [...demoStore.companyDocs, newDoc];
-        demoStore.notify();
-        toast.success("تم رفع المستند المؤسسي بنجاح");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `create-doc-${document.titleAr}`,
+        operation: async () => {
+          await createCompanyDocumentRecord(newDoc);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم رفع المستند بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.companyDocs = [...demoStore.companyDocs, newDoc];
+          demoStore.notify();
+          toast.success("تم رفع المستند المؤسسي بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر حفظ المستند");
+        },
+      });
 
-      try {
-        await createCompanyDocumentRecord(newDoc);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم رفع المستند بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر حفظ المستند");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const acknowledgeDocument = useCallback(
     async (docId: string, employeeId?: string): Promise<boolean> => {
       const empId = employeeId || demoStore.employees[0]?.id || "usr-01";
-      if (!isLive) {
-        demoStore.companyDocs = demoStore.companyDocs.map((d) =>
-          d.id === docId ? { ...d, acknowledgedCount: d.acknowledgedCount + 1 } : d,
-        );
-        demoStore.notify();
-        toast.success("تم تأكيد الاطلاع والإقرار على المستند بنجاح");
-        return true;
-      }
 
-      try {
-        await acknowledgeDocumentRecord(docId, empId);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم تأكيد الإقرار على المستند بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر تسجيل الإقرار");
-        throw err;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `ack-doc-${docId}-${empId}`,
+        operation: async () => {
+          await acknowledgeDocumentRecord(docId, empId);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم تأكيد الإقرار على المستند بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.companyDocs = demoStore.companyDocs.map((d) =>
+            d.id === docId ? { ...d, acknowledgedCount: d.acknowledgedCount + 1 } : d,
+          );
+          demoStore.notify();
+          toast.success("تم تأكيد الاطلاع والإقرار على المستند بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر تسجيل الإقرار");
+        },
+      });
+
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   return { addCompanyDocument, acknowledgeDocument };

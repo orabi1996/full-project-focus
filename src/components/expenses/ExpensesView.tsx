@@ -54,12 +54,14 @@ export const ExpensesView: React.FC = () => {
   const [newCatName, setNewCatName] = useState("");
   const [newCatWarning, setNewCatWarning] = useState(1500);
   const [newCatBlock, setNewCatBlock] = useState(6000);
+  const [isSubmittingClaim, setIsSubmittingClaim] = useState(false);
+  const [isSubmittingCategory, setIsSubmittingCategory] = useState(false);
 
   const selectedCat = expenseCategories.find((c) => c.id === selectedCatId);
   const isOverWarning = selectedCat ? amount > selectedCat.maxLimitWarning : false;
   const isOverBlock = selectedCat ? amount > selectedCat.maxLimitBlock : false;
 
-  const handleAddClaim = () => {
+  const handleAddClaim = async () => {
     if (isOverBlock) {
       toast.error(`عذراً، المبلغ يتجاوز الحد المانع لهذه الفئة (${selectedCat?.maxLimitBlock} ر.س)`);
       return;
@@ -68,38 +70,56 @@ export const ExpensesView: React.FC = () => {
       toast.error("يرجى استكمال بيانات المورد ووصف المصروف");
       return;
     }
+    if (isSubmittingClaim) return;
+    setIsSubmittingClaim(true);
 
-    addExpenseClaim({
-      employeeId: currentUser.id,
-      categoryId: selectedCatId,
-      categoryNameAr: selectedCat?.nameAr || "نفقات عامة",
-      categoryNameEn: selectedCat?.nameEn || "General",
-      amount,
-      currency: "SAR",
-      spentAt: new Date().toISOString().split("T")[0],
-      merchantName: merchant,
-      description,
-    });
+    try {
+      const ok = await addExpenseClaim({
+        employeeId: currentUser.id,
+        categoryId: selectedCatId,
+        categoryNameAr: selectedCat?.nameAr || "نفقات عامة",
+        categoryNameEn: selectedCat?.nameEn || "General",
+        amount,
+        currency: "SAR",
+        spentAt: new Date().toISOString().split("T")[0],
+        merchantName: merchant,
+        description,
+      });
 
-    toast.success("تم تقديم مطالبة المصروفات بنجاح وإرسالها للمدير والمالية للاعتماد");
-    setIsClaimModalOpen(false);
-    setMerchant("");
-    setDescription("");
+      if (ok) {
+        toast.success("تم تقديم مطالبة المصروفات بنجاح وإرسالها للمدير والمالية للاعتماد");
+        setIsClaimModalOpen(false);
+        setMerchant("");
+        setDescription("");
+      }
+    } finally {
+      setIsSubmittingClaim(false);
+    }
   };
 
-  const handleCreateCategory = () => {
+  const handleCreateCategory = async () => {
     if (!newCatName) {
       toast.error("يرجى كتابة اسم فئة المصروف");
       return;
     }
-    addExpenseCategory({
-      nameAr: newCatName,
-      warningLimit: newCatWarning,
-      blockLimit: newCatBlock,
-    });
-    toast.success(`تمت إضافة سياسة وفئة المصروفات (${newCatName}) بنجاح!`);
-    setIsAddCatModalOpen(false);
-    setNewCatName("");
+    if (isSubmittingCategory) return;
+    setIsSubmittingCategory(true);
+
+    try {
+      const ok = await addExpenseCategory({
+        nameAr: newCatName,
+        warningLimit: newCatWarning,
+        blockLimit: newCatBlock,
+      });
+
+      if (ok) {
+        toast.success(`تمت إضافة سياسة وفئة المصروفات (${newCatName}) بنجاح!`);
+        setIsAddCatModalOpen(false);
+        setNewCatName("");
+      }
+    } finally {
+      setIsSubmittingCategory(false);
+    }
   };
 
   const handleExportExpenses = () => {
@@ -332,11 +352,11 @@ export const ExpensesView: React.FC = () => {
           <DialogFooter className="mt-3">
             <Button
               size="sm"
-              disabled={isOverBlock}
+              disabled={isOverBlock || isSubmittingClaim}
               onClick={handleAddClaim}
               className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
             >
-              إرسال المطالبة للاعتماد
+              {isSubmittingClaim ? "جاري الإرسال..." : "إرسال المطالبة للاعتماد"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -391,10 +411,11 @@ export const ExpensesView: React.FC = () => {
           <DialogFooter className="mt-3">
             <Button
               size="sm"
+              disabled={isSubmittingCategory}
               onClick={handleCreateCategory}
               className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
             >
-              حفظ وتطبيق السياسة
+              {isSubmittingCategory ? "جاري الحفظ..." : "حفظ وتطبيق السياسة"}
             </Button>
           </DialogFooter>
         </DialogContent>

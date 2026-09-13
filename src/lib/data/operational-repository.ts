@@ -1081,6 +1081,11 @@ export async function createApprovalChainRecord(chain: Omit<ApprovalChain, "id">
   if (error) throw new Error(error.message);
 }
 
+export async function deleteApprovalChainRecord(id: string) {
+  const { error } = await enterpriseSupabase.from("approval_chains").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function createShiftRecord(shift: Omit<ShiftDefinition, "id">) {
   const { error } = await enterpriseSupabase.from("shifts").insert({
     code: shift.code,
@@ -1185,6 +1190,29 @@ export async function createSettlementRecord(settlement: Omit<FinalSettlementRec
     leave_payout_amount: settlement.leaveBalancePayoutAmount,
     net_settlement_amount: settlement.netSettlementAmount,
     status: settlement.status,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function createLoanRecord(loan: {
+  employeeId: string;
+  principalAmount: number;
+  monthlyInstallment: number;
+  totalInstallments: number;
+  reason: string;
+}) {
+  const { error } = await enterpriseSupabase.from("loans").insert({
+    employee_id: loan.employeeId,
+    principal_amount: loan.principalAmount,
+    remaining_balance: loan.principalAmount,
+    monthly_installment: loan.monthlyInstallment,
+    total_installments: loan.totalInstallments,
+    paid_installments: 0,
+    installments_paid: 0,
+    total_paid: 0,
+    reason: loan.reason,
+    status: "active",
+    loan_type: "personal_advance",
   });
   if (error) throw new Error(error.message);
 }

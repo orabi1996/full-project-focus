@@ -6,6 +6,7 @@ import {
   createExpenseCategoryRecord,
   createExpenseClaimRecord,
 } from "../../data/operational-repository";
+import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
@@ -35,7 +36,7 @@ export function useExpenses() {
 
 export function useExpenseMutations() {
   const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const addExpenseClaim = useCallback(
@@ -52,25 +53,30 @@ export function useExpenseMutations() {
         policyWarningTriggered: isWarning,
       };
 
-      if (!isLive) {
-        demoStore.expenseClaims = [newClaim, ...demoStore.expenseClaims];
-        demoStore.notify();
-        toast.success("تم رفع مطالبة المصروفات بنجاح");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `create-expense-claim-${claim.employeeId}-${claim.categoryId}-${claim.amount}`,
+        operation: async () => {
+          await createExpenseClaimRecord(newClaim);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.claims() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم رفع مطالبة المصروفات بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.expenseClaims = [newClaim, ...demoStore.expenseClaims];
+          demoStore.notify();
+          toast.success("تم رفع مطالبة المصروفات بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر رفع مطالبة المصروفات");
+        },
+      });
 
-      try {
-        await createExpenseClaimRecord(newClaim);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.claims() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم رفع مطالبة المصروفات بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر رفع مطالبة المصروفات");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const addExpenseCategory = useCallback(
@@ -85,29 +91,34 @@ export function useExpenseMutations() {
         requiresReceipt: true,
       };
 
-      if (!isLive) {
-        demoStore.expenseCategories = [...demoStore.expenseCategories, newCat];
-        demoStore.notify();
-        toast.success("تم إضافة فئة المصروفات بنجاح");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `create-expense-category-${input.nameAr}`,
+        operation: async () => {
+          await createExpenseCategoryRecord({
+            nameAr: input.nameAr,
+            warningLimit: input.warningLimit,
+            blockLimit: input.blockLimit,
+          });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.categories() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم إضافة فئة المصروفات بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.expenseCategories = [...demoStore.expenseCategories, newCat];
+          demoStore.notify();
+          toast.success("تم إضافة فئة المصروفات بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إضافة فئة المصروفات");
+        },
+      });
 
-      try {
-        await createExpenseCategoryRecord({
-          nameAr: input.nameAr,
-          warningLimit: input.warningLimit,
-          blockLimit: input.blockLimit,
-        });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.categories() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم إضافة فئة المصروفات بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر إضافة فئة المصروفات");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   return { addExpenseClaim, addExpenseCategory };

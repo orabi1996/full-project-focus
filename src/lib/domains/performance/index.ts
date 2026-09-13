@@ -6,6 +6,7 @@ import {
   createEvaluationRecord,
   createPerformanceCycleRecord,
 } from "../../data/operational-repository";
+import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
@@ -35,7 +36,7 @@ export function usePerformance() {
 
 export function usePerformanceMutations() {
   const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const addPerformanceCycle = useCallback(
@@ -45,25 +46,30 @@ export function usePerformanceMutations() {
         id: `cyc-${Date.now()}`,
       };
 
-      if (!isLive) {
-        demoStore.performanceCycles = [...demoStore.performanceCycles, newCycle];
-        demoStore.notify();
-        toast.success("تم إطلاق دورة التقييم بنجاح");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `create-cycle-${cycle.titleAr}`,
+        operation: async () => {
+          await createPerformanceCycleRecord(newCycle);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.performance.cycles() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم إطلاق دورة التقييم بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.performanceCycles = [...demoStore.performanceCycles, newCycle];
+          demoStore.notify();
+          toast.success("تم إطلاق دورة التقييم بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إطلاق دورة التقييم");
+        },
+      });
 
-      try {
-        await createPerformanceCycleRecord(newCycle);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.performance.cycles() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم إطلاق دورة التقييم بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر إطلاق دورة التقييم");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   const addEvaluation = useCallback(
@@ -73,25 +79,30 @@ export function usePerformanceMutations() {
         id: `eval-${Date.now()}`,
       };
 
-      if (!isLive) {
-        demoStore.evaluations = [...demoStore.evaluations, newEval];
-        demoStore.notify();
-        toast.success("تم تسجيل تقييم الأداء بنجاح");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `create-eval-${evaluation.cycleId}-${evaluation.employeeId}`,
+        operation: async () => {
+          await createEvaluationRecord(newEval);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.performance.evaluations() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم حفظ تقييم الأداء بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.evaluations = [...demoStore.evaluations, newEval];
+          demoStore.notify();
+          toast.success("تم تسجيل تقييم الأداء بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر حفظ تقييم الأداء");
+        },
+      });
 
-      try {
-        await createEvaluationRecord(newEval);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.performance.evaluations() });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم حفظ تقييم الأداء بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر حفظ تقييم الأداء");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   return { addPerformanceCycle, addEvaluation };

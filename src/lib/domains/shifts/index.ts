@@ -3,6 +3,7 @@ import { useCallback } from "react";
 import type { ShiftDefinition } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
 import { createShiftRecord } from "../../data/operational-repository";
+import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
@@ -27,7 +28,7 @@ export function useShifts() {
 
 export function useShiftMutations() {
   const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const addShift = useCallback(
@@ -37,25 +38,30 @@ export function useShiftMutations() {
         id: `sh-${Date.now()}`,
       };
 
-      if (!isLive) {
-        demoStore.shifts = [...demoStore.shifts, newShift];
-        demoStore.notify();
-        toast.success("تم إضافة الوردية الجديدة بنجاح");
-        return true;
-      }
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `create-shift-${shift.nameAr}`,
+        operation: async () => {
+          await createShiftRecord(newShift);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          toast.success("تم حفظ الوردية بنجاح");
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.shifts = [...demoStore.shifts, newShift];
+          demoStore.notify();
+          toast.success("تم إضافة الوردية الجديدة بنجاح");
+          return true;
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر حفظ الوردية");
+        },
+      });
 
-      try {
-        await createShiftRecord(newShift);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-        toast.success("تم حفظ الوردية بنجاح");
-        return true;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "تعذر حفظ الوردية");
-        throw err;
-      }
+      return result.ok;
     },
-    [isLive, queryClient],
+    [mode, queryClient],
   );
 
   return { addShift };

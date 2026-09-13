@@ -54,9 +54,13 @@ import {
 
 interface PayrollViewProps {
   section?: "payroll" | "loans";
+  initialRunId?: string;
 }
 
-export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" }) => {
+export const PayrollView: React.FC<PayrollViewProps> = ({
+  section = "payroll",
+  initialRunId,
+}) => {
   const {
     payrollRuns,
     payrollDetails,
@@ -78,7 +82,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ section = "payroll" })
   } = useApp();
 
   const [activeTab, setActiveTab] = useState(section === "payroll" ? "runs" : "loans");
-  const [selectedRunId, setSelectedRunId] = useState(payrollRuns[0]?.id || "");
+  const [selectedRunId, setSelectedRunId] = useState(
+    initialRunId || payrollRuns[0]?.id || "",
+  );
   const [selectedPayslipEmployee, setSelectedPayslipEmployee] =
     useState<EmployeePayrollDetail | null>(null);
   const [selectedSettlementForClearance, setSelectedSettlementForClearance] =

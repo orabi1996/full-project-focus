@@ -1,18 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AppProvider } from "../lib/context/AppContext";
-import { AppLayout } from "../components/layout/AppLayout";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { AuthGate } from "../components/auth/AuthGate";
 
 export const Route = createFileRoute("/")({
-  component: Index,
+  component: IndexRoute,
 });
 
-function Index() {
+function IndexRoute() {
   return (
     <AuthGate>
-      <AppProvider>
-        <AppLayout />
-      </AppProvider>
+      <Navigate to="/dashboard" replace />
     </AuthGate>
   );
 }

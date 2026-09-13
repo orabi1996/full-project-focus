@@ -41,19 +41,23 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "../ui/sheet";
+import { useNavigate } from "@tanstack/react-router";
 import { AccountSecurityModal } from "./AccountSecurityModal";
 
 interface AppHeaderProps {
   onOpenCommandPalette?: () => void;
   onToggleMobileMenu?: () => void;
   onSelectTab?: (tabId: string) => void;
+  onNavigate?: (path: string) => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
   onOpenCommandPalette,
   onToggleMobileMenu,
   onSelectTab,
+  onNavigate,
 }) => {
+  const navigate = useNavigate();
   const {
     currentUser,
     currentRole,
@@ -398,7 +402,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             {/* Quick Actions Menu */}
             <div className="space-y-0.5">
               <DropdownMenuItem
-                onClick={() => openEmployeeProfile(currentUser.id)}
+                onClick={() => {
+                  openEmployeeProfile(currentUser.id);
+                  if (onNavigate) {
+                    onNavigate(`/employees/${currentUser.id}`);
+                  } else {
+                    void navigate({ to: "/employees/$employeeId" as any, params: { employeeId: currentUser.id } as any });
+                  }
+                }}
                 className="flex items-center gap-2.5 rounded-xl text-xs font-bold px-3 py-2 cursor-pointer hover:bg-secondary"
               >
                 <User className="h-4 w-4 text-primary" />
@@ -406,7 +417,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               </DropdownMenuItem>
 
               <DropdownMenuItem
-                onClick={() => onSelectTab?.("ess")}
+                onClick={() => {
+                  if (onNavigate) {
+                    onNavigate("/ess");
+                  } else if (onSelectTab) {
+                    onSelectTab("ess");
+                  } else {
+                    void navigate({ to: "/ess" as any });
+                  }
+                }}
                 className="flex items-center gap-2.5 rounded-xl text-xs font-bold px-3 py-2 cursor-pointer hover:bg-secondary"
               >
                 <Smartphone className="h-4 w-4 text-emerald-600" />
@@ -419,7 +438,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               </DropdownMenuItem>
 
               <DropdownMenuItem
-                onClick={() => onSelectTab?.("documents")}
+                onClick={() => {
+                  if (onNavigate) {
+                    onNavigate("/documents");
+                  } else if (onSelectTab) {
+                    onSelectTab("documents");
+                  } else {
+                    void navigate({ to: "/documents" as any });
+                  }
+                }}
                 className="flex items-center gap-2.5 rounded-xl text-xs font-bold px-3 py-2 cursor-pointer hover:bg-secondary"
               >
                 <FileText className="h-4 w-4 text-blue-600" />
@@ -432,7 +459,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               </DropdownMenuItem>
 
               <DropdownMenuItem
-                onClick={() => onSelectTab?.("workflow")}
+                onClick={() => {
+                  if (onNavigate) {
+                    onNavigate("/workflows");
+                  } else if (onSelectTab) {
+                    onSelectTab("workflow");
+                  } else {
+                    void navigate({ to: "/workflows" as any });
+                  }
+                }}
                 className="flex items-center gap-2.5 rounded-xl text-xs font-bold px-3 py-2 cursor-pointer hover:bg-secondary"
               >
                 <Clock className="h-4 w-4 text-amber-600" />

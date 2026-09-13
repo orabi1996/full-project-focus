@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../../lib/context/AppContext";
+import { canAccessModule } from "../../lib/auth/permissions";
+import { MODULE_ROUTE_MAP } from "../../lib/router/legacy-hash";
 import {
   Search,
   Users,
@@ -13,8 +15,12 @@ import {
   FileBarChart,
   Shield,
   Smartphone,
+  Building2,
+  FileText,
+  ShieldCheck,
   CheckCircle2,
-  Plus,
+  Calendar,
+  Layers,
 } from "lucide-react";
 import { Dialog, DialogContent } from "../ui/dialog";
 import { Badge as CommandBadge } from "../ui/badge";
@@ -22,7 +28,7 @@ import { Badge as CommandBadge } from "../ui/badge";
 interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onNavigate: (tabId: string) => void;
+  onNavigate: (routePath: string) => void;
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -30,7 +36,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onOpenChange,
   onNavigate,
 }) => {
-  const { employees, language, t } = useApp();
+  const { employees, currentRole } = useApp();
   const [query, setQuery] = useState("");
 
   // Keyboard shortcut listener (Ctrl+K or Cmd+K)
@@ -53,10 +59,40 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       cat: "الرئيسية",
     },
     {
+      id: "organization",
+      labelAr: "الهيكل التنظيمي والمنشأة والفروع",
+      icon: Building2,
+      cat: "شؤون الموظفين",
+    },
+    {
       id: "employees",
       labelAr: "دليل وسجل الموظفين والملفات 360°",
       icon: Users,
       cat: "شؤون الموظفين",
+    },
+    {
+      id: "documents",
+      labelAr: "مستودع الوثائق والشهادات الرقمية",
+      icon: FileText,
+      cat: "شؤون الموظفين",
+    },
+    {
+      id: "rbac",
+      labelAr: "الصلاحيات والأدوار الأمنية (RBAC)",
+      icon: ShieldCheck,
+      cat: "الأمان والحوكمة",
+    },
+    {
+      id: "workflow",
+      labelAr: "سير الموافقات والاعتمادات الإدارية",
+      icon: CheckCircle2,
+      cat: "الوقت والدوام",
+    },
+    {
+      id: "leaves",
+      labelAr: "أرصدة الإجازات وتقديم طلب إجازة",
+      icon: CalendarDays,
+      cat: "الوقت والدوام",
     },
     {
       id: "attendance",
@@ -65,9 +101,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       cat: "الوقت والدوام",
     },
     {
-      id: "leaves",
-      labelAr: "أرصدة الإجازات وتقديم طلب إجازة",
-      icon: CalendarDays,
+      id: "shifts",
+      labelAr: "جدولة الدوامات ونوبات العمل المرنة",
+      icon: Calendar,
       cat: "الوقت والدوام",
     },
     {
@@ -101,6 +137,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       cat: "استقطاب المواهب",
     },
     {
+      id: "workforce",
+      labelAr: "تخطيط القوى العاملة والميزانيات التقديرية",
+      icon: Layers,
+      cat: "استقطاب المواهب",
+    },
+    {
       id: "assets",
       labelAr: "سجل العهد والأجهزة وسياسات الشركة",
       icon: Package,
@@ -119,6 +161,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       cat: "التكامل والأمان",
     },
     {
+      id: "audit",
+      labelAr: "سجل تدقيق العمليات والمصادقة الأمنية",
+      icon: ShieldCheck,
+      cat: "الأمان والحوكمة",
+    },
+    {
       id: "ess",
       labelAr: "بوابة الخدمة الذاتية للموظف (ESS)",
       icon: Smartphone,
@@ -126,9 +174,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     },
   ];
 
-  const filteredNav = quickNav.filter((item) =>
-    item.labelAr.toLowerCase().includes(query.toLowerCase()),
-  );
+  const filteredNav = quickNav
+    .filter((item) => canAccessModule(currentRole, item.id))
+    .filter((item) => item.labelAr.toLowerCase().includes(query.toLowerCase()));
 
   const filteredEmployees = employees.filter(
     (emp) =>
@@ -167,14 +215,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               </span>
               {filteredNav.map((item) => {
                 const Icon = item.icon;
+                const targetPath = MODULE_ROUTE_MAP[item.id] || `/${item.id}`;
                 return (
                   <button
                     key={item.id}
                     onClick={() => {
-                      onNavigate(item.id);
+                      onNavigate(targetPath);
                       onOpenChange(false);
                     }}
-                    className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 hover:bg-primary/10 hover:text-primary transition-colors text-start"
+                    className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 hover:bg-primary/10 hover:text-primary transition-colors text-start cursor-pointer"
                   >
                     <div className="flex items-center gap-2.5">
                       <Icon className="h-4 w-4 text-muted-foreground" />
@@ -199,10 +248,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 <button
                   key={emp.id}
                   onClick={() => {
-                    onNavigate("employees");
+                    onNavigate(`/employees/${emp.id}`);
                     onOpenChange(false);
                   }}
-                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 hover:bg-primary/10 transition-colors text-start"
+                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 hover:bg-primary/10 transition-colors text-start cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5">
                     <img

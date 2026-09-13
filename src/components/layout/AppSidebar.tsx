@@ -6,9 +6,13 @@ import { Badge } from "../ui/badge";
 import { canAccessModule } from "../../lib/auth/permissions";
 import { AppLogo } from "../common/AppLogo";
 
+import { MODULE_ROUTE_MAP } from "../../lib/router/legacy-hash";
+
 interface AppSidebarProps {
-  currentTab: string;
-  onSelectTab: (tabId: string) => void;
+  currentTab?: string;
+  currentPath?: string;
+  onSelectTab?: (tabId: string) => void;
+  onNavigate?: (path: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
   mobileOpen?: boolean;
@@ -26,13 +30,16 @@ interface NavItemConfig {
 
 export const AppSidebar: React.FC<AppSidebarProps> = ({
   currentTab,
+  currentPath,
   onSelectTab,
+  onNavigate,
   collapsed,
   onToggleCollapse,
   mobileOpen = false,
   onMobileClose,
 }) => {
   const { language, direction, t, requests, attendanceRecords, currentRole } = useApp();
+  const activePath = currentPath || (currentTab ? MODULE_ROUTE_MAP[currentTab] : "/dashboard");
 
   const pendingRequestsCount = requests.filter((r) => r.status === "pending_approval").length;
   const lateAttendanceCount = attendanceRecords.filter((a) => a.status === "late").length;
@@ -260,12 +267,21 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             {group.items
               .filter((item) => canAccessModule(currentRole, item.id))
               .map((item) => {
-                const isActive = currentTab === item.id;
+                const itemRoute = MODULE_ROUTE_MAP[item.id] || `/${item.id}`;
+                const isActive =
+                  activePath === itemRoute ||
+                  (itemRoute !== "/dashboard" && activePath.startsWith(itemRoute)) ||
+                  currentTab === item.id;
+
                 return (
                   <button
                     key={item.id}
                     onClick={() => {
-                      onSelectTab(item.id);
+                      if (onNavigate) {
+                        onNavigate(itemRoute);
+                      } else if (onSelectTab) {
+                        onSelectTab(item.id);
+                      }
                       onMobileClose?.();
                     }}
                     title={collapsed ? item.label : undefined}

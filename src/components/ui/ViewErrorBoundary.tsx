@@ -28,8 +28,9 @@ export class ViewErrorBoundary extends Component<Props, State> {
 
   private handleReset = () => {
     this.setState({ hasError: false, error: null });
-    window.location.hash = "#dashboard";
-    window.location.reload();
+    if (typeof window !== "undefined") {
+      window.location.href = "/dashboard";
+    }
   };
 
   public override render() {

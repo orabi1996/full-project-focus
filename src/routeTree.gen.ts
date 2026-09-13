@@ -10,7 +10,30 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthenticatedAssetsRouteImport } from './routes/_authenticated/assets'
+import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authenticated/attendance'
+import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDocumentsRouteImport } from './routes/_authenticated/documents'
+import { Route as AuthenticatedEssRouteImport } from './routes/_authenticated/ess'
+import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
+import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
+import { Route as AuthenticatedLeavesRouteImport } from './routes/_authenticated/leaves'
+import { Route as AuthenticatedLoansRouteImport } from './routes/_authenticated/loans'
+import { Route as AuthenticatedOrganizationRouteImport } from './routes/_authenticated/organization'
+import { Route as AuthenticatedPerformanceRouteImport } from './routes/_authenticated/performance'
+import { Route as AuthenticatedRbacRouteImport } from './routes/_authenticated/rbac'
+import { Route as AuthenticatedRecruitmentRouteImport } from './routes/_authenticated/recruitment'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedShiftsRouteImport } from './routes/_authenticated/shifts'
+import { Route as AuthenticatedWorkflowsRouteImport } from './routes/_authenticated/workflows'
+import { Route as AuthenticatedWorkforceRouteImport } from './routes/_authenticated/workforce'
+import { Route as AuthenticatedEmployeesIndexRouteImport } from './routes/_authenticated/employees/index'
+import { Route as AuthenticatedEmployeesEmployeeIdRouteImport } from './routes/_authenticated/employees/$employeeId'
+import { Route as AuthenticatedPayrollIndexRouteImport } from './routes/_authenticated/payroll/index'
+import { Route as AuthenticatedPayrollRunIdRouteImport } from './routes/_authenticated/payroll/$runId'
 import { Route as ApiPublicBiometricPunchRouteImport } from './routes/api/public/biometric/punch'
 
 const IndexRoute = IndexRouteImport.update({
@@ -18,11 +41,133 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAssetsRoute = AuthenticatedAssetsRouteImport.update({
+  id: '/assets',
+  path: '/assets',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAttendanceRoute = AuthenticatedAttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAuditRoute = AuthenticatedAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDocumentsRoute = AuthenticatedDocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedEssRoute = AuthenticatedEssRouteImport.update({
+  id: '/ess',
+  path: '/ess',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedExpensesRoute = AuthenticatedExpensesRouteImport.update({
+  id: '/expenses',
+  path: '/expenses',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedIntegrationsRoute =
+  AuthenticatedIntegrationsRouteImport.update({
+    id: '/integrations',
+    path: '/integrations',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedLeavesRoute = AuthenticatedLeavesRouteImport.update({
+  id: '/leaves',
+  path: '/leaves',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedLoansRoute = AuthenticatedLoansRouteImport.update({
+  id: '/loans',
+  path: '/loans',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedOrganizationRoute =
+  AuthenticatedOrganizationRouteImport.update({
+    id: '/organization',
+    path: '/organization',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedPerformanceRoute =
+  AuthenticatedPerformanceRouteImport.update({
+    id: '/performance',
+    path: '/performance',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedRbacRoute = AuthenticatedRbacRouteImport.update({
+  id: '/rbac',
+  path: '/rbac',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedRecruitmentRoute =
+  AuthenticatedRecruitmentRouteImport.update({
+    id: '/recruitment',
+    path: '/recruitment',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedShiftsRoute = AuthenticatedShiftsRouteImport.update({
+  id: '/shifts',
+  path: '/shifts',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedWorkflowsRoute = AuthenticatedWorkflowsRouteImport.update({
+  id: '/workflows',
+  path: '/workflows',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedWorkforceRoute = AuthenticatedWorkforceRouteImport.update({
+  id: '/workforce',
+  path: '/workforce',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedEmployeesIndexRoute =
+  AuthenticatedEmployeesIndexRouteImport.update({
+    id: '/employees/',
+    path: '/employees/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedEmployeesEmployeeIdRoute =
+  AuthenticatedEmployeesEmployeeIdRouteImport.update({
+    id: '/employees/$employeeId',
+    path: '/employees/$employeeId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedPayrollIndexRoute =
+  AuthenticatedPayrollIndexRouteImport.update({
+    id: '/payroll/',
+    path: '/payroll/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedPayrollRunIdRoute =
+  AuthenticatedPayrollRunIdRouteImport.update({
+    id: '/payroll/$runId',
+    path: '/payroll/$runId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiPublicBiometricPunchRoute = ApiPublicBiometricPunchRouteImport.update({
   id: '/api/public/biometric/punch',
   path: '/api/public/biometric/punch',
@@ -32,29 +177,174 @@ const ApiPublicBiometricPunchRoute = ApiPublicBiometricPunchRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/assets': typeof AuthenticatedAssetsRoute
+  '/attendance': typeof AuthenticatedAttendanceRoute
+  '/audit': typeof AuthenticatedAuditRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/documents': typeof AuthenticatedDocumentsRoute
+  '/ess': typeof AuthenticatedEssRoute
+  '/expenses': typeof AuthenticatedExpensesRoute
+  '/integrations': typeof AuthenticatedIntegrationsRoute
+  '/leaves': typeof AuthenticatedLeavesRoute
+  '/loans': typeof AuthenticatedLoansRoute
+  '/organization': typeof AuthenticatedOrganizationRoute
+  '/performance': typeof AuthenticatedPerformanceRoute
+  '/rbac': typeof AuthenticatedRbacRoute
+  '/recruitment': typeof AuthenticatedRecruitmentRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/shifts': typeof AuthenticatedShiftsRoute
+  '/workflows': typeof AuthenticatedWorkflowsRoute
+  '/workforce': typeof AuthenticatedWorkforceRoute
+  '/employees/$employeeId': typeof AuthenticatedEmployeesEmployeeIdRoute
+  '/payroll/$runId': typeof AuthenticatedPayrollRunIdRoute
+  '/employees/': typeof AuthenticatedEmployeesIndexRoute
+  '/payroll/': typeof AuthenticatedPayrollIndexRoute
   '/api/public/biometric/punch': typeof ApiPublicBiometricPunchRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/assets': typeof AuthenticatedAssetsRoute
+  '/attendance': typeof AuthenticatedAttendanceRoute
+  '/audit': typeof AuthenticatedAuditRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/documents': typeof AuthenticatedDocumentsRoute
+  '/ess': typeof AuthenticatedEssRoute
+  '/expenses': typeof AuthenticatedExpensesRoute
+  '/integrations': typeof AuthenticatedIntegrationsRoute
+  '/leaves': typeof AuthenticatedLeavesRoute
+  '/loans': typeof AuthenticatedLoansRoute
+  '/organization': typeof AuthenticatedOrganizationRoute
+  '/performance': typeof AuthenticatedPerformanceRoute
+  '/rbac': typeof AuthenticatedRbacRoute
+  '/recruitment': typeof AuthenticatedRecruitmentRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/shifts': typeof AuthenticatedShiftsRoute
+  '/workflows': typeof AuthenticatedWorkflowsRoute
+  '/workforce': typeof AuthenticatedWorkforceRoute
+  '/employees/$employeeId': typeof AuthenticatedEmployeesEmployeeIdRoute
+  '/payroll/$runId': typeof AuthenticatedPayrollRunIdRoute
+  '/employees': typeof AuthenticatedEmployeesIndexRoute
+  '/payroll': typeof AuthenticatedPayrollIndexRoute
   '/api/public/biometric/punch': typeof ApiPublicBiometricPunchRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authenticated/assets': typeof AuthenticatedAssetsRoute
+  '/_authenticated/attendance': typeof AuthenticatedAttendanceRoute
+  '/_authenticated/audit': typeof AuthenticatedAuditRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/documents': typeof AuthenticatedDocumentsRoute
+  '/_authenticated/ess': typeof AuthenticatedEssRoute
+  '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
+  '/_authenticated/integrations': typeof AuthenticatedIntegrationsRoute
+  '/_authenticated/leaves': typeof AuthenticatedLeavesRoute
+  '/_authenticated/loans': typeof AuthenticatedLoansRoute
+  '/_authenticated/organization': typeof AuthenticatedOrganizationRoute
+  '/_authenticated/performance': typeof AuthenticatedPerformanceRoute
+  '/_authenticated/rbac': typeof AuthenticatedRbacRoute
+  '/_authenticated/recruitment': typeof AuthenticatedRecruitmentRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/_authenticated/shifts': typeof AuthenticatedShiftsRoute
+  '/_authenticated/workflows': typeof AuthenticatedWorkflowsRoute
+  '/_authenticated/workforce': typeof AuthenticatedWorkforceRoute
+  '/_authenticated/employees/$employeeId': typeof AuthenticatedEmployeesEmployeeIdRoute
+  '/_authenticated/payroll/$runId': typeof AuthenticatedPayrollRunIdRoute
+  '/_authenticated/employees/': typeof AuthenticatedEmployeesIndexRoute
+  '/_authenticated/payroll/': typeof AuthenticatedPayrollIndexRoute
   '/api/public/biometric/punch': typeof ApiPublicBiometricPunchRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/api/public/biometric/punch'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/assets'
+    | '/attendance'
+    | '/audit'
+    | '/dashboard'
+    | '/documents'
+    | '/ess'
+    | '/expenses'
+    | '/integrations'
+    | '/leaves'
+    | '/loans'
+    | '/organization'
+    | '/performance'
+    | '/rbac'
+    | '/recruitment'
+    | '/reports'
+    | '/shifts'
+    | '/workflows'
+    | '/workforce'
+    | '/employees/$employeeId'
+    | '/payroll/$runId'
+    | '/employees/'
+    | '/payroll/'
+    | '/api/public/biometric/punch'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/api/public/biometric/punch'
-  id: '__root__' | '/' | '/login' | '/api/public/biometric/punch'
+  to:
+    | '/'
+    | '/login'
+    | '/assets'
+    | '/attendance'
+    | '/audit'
+    | '/dashboard'
+    | '/documents'
+    | '/ess'
+    | '/expenses'
+    | '/integrations'
+    | '/leaves'
+    | '/loans'
+    | '/organization'
+    | '/performance'
+    | '/rbac'
+    | '/recruitment'
+    | '/reports'
+    | '/shifts'
+    | '/workflows'
+    | '/workforce'
+    | '/employees/$employeeId'
+    | '/payroll/$runId'
+    | '/employees'
+    | '/payroll'
+    | '/api/public/biometric/punch'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/login'
+    | '/_authenticated/assets'
+    | '/_authenticated/attendance'
+    | '/_authenticated/audit'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/documents'
+    | '/_authenticated/ess'
+    | '/_authenticated/expenses'
+    | '/_authenticated/integrations'
+    | '/_authenticated/leaves'
+    | '/_authenticated/loans'
+    | '/_authenticated/organization'
+    | '/_authenticated/performance'
+    | '/_authenticated/rbac'
+    | '/_authenticated/recruitment'
+    | '/_authenticated/reports'
+    | '/_authenticated/shifts'
+    | '/_authenticated/workflows'
+    | '/_authenticated/workforce'
+    | '/_authenticated/employees/$employeeId'
+    | '/_authenticated/payroll/$runId'
+    | '/_authenticated/employees/'
+    | '/_authenticated/payroll/'
+    | '/api/public/biometric/punch'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   ApiPublicBiometricPunchRoute: typeof ApiPublicBiometricPunchRoute
 }
@@ -68,12 +358,173 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/assets': {
+      id: '/_authenticated/assets'
+      path: '/assets'
+      fullPath: '/assets'
+      preLoaderRoute: typeof AuthenticatedAssetsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/attendance': {
+      id: '/_authenticated/attendance'
+      path: '/attendance'
+      fullPath: '/attendance'
+      preLoaderRoute: typeof AuthenticatedAttendanceRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/audit': {
+      id: '/_authenticated/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AuthenticatedAuditRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/documents': {
+      id: '/_authenticated/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof AuthenticatedDocumentsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/ess': {
+      id: '/_authenticated/ess'
+      path: '/ess'
+      fullPath: '/ess'
+      preLoaderRoute: typeof AuthenticatedEssRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/expenses': {
+      id: '/_authenticated/expenses'
+      path: '/expenses'
+      fullPath: '/expenses'
+      preLoaderRoute: typeof AuthenticatedExpensesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/integrations': {
+      id: '/_authenticated/integrations'
+      path: '/integrations'
+      fullPath: '/integrations'
+      preLoaderRoute: typeof AuthenticatedIntegrationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/leaves': {
+      id: '/_authenticated/leaves'
+      path: '/leaves'
+      fullPath: '/leaves'
+      preLoaderRoute: typeof AuthenticatedLeavesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/loans': {
+      id: '/_authenticated/loans'
+      path: '/loans'
+      fullPath: '/loans'
+      preLoaderRoute: typeof AuthenticatedLoansRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/organization': {
+      id: '/_authenticated/organization'
+      path: '/organization'
+      fullPath: '/organization'
+      preLoaderRoute: typeof AuthenticatedOrganizationRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/performance': {
+      id: '/_authenticated/performance'
+      path: '/performance'
+      fullPath: '/performance'
+      preLoaderRoute: typeof AuthenticatedPerformanceRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/rbac': {
+      id: '/_authenticated/rbac'
+      path: '/rbac'
+      fullPath: '/rbac'
+      preLoaderRoute: typeof AuthenticatedRbacRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/recruitment': {
+      id: '/_authenticated/recruitment'
+      path: '/recruitment'
+      fullPath: '/recruitment'
+      preLoaderRoute: typeof AuthenticatedRecruitmentRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/shifts': {
+      id: '/_authenticated/shifts'
+      path: '/shifts'
+      fullPath: '/shifts'
+      preLoaderRoute: typeof AuthenticatedShiftsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/workflows': {
+      id: '/_authenticated/workflows'
+      path: '/workflows'
+      fullPath: '/workflows'
+      preLoaderRoute: typeof AuthenticatedWorkflowsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/workforce': {
+      id: '/_authenticated/workforce'
+      path: '/workforce'
+      fullPath: '/workforce'
+      preLoaderRoute: typeof AuthenticatedWorkforceRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/employees/': {
+      id: '/_authenticated/employees/'
+      path: '/employees'
+      fullPath: '/employees/'
+      preLoaderRoute: typeof AuthenticatedEmployeesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/employees/$employeeId': {
+      id: '/_authenticated/employees/$employeeId'
+      path: '/employees/$employeeId'
+      fullPath: '/employees/$employeeId'
+      preLoaderRoute: typeof AuthenticatedEmployeesEmployeeIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/payroll/': {
+      id: '/_authenticated/payroll/'
+      path: '/payroll'
+      fullPath: '/payroll/'
+      preLoaderRoute: typeof AuthenticatedPayrollIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/payroll/$runId': {
+      id: '/_authenticated/payroll/$runId'
+      path: '/payroll/$runId'
+      fullPath: '/payroll/$runId'
+      preLoaderRoute: typeof AuthenticatedPayrollRunIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/api/public/biometric/punch': {
       id: '/api/public/biometric/punch'
@@ -85,8 +536,63 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedRouteChildren {
+  AuthenticatedAssetsRoute: typeof AuthenticatedAssetsRoute
+  AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRoute
+  AuthenticatedAuditRoute: typeof AuthenticatedAuditRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
+  AuthenticatedEssRoute: typeof AuthenticatedEssRoute
+  AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
+  AuthenticatedIntegrationsRoute: typeof AuthenticatedIntegrationsRoute
+  AuthenticatedLeavesRoute: typeof AuthenticatedLeavesRoute
+  AuthenticatedLoansRoute: typeof AuthenticatedLoansRoute
+  AuthenticatedOrganizationRoute: typeof AuthenticatedOrganizationRoute
+  AuthenticatedPerformanceRoute: typeof AuthenticatedPerformanceRoute
+  AuthenticatedRbacRoute: typeof AuthenticatedRbacRoute
+  AuthenticatedRecruitmentRoute: typeof AuthenticatedRecruitmentRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
+  AuthenticatedShiftsRoute: typeof AuthenticatedShiftsRoute
+  AuthenticatedWorkflowsRoute: typeof AuthenticatedWorkflowsRoute
+  AuthenticatedWorkforceRoute: typeof AuthenticatedWorkforceRoute
+  AuthenticatedEmployeesEmployeeIdRoute: typeof AuthenticatedEmployeesEmployeeIdRoute
+  AuthenticatedPayrollRunIdRoute: typeof AuthenticatedPayrollRunIdRoute
+  AuthenticatedEmployeesIndexRoute: typeof AuthenticatedEmployeesIndexRoute
+  AuthenticatedPayrollIndexRoute: typeof AuthenticatedPayrollIndexRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAssetsRoute: AuthenticatedAssetsRoute,
+  AuthenticatedAttendanceRoute: AuthenticatedAttendanceRoute,
+  AuthenticatedAuditRoute: AuthenticatedAuditRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
+  AuthenticatedEssRoute: AuthenticatedEssRoute,
+  AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
+  AuthenticatedIntegrationsRoute: AuthenticatedIntegrationsRoute,
+  AuthenticatedLeavesRoute: AuthenticatedLeavesRoute,
+  AuthenticatedLoansRoute: AuthenticatedLoansRoute,
+  AuthenticatedOrganizationRoute: AuthenticatedOrganizationRoute,
+  AuthenticatedPerformanceRoute: AuthenticatedPerformanceRoute,
+  AuthenticatedRbacRoute: AuthenticatedRbacRoute,
+  AuthenticatedRecruitmentRoute: AuthenticatedRecruitmentRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
+  AuthenticatedShiftsRoute: AuthenticatedShiftsRoute,
+  AuthenticatedWorkflowsRoute: AuthenticatedWorkflowsRoute,
+  AuthenticatedWorkforceRoute: AuthenticatedWorkforceRoute,
+  AuthenticatedEmployeesEmployeeIdRoute: AuthenticatedEmployeesEmployeeIdRoute,
+  AuthenticatedPayrollRunIdRoute: AuthenticatedPayrollRunIdRoute,
+  AuthenticatedEmployeesIndexRoute: AuthenticatedEmployeesIndexRoute,
+  AuthenticatedPayrollIndexRoute: AuthenticatedPayrollIndexRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   ApiPublicBiometricPunchRoute: ApiPublicBiometricPunchRoute,
 }

@@ -474,8 +474,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const openEmployeeProfile = useCallback((employeeOrId: string | Employee) => {
     const id = typeof employeeOrId === "string" ? employeeOrId : employeeOrId.id;
     setActiveEmployeeModalId(id);
-    if (typeof window !== "undefined" && window.location.hash !== "#employees") {
-      window.location.hash = "#employees";
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/employees")) {
+      window.history.pushState(null, "", `/employees/${id}`);
     }
   }, []);
 

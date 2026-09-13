@@ -23,7 +23,7 @@ const modules = [
   ["ess", "الخدمة الذاتية (الموظف)"],
 ] as const;
 
-test("يفتح كل وحدات النظام من القائمة بدون أخطاء JavaScript", async ({ page }) => {
+test("يفتح كل وحدات النظام من القائمة بدون أخطاء JavaScript عبر المسارات النظيفة", async ({ page }) => {
   test.skip(test.info().project.name.includes("mobile"), "يغطيه اختبار الموبايل المختصر");
   const assertNoErrors = failOnPageErrors(page);
   await enterDemo(page);
@@ -34,11 +34,54 @@ test("يفتح كل وحدات النظام من القائمة بدون أخط�
   assertNoErrors();
 });
 
-test("تعمل القائمة على شاشة الجوال", async ({ page }) => {
+test("تعمل القائمة على شاشة الجوال وتتنقل عبر المسارات النظيفة", async ({ page }) => {
   test.skip(!test.info().project.name.includes("mobile"), "خاص بمشروع الموبايل");
   const assertNoErrors = failOnPageErrors(page);
   await enterDemo(page);
   await expect(page.getByTitle("فتح القائمة الرئيسية")).toBeVisible();
   await openModule(page, "دليل وملفات الموظفين", "employees");
+  await expect(page).toHaveURL(/\/employees$/);
+  assertNoErrors();
+});
+
+test("يدعم التنقل المباشر وتحديث الصفحة وأزرار الرجوع والتقدم بالمتصفح", async ({ page }) => {
+  test.skip(test.info().project.name.includes("mobile"), "يغطيه اختبار سطح المكتب");
+  const assertNoErrors = failOnPageErrors(page);
+  await enterDemo(page);
+
+  // Direct URL navigation to /employees
+  await page.goto("/employees");
+  await expect(page).toHaveURL(/\/employees$/);
+  await expect(page.locator("main")).toBeVisible();
+
+  // Browser refresh preserves route
+  await page.reload();
+  await expect(page).toHaveURL(/\/employees$/);
+  await expect(page.locator("main")).toBeVisible();
+
+  // Navigate to attendance
+  await page.goto("/attendance");
+  await expect(page).toHaveURL(/\/attendance$/);
+
+  // Browser Back
+  await page.goBack();
+  await expect(page).toHaveURL(/\/employees$/);
+
+  // Browser Forward
+  await page.goForward();
+  await expect(page).toHaveURL(/\/attendance$/);
+
+  assertNoErrors();
+});
+
+test("يرحل الهاش القديم #employees تلقائياً إلى المسار النظيف /employees", async ({ page }) => {
+  const assertNoErrors = failOnPageErrors(page);
+  await enterDemo(page);
+
+  // Navigate with legacy hash
+  await page.goto("/#employees");
+  await expect(page).toHaveURL(/\/employees$/);
+  await expect(page.locator("main")).toBeVisible();
+
   assertNoErrors();
 });

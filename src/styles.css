@@ -400,3 +400,65 @@
 .classera-table-row:hover {
   background-color: color-mix(in oklab, var(--color-secondary) 35%, transparent);
 }
+
+/* =========================================================
+   Google Material 3 Auth & Login Animations and Utilities
+   ========================================================= */
+
+@keyframes m3-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+@keyframes m3-float-slow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(3deg); }
+}
+
+@keyframes m3-pulse-gentle {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+.animate-m3-shake {
+  animation: m3-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.animate-m3-float {
+  animation: m3-float-slow 8s ease-in-out infinite;
+}
+
+.animate-m3-pulse {
+  animation: m3-pulse-gentle 6s ease-in-out infinite;
+}
+
+/* Material 3 Dynamic Blueprint Grid */
+.m3-login-grid {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(0, 75, 206, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 75, 206, 0.04) 1px, transparent 1px);
+}
+
+.dark .m3-login-grid {
+  background-image: 
+    linear-gradient(to right, rgba(0, 181, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 181, 255, 0.04) 1px, transparent 1px);
+}
+
+/* Material 3 Outlined Input Focus States */
+.m3-input-field {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.m3-input-field:focus-within {
+  box-shadow: 0 0 0 3px rgba(0, 75, 206, 0.15);
+  border-color: #004BCE;
+}
+
+.dark .m3-input-field:focus-within {
+  box-shadow: 0 0 0 3px rgba(0, 181, 255, 0.2);
+  border-color: #00B5FF;
+}
+

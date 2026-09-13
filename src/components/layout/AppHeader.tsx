@@ -24,7 +24,7 @@ import {
 import { useAuth } from "../../lib/auth/AuthContext";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { AppLogo, BrandLogoSwitcher } from "../common/AppLogo";
+import { AppLogo } from "../common/AppLogo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -443,16 +443,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   </span>
                 </div>
               </DropdownMenuItem>
-            </div>
-
-            <DropdownMenuSeparator />
-
-            {/* Brand Logo Options in Dropdown */}
-            <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 space-y-2">
-              <span className="text-[10px] font-black text-muted-foreground block text-start">
-                تفضيل نموذج الهوية والشعار:
-              </span>
-              <BrandLogoSwitcher className="w-full justify-center" />
             </div>
 
             <DropdownMenuSeparator />

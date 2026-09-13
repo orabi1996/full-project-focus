@@ -47,16 +47,7 @@ const STORAGE_KEY = "classera_active_logo_id";
 const EVENT_KEY = "classera-brand-logo-change";
 
 export function getActiveBrandLogoId(): BrandLogoId {
-  if (typeof window === "undefined") return 4;
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved && (saved === "1" || saved === "2" || saved === "3" || saved === "4")) {
-      return Number(saved) as BrandLogoId;
-    }
-  } catch {
-    // fallback if localStorage not accessible
-  }
-  return 4; // Recommended default: Human Capital Synergy
+  return 4; // Standardized Official Single Logo: Human Capital Synergy
 }
 
 export function getActiveBrandLogoPath(): string {
@@ -170,45 +161,4 @@ export const AppLogo: React.FC<AppLogoProps> = ({
  * Interactive Brand Logo Switcher Component
  * Enables live switching between all 4 Classera Pulse designs
  */
-export const BrandLogoSwitcher: React.FC<{ compact?: boolean; className?: string }> = ({
-  compact = false,
-  className = "",
-}) => {
-  const { activeId, setBrandLogo, options } = useActiveBrandLogo();
-
-  return (
-    <div
-      className={`inline-flex items-center gap-1.5 p-1.5 rounded-2xl bg-white/10 dark:bg-card/80 backdrop-blur-md border border-white/20 dark:border-border/80 shadow-lg ${className}`}
-      dir="rtl"
-    >
-      <span className="text-[11px] font-bold text-white/90 dark:text-muted-foreground px-2 hidden sm:inline-block">
-        تصميم الهوية:
-      </span>
-      <div className="flex items-center gap-1">
-        {options.map((opt) => {
-          const isSelected = activeId === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setBrandLogo(opt.id)}
-              className={`relative px-2.5 py-1 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer select-none ${
-                isSelected
-                  ? "bg-gradient-to-r from-[#004BCE] to-[#00B5FF] text-white shadow-md shadow-blue-500/30 ring-1 ring-white/40"
-                  : "text-white/70 dark:text-muted-foreground hover:text-white dark:hover:text-foreground hover:bg-white/15 dark:hover:bg-muted"
-              }`}
-              title={`${opt.titleAr} - ${opt.subtitleAr}`}
-            >
-              <span>{compact ? `نموذج ${opt.id}` : opt.titleAr}</span>
-              {opt.recommended && !compact && (
-                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/30 text-emerald-300 font-mono">
-                  موصى به
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
+export const BrandLogoSwitcher: React.FC<{ compact?: boolean; className?: string }> = () => null;

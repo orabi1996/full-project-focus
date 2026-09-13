@@ -20,7 +20,6 @@ import {
   RefreshCw,
   HelpCircle,
   X,
-  ExternalLink,
   Laptop,
   Briefcase,
   DollarSign,
@@ -31,7 +30,7 @@ import { useAuth } from "../../lib/auth/AuthContext";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { isDemoModeEnabled } from "../../lib/config/runtime-config";
-import { AppLogo, BrandLogoSwitcher, useActiveBrandLogo } from "../common/AppLogo";
+import { AppLogo } from "../common/AppLogo";
 
 // 3 Core Value Props in Google Material 3 Showcase Panel
 const platformFeatures = [
@@ -76,7 +75,7 @@ const DEMO_PERSONAS: DemoPersona[] = [
     nameAr: "خالد المهيري",
     email: "admin@classera-pulse.com",
     avatarLetter: "خ",
-    badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30",
+    badgeColor: "bg-blue-50 text-blue-700 border-blue-200",
     icon: ShieldCheck,
     description: "كامل صلاحيات الإدارة العليا، الإعدادات، والرقابة التنفيذية الشاملة",
   },
@@ -87,7 +86,7 @@ const DEMO_PERSONAS: DemoPersona[] = [
     nameAr: "سارة العتيبي",
     email: "sara.hr@classera-pulse.com",
     avatarLetter: "س",
-    badgeColor: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30",
+    badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200",
     icon: Briefcase,
     description: "إدارة الموظفين، التوظيف، لوائح العمل، مسارات الموافقات، والوثائق",
   },
@@ -98,7 +97,7 @@ const DEMO_PERSONAS: DemoPersona[] = [
     nameAr: "نورة التميمي",
     email: "noura.payroll@classera-pulse.com",
     avatarLetter: "ن",
-    badgeColor: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+    badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
     icon: DollarSign,
     description: "تشغيل مسيرات الرواتب، خصومات البصمة، حماية الأجور WPS، ومكافأة نهاية الخدمة",
   },
@@ -109,7 +108,7 @@ const DEMO_PERSONAS: DemoPersona[] = [
     nameAr: "فيصل بن سلمان",
     email: "manager@classera-pulse.com",
     avatarLetter: "ف",
-    badgeColor: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    badgeColor: "bg-amber-50 text-amber-700 border-amber-200",
     icon: UsersRound,
     description: "اعتماد طلبات الإجازات، تقييم أداء الفريق، وإدارة جداول المناوبات",
   },
@@ -120,7 +119,7 @@ const DEMO_PERSONAS: DemoPersona[] = [
     nameAr: "محمد الغامدي",
     email: "mohammed.ess@classera-pulse.com",
     avatarLetter: "م",
-    badgeColor: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/30",
+    badgeColor: "bg-teal-50 text-teal-700 border-teal-200",
     icon: UserCheck,
     description: "تسجيل الحضور الجغرافي GPS، تقديم طلبات الإجازة، وعرض قسيمة الراتب",
   },
@@ -130,7 +129,6 @@ type AuthTab = "password" | "otp" | "sso";
 
 export function LoginPage() {
   const { session, isDemo, isLoading, signIn, enterDemo } = useAuth();
-  const { activeConfig } = useActiveBrandLogo();
 
   // Authentication mode tabs
   const [activeTab, setActiveTab] = useState<AuthTab>("password");
@@ -184,13 +182,13 @@ export function LoginPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen grid place-items-center bg-background text-foreground" dir="rtl">
+      <div className="min-h-screen grid place-items-center bg-slate-50 text-slate-800" dir="rtl">
         <div className="flex flex-col items-center gap-4">
           <div className="relative flex items-center justify-center">
-            <div className="h-16 w-16 rounded-full border-3 border-primary/20 border-t-primary animate-spin" />
-            <ShieldCheck className="h-7 w-7 text-primary absolute" />
+            <div className="h-16 w-16 rounded-full border-3 border-blue-200 border-t-[#004BCE] animate-spin" />
+            <ShieldCheck className="h-7 w-7 text-[#004BCE] absolute" />
           </div>
-          <p className="text-xs font-bold text-muted-foreground animate-pulse">
+          <p className="text-xs font-bold text-slate-600 animate-pulse">
             جارٍ تجهيز بوابة Classera Pulse الآمنة والموثقة…
           </p>
         </div>
@@ -312,101 +310,104 @@ export function LoginPage() {
   return (
     <main
       dir="rtl"
-      className="min-h-screen bg-slate-50 dark:bg-[#070E1A] text-foreground relative overflow-hidden flex flex-col justify-between p-3 sm:p-5 lg:p-8 select-none transition-colors duration-300"
+      className="min-h-screen bg-gradient-to-br from-slate-50 via-[#F8FAFC] to-blue-50/40 text-slate-800 relative overflow-hidden flex flex-col justify-between p-3 sm:p-5 lg:p-8 select-none transition-colors duration-300"
     >
-      {/* Google Material 3 Blueprint Geometric Grid & Ambient Lighting */}
-      <div className="absolute inset-0 m3-login-grid opacity-70 pointer-events-none" />
+      {/* Google Material 3 Blueprint Geometric Grid & Ambient Air */}
+      <div className="absolute inset-0 m3-login-grid opacity-60 pointer-events-none" />
 
-      {/* Floating Ambient Light Accents (Subtle Material Glows) */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-primary/10 rounded-full blur-[120px] pointer-events-none animate-m3-pulse" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-[#00B5FF]/10 rounded-full blur-[120px] pointer-events-none animate-m3-pulse" />
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-[140px] pointer-events-none" />
+      {/* Subtle Airy Light Glow Accents */}
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-blue-200/20 rounded-full blur-[120px] pointer-events-none animate-m3-pulse" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-sky-200/25 rounded-full blur-[120px] pointer-events-none animate-m3-pulse" />
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-400/5 rounded-full blur-[140px] pointer-events-none" />
 
-      {/* Top Header Bar: Identity, System Status & Brand Switcher */}
+      {/* Top Header Bar: Identity & Certified System Status */}
       <header className="w-full max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 relative z-20 pb-3">
         {/* System Pill Indicator */}
         <div className="flex items-center gap-2">
-          <div className="bg-card/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-border/80 flex items-center gap-2 shadow-xs">
+          <div className="bg-white/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200/90 flex items-center gap-2 shadow-xs">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-black tracking-wide text-foreground">
+            <span className="text-xs font-black tracking-wide text-slate-800">
               منظومة الموارد البشرية المؤسسية
             </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-50 text-[#004BCE] font-bold border border-blue-100">
               Classera Pulse v2026
             </span>
           </div>
         </div>
 
-        {/* Live Brand Switcher & Fast Help */}
+        {/* Security & Verification Header Badge */}
         <div className="flex items-center gap-2">
-          <BrandLogoSwitcher className="border-border/80 bg-card/80 backdrop-blur-md" />
+          <div className="flex items-center gap-1.5 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full border border-slate-200 text-xs font-semibold text-slate-600 shadow-xs">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+            <span>نظام موثق ومعتمد</span>
+          </div>
         </div>
       </header>
 
-      {/* Center Split Stage: Left Showcase / Right Form */}
+      {/* Center Split Stage: Left Showcase / Right Form (All Light & Crisp) */}
       <div
-        className={`w-full max-w-6xl mx-auto rounded-3xl overflow-hidden border border-border/80 bg-card/95 backdrop-blur-2xl shadow-xl shadow-slate-900/5 grid grid-cols-1 lg:grid-cols-12 relative z-10 my-auto transition-all duration-300 ${
+        className={`w-full max-w-6xl mx-auto rounded-3xl overflow-hidden border border-slate-200/90 bg-white/95 backdrop-blur-xl shadow-xl shadow-slate-200/60 grid grid-cols-1 lg:grid-cols-12 relative z-10 my-auto transition-all duration-300 ${
           shakeCard ? "animate-m3-shake" : ""
         }`}
       >
         {/* =========================================================================
-            RIGHT / SHOWCASE PANEL (Desktop 7 Columns, Clean Executive Google M3 Look)
+            RIGHT / SHOWCASE PANEL (Desktop 7 Columns, Crisp, Light Executive Look)
             ========================================================================= */}
-        <div className="hidden lg:flex lg:col-span-7 p-8 sm:p-10 lg:p-12 bg-gradient-to-br from-slate-900 via-[#0A1A36] to-[#040C1A] text-white relative flex-col justify-between overflow-hidden border-b lg:border-b-0 lg:border-e border-white/10">
-          {/* Subtle Ambient Radial Glow */}
-          <div className="absolute top-0 right-0 w-80 h-80 bg-[#00B5FF]/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="hidden lg:flex lg:col-span-7 p-8 sm:p-10 lg:p-12 bg-gradient-to-br from-blue-50/70 via-slate-50/90 to-sky-50/50 text-slate-800 relative flex-col justify-between overflow-hidden border-b lg:border-b-0 lg:border-e border-slate-200/80">
+          {/* Subtle Ambient Glow */}
+          <div className="absolute top-0 right-0 w-80 h-80 bg-blue-200/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-sky-200/25 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Decorative Floating Geometry */}
-          <div className="absolute top-12 left-10 opacity-10 pointer-events-none animate-m3-float">
-            <Building2 className="h-32 w-32" />
+          {/* Decorative Subtle Watermark Geometry */}
+          <div className="absolute top-12 left-10 text-blue-900/5 pointer-events-none animate-m3-float">
+            <Building2 className="h-36 w-36" />
           </div>
 
           <div className="space-y-6 relative z-10">
-            {/* Top Identity Showcase Frame */}
+            {/* Top Identity Frame with Official Single Logo */}
             <div className="flex items-center justify-between">
-              <div className="inline-flex items-center bg-white rounded-2xl p-3.5 shadow-lg shadow-black/20 border border-white/30 transition-transform hover:scale-102">
-                <AppLogo height={40} />
+              <div className="inline-flex items-center bg-white rounded-2xl p-3 shadow-xs border border-slate-200/90 transition-transform hover:scale-102">
+                <AppLogo height={42} />
               </div>
-              <Badge className="bg-white/10 hover:bg-white/15 text-slate-200 border-white/15 rounded-full px-3 py-1 text-xs font-semibold backdrop-blur-md">
-                <CheckCircle2 className="h-3 w-3 text-emerald-400 ms-1" />
+              <Badge className="bg-blue-50 text-blue-700 border-blue-200/80 rounded-full px-3 py-1 text-xs font-semibold">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 ms-1" />
                 المنصة السحابية المعتمدة
               </Badge>
             </div>
 
             {/* Headline and Narrative */}
             <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00B5FF]/15 border border-[#00B5FF]/30 text-xs font-bold text-[#00B5FF]">
-                <ShieldCheck className="h-3.5 w-3.5" />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100/60 border border-blue-200 text-xs font-bold text-[#004BCE]">
+                <ShieldCheck className="h-3.5 w-3.5 text-[#004BCE]" />
                 <span>نظام إدارة رأس المال البشري وحوكمة المنشآت</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-snug">
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-snug">
                 كفاءة تشغيلية متقدمة وحوكمة متكاملة لإدارة الكوادر والمؤسسات
               </h1>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium max-w-xl">
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium max-w-xl">
                 منصة رقمية موحدة تدعم دورة حياة الموظف من الاستقطاب والتوظيف حتى نهاية الخدمة،
                 بما يشمل مسيرات الرواتب وحماية الأجور (WPS)، الحضور والانصراف الجغرافي، وإدارة مسارات الموافقات.
               </p>
             </div>
 
-            {/* 3 Material Value Cards */}
+            {/* 3 Material Value Cards (Pristine Light Cards) */}
             <div className="space-y-2.5 pt-1">
               {platformFeatures.map(({ icon: Icon, title, desc, tag }) => (
                 <div
                   key={title}
-                  className="flex items-start gap-3.5 p-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-all duration-200"
+                  className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-blue-300 hover:shadow-md transition-all duration-200"
                 >
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#004BCE] to-[#00B5FF] flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20 text-white mt-0.5">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#004BCE] to-[#00B5FF] flex items-center justify-center shrink-0 shadow-sm text-white mt-0.5">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="space-y-0.5 flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <h2 className="text-xs sm:text-sm font-bold text-white truncate">{title}</h2>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-slate-300 font-medium shrink-0">
+                      <h2 className="text-xs sm:text-sm font-bold text-slate-900 truncate">{title}</h2>
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium border border-blue-100 shrink-0">
                         {tag}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">{desc}</p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">{desc}</p>
                   </div>
                 </div>
               ))}
@@ -414,9 +415,9 @@ export function LoginPage() {
           </div>
 
           {/* Compliance & Legal Disclaimer (Required by Security Contract Test) */}
-          <div className="relative z-10 pt-6 mt-4 border-t border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[11px] text-slate-400">
+          <div className="relative z-10 pt-6 mt-4 border-t border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[11px] text-slate-500">
             <span>مصمم لدعم متطلبات الموارد البشرية، وتخضع إعدادات الامتثال لاعتماد المنشأة</span>
-            <span className="font-mono font-bold text-[#00B5FF] text-xs shrink-0">
+            <span className="font-mono font-bold text-[#004BCE] text-xs shrink-0">
               Classera Pulse Enterprise
             </span>
           </div>
@@ -425,16 +426,16 @@ export function LoginPage() {
         {/* =========================================================================
             LEFT / FORM PANEL (Desktop 5 Columns, Google Material 3 Form & Personas)
             ========================================================================= */}
-        <div className="lg:col-span-5 p-6 sm:p-8 lg:p-10 flex flex-col justify-between bg-card text-foreground relative">
+        <div className="lg:col-span-5 p-6 sm:p-8 lg:p-10 flex flex-col justify-between bg-white text-slate-900 relative">
           <div className="w-full max-w-md mx-auto space-y-5">
             {/* Header / Intro */}
             <div className="space-y-2">
               {/* Responsive Logo on Mobile Only */}
               <div className="lg:hidden flex items-center justify-between mb-2">
-                <div className="bg-white rounded-2xl px-3 py-1.5 border border-border/80 shadow-xs inline-flex">
-                  <AppLogo height={32} />
+                <div className="bg-white rounded-2xl px-3 py-1.5 border border-slate-200 shadow-xs inline-flex">
+                  <AppLogo height={34} />
                 </div>
-                <Badge variant="outline" className="text-[10px] rounded-full">
+                <Badge variant="outline" className="text-[10px] rounded-full border-slate-200">
                   بوابة الموظف الموحدة
                 </Badge>
               </div>
@@ -442,27 +443,27 @@ export function LoginPage() {
               <div className="flex items-center justify-between">
                 <Badge
                   variant="secondary"
-                  className="rounded-full px-3 py-1 font-bold text-xs gap-1.5 bg-primary/10 text-primary border-primary/20"
+                  className="rounded-full px-3 py-1 font-bold text-xs gap-1.5 bg-blue-50 text-[#004BCE] border-blue-200"
                 >
-                  <LockKeyhole className="h-3.5 w-3.5 text-primary" />
+                  <LockKeyhole className="h-3.5 w-3.5 text-[#004BCE]" />
                   تسجيل الدخول الموحد الآمن
                 </Badge>
-                <div className="flex items-center gap-1 text-[11px] text-muted-foreground font-semibold">
+                <div className="flex items-center gap-1 text-[11px] text-slate-500 font-semibold">
                   <Shield className="h-3.5 w-3.5 text-emerald-600" />
                   <span>تشفير 256-Bit</span>
                 </div>
               </div>
 
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
                 مرحباً بك في المنظومة 👋
               </h2>
-              <p className="text-xs text-muted-foreground font-medium">
+              <p className="text-xs text-slate-500 font-medium">
                 أدخل بيانات اعتماد حسابك المؤسسي للمتابعة إلى لوحة التحكم
               </p>
             </div>
 
             {/* Google Material 3 Segmented Mode Switcher */}
-            <div className="p-1 rounded-2xl bg-muted/60 border border-border/70 grid grid-cols-3 gap-1">
+            <div className="p-1 rounded-2xl bg-slate-100/90 border border-slate-200/80 grid grid-cols-3 gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -471,8 +472,8 @@ export function LoginPage() {
                 }}
                 className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   activeTab === "password"
-                    ? "bg-card text-foreground shadow-xs border border-border/80 font-black"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-white text-[#004BCE] shadow-xs border border-slate-200 font-black"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <Mail className="h-3.5 w-3.5" />
@@ -487,8 +488,8 @@ export function LoginPage() {
                 }}
                 className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   activeTab === "otp"
-                    ? "bg-card text-foreground shadow-xs border border-border/80 font-black"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-white text-[#004BCE] shadow-xs border border-slate-200 font-black"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <Smartphone className="h-3.5 w-3.5" />
@@ -503,8 +504,8 @@ export function LoginPage() {
                 }}
                 className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   activeTab === "sso"
-                    ? "bg-card text-foreground shadow-xs border border-border/80 font-black"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-white text-[#004BCE] shadow-xs border border-slate-200 font-black"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <Fingerprint className="h-3.5 w-3.5" />
@@ -514,8 +515,8 @@ export function LoginPage() {
 
             {/* Error Banner */}
             {error && (
-              <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive font-bold flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 font-bold flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />
                 <span>{error}</span>
               </div>
             )}
@@ -527,11 +528,11 @@ export function LoginPage() {
               <form onSubmit={handleSubmit} className="space-y-3.5">
                 {/* Email Field with Google Material 3 Outlined Style */}
                 <div className="space-y-1.5">
-                  <label htmlFor="work-email" className="text-xs font-bold text-foreground block">
+                  <label htmlFor="work-email" className="text-xs font-bold text-slate-800 block">
                     البريد الإلكتروني الوظيفي *
                   </label>
-                  <div className="relative m3-input-field rounded-2xl border border-border/90 bg-muted/30 focus-within:bg-card">
-                    <div className="absolute right-3.5 top-3 text-muted-foreground pointer-events-none">
+                  <div className="relative m3-input-field rounded-2xl border border-slate-200 bg-slate-50/60 focus-within:bg-white focus-within:border-[#004BCE]">
+                    <div className="absolute right-3.5 top-3 text-slate-400 pointer-events-none">
                       <Mail className="h-4 w-4" />
                     </div>
                     <input
@@ -542,7 +543,7 @@ export function LoginPage() {
                       placeholder="admin@classera-pulse.com"
                       required
                       autoFocus
-                      className="w-full h-11 pr-10 pl-4 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-foreground placeholder:text-muted-foreground/60"
+                      className="w-full h-11 pr-10 pl-4 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-slate-900 placeholder:text-slate-400"
                     />
                   </div>
                 </div>
@@ -550,19 +551,19 @@ export function LoginPage() {
                 {/* Password Field with Caps Lock Detector */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label htmlFor="login-password" className="text-xs font-bold text-foreground block">
+                    <label htmlFor="login-password" className="text-xs font-bold text-slate-800 block">
                       كلمة المرور *
                     </label>
                     <button
                       type="button"
                       onClick={() => setForgotPasswordOpen(true)}
-                      className="text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                      className="text-[11px] font-bold text-[#004BCE] hover:underline cursor-pointer"
                     >
                       نسيت كلمة المرور؟
                     </button>
                   </div>
-                  <div className="relative m3-input-field rounded-2xl border border-border/90 bg-muted/30 focus-within:bg-card">
-                    <div className="absolute right-3.5 top-3 text-muted-foreground pointer-events-none">
+                  <div className="relative m3-input-field rounded-2xl border border-slate-200 bg-slate-50/60 focus-within:bg-white focus-within:border-[#004BCE]">
+                    <div className="absolute right-3.5 top-3 text-slate-400 pointer-events-none">
                       <LockKeyhole className="h-4 w-4" />
                     </div>
                     <input
@@ -574,12 +575,12 @@ export function LoginPage() {
                       onKeyUp={handleKeyModifier}
                       placeholder="••••••••"
                       required
-                      className="w-full h-11 pr-10 pl-11 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-foreground placeholder:text-muted-foreground/60"
+                      className="w-full h-11 pr-10 pl-11 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-slate-900 placeholder:text-slate-400"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute left-3 top-3 text-muted-foreground hover:text-foreground p-0.5 rounded-lg transition-colors cursor-pointer"
+                      className="absolute left-3 top-3 text-slate-400 hover:text-slate-700 p-0.5 rounded-lg transition-colors cursor-pointer"
                       title={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
                       aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
                     >
@@ -589,8 +590,8 @@ export function LoginPage() {
 
                   {/* Caps Lock Alert Chip */}
                   {isCapsLockOn && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 px-2.5 py-1 rounded-xl border border-amber-500/20">
-                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                    <div className="flex items-center gap-1.5 text-[11px] text-amber-700 font-bold bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                       <span>زر الحروف الكبيرة (Caps Lock) مفعل</span>
                     </div>
                   )}
@@ -598,12 +599,12 @@ export function LoginPage() {
 
                 {/* Remember Me Checkbox */}
                 <div className="flex items-center justify-between pt-0.5">
-                  <label className="flex items-center gap-2 cursor-pointer text-xs text-muted-foreground font-semibold select-none">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-600 font-semibold select-none">
                     <input
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="h-4 w-4 rounded-md border-border text-primary focus:ring-primary/40 cursor-pointer accent-primary"
+                      className="h-4 w-4 rounded-md border-slate-300 text-[#004BCE] focus:ring-[#004BCE]/40 cursor-pointer accent-[#004BCE]"
                     />
                     <span>تذكر بيانات الدخول على هذا الجهاز</span>
                   </label>
@@ -614,7 +615,7 @@ export function LoginPage() {
                   type="submit"
                   disabled={isSubmitting}
                   aria-label="تسجيل الدخول"
-                  className="w-full h-11.5 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-[#004BCE] via-[#0066E0] to-[#00B5FF] hover:opacity-95 shadow-md shadow-blue-600/25 transition-all gap-2 mt-1 cursor-pointer"
+                  className="w-full h-11.5 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-[#004BCE] via-[#005AD8] to-[#00B5FF] hover:opacity-95 shadow-md shadow-blue-600/25 transition-all gap-2 mt-1 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>
@@ -639,11 +640,11 @@ export function LoginPage() {
                 {!otpSent ? (
                   <form onSubmit={handleSendOtp} className="space-y-3.5">
                     <div className="space-y-1.5">
-                      <label htmlFor="national-id" className="text-xs font-bold text-foreground block">
+                      <label htmlFor="national-id" className="text-xs font-bold text-slate-800 block">
                         رقم الهوية الوطنية أو الإقامة *
                       </label>
-                      <div className="relative m3-input-field rounded-2xl border border-border/90 bg-muted/30 focus-within:bg-card">
-                        <div className="absolute right-3.5 top-3 text-muted-foreground pointer-events-none">
+                      <div className="relative m3-input-field rounded-2xl border border-slate-200 bg-slate-50/60 focus-within:bg-white focus-within:border-[#004BCE]">
+                        <div className="absolute right-3.5 top-3 text-slate-400 pointer-events-none">
                           <Smartphone className="h-4 w-4" />
                         </div>
                         <input
@@ -655,10 +656,10 @@ export function LoginPage() {
                           placeholder="10XXXXXXXX / 20XXXXXXXX"
                           required
                           autoFocus
-                          className="w-full h-11 pr-10 pl-4 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-foreground placeholder:text-muted-foreground/60 font-mono"
+                          className="w-full h-11 pr-10 pl-4 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-slate-900 placeholder:text-slate-400 font-mono"
                         />
                       </div>
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-[10px] text-slate-500">
                         سيتم إرسال رمز تحقق لمرة واحدة (OTP) إلى الهاتف المسجل في النفاذ الوطني
                       </p>
                     </div>
@@ -674,11 +675,11 @@ export function LoginPage() {
                 ) : (
                   <form onSubmit={handleVerifyOtp} className="space-y-4">
                     <div className="space-y-2 text-center">
-                      <div className="text-xs font-bold text-foreground">
+                      <div className="text-xs font-bold text-slate-800">
                         أدخل رمز التحقق المكون من 6 أرقام
                       </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        تم إرسال الرمز للهوية: <span className="font-mono font-bold text-foreground">{nationalId}</span>
+                      <p className="text-[11px] text-slate-500">
+                        تم إرسال الرمز للهوية: <span className="font-mono font-bold text-slate-900">{nationalId}</span>
                       </p>
                     </div>
 
@@ -700,7 +701,7 @@ export function LoginPage() {
                               otpInputsRef.current[idx - 1]?.focus();
                             }
                           }}
-                          className="h-11 w-11 rounded-xl border border-border/90 bg-muted/40 text-center font-mono font-black text-base focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary text-foreground shadow-xs"
+                          className="h-11 w-11 rounded-xl border border-slate-200 bg-slate-50 text-center font-mono font-black text-base focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#004BCE]/40 focus:border-[#004BCE] text-slate-900 shadow-xs"
                         />
                       ))}
                     </div>
@@ -712,7 +713,7 @@ export function LoginPage() {
                           setOtpSent(false);
                           setOtpCode(["", "", "", "", "", ""]);
                         }}
-                        className="text-muted-foreground hover:text-foreground underline cursor-pointer"
+                        className="text-slate-500 hover:text-slate-800 underline cursor-pointer"
                       >
                         تغيير رقم الهوية
                       </button>
@@ -725,8 +726,8 @@ export function LoginPage() {
                         }}
                         className={`font-bold flex items-center gap-1 ${
                           otpCountdown > 0
-                            ? "text-muted-foreground cursor-not-allowed"
-                            : "text-primary hover:underline cursor-pointer"
+                            ? "text-slate-400 cursor-not-allowed"
+                            : "text-[#004BCE] hover:underline cursor-pointer"
                         }`}
                       >
                         <RefreshCw className="h-3 w-3" />
@@ -763,12 +764,12 @@ export function LoginPage() {
                 ================================================================= */}
             {activeTab === "sso" && (
               <div className="space-y-4 text-center py-2">
-                <div className="h-14 w-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center">
+                <div className="h-14 w-14 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 mx-auto flex items-center justify-center">
                   <Fingerprint className="h-7 w-7" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-sm font-black text-foreground">بوابة النفاذ الوطني الموحد (نفاذ)</h3>
-                  <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
+                  <h3 className="text-sm font-black text-slate-900">بوابة النفاذ الوطني الموحد (نفاذ)</h3>
+                  <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
                     تسجيل الدخول المباشر المعتمد عبر تطبيق نفاذ لتوثيق الهوية الوطنية الرقمية
                   </p>
                 </div>
@@ -787,23 +788,23 @@ export function LoginPage() {
                 DEMO MODE PERSONAS QUICK SELECTOR (Interactive Material Chips)
                 ================================================================= */}
             {demoEnabled && (
-              <div className="pt-3 border-t border-border/70 space-y-2.5">
+              <div className="pt-3 border-t border-slate-200 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-black text-muted-foreground flex items-center gap-1.5">
-                    <Laptop className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-[11px] font-black text-slate-600 flex items-center gap-1.5">
+                    <Laptop className="h-3.5 w-3.5 text-[#004BCE]" />
                     <span>تجربة الأدوار الفورية (Persona Demo):</span>
                   </span>
                   <button
                     type="button"
                     onClick={() => handleDirectDemoLaunch()}
-                    className="text-[11px] font-bold text-primary hover:underline cursor-pointer flex items-center gap-1"
+                    className="text-[11px] font-bold text-[#004BCE] hover:underline cursor-pointer flex items-center gap-1"
                   >
                     <span>دخول سريع</span>
                     <ArrowRight className="h-3 w-3 rotate-180" />
                   </button>
                 </div>
 
-                {/* Personas Chips Grid */}
+                {/* Personas Chips Grid (Pristine Light Style) */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                   {DEMO_PERSONAS.map((persona) => {
                     const isSelected = selectedPersona?.id === persona.id;
@@ -816,28 +817,28 @@ export function LoginPage() {
                         onClick={() => handleSelectPersona(persona)}
                         className={`p-2 rounded-xl text-start border transition-all cursor-pointer flex flex-col justify-between ${
                           isSelected
-                            ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
-                            : "border-border/80 bg-muted/30 hover:bg-muted/60 hover:border-border"
+                            ? "border-[#004BCE] bg-blue-50/80 shadow-xs ring-1 ring-[#004BCE]/40"
+                            : "border-slate-200 bg-slate-50/60 hover:bg-white hover:border-slate-300"
                         }`}
                       >
                         <div className="flex items-center justify-between w-full mb-1">
                           <span
                             className={`h-6 w-6 rounded-lg flex items-center justify-center text-[11px] font-black ${
                               isSelected
-                                ? "bg-primary text-white"
-                                : "bg-card border border-border/80 text-foreground"
+                                ? "bg-[#004BCE] text-white"
+                                : "bg-white border border-slate-200 text-slate-700"
                             }`}
                           >
                             <Icon className="h-3.5 w-3.5" />
                           </span>
-                          <span className="text-[9px] font-bold text-muted-foreground font-mono">
+                          <span className="text-[9px] font-bold text-slate-500 font-mono">
                             {persona.roleCode}
                           </span>
                         </div>
-                        <div className="text-[11px] font-bold text-foreground truncate">
+                        <div className="text-[11px] font-bold text-slate-900 truncate">
                           {persona.nameAr}
                         </div>
-                        <div className="text-[10px] text-muted-foreground truncate">
+                        <div className="text-[10px] text-slate-500 truncate">
                           {persona.roleTitleAr}
                         </div>
                       </button>
@@ -849,9 +850,9 @@ export function LoginPage() {
                 <Button
                   variant="outline"
                   onClick={() => handleDirectDemoLaunch(selectedPersona || undefined)}
-                  className="w-full h-10 rounded-2xl font-bold text-xs border-primary/30 bg-primary/5 text-primary hover:bg-primary/15 shadow-xs cursor-pointer transition-all gap-2"
+                  className="w-full h-10 rounded-2xl font-bold text-xs border-blue-200 bg-blue-50/50 text-[#004BCE] hover:bg-blue-100/60 shadow-xs cursor-pointer transition-all gap-2"
                 >
-                  <KeyRound className="h-3.5 w-3.5 text-primary" />
+                  <KeyRound className="h-3.5 w-3.5 text-[#004BCE]" />
                   <span>
                     الدخول المباشر إلى النسخة التجريبية {selectedPersona ? `(${selectedPersona.roleTitleAr})` : "(Demo Mode)"}
                   </span>
@@ -860,7 +861,7 @@ export function LoginPage() {
             )}
 
             {/* Bottom Security Assurance */}
-            <div className="pt-1 text-center text-[10px] text-muted-foreground font-medium flex items-center justify-center gap-1.5">
+            <div className="pt-1 text-center text-[10px] text-slate-500 font-medium flex items-center justify-center gap-1.5">
               <Shield className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
               <span>اتصال آمن ومشفر بالكامل وفق أعلى معايير الحماية المؤسسية</span>
             </div>
@@ -869,9 +870,9 @@ export function LoginPage() {
       </div>
 
       {/* Footer Note */}
-      <footer className="w-full max-w-6xl mx-auto text-center py-2 text-[11px] text-muted-foreground relative z-10 flex flex-col sm:flex-row items-center justify-between gap-1">
+      <footer className="w-full max-w-6xl mx-auto text-center py-2 text-[11px] text-slate-500 relative z-10 flex flex-col sm:flex-row items-center justify-between gap-1">
         <span>جميع الحقوق محفوظة © {new Date().getFullYear()} Classera Pulse — Human Capital Management System</span>
-        <span className="text-[10px] text-muted-foreground/70">
+        <span className="text-[10px] text-slate-400">
           بوابة معتمدة لإدارة رأس المال البشري وحماية الأجور
         </span>
       </footer>
@@ -880,33 +881,33 @@ export function LoginPage() {
           FORGOT PASSWORD MODAL (Google Material 3 Dialog Style)
           ========================================================================= */}
       {forgotPasswordOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-card rounded-3xl border border-border shadow-2xl p-6 relative space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 relative space-y-4">
             <button
               type="button"
               onClick={() => setForgotPasswordOpen(false)}
-              className="absolute left-4 top-4 p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              className="absolute left-4 top-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <div className="h-11 w-11 rounded-2xl bg-blue-50 text-[#004BCE] flex items-center justify-center shrink-0 border border-blue-100">
                 <HelpCircle className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="text-base font-black text-foreground">استعادة كلمة المرور</h3>
-                <p className="text-xs text-muted-foreground">أدخل بريدك الوظيفي المعتمد لاستلام رابط الاستعادة</p>
+                <h3 className="text-base font-black text-slate-900">استعادة كلمة المرور</h3>
+                <p className="text-xs text-slate-500">أدخل بريدك الوظيفي المعتمد لاستلام رابط الاستعادة</p>
               </div>
             </div>
 
             <form onSubmit={handleForgotPasswordSubmit} className="space-y-3.5 pt-1">
               <div className="space-y-1.5">
-                <label htmlFor="forgot-email" className="text-xs font-bold text-foreground block">
+                <label htmlFor="forgot-email" className="text-xs font-bold text-slate-800 block">
                   البريد الإلكتروني الوظيفي *
                 </label>
-                <div className="relative m3-input-field rounded-2xl border border-border bg-muted/40">
-                  <div className="absolute right-3.5 top-3 text-muted-foreground pointer-events-none">
+                <div className="relative m3-input-field rounded-2xl border border-slate-200 bg-slate-50">
+                  <div className="absolute right-3.5 top-3 text-slate-400 pointer-events-none">
                     <Mail className="h-4 w-4" />
                   </div>
                   <input
@@ -917,7 +918,7 @@ export function LoginPage() {
                     placeholder="user@classera-pulse.com"
                     required
                     autoFocus
-                    className="w-full h-11 pr-10 pl-4 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-foreground placeholder:text-muted-foreground/60"
+                    className="w-full h-11 pr-10 pl-4 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-slate-900 placeholder:text-slate-400"
                   />
                 </div>
               </div>
@@ -927,14 +928,14 @@ export function LoginPage() {
                   type="button"
                   variant="outline"
                   onClick={() => setForgotPasswordOpen(false)}
-                  className="rounded-xl text-xs h-10 px-4 cursor-pointer"
+                  className="rounded-xl text-xs h-10 px-4 cursor-pointer border-slate-200"
                 >
                   إلغاء
                 </Button>
                 <Button
                   type="submit"
                   disabled={forgotLoading}
-                  className="rounded-xl text-xs h-10 px-5 bg-primary text-white hover:bg-primary/90 cursor-pointer gap-2"
+                  className="rounded-xl text-xs h-10 px-5 bg-[#004BCE] text-white hover:bg-[#003EB0] cursor-pointer gap-2 shadow-sm"
                 >
                   {forgotLoading ? (
                     <>

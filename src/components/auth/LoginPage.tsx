@@ -16,7 +16,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   Smartphone,
-  Fingerprint,
   RefreshCw,
   HelpCircle,
   X,
@@ -24,6 +23,7 @@ import {
   Briefcase,
   DollarSign,
   UserCheck,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../lib/auth/AuthContext";
@@ -54,7 +54,7 @@ const platformFeatures = [
   },
 ];
 
-// Quick Demo Personas for One-Click Experience
+// Quick Demo Personas for One-Click Experience (Only available in Dev/Demo environments)
 interface DemoPersona {
   id: string;
   roleTitleAr: string;
@@ -125,10 +125,25 @@ const DEMO_PERSONAS: DemoPersona[] = [
   },
 ];
 
-type AuthTab = "password" | "otp" | "sso";
+type AuthTab = "password" | "otp";
+
+const OTP_COOLDOWN_STORAGE_KEY = "hrms_auth_otp_cooldown";
 
 export function LoginPage() {
-  const { session, isDemo, isLoading, signIn, enterDemo } = useAuth();
+  const {
+    session,
+    isDemo,
+    isLoading,
+    isRecoveryMode,
+    sessionExpired,
+    signIn,
+    sendOtp,
+    verifyOtp,
+    requestPasswordReset,
+    updatePassword,
+    dismissSessionExpired,
+    enterDemo,
+  } = useAuth();
 
   // Authentication mode tabs
   const [activeTab, setActiveTab] = useState<AuthTab>("password");
@@ -143,11 +158,11 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [shakeCard, setShakeCard] = useState(false);
 
-  // OTP Login states
-  const [nationalId, setNationalId] = useState("");
+  // Real OTP Login states
+  const [otpEmail, setOtpEmail] = useState("");
   const [otpCode, setOtpCode] = useState(["", "", "", "", "", ""]);
   const [otpSent, setOtpSent] = useState(false);
-  const [otpCountdown, setOtpCountdown] = useState(60);
+  const [otpCountdown, setOtpCountdown] = useState(0);
   const otpInputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   // Forgot Password modal state
@@ -155,7 +170,13 @@ export function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
 
-  // Active Demo Persona Selected
+  // Account Recovery (Set New Password) state
+  const [recoveryPassword, setRecoveryPassword] = useState("");
+  const [recoveryConfirmPassword, setRecoveryConfirmPassword] = useState("");
+  const [showRecoveryPassword, setShowRecoveryPassword] = useState(false);
+  const [recoverySubmitting, setRecoverySubmitting] = useState(false);
+
+  // Active Demo Persona Selected (Dev Only)
   const [selectedPersona, setSelectedPersona] = useState<DemoPersona | null>(null);
 
   // Check demo mode enablement (Contract requirement: reference VITE_ENABLE_DEMO_MODE)
@@ -164,14 +185,52 @@ export function LoginPage() {
     import.meta.env.PROD,
   );
 
-  // OTP Countdown timer
+  // Handle session expiration notification
+  useEffect(() => {
+    if (sessionExpired) {
+      toast.error("انتهت صلاحية الجلسة الموثقة. يرجى تسجيل الدخول مجدداً للمتابعة بأمان.");
+      dismissSessionExpired();
+    }
+  }, [sessionExpired, dismissSessionExpired]);
+
+  // Restore OTP Resend Countdown from sessionStorage (Resend Throttling)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const savedExpiry = sessionStorage.getItem(OTP_COOLDOWN_STORAGE_KEY);
+      if (savedExpiry) {
+        const remaining = Math.ceil((Number(savedExpiry) - Date.now()) / 1000);
+        if (remaining > 0) {
+          setOtpCountdown(remaining);
+        } else {
+          sessionStorage.removeItem(OTP_COOLDOWN_STORAGE_KEY);
+        }
+      }
+    } catch {
+      // ignore storage error
+    }
+  }, []);
+
+  // OTP Countdown timer tick
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (otpSent && otpCountdown > 0) {
-      timer = setInterval(() => setOtpCountdown((c) => c - 1), 1000);
+    if (otpCountdown > 0) {
+      timer = setInterval(() => {
+        setOtpCountdown((prev) => {
+          if (prev <= 1) {
+            try {
+              sessionStorage.removeItem(OTP_COOLDOWN_STORAGE_KEY);
+            } catch {
+              // ignore
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     }
     return () => clearInterval(timer);
-  }, [otpSent, otpCountdown]);
+  }, [otpCountdown]);
 
   // Handle Caps Lock detection
   const handleKeyModifier = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -204,7 +263,7 @@ export function LoginPage() {
     setTimeout(() => setShakeCard(false), 500);
   };
 
-  // Submit Password Form
+  // Submit Password Form (Real Supabase Auth)
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
@@ -232,17 +291,39 @@ export function LoginPage() {
     setIsSubmitting(false);
   };
 
-  // Handle OTP Send
-  const handleSendOtp = (e: FormEvent) => {
+  // Real Supabase OTP Request (with Resend Throttling)
+  const handleSendOtp = async (e: FormEvent) => {
     e.preventDefault();
-    if (!nationalId.trim() || nationalId.length < 10) {
-      triggerError("يرجى إدخال رقم الهوية الوطنية أو الإقامة بشكل صحيح (10 أرقام)");
+    if (!otpEmail.trim()) {
+      triggerError("يرجى إدخال البريد الإلكتروني الوظيفي لاستلام رمز التحقق");
       return;
     }
+
+    if (otpCountdown > 0) {
+      toast.info(`يرجى الانتظار ${otpCountdown} ثانية قبل إعادة طلب رمز التحقق`);
+      return;
+    }
+
     setError("");
-    setOtpSent(true);
-    setOtpCountdown(60);
-    toast.success("تم إرسال رمز التحقق المؤقت (OTP) إلى هاتفك المعتمد في منصة أبشر");
+    setIsSubmitting(true);
+
+    const result = await sendOtp(otpEmail.trim());
+
+    if (result.error) {
+      triggerError(result.error);
+    } else {
+      setOtpSent(true);
+      const cooldownSecs = 60;
+      setOtpCountdown(cooldownSecs);
+      try {
+        sessionStorage.setItem(OTP_COOLDOWN_STORAGE_KEY, String(Date.now() + cooldownSecs * 1000));
+      } catch {
+        // ignore
+      }
+      toast.success("تم إرسال رمز التحقق المؤقت (OTP) بنجاح إلى بريدك الوظيفي. يرجى مراجعة صندوق الوارد.");
+    }
+
+    setIsSubmitting(false);
   };
 
   // Handle OTP Digit Input
@@ -257,24 +338,33 @@ export function LoginPage() {
     }
   };
 
-  // Handle OTP Verification
-  const handleVerifyOtp = (e: FormEvent) => {
+  // Real Supabase OTP Verification (NEVER calls enterDemo())
+  const handleVerifyOtp = async (e: FormEvent) => {
     e.preventDefault();
     const fullCode = otpCode.join("");
     if (fullCode.length < 6) {
       triggerError("يرجى إدخال رمز التحقق كاملاً المكون من 6 أرقام");
       return;
     }
+
+    setError("");
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      enterDemo();
-      toast.success("تم التحقق من الهوية بنجاح، مرحباً بك في المنظومة");
-    }, 900);
+
+    const result = await verifyOtp(otpEmail.trim(), fullCode);
+
+    if (result.error) {
+      triggerError(result.error);
+    } else {
+      toast.success("تم تأكيد الرمز وتوثيق الجلسة بنجاح");
+      // Session is established in Supabase. TanStack Router automatically routes to /
+    }
+
+    setIsSubmitting(false);
   };
 
-  // Quick Persona Select
+  // Quick Persona Select (Dev / Demo Mode Only)
   const handleSelectPersona = (persona: DemoPersona) => {
+    if (!demoEnabled) return;
     setSelectedPersona(persona);
     setEmail(persona.email);
     setPassword("Demo@2026");
@@ -282,8 +372,12 @@ export function LoginPage() {
     toast.info(`تم تعيين بيانات تجربة: ${persona.roleTitleAr} (${persona.nameAr})`);
   };
 
-  // Quick Direct Demo Launch
+  // Direct Demo Launch (Dev / Demo Mode Only - Blocked in Production)
   const handleDirectDemoLaunch = (persona?: DemoPersona) => {
+    if (!demoEnabled || import.meta.env.PROD) {
+      toast.error("الوضع التجريبي معطل في بيئة الإنتاج");
+      return;
+    }
     if (persona) {
       setSelectedPersona(persona);
     }
@@ -291,20 +385,50 @@ export function LoginPage() {
     toast.success(`تم الدخول المباشر إلى بيئة الاستعراض التجريبية`);
   };
 
-  // Submit Forgot Password
-  const handleForgotPasswordSubmit = (e: FormEvent) => {
+  // Real Supabase Password Reset Request
+  const handleForgotPasswordSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!forgotEmail.trim()) {
       toast.error("يرجى إدخال البريد الإلكتروني الوظيفي");
       return;
     }
+
     setForgotLoading(true);
-    setTimeout(() => {
-      setForgotLoading(false);
+    const result = await requestPasswordReset(forgotEmail.trim());
+
+    if (result.error) {
+      toast.error(result.error);
+    } else {
       setForgotPasswordOpen(false);
       setForgotEmail("");
-      toast.success("تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الوظيفي بنجاح");
-    }, 1200);
+      toast.success("تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الوظيفي بنجاح. يرجى مراجعة البريد.");
+    }
+
+    setForgotLoading(false);
+  };
+
+  // Real Account Recovery Password Update
+  const handleAccountRecoverySubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (recoveryPassword.length < 6) {
+      triggerError("يجب أن لا تقل كلمة المرور الجديدة عن 6 خانات");
+      return;
+    }
+    if (recoveryPassword !== recoveryConfirmPassword) {
+      triggerError("كلمتا المرور غير متطابقتين. يرجى إعادة التحقق.");
+      return;
+    }
+
+    setRecoverySubmitting(true);
+    const result = await updatePassword(recoveryPassword);
+
+    if (result.error) {
+      triggerError(result.error);
+    } else {
+      toast.success("تم تحديث كلمة المرور بنجاح. مرحباً بك مجدداً في المنظومة.");
+      // Session updated and active
+    }
+    setRecoverySubmitting(false);
   };
 
   return (
@@ -454,63 +578,15 @@ export function LoginPage() {
                 </div>
               </div>
 
+              {/* Exact Match for Playwright Tests: مرحباً بعودتك */}
               <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
-                مرحباً بك في المنظومة 👋
+                مرحباً بعودتك 👋
               </h2>
               <p className="text-xs text-slate-500 font-medium">
-                أدخل بيانات اعتماد حسابك المؤسسي للمتابعة إلى لوحة التحكم
+                {isRecoveryMode
+                  ? "أدخل كلمة المرور الجديدة لتوثيق وتحديث حسابك"
+                  : "أدخل بيانات اعتماد حسابك المؤسسي للمتابعة إلى لوحة التحكم"}
               </p>
-            </div>
-
-            {/* Google Material 3 Segmented Mode Switcher */}
-            <div className="p-1 rounded-2xl bg-slate-100/90 border border-slate-200/80 grid grid-cols-3 gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("password");
-                  setError("");
-                }}
-                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  activeTab === "password"
-                    ? "bg-white text-[#004BCE] shadow-xs border border-slate-200 font-black"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Mail className="h-3.5 w-3.5" />
-                <span>البريد الوظيفي</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("otp");
-                  setError("");
-                }}
-                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  activeTab === "otp"
-                    ? "bg-white text-[#004BCE] shadow-xs border border-slate-200 font-black"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Smartphone className="h-3.5 w-3.5" />
-                <span>رمز التحقق OTP</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("sso");
-                  setError("");
-                }}
-                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  activeTab === "sso"
-                    ? "bg-white text-[#004BCE] shadow-xs border border-slate-200 font-black"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Fingerprint className="h-3.5 w-3.5" />
-                <span>نفاذ الوطني</span>
-              </button>
             </div>
 
             {/* Error Banner */}
@@ -522,270 +598,378 @@ export function LoginPage() {
             )}
 
             {/* =================================================================
-                TAB 1: WORK EMAIL & PASSWORD AUTHENTICATION
+                ACCOUNT RECOVERY VIEW (When arriving from password reset link)
                 ================================================================= */}
-            {activeTab === "password" && (
-              <form onSubmit={handleSubmit} className="space-y-3.5">
-                {/* Email Field with Google Material 3 Outlined Style */}
-                <div className="space-y-1.5">
-                  <label htmlFor="work-email" className="text-xs font-bold text-slate-800 block">
-                    البريد الإلكتروني الوظيفي *
-                  </label>
-                  <div className="relative m3-input-field rounded-2xl border border-slate-200 bg-slate-50/60 focus-within:bg-white focus-within:border-[#004BCE]">
-                    <div className="absolute right-3.5 top-3 text-slate-400 pointer-events-none">
-                      <Mail className="h-4 w-4" />
-                    </div>
-                    <input
-                      id="work-email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="admin@classera-pulse.com"
-                      required
-                      autoFocus
-                      className="w-full h-11 pr-10 pl-4 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-slate-900 placeholder:text-slate-400"
-                    />
+            {isRecoveryMode ? (
+              <form onSubmit={handleAccountRecoverySubmit} className="space-y-4 pt-1">
+                <div className="rounded-2xl bg-blue-50/80 border border-blue-200/80 p-3.5 text-xs text-blue-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <KeyRound className="h-4 w-4 text-[#004BCE]" />
+                    <span>إعادة تعيين كلمة المرور المعتمدة</span>
                   </div>
+                  <p className="text-[11px] text-blue-700">
+                    تم التحقق من رابط الاستعادة. يرجى إدخال كلمة المرور الجديدة وتأكيدها.
+                  </p>
                 </div>
 
-                {/* Password Field with Caps Lock Detector */}
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label htmlFor="login-password" className="text-xs font-bold text-slate-800 block">
-                      كلمة المرور *
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setForgotPasswordOpen(true)}
-                      className="text-[11px] font-bold text-[#004BCE] hover:underline cursor-pointer"
-                    >
-                      نسيت كلمة المرور؟
-                    </button>
-                  </div>
+                  <label htmlFor="recovery-password" className="text-xs font-bold text-slate-800 block">
+                    كلمة المرور الجديدة *
+                  </label>
                   <div className="relative m3-input-field rounded-2xl border border-slate-200 bg-slate-50/60 focus-within:bg-white focus-within:border-[#004BCE]">
                     <div className="absolute right-3.5 top-3 text-slate-400 pointer-events-none">
                       <LockKeyhole className="h-4 w-4" />
                     </div>
                     <input
-                      id="login-password"
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      onKeyDown={handleKeyModifier}
-                      onKeyUp={handleKeyModifier}
+                      id="recovery-password"
+                      type={showRecoveryPassword ? "text" : "password"}
+                      value={recoveryPassword}
+                      onChange={(e) => setRecoveryPassword(e.target.value)}
                       placeholder="••••••••"
                       required
+                      autoFocus
                       className="w-full h-11 pr-10 pl-11 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-slate-900 placeholder:text-slate-400"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
+                      onClick={() => setShowRecoveryPassword(!showRecoveryPassword)}
                       className="absolute left-3 top-3 text-slate-400 hover:text-slate-700 p-0.5 rounded-lg transition-colors cursor-pointer"
-                      title={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
-                      aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showRecoveryPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
-
-                  {/* Caps Lock Alert Chip */}
-                  {isCapsLockOn && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-amber-700 font-bold bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200">
-                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                      <span>زر الحروف الكبيرة (Caps Lock) مفعل</span>
-                    </div>
-                  )}
                 </div>
 
-                {/* Remember Me Checkbox */}
-                <div className="flex items-center justify-between pt-0.5">
-                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-600 font-semibold select-none">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      className="h-4 w-4 rounded-md border-slate-300 text-[#004BCE] focus:ring-[#004BCE]/40 cursor-pointer accent-[#004BCE]"
-                    />
-                    <span>تذكر بيانات الدخول على هذا الجهاز</span>
+                <div className="space-y-1.5">
+                  <label htmlFor="recovery-confirm-password" className="text-xs font-bold text-slate-800 block">
+                    تأكيد كلمة المرور الجديدة *
                   </label>
+                  <div className="relative m3-input-field rounded-2xl border border-slate-200 bg-slate-50/60 focus-within:bg-white focus-within:border-[#004BCE]">
+                    <div className="absolute right-3.5 top-3 text-slate-400 pointer-events-none">
+                      <LockKeyhole className="h-4 w-4" />
+                    </div>
+                    <input
+                      id="recovery-confirm-password"
+                      type={showRecoveryPassword ? "text" : "password"}
+                      value={recoveryConfirmPassword}
+                      onChange={(e) => setRecoveryConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      className="w-full h-11 pr-10 pl-11 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-slate-900 placeholder:text-slate-400"
+                    />
+                  </div>
                 </div>
 
-                {/* Submit Button with Google Material Pill Gradient */}
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
-                  aria-label="تسجيل الدخول"
-                  className="w-full h-11.5 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-[#004BCE] via-[#005AD8] to-[#00B5FF] hover:opacity-95 shadow-md shadow-blue-600/25 transition-all gap-2 mt-1 cursor-pointer"
+                  disabled={recoverySubmitting}
+                  className="w-full h-11.5 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-[#004BCE] to-[#00B5FF] hover:opacity-95 shadow-md shadow-blue-600/25 transition-all gap-2 cursor-pointer"
                 >
-                  {isSubmitting ? (
+                  {recoverySubmitting ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin text-white" />
-                      <span>جارٍ التحقق من الحساب…</span>
+                      <span>جارٍ حفظ كلمة المرور…</span>
                     </>
                   ) : (
                     <>
-                      <span>تسجيل الدخول إلى المنظومة</span>
-                      <ArrowRight className="h-4 w-4 rotate-180" />
+                      <span>حفظ كلمة المرور الجديدة والدخول</span>
+                      <Check className="h-4 w-4" />
                     </>
                   )}
                 </Button>
               </form>
-            )}
+            ) : (
+              <>
+                {/* Google Material 3 Segmented Mode Switcher (2 Real Modes) */}
+                <div className="p-1 rounded-2xl bg-slate-100/90 border border-slate-200/80 grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("password");
+                      setError("");
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      activeTab === "password"
+                        ? "bg-white text-[#004BCE] shadow-xs border border-slate-200 font-black"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                    <span>البريد وكلمة المرور</span>
+                  </button>
 
-            {/* =================================================================
-                TAB 2: OTP / NATIONAL ID 2FA AUTHENTICATION
-                ================================================================= */}
-            {activeTab === "otp" && (
-              <div className="space-y-4">
-                {!otpSent ? (
-                  <form onSubmit={handleSendOtp} className="space-y-3.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("otp");
+                      setError("");
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      activeTab === "otp"
+                        ? "bg-white text-[#004BCE] shadow-xs border border-slate-200 font-black"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <Smartphone className="h-3.5 w-3.5" />
+                    <span>رمز التحقق OTP</span>
+                  </button>
+                </div>
+
+                {/* =================================================================
+                    TAB 1: WORK EMAIL & PASSWORD AUTHENTICATION (Real Supabase Auth)
+                    ================================================================= */}
+                {activeTab === "password" && (
+                  <form onSubmit={handleSubmit} className="space-y-3.5">
+                    {/* Email Field with Google Material 3 Outlined Style */}
                     <div className="space-y-1.5">
-                      <label htmlFor="national-id" className="text-xs font-bold text-slate-800 block">
-                        رقم الهوية الوطنية أو الإقامة *
+                      <label htmlFor="work-email" className="text-xs font-bold text-slate-800 block">
+                        البريد الإلكتروني الوظيفي *
                       </label>
                       <div className="relative m3-input-field rounded-2xl border border-slate-200 bg-slate-50/60 focus-within:bg-white focus-within:border-[#004BCE]">
                         <div className="absolute right-3.5 top-3 text-slate-400 pointer-events-none">
-                          <Smartphone className="h-4 w-4" />
+                          <Mail className="h-4 w-4" />
                         </div>
                         <input
-                          id="national-id"
-                          type="text"
-                          maxLength={10}
-                          value={nationalId}
-                          onChange={(e) => setNationalId(e.target.value.replace(/\D/g, ""))}
-                          placeholder="10XXXXXXXX / 20XXXXXXXX"
+                          id="work-email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="admin@classera-pulse.com"
                           required
                           autoFocus
-                          className="w-full h-11 pr-10 pl-4 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-slate-900 placeholder:text-slate-400 font-mono"
+                          className="w-full h-11 pr-10 pl-4 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-slate-900 placeholder:text-slate-400"
                         />
                       </div>
-                      <p className="text-[10px] text-slate-500">
-                        سيتم إرسال رمز تحقق لمرة واحدة (OTP) إلى الهاتف المسجل في النفاذ الوطني
-                      </p>
                     </div>
 
-                    <Button
-                      type="submit"
-                      className="w-full h-11.5 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-[#004BCE] to-[#00B5FF] shadow-md shadow-blue-600/25 cursor-pointer gap-2"
-                    >
-                      <KeyRound className="h-4 w-4" />
-                      <span>إرسال رمز التحقق (OTP)</span>
-                    </Button>
-                  </form>
-                ) : (
-                  <form onSubmit={handleVerifyOtp} className="space-y-4">
-                    <div className="space-y-2 text-center">
-                      <div className="text-xs font-bold text-slate-800">
-                        أدخل رمز التحقق المكون من 6 أرقام
+                    {/* Password Field with Caps Lock Detector */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label htmlFor="login-password" className="text-xs font-bold text-slate-800 block">
+                          كلمة المرور *
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setForgotPasswordOpen(true)}
+                          className="text-[11px] font-bold text-[#004BCE] hover:underline cursor-pointer"
+                        >
+                          نسيت كلمة المرور؟
+                        </button>
                       </div>
-                      <p className="text-[11px] text-slate-500">
-                        تم إرسال الرمز للهوية: <span className="font-mono font-bold text-slate-900">{nationalId}</span>
-                      </p>
-                    </div>
-
-                    {/* 6-Digit OTP Inputs */}
-                    <div className="flex items-center justify-center gap-2" dir="ltr">
-                      {otpCode.map((digit, idx) => (
+                      <div className="relative m3-input-field rounded-2xl border border-slate-200 bg-slate-50/60 focus-within:bg-white focus-within:border-[#004BCE]">
+                        <div className="absolute right-3.5 top-3 text-slate-400 pointer-events-none">
+                          <LockKeyhole className="h-4 w-4" />
+                        </div>
                         <input
-                          key={idx}
-                          ref={(el) => {
-                            otpInputsRef.current[idx] = el;
-                          }}
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={1}
-                          value={digit}
-                          onChange={(e) => handleOtpChange(idx, e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Backspace" && !digit && idx > 0) {
-                              otpInputsRef.current[idx - 1]?.focus();
-                            }
-                          }}
-                          className="h-11 w-11 rounded-xl border border-slate-200 bg-slate-50 text-center font-mono font-black text-base focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#004BCE]/40 focus:border-[#004BCE] text-slate-900 shadow-xs"
+                          id="login-password"
+                          type={showPassword ? "text" : "password"}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          onKeyDown={handleKeyModifier}
+                          onKeyUp={handleKeyModifier}
+                          placeholder="••••••••"
+                          required
+                          className="w-full h-11 pr-10 pl-11 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-slate-900 placeholder:text-slate-400"
                         />
-                      ))}
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute left-3 top-3 text-slate-400 hover:text-slate-700 p-0.5 rounded-lg transition-colors cursor-pointer"
+                          title={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                          aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+
+                      {/* Caps Lock Alert Chip */}
+                      {isCapsLockOn && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-amber-700 font-bold bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                          <span>زر الحروف الكبيرة (Caps Lock) مفعل</span>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex items-center justify-between text-[11px] pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOtpSent(false);
-                          setOtpCode(["", "", "", "", "", ""]);
-                        }}
-                        className="text-slate-500 hover:text-slate-800 underline cursor-pointer"
-                      >
-                        تغيير رقم الهوية
-                      </button>
-                      <button
-                        type="button"
-                        disabled={otpCountdown > 0}
-                        onClick={() => {
-                          setOtpCountdown(60);
-                          toast.success("تمت إعادة إرسال رمز التحقق");
-                        }}
-                        className={`font-bold flex items-center gap-1 ${
-                          otpCountdown > 0
-                            ? "text-slate-400 cursor-not-allowed"
-                            : "text-[#004BCE] hover:underline cursor-pointer"
-                        }`}
-                      >
-                        <RefreshCw className="h-3 w-3" />
-                        <span>
-                          {otpCountdown > 0 ? `إعادة الإرسال بعد (${otpCountdown} ثانية)` : "إعادة إرسال الرمز"}
-                        </span>
-                      </button>
+                    {/* Remember Me Checkbox */}
+                    <div className="flex items-center justify-between pt-0.5">
+                      <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-600 font-semibold select-none">
+                        <input
+                          type="checkbox"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="h-4 w-4 rounded-md border-slate-300 text-[#004BCE] focus:ring-[#004BCE]/40 cursor-pointer accent-[#004BCE]"
+                        />
+                        <span>تذكر بيانات الدخول على هذا الجهاز</span>
+                      </label>
                     </div>
 
+                    {/* Submit Button with Google Material Pill Gradient */}
                     <Button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full h-11.5 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-[#004BCE] to-[#00B5FF] shadow-md shadow-blue-600/25 cursor-pointer gap-2"
+                      aria-label="تسجيل الدخول"
+                      className="w-full h-11.5 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-[#004BCE] via-[#005AD8] to-[#00B5FF] hover:opacity-95 shadow-md shadow-blue-600/25 transition-all gap-2 mt-1 cursor-pointer"
                     >
                       {isSubmitting ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin text-white" />
-                          <span>جارٍ التحقق من الرمز…</span>
+                          <span>جارٍ التحقق من الحساب…</span>
                         </>
                       ) : (
                         <>
-                          <span>تأكيد الرمز والدخول</span>
+                          <span>تسجيل الدخول إلى المنظومة</span>
                           <ArrowRight className="h-4 w-4 rotate-180" />
                         </>
                       )}
                     </Button>
                   </form>
                 )}
-              </div>
-            )}
 
-            {/* =================================================================
-                TAB 3: NAFATH NATIONAL SINGLE SIGN-ON (SSO)
-                ================================================================= */}
-            {activeTab === "sso" && (
-              <div className="space-y-4 text-center py-2">
-                <div className="h-14 w-14 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 mx-auto flex items-center justify-center">
-                  <Fingerprint className="h-7 w-7" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-sm font-black text-slate-900">بوابة النفاذ الوطني الموحد (نفاذ)</h3>
-                  <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
-                    تسجيل الدخول المباشر المعتمد عبر تطبيق نفاذ لتوثيق الهوية الوطنية الرقمية
-                  </p>
-                </div>
+                {/* =================================================================
+                    TAB 2: REAL SUPABASE OTP AUTHENTICATION
+                    ================================================================= */}
+                {activeTab === "otp" && (
+                  <div className="space-y-4">
+                    {!otpSent ? (
+                      <form onSubmit={handleSendOtp} className="space-y-3.5">
+                        <div className="space-y-1.5">
+                          <label htmlFor="otp-email" className="text-xs font-bold text-slate-800 block">
+                            البريد الإلكتروني الوظيفي لاستلام الرمز *
+                          </label>
+                          <div className="relative m3-input-field rounded-2xl border border-slate-200 bg-slate-50/60 focus-within:bg-white focus-within:border-[#004BCE]">
+                            <div className="absolute right-3.5 top-3 text-slate-400 pointer-events-none">
+                              <Mail className="h-4 w-4" />
+                            </div>
+                            <input
+                              id="otp-email"
+                              type="email"
+                              value={otpEmail}
+                              onChange={(e) => setOtpEmail(e.target.value)}
+                              placeholder="employee@classera-pulse.com"
+                              required
+                              autoFocus
+                              className="w-full h-11 pr-10 pl-4 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-slate-900 placeholder:text-slate-400"
+                            />
+                          </div>
+                          <p className="text-[10px] text-slate-500 leading-relaxed">
+                            سيتم إرسال رمز تحقق مؤقت (OTP) مكوّن من 6 أرقام إلى بريدك الوظيفي المعتمد في المنظومة.
+                          </p>
+                        </div>
 
-                <Button
-                  onClick={() => handleDirectDemoLaunch()}
-                  className="w-full h-12 rounded-2xl font-bold text-xs bg-[#00875A] hover:bg-[#007048] text-white shadow-md shadow-emerald-700/20 gap-2 cursor-pointer"
-                >
-                  <Fingerprint className="h-4 w-4" />
-                  <span>الدخول السريع عبر النفاذ الوطني الموحد</span>
-                </Button>
-              </div>
+                        <Button
+                          type="submit"
+                          disabled={isSubmitting || otpCountdown > 0}
+                          className="w-full h-11.5 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-[#004BCE] to-[#00B5FF] shadow-md shadow-blue-600/25 cursor-pointer gap-2"
+                        >
+                          {isSubmitting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin text-white" />
+                              <span>جارٍ إرسال الرمز…</span>
+                            </>
+                          ) : (
+                            <>
+                              <KeyRound className="h-4 w-4" />
+                              <span>
+                                {otpCountdown > 0
+                                  ? `إعادة الإرسال بعد (${otpCountdown} ثانية)`
+                                  : "إرسال رمز التحقق (OTP)"}
+                              </span>
+                            </>
+                          )}
+                        </Button>
+                      </form>
+                    ) : (
+                      <form onSubmit={handleVerifyOtp} className="space-y-4">
+                        <div className="space-y-2 text-center">
+                          <div className="text-xs font-bold text-slate-800">
+                            أدخل رمز التحقق المكون من 6 أرقام
+                          </div>
+                          <p className="text-[11px] text-slate-500">
+                            تم إرسال الرمز إلى: <span className="font-semibold text-slate-900">{otpEmail}</span>
+                          </p>
+                        </div>
+
+                        {/* 6-Digit OTP Inputs */}
+                        <div className="flex items-center justify-center gap-2" dir="ltr">
+                          {otpCode.map((digit, idx) => (
+                            <input
+                              key={idx}
+                              ref={(el) => {
+                                otpInputsRef.current[idx] = el;
+                              }}
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={1}
+                              value={digit}
+                              onChange={(e) => handleOtpChange(idx, e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Backspace" && !digit && idx > 0) {
+                                  otpInputsRef.current[idx - 1]?.focus();
+                                }
+                              }}
+                              className="h-11 w-11 rounded-xl border border-slate-200 bg-slate-50 text-center font-mono font-black text-base focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#004BCE]/40 focus:border-[#004BCE] text-slate-900 shadow-xs"
+                            />
+                          ))}
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOtpSent(false);
+                              setOtpCode(["", "", "", "", "", ""]);
+                            }}
+                            className="text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                          >
+                            تغيير البريد الإلكتروني
+                          </button>
+                          <button
+                            type="button"
+                            disabled={otpCountdown > 0 || isSubmitting}
+                            onClick={handleSendOtp}
+                            className={`font-bold flex items-center gap-1 ${
+                              otpCountdown > 0 || isSubmitting
+                                ? "text-slate-400 cursor-not-allowed"
+                                : "text-[#004BCE] hover:underline cursor-pointer"
+                            }`}
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            <span>
+                              {otpCountdown > 0
+                                ? `إعادة الإرسال بعد (${otpCountdown} ثانية)`
+                                : "إعادة إرسال الرمز"}
+                            </span>
+                          </button>
+                        </div>
+
+                        <Button
+                          type="submit"
+                          disabled={isSubmitting}
+                          className="w-full h-11.5 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-[#004BCE] to-[#00B5FF] shadow-md shadow-blue-600/25 cursor-pointer gap-2"
+                        >
+                          {isSubmitting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin text-white" />
+                              <span>جارٍ التحقق من الرمز…</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>تأكيد الرمز والدخول</span>
+                              <ArrowRight className="h-4 w-4 rotate-180" />
+                            </>
+                          )}
+                        </Button>
+                      </form>
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
             {/* =================================================================
                 DEMO MODE PERSONAS QUICK SELECTOR (Interactive Material Chips)
+                Visible strictly when demoEnabled === true (Never in Production)
                 ================================================================= */}
             {demoEnabled && (
               <div className="pt-3 border-t border-slate-200 space-y-2.5">
@@ -878,7 +1062,7 @@ export function LoginPage() {
       </footer>
 
       {/* =========================================================================
-          FORGOT PASSWORD MODAL (Google Material 3 Dialog Style)
+          FORGOT PASSWORD MODAL (Real Supabase Password Reset)
           ========================================================================= */}
       {forgotPasswordOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
@@ -940,7 +1124,7 @@ export function LoginPage() {
                   {forgotLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>جارٍ الإرسال…</span>
+                      <span>جارٍ إرسال الرابط…</span>
                     </>
                   ) : (
                     <span>إرسال رابط الاستعادة</span>

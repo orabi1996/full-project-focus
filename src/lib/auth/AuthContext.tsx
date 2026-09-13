@@ -14,6 +14,7 @@ import { supabase } from "../../integrations/supabase/client";
 import { isDemoModeEnabled } from "../config/runtime-config";
 import { resolvePrimaryRole, type AuthRole } from "./roles";
 import { toAuthErrorMessage } from "./auth-errors";
+import { clearSensitiveQueryCache } from "../query/query-client";
 
 export type { AuthRole } from "./roles";
 
@@ -143,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           void refreshMfaState();
         }
       } else if (event === "SIGNED_OUT") {
+        clearSensitiveQueryCache();
         // Detect unexpected session expiration
         if (hadActiveSession.current && !isExplicitSignOut.current) {
           setSessionExpired(true);
@@ -350,6 +352,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAal("aal1");
     setNextLevel("aal1");
     setMfaFactors([]);
+    clearSensitiveQueryCache();
     await supabase.auth.signOut();
   }, []);
 

@@ -197,6 +197,7 @@ export type Database = {
           is_manual: boolean
           late_minutes: number | null
           note: string | null
+          overtime_hours: number
           overtime_minutes: number | null
           status: Database["public"]["Enums"]["attendance_status"]
           work_date: string
@@ -212,6 +213,7 @@ export type Database = {
           is_manual?: boolean
           late_minutes?: number | null
           note?: string | null
+          overtime_hours?: number
           overtime_minutes?: number | null
           status?: Database["public"]["Enums"]["attendance_status"]
           work_date: string
@@ -227,6 +229,7 @@ export type Database = {
           is_manual?: boolean
           late_minutes?: number | null
           note?: string | null
+          overtime_hours?: number
           overtime_minutes?: number | null
           status?: Database["public"]["Enums"]["attendance_status"]
           work_date?: string
@@ -577,6 +580,63 @@ export type Database = {
           visibility_scope?: string
         }
         Relationships: []
+      }
+      delegation_rules: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          delegate_id: string
+          delegator_id: string
+          end_date: string
+          id: string
+          reason: string
+          revoked_at: string | null
+          scope: string
+          start_date: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          delegate_id: string
+          delegator_id: string
+          end_date: string
+          id?: string
+          reason?: string
+          revoked_at?: string | null
+          scope?: string
+          start_date: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          delegate_id?: string
+          delegator_id?: string
+          end_date?: string
+          id?: string
+          reason?: string
+          revoked_at?: string | null
+          scope?: string
+          start_date?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delegation_rules_delegate_id_fkey"
+            columns: ["delegate_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delegation_rules_delegator_id_fkey"
+            columns: ["delegator_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       departments: {
         Row: {
@@ -1578,6 +1638,71 @@ export type Database = {
         }
         Relationships: []
       }
+      overtime_records: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          end_time: string
+          hourly_rate: number
+          hours: number
+          id: string
+          rate_multiplier: number
+          rate_type: string
+          reason: string
+          start_time: string
+          status: string
+          total_amount: number
+          work_date: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          end_time?: string
+          hourly_rate?: number
+          hours?: number
+          id?: string
+          rate_multiplier?: number
+          rate_type?: string
+          reason?: string
+          start_time?: string
+          status?: string
+          total_amount?: number
+          work_date: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          end_time?: string
+          hourly_rate?: number
+          hours?: number
+          id?: string
+          rate_multiplier?: number
+          rate_type?: string
+          reason?: string
+          start_time?: string
+          status?: string
+          total_amount?: number
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "overtime_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_details: {
         Row: {
           absence_deductions: number
@@ -2160,6 +2285,7 @@ export type Database = {
           employee_id: string
           end_date: string | null
           id: string
+          payload: Json | null
           reason: string | null
           reference: string
           start_date: string | null
@@ -2180,6 +2306,7 @@ export type Database = {
           employee_id: string
           end_date?: string | null
           id?: string
+          payload?: Json | null
           reason?: string | null
           reference?: string
           start_date?: string | null
@@ -2200,6 +2327,7 @@ export type Database = {
           employee_id?: string
           end_date?: string | null
           id?: string
+          payload?: Json | null
           reason?: string | null
           reference?: string
           start_date?: string | null

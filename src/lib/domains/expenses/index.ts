@@ -60,14 +60,15 @@ export function useExpenseMutations() {
           await createExpenseClaimRecord(newClaim);
           await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.claims() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم رفع مطالبة المصروفات بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.expenseClaims = [newClaim, ...demoStore.expenseClaims];
           demoStore.notify();
-          toast.success("تم رفع مطالبة المصروفات بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم رفع مطالبة المصروفات بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر رفع مطالبة المصروفات");
@@ -102,14 +103,15 @@ export function useExpenseMutations() {
           });
           await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.categories() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم إضافة فئة المصروفات بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.expenseCategories = [...demoStore.expenseCategories, newCat];
           demoStore.notify();
-          toast.success("تم إضافة فئة المصروفات بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إضافة فئة المصروفات بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إضافة فئة المصروفات");

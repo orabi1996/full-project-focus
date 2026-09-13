@@ -1,12 +1,14 @@
 import type {
   AccountingJournalEntry,
   AppNotification,
+  AttendanceCorrectionRequest,
   AuditLogEntry,
   Candidate,
   CandidateStage,
   CostCenter,
   CompanyProfile,
   CompanyDocument,
+  DelegationRule,
   Employee,
   EmployeeLeaveBalance,
   EmployeePayrollDetail,
@@ -20,6 +22,7 @@ import type {
   JobPosition,
   LoanRecord,
   OrgUnit,
+  OvertimeRecord,
   ApprovalChain,
   PayrollGroup,
   PayrollRun,
@@ -31,6 +34,8 @@ import type {
   WorkforcePlan,
 } from "../../types";
 import { enterpriseSupabase } from "./enterprise-client";
+import { supabase } from "../../integrations/supabase/client";
+import { AppMutationError } from "./reliable-mutation";
 
 export interface OperationalSnapshot {
   company: CompanyProfile | null;
@@ -76,6 +81,9 @@ export interface OperationalSnapshot {
   auditLogs: AuditLogEntry[];
   notifications: AppNotification[];
   accountingJournals: AccountingJournalEntry[];
+  delegationRules: DelegationRule[];
+  attendanceCorrections: AttendanceCorrectionRequest[];
+  overtimeRecords: OvertimeRecord[];
 }
 
 const numberValue = (value: unknown) => Number(value ?? 0);
@@ -96,6 +104,80 @@ function validCandidateStage(value: string): CandidateStage {
     "withdrawn",
   ];
   return stages.includes(value as CandidateStage) ? (value as CandidateStage) : "applied";
+}
+
+export function mapDelegationRule(
+  row: Record<string, any>,
+  employeeMap: Map<string, Employee>,
+): DelegationRule {
+  const delegator = employeeMap.get(row.delegator_id);
+  const delegate = employeeMap.get(row.delegate_id);
+  return {
+    id: row.id,
+    delegatorId: row.delegator_id,
+    delegatorName: delegator ? `${delegator.firstNameAr} ${delegator.lastNameAr}` : "موظف",
+    delegateId: row.delegate_id,
+    delegateName: delegate ? `${delegate.firstNameAr} ${delegate.lastNameAr}` : "موظف",
+    startDate: row.start_date,
+    endDate: row.end_date,
+    reason: row.reason || "",
+    scope: (row.scope as DelegationRule["scope"]) || "all_requests",
+    status: (row.status as DelegationRule["status"]) || "active",
+    createdAt: row.created_at,
+  };
+}
+
+export function mapOvertimeRecord(
+  row: Record<string, any>,
+  employeeMap: Map<string, Employee>,
+): OvertimeRecord {
+  const emp = employeeMap.get(row.employee_id);
+  return {
+    id: row.id,
+    employeeId: row.employee_id,
+    employeeNo: emp?.employeeNo || "EMP",
+    employeeName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "موظف",
+    departmentName: emp?.departmentName || "عام",
+    workDate: row.work_date,
+    startTime: row.start_time ? String(row.start_time).slice(0, 5) : "17:00",
+    endTime: row.end_time ? String(row.end_time).slice(0, 5) : "20:00",
+    hours: Number(row.hours || 0),
+    rateMultiplier: Number(row.rate_multiplier || 1.5),
+    rateType: (row.rate_type as OvertimeRecord["rateType"]) || "regular_150",
+    reason: row.reason || "",
+    hourlyRate: Number(row.hourly_rate || 0),
+    totalAmount: Number(row.total_amount || 0),
+    status: (row.status as OvertimeRecord["status"]) || "pending",
+    approvedBy: row.approved_by,
+    approvedAt: row.approved_at,
+    createdAt: row.created_at,
+  };
+}
+
+export function mapAttendanceCorrection(
+  row: Record<string, any>,
+  employeeMap: Map<string, Employee>,
+): AttendanceCorrectionRequest {
+  const emp = employeeMap.get(row.employee_id);
+  const payload = (typeof row.payload === "object" && row.payload !== null ? row.payload : {}) as Record<string, any>;
+  return {
+    id: row.id,
+    originalAttendanceId: payload.originalAttendanceId || undefined,
+    employeeId: row.employee_id,
+    employeeNo: emp?.employeeNo || "EMP",
+    employeeName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "موظف",
+    departmentName: emp?.departmentName || "عام",
+    workDate: row.start_date || payload.workDate || new Date().toISOString().split("T")[0],
+    originalIn: payload.originalIn || undefined,
+    originalOut: payload.originalOut || undefined,
+    correctInTime: payload.correctInTime || payload.correctIn || "08:00",
+    correctOutTime: payload.correctOutTime || payload.correctOut || "17:00",
+    reason: row.reason || payload.reason || "تصحيح بصمة",
+    status: row.status === "approved" ? "approved" : row.status === "rejected" ? "rejected" : "pending",
+    submittedAt: row.created_at,
+    reviewedBy: row.decided_by,
+    reviewedAt: row.decided_at,
+  };
 }
 
 export async function fetchOperationalSnapshot(
@@ -131,6 +213,9 @@ export async function fetchOperationalSnapshot(
     auditResult,
     notificationsResult,
     journalsResult,
+    delegationRulesResult,
+    overtimeResult,
+    attendanceCorrectionsResult,
   ] = await Promise.all([
     enterpriseSupabase.from("companies").select("*").limit(1),
     enterpriseSupabase.from("subsidiaries").select("*").order("name_ar"),
@@ -183,6 +268,19 @@ export async function fetchOperationalSnapshot(
       .from("accounting_journals")
       .select("*")
       .order("journal_date", { ascending: false }),
+    enterpriseSupabase
+      .from("delegation_rules")
+      .select("*")
+      .order("created_at", { ascending: false }),
+    enterpriseSupabase
+      .from("overtime_records")
+      .select("*")
+      .order("created_at", { ascending: false }),
+    enterpriseSupabase
+      .from("requests")
+      .select("*")
+      .eq("type", "attendance_fix")
+      .order("created_at", { ascending: false }),
   ]);
 
   const results = [
@@ -214,6 +312,9 @@ export async function fetchOperationalSnapshot(
     auditResult,
     notificationsResult,
     journalsResult,
+    delegationRulesResult,
+    overtimeResult,
+    attendanceCorrectionsResult,
   ];
   const firstError = results.map((result) => result.error).find(Boolean);
   if (firstError) throw new Error(firstError.message);
@@ -687,6 +788,15 @@ export async function fetchOperationalSnapshot(
       erpIntegrationType: (row.erp_integration_type ??
         undefined) as AccountingJournalEntry["erpIntegrationType"],
     })),
+    delegationRules: (delegationRulesResult.data ?? []).map((row) =>
+      mapDelegationRule(row, employeeMap),
+    ),
+    overtimeRecords: (overtimeResult.data ?? []).map((row) =>
+      mapOvertimeRecord(row, employeeMap),
+    ),
+    attendanceCorrections: (attendanceCorrectionsResult.data ?? []).map((row) =>
+      mapAttendanceCorrection(row, employeeMap),
+    ),
   };
 }
 
@@ -1392,4 +1502,337 @@ export async function createAuditEventRecord(entry: AuditLogEntry) {
     changes_summary: entry.changesSummary ?? null,
   });
   if (error) throw new Error(error.message);
+}
+
+// ============================================================================
+// Delegation Rules Persistence
+// ============================================================================
+
+export async function fetchDelegationRulesServer(
+  employees: Employee[],
+): Promise<DelegationRule[]> {
+  const { data, error } = await enterpriseSupabase
+    .from("delegation_rules")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  const employeeMap = new Map(employees.map((e) => [e.id, e]));
+  return (data ?? []).map((row) => mapDelegationRule(row, employeeMap));
+}
+
+export async function createDelegationRuleRecord(
+  rule: Omit<DelegationRule, "id" | "createdAt" | "status">,
+): Promise<string> {
+  const { data: userData } = await supabase.auth.getUser();
+  const { data, error } = await enterpriseSupabase
+    .from("delegation_rules")
+    .insert({
+      delegator_id: rule.delegatorId,
+      delegate_id: rule.delegateId,
+      start_date: rule.startDate,
+      end_date: rule.endDate,
+      reason: rule.reason,
+      scope: rule.scope,
+      status: "active",
+      created_by: userData.user?.id ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new AppMutationError(error.message, "backend", { details: error });
+  if (!data?.id) throw new AppMutationError("تعذر حفظ قاعدة التفويض", "backend");
+  return data.id;
+}
+
+export async function revokeDelegationRuleRecord(id: string): Promise<void> {
+  const { data, error } = await enterpriseSupabase
+    .from("delegation_rules")
+    .update({
+      status: "revoked",
+      revoked_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("status", "active")
+    .select("id");
+
+  if (error) throw new AppMutationError(error.message, "backend", { details: error });
+  if (!data || data.length === 0) {
+    throw new AppMutationError("قاعدة التفويض غير موجودة أو تم إلغاؤها بالفعل", "conflict");
+  }
+}
+
+// ============================================================================
+// Overtime Records Persistence
+// ============================================================================
+
+export async function fetchOvertimeRecordsServer(
+  employees: Employee[],
+): Promise<OvertimeRecord[]> {
+  const { data, error } = await enterpriseSupabase
+    .from("overtime_records")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  const employeeMap = new Map(employees.map((e) => [e.id, e]));
+  return (data ?? []).map((row) => mapOvertimeRecord(row, employeeMap));
+}
+
+export async function createOvertimeRecord(
+  record: Omit<OvertimeRecord, "id" | "status" | "createdAt">,
+): Promise<string> {
+  const { data: userData } = await supabase.auth.getUser();
+  const { data, error } = await enterpriseSupabase
+    .from("overtime_records")
+    .insert({
+      employee_id: record.employeeId,
+      work_date: record.workDate,
+      start_time: record.startTime || "17:00:00",
+      end_time: record.endTime || "20:00:00",
+      hours: record.hours,
+      rate_multiplier: record.rateMultiplier || 1.5,
+      rate_type: record.rateType || "regular_150",
+      reason: record.reason || "",
+      hourly_rate: record.hourlyRate || 0,
+      total_amount:
+        record.totalAmount ||
+        record.hours * (record.hourlyRate || 0) * (record.rateMultiplier || 1.5),
+      status: "pending",
+      created_by: userData.user?.id ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new AppMutationError(error.message, "backend", { details: error });
+  if (!data?.id) throw new AppMutationError("تعذر تسجيل طلب العمل الإضافي", "backend");
+  return data.id;
+}
+
+export async function approveOvertimeRecord(id: string): Promise<void> {
+  const { data: userData } = await supabase.auth.getUser();
+
+  const { data: record, error: fetchErr } = await enterpriseSupabase
+    .from("overtime_records")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchErr) throw new AppMutationError(fetchErr.message, "backend", { details: fetchErr });
+  if (!record) throw new AppMutationError("طلب العمل الإضافي غير موجود", "conflict");
+  if (record.status !== "pending") {
+    throw new AppMutationError("تم اتخاذ القرار في طلب العمل الإضافي مسبقًا", "conflict");
+  }
+
+  const { data: updatedRows, error: updateErr } = await enterpriseSupabase
+    .from("overtime_records")
+    .update({
+      status: "approved",
+      approved_by: userData.user?.id ?? null,
+      approved_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("status", "pending")
+    .select("id");
+
+  if (updateErr) throw new AppMutationError(updateErr.message, "backend", { details: updateErr });
+  if (!updatedRows || updatedRows.length === 0) {
+    throw new AppMutationError("تعذر اعتماد العمل الإضافي؛ ربما عُولج الطلب بالفعل", "conflict");
+  }
+
+  // Authoritatively update attendance_records with overtime_hours
+  const { data: existingAtt } = await supabase
+    .from("attendance_records")
+    .select("id, overtime_hours")
+    .eq("employee_id", record.employee_id)
+    .eq("work_date", record.work_date)
+    .maybeSingle();
+
+  const currentOt = Number(existingAtt?.overtime_hours ?? 0);
+  const newOt = currentOt + Number(record.hours || 0);
+
+  if (existingAtt) {
+    const { error: attErr } = await supabase
+      .from("attendance_records")
+      .update({ overtime_hours: newOt })
+      .eq("id", existingAtt.id);
+    if (attErr) throw new AppMutationError(attErr.message, "backend", { details: attErr });
+  } else {
+    const { error: attErr } = await supabase.from("attendance_records").insert({
+      employee_id: record.employee_id,
+      work_date: record.work_date,
+      overtime_hours: newOt,
+      status: "present",
+      worked_hours: 0,
+      note: "سجل حضور مضاف آلياً مع العمل الإضافي",
+    });
+    if (attErr) throw new AppMutationError(attErr.message, "backend", { details: attErr });
+  }
+}
+
+export async function rejectOvertimeRecord(id: string): Promise<void> {
+  const { data: userData } = await supabase.auth.getUser();
+
+  const { data: record, error: fetchErr } = await enterpriseSupabase
+    .from("overtime_records")
+    .select("id, status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchErr) throw new AppMutationError(fetchErr.message, "backend", { details: fetchErr });
+  if (!record) throw new AppMutationError("طلب العمل الإضافي غير موجود", "conflict");
+  if (record.status !== "pending") {
+    throw new AppMutationError("تم اتخاذ القرار في طلب العمل الإضافي مسبقًا", "conflict");
+  }
+
+  const { data: updatedRows, error: updateErr } = await enterpriseSupabase
+    .from("overtime_records")
+    .update({
+      status: "rejected",
+      approved_by: userData.user?.id ?? null,
+      approved_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("status", "pending")
+    .select("id");
+
+  if (updateErr) throw new AppMutationError(updateErr.message, "backend", { details: updateErr });
+  if (!updatedRows || updatedRows.length === 0) {
+    throw new AppMutationError("تعذر رفض العمل الإضافي؛ ربما عُولج الطلب بالفعل", "conflict");
+  }
+}
+
+// ============================================================================
+// Attendance Correction Decisions Persistence
+// ============================================================================
+
+export async function fetchAttendanceCorrectionsServer(
+  employees: Employee[],
+): Promise<AttendanceCorrectionRequest[]> {
+  const { data, error } = await enterpriseSupabase
+    .from("requests")
+    .select("*")
+    .eq("type", "attendance_fix")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  const employeeMap = new Map(employees.map((e) => [e.id, e]));
+  return (data ?? []).map((row) => mapAttendanceCorrection(row, employeeMap));
+}
+
+export async function approveAttendanceCorrectionRecord(id: string): Promise<void> {
+  const { data: userData } = await supabase.auth.getUser();
+
+  const { data: req, error: fetchErr } = await enterpriseSupabase
+    .from("requests")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchErr) throw new AppMutationError(fetchErr.message, "backend", { details: fetchErr });
+  if (!req) throw new AppMutationError("طلب تصحيح البصمة غير موجود", "conflict");
+  if (req.status !== "pending") {
+    throw new AppMutationError("تم اتخاذ القرار في هذا الطلب مسبقًا", "conflict");
+  }
+
+  const { data: updatedRows, error: updateErr } = await enterpriseSupabase
+    .from("requests")
+    .update({
+      status: "approved",
+      decided_by: userData.user?.id ?? null,
+      decided_at: new Date().toISOString(),
+      decision_note: "تم اعتماد تصحيح البصمة وتحديث السجلات",
+    })
+    .eq("id", id)
+    .eq("status", "pending")
+    .select("id");
+
+  if (updateErr) throw new AppMutationError(updateErr.message, "backend", { details: updateErr });
+  if (!updatedRows || updatedRows.length === 0) {
+    throw new AppMutationError("تعذر اعتماد الطلب؛ ربما تم اتخاذ قرار مسبقًا", "conflict");
+  }
+
+  const payload = (typeof req.payload === "object" && req.payload !== null
+    ? req.payload
+    : {}) as Record<string, any>;
+  const workDate =
+    req.start_date || payload.workDate || new Date().toISOString().split("T")[0];
+  const checkIn = String(payload.correctInTime || payload.correctIn || "08:00");
+  const checkOut = String(payload.correctOutTime || payload.correctOut || "17:00");
+
+  const parseHourMin = (timeStr: string) => {
+    const parts = timeStr.split(":");
+    return (Number(parts[0]) || 0) + (Number(parts[1]) || 0) / 60;
+  };
+  const inHours = parseHourMin(checkIn);
+  const outHours = parseHourMin(checkOut);
+  const workedHours = Math.max(0, Number((outHours - inHours).toFixed(2)));
+
+  const formattedIn = checkIn.length === 5 ? `${checkIn}:00` : checkIn;
+  const formattedOut = checkOut.length === 5 ? `${checkOut}:00` : checkOut;
+
+  const { data: existingAtt } = await supabase
+    .from("attendance_records")
+    .select("id")
+    .eq("employee_id", req.employee_id)
+    .eq("work_date", workDate)
+    .maybeSingle();
+
+  if (existingAtt) {
+    const { error: attErr } = await supabase
+      .from("attendance_records")
+      .update({
+        check_in: formattedIn,
+        check_out: formattedOut,
+        status: "present",
+        worked_hours: workedHours,
+        note: "تم تصحيح البصمة بموجب طلب معتمد",
+      })
+      .eq("id", existingAtt.id);
+    if (attErr) throw new AppMutationError(attErr.message, "backend", { details: attErr });
+  } else {
+    const { error: attErr } = await supabase.from("attendance_records").insert({
+      employee_id: req.employee_id,
+      work_date: workDate,
+      check_in: formattedIn,
+      check_out: formattedOut,
+      status: "present",
+      worked_hours: workedHours,
+      note: "سجل حضور تم إنشاؤه بموجب تصحيح بصمة معتمد",
+    });
+    if (attErr) throw new AppMutationError(attErr.message, "backend", { details: attErr });
+  }
+}
+
+export async function rejectAttendanceCorrectionRecord(id: string): Promise<void> {
+  const { data: userData } = await supabase.auth.getUser();
+
+  const { data: req, error: fetchErr } = await enterpriseSupabase
+    .from("requests")
+    .select("id, status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchErr) throw new AppMutationError(fetchErr.message, "backend", { details: fetchErr });
+  if (!req) throw new AppMutationError("طلب تصحيح البصمة غير موجود", "conflict");
+  if (req.status !== "pending") {
+    throw new AppMutationError("تم اتخاذ القرار في هذا الطلب مسبقًا", "conflict");
+  }
+
+  const { data: updatedRows, error: updateErr } = await enterpriseSupabase
+    .from("requests")
+    .update({
+      status: "rejected",
+      decided_by: userData.user?.id ?? null,
+      decided_at: new Date().toISOString(),
+      decision_note: "تم رفض طلب تصحيح البصمة",
+    })
+    .eq("id", id)
+    .eq("status", "pending")
+    .select("id");
+
+  if (updateErr) throw new AppMutationError(updateErr.message, "backend", { details: updateErr });
+  if (!updatedRows || updatedRows.length === 0) {
+    throw new AppMutationError("تعذر رفض الطلب؛ ربما تم اتخاذ قرار مسبقًا", "conflict");
+  }
 }

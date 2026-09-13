@@ -11,6 +11,8 @@ import { createRequestRecord } from "../../data/hrms-repository";
 import {
   createApprovalChainRecord,
   deleteApprovalChainRecord,
+  createDelegationRuleRecord,
+  revokeDelegationRuleRecord,
 } from "../../data/operational-repository";
 import { actOnRequestServer } from "../../business/approvals.functions";
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
@@ -95,14 +97,15 @@ export function useWorkflowMutations() {
           await createRequestRecord(empId, req.type, (req.payload || {}) as Record<string, unknown>);
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم إرسال الطلب واعتماده في دورة العمل");
           return true;
         },
         demoOperation: () => {
           demoStore.requests = [newReq, ...demoStore.requests];
           demoStore.notify();
-          toast.success("تم إرسال الطلب بنجاح وهو الآن قيد المراجعة والاعتماد");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إرسال الطلب بنجاح وهو الآن قيد المراجعة والاعتماد");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إرسال الطلب");
@@ -123,7 +126,6 @@ export function useWorkflowMutations() {
           await actOnRequestServer({ data: { requestId, decision: "approved", note } });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم اعتماد الطلب بنجاح");
           return true;
         },
         demoOperation: () => {
@@ -151,8 +153,10 @@ export function useWorkflowMutations() {
               : r,
           );
           demoStore.notify();
-          toast.success("تم اعتماد الطلب رسمياً بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم اعتماد الطلب رسمياً بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر اعتماد الطلب");
@@ -173,7 +177,6 @@ export function useWorkflowMutations() {
           await actOnRequestServer({ data: { requestId, decision: "rejected", note } });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم رفض الطلب بنجاح");
           return true;
         },
         demoOperation: () => {
@@ -200,8 +203,10 @@ export function useWorkflowMutations() {
               : r,
           );
           demoStore.notify();
-          toast.success("تم رفض الطلب وإشعار الموظف");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم رفض الطلب وإشعار الموظف");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر رفض الطلب");
@@ -222,7 +227,6 @@ export function useWorkflowMutations() {
           await actOnRequestServer({ data: { requestId, decision: "returned", note } });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تمت إعادة الطلب بنجاح");
           return true;
         },
         demoOperation: () => {
@@ -249,8 +253,10 @@ export function useWorkflowMutations() {
               : r,
           );
           demoStore.notify();
-          toast.success("تم إعادة الطلب للاستكمال وتعديل الملاحظات");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إعادة الطلب للاستكمال وتعديل الملاحظات");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إعادة الطلب");
@@ -276,14 +282,15 @@ export function useWorkflowMutations() {
           await createApprovalChainRecord(newChain);
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.chains() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم حفظ سلسلة الاعتمادات بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.approvalChains = [...demoStore.approvalChains, newChain];
           demoStore.notify();
-          toast.success("تم إنشاء سلسلة الموافقات بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إنشاء وحفظ مسار الاعتماد بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حفظ سلسلة الاعتمادات");
@@ -304,14 +311,15 @@ export function useWorkflowMutations() {
           await deleteApprovalChainRecord(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.chains() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم حذف مسار الاعتماد");
           return true;
         },
         demoOperation: () => {
           demoStore.approvalChains = demoStore.approvalChains.filter((c) => c.id !== id);
           demoStore.notify();
-          toast.success("تم حذف مسار الاعتماد");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم حذف مسار الاعتماد");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حذف مسار الاعتماد");
@@ -324,29 +332,72 @@ export function useWorkflowMutations() {
   );
 
   const addDelegationRule = useCallback(
-    (rule: Omit<DelegationRule, "id" | "createdAt" | "status">) => {
+    async (rule: Omit<DelegationRule, "id" | "createdAt" | "status">): Promise<boolean> => {
       const newRule: DelegationRule = {
         ...rule,
         id: `del-${Date.now()}`,
         status: "active",
         createdAt: new Date().toISOString(),
       };
-      demoStore.delegationRules = [newRule, ...demoStore.delegationRules];
-      demoStore.notify();
-      toast.success("تم تفعيل التفويض المؤقت بنجاح");
+
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `del-add-${rule.delegatorId}-${rule.delegateId}-${rule.startDate}`,
+        operation: async () => {
+          await createDelegationRuleRecord(newRule);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.delegations() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.delegationRules = [newRule, ...demoStore.delegationRules];
+          demoStore.notify();
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تفعيل التفويض المؤقت بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر تفعيل التفويض المؤقت");
+        },
+      });
+
+      return result.ok;
     },
-    [],
+    [mode, queryClient],
   );
 
   const revokeDelegationRule = useCallback(
-    (id: string) => {
-      demoStore.delegationRules = demoStore.delegationRules.map((r) =>
-        r.id === id ? { ...r, status: "revoked" as const } : r,
-      );
-      demoStore.notify();
-      toast.success("تم إلغاء التفويض بنجاح");
+    async (id: string): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `del-revoke-${id}`,
+        operation: async () => {
+          await revokeDelegationRuleRecord(id);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.delegations() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.delegationRules = demoStore.delegationRules.map((r) =>
+            r.id === id ? { ...r, status: "revoked" as const } : r,
+          );
+          demoStore.notify();
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إلغاء التفويض بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إلغاء التفويض");
+        },
+      });
+
+      return result.ok;
     },
-    [],
+    [mode, queryClient],
   );
 
   return {

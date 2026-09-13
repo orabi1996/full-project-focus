@@ -49,14 +49,15 @@ export function useDocumentMutations() {
           await createCompanyDocumentRecord(newDoc);
           await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم رفع المستند بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.companyDocs = [...demoStore.companyDocs, newDoc];
           demoStore.notify();
-          toast.success("تم رفع المستند المؤسسي بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم رفع المستند المؤسسي بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حفظ المستند");
@@ -79,7 +80,6 @@ export function useDocumentMutations() {
           await acknowledgeDocumentRecord(docId, empId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم تأكيد الإقرار على المستند بنجاح");
           return true;
         },
         demoOperation: () => {
@@ -87,8 +87,10 @@ export function useDocumentMutations() {
             d.id === docId ? { ...d, acknowledgedCount: d.acknowledgedCount + 1 } : d,
           );
           demoStore.notify();
-          toast.success("تم تأكيد الاطلاع والإقرار على المستند بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تأكيد الاطلاع والإقرار على المستند بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تسجيل الإقرار");

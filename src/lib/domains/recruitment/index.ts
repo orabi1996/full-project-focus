@@ -61,14 +61,15 @@ export function useRecruitmentMutations() {
           await createJobOpeningRecord(newJob);
           await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.openings() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم حفظ الوظيفة الشاغرة بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.jobOpenings = [...demoStore.jobOpenings, newJob];
           demoStore.notify();
-          toast.success("تم فتح الوظيفة الشاغرة بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم فتح وحفظ الوظيفة الشاغرة بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حفظ الوظيفة");
@@ -94,14 +95,15 @@ export function useRecruitmentMutations() {
           await createCandidateRecord(newCand);
           await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.candidates() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم إضافة المرشح بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.candidates = [...demoStore.candidates, newCand];
           demoStore.notify();
-          toast.success("تم إضافة المرشح الجديد بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إضافة المرشح بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إضافة المرشح");
@@ -122,7 +124,6 @@ export function useRecruitmentMutations() {
           await updateCandidateRecord(candidateId, { ratingScore: score });
           await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.candidates() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم تحديث تقييم المرشح");
           return true;
         },
         demoOperation: () => {
@@ -130,8 +131,10 @@ export function useRecruitmentMutations() {
             c.id === candidateId ? { ...c, ratingScore: score } : c,
           );
           demoStore.notify();
-          toast.success("تم تحديث تقييم المرشح بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تحديث تقييم المرشح بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تحديث تقييم المرشح");
@@ -152,7 +155,6 @@ export function useRecruitmentMutations() {
           await updateCandidateRecord(candidateId, { stage: newStage });
           await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.candidates() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم تحديث مرحلة المرشح بنجاح");
           return true;
         },
         demoOperation: () => {
@@ -160,8 +162,10 @@ export function useRecruitmentMutations() {
             c.id === candidateId ? { ...c, stage: newStage } : c,
           );
           demoStore.notify();
-          toast.success(`تم نقل المرشح إلى مرحلة: ${newStage}`);
           return true;
+        },
+        onCommitted: () => {
+          toast.success(`تم نقل المرشح إلى مرحلة: ${newStage}`);
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تحديث مرحلة المرشح");
@@ -188,14 +192,15 @@ export function useRecruitmentMutations() {
           await createJobOfferRecord(newOffer);
           await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.offers() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم إرسال العرض الوظيفي بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.jobOffers = [...demoStore.jobOffers, newOffer];
           demoStore.notify();
-          toast.success("تم إرسال العرض الوظيفي للمرشح بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إرسال العرض الوظيفي للمرشح بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إرسال العرض الوظيفي");

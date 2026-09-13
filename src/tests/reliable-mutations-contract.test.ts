@@ -177,5 +177,266 @@ describe("Reliable Mutations Contract Tests", () => {
       expect(content).toContain("persistLiveChange");
       expect(content).toContain("executeReliableMutation");
     });
+
+    it("ensures no domain Live operation contains premature toast.success calls inside operation", () => {
+      const domains = [
+        "employees",
+        "payroll",
+        "attendance",
+        "leaves",
+        "workflow",
+        "organization",
+        "expenses",
+        "assets",
+        "documents",
+        "performance",
+        "recruitment",
+        "shifts",
+        "rbac",
+      ];
+
+      for (const domain of domains) {
+        const domainIndexPath = path.resolve(__dirname, `../lib/domains/${domain}/index.ts`);
+        const content = fs.readFileSync(domainIndexPath, "utf-8");
+
+        // Split by operation: async () => { ... } blocks
+        const operationMatches = content.match(/operation:\s*async\s*\(\)\s*=>\s*\{[\s\S]*?\n\s*\},/g);
+        if (operationMatches) {
+          for (const opBlock of operationMatches) {
+            // Live operation must NOT contain toast.success
+            expect(opBlock).not.toContain("toast.success(");
+          }
+        }
+      }
+    });
+
+    it("ensures no domain Live operation is a fake write (consisting only of invalidateQueries / toast)", () => {
+      const domains = [
+        "employees",
+        "payroll",
+        "attendance",
+        "leaves",
+        "workflow",
+        "organization",
+        "expenses",
+        "assets",
+        "documents",
+        "performance",
+        "recruitment",
+        "shifts",
+        "rbac",
+      ];
+
+      for (const domain of domains) {
+        const domainIndexPath = path.resolve(__dirname, `../lib/domains/${domain}/index.ts`);
+        const content = fs.readFileSync(domainIndexPath, "utf-8");
+
+        // Find all operation blocks
+        const opRegex = /operation:\s*async\s*\(\)\s*=>\s*\{([\s\S]*?)\n\s*\},/g;
+        let match;
+        while ((match = opRegex.exec(content)) !== null) {
+          const body = match[1];
+          // Strip comments and whitespace
+          const cleaned = body
+            .replace(/\/\/.*$/gm, "")
+            .replace(/queryClient\.invalidateQueries\([^)]*\);?/g, "")
+            .replace(/return\s+(true|undefined|newRole|[^;]+);?/g, "")
+            .trim();
+
+          // After stripping invalidations and return, must have an actual repository/server call
+          expect(cleaned.length).toBeGreaterThan(0);
+        }
+      }
+    });
+
+    it("verifies attendance domain wires all decisions to real repository persistence", () => {
+      const attendanceIndexPath = path.resolve(__dirname, "../lib/domains/attendance/index.ts");
+      const content = fs.readFileSync(attendanceIndexPath, "utf-8");
+
+      expect(content).toContain("approveAttendanceCorrectionRecord");
+      expect(content).toContain("rejectAttendanceCorrectionRecord");
+      expect(content).toContain("approveOvertimeRecord");
+      expect(content).toContain("rejectOvertimeRecord");
+      expect(content).toContain("createOvertimeRecord");
+    });
+
+    it("verifies workflow domain wires delegation rules to real repository persistence", () => {
+      const workflowIndexPath = path.resolve(__dirname, "../lib/domains/workflow/index.ts");
+      const content = fs.readFileSync(workflowIndexPath, "utf-8");
+
+      expect(content).toContain("createDelegationRuleRecord");
+      expect(content).toContain("revokeDelegationRuleRecord");
+    });
+
+    it("verifies Live bootstrap sources attendance corrections, overtime records, and delegations from operationalQuery", () => {
+      const bootstrapPath = path.resolve(__dirname, "../lib/domains/bootstrap/use-bootstrap.ts");
+      const content = fs.readFileSync(bootstrapPath, "utf-8");
+
+      expect(content).not.toContain("attendanceCorrections: [],");
+      expect(content).not.toContain("overtimeRecords: [],");
+      expect(content).not.toContain("delegationRules: [],");
+
+      expect(content).toContain("operationalQuery.data?.attendanceCorrections");
+      expect(content).toContain("operationalQuery.data?.overtimeRecords");
+      expect(content).toContain("operationalQuery.data?.delegationRules");
+    });
+
+    it("verifies operational snapshot repository queries delegation rules, overtime, and corrections", () => {
+      const repoPath = path.resolve(__dirname, "../lib/data/operational-repository.ts");
+      const content = fs.readFileSync(repoPath, "utf-8");
+
+      expect(content).toContain('"delegation_rules"');
+      expect(content).toContain('"overtime_records"');
+      expect(content).toContain('type", "attendance_fix"');
+      expect(content).toContain("approveAttendanceCorrectionRecord");
+      expect(content).toContain("rejectAttendanceCorrectionRecord");
+      expect(content).toContain("approveOvertimeRecord");
+      expect(content).toContain("rejectOvertimeRecord");
+      expect(content).toContain("createDelegationRuleRecord");
+      expect(content).toContain("revokeDelegationRuleRecord");
+    });
+  });
+
+  describe("Mappers and Data Transformation Truthfulness", () => {
+    it("maps delegation rules truthfully with employee names and scopes", async () => {
+      const { mapDelegationRule } = await import("../lib/data/operational-repository");
+      const employeeMap = new Map([
+        ["emp-1", { id: "emp-1", firstNameAr: "أحمد", lastNameAr: "علي" } as any],
+        ["emp-2", { id: "emp-2", firstNameAr: "سارة", lastNameAr: "محمود" } as any],
+      ]);
+
+      const row = {
+        id: "del-101",
+        delegator_id: "emp-1",
+        delegate_id: "emp-2",
+        start_date: "2026-04-01",
+        end_date: "2026-04-10",
+        reason: "إجازة سنوية",
+        scope: "leave",
+        status: "active",
+        created_at: "2026-03-30T10:00:00Z",
+      };
+
+      const mapped = mapDelegationRule(row, employeeMap);
+      expect(mapped.id).toBe("del-101");
+      expect(mapped.delegatorId).toBe("emp-1");
+      expect(mapped.delegatorName).toBe("أحمد علي");
+      expect(mapped.delegateId).toBe("emp-2");
+      expect(mapped.delegateName).toBe("سارة محمود");
+      expect(mapped.startDate).toBe("2026-04-01");
+      expect(mapped.endDate).toBe("2026-04-10");
+      expect(mapped.scope).toBe("leave");
+      expect(mapped.status).toBe("active");
+    });
+
+    it("maps overtime records truthfully with rates and calculated amounts", async () => {
+      const { mapOvertimeRecord } = await import("../lib/data/operational-repository");
+      const employeeMap = new Map([
+        ["emp-1", { id: "emp-1", firstNameAr: "خالد", lastNameAr: "العتيبي", employeeNo: "EMP-042", departmentName: "تقنية المعلومات" } as any],
+      ]);
+
+      const row = {
+        id: "ot-201",
+        employee_id: "emp-1",
+        work_date: "2026-03-15",
+        start_time: "17:00:00",
+        end_time: "20:00:00",
+        hours: 3,
+        rate_multiplier: 1.5,
+        rate_type: "regular_150",
+        reason: "صيانة طارئة للخوادم",
+        hourly_rate: 100,
+        total_amount: 450,
+        status: "pending",
+        created_at: "2026-03-15T20:30:00Z",
+      };
+
+      const mapped = mapOvertimeRecord(row, employeeMap);
+      expect(mapped.id).toBe("ot-201");
+      expect(mapped.employeeId).toBe("emp-1");
+      expect(mapped.employeeName).toBe("خالد العتيبي");
+      expect(mapped.employeeNo).toBe("EMP-042");
+      expect(mapped.departmentName).toBe("تقنية المعلومات");
+      expect(mapped.hours).toBe(3);
+      expect(mapped.rateMultiplier).toBe(1.5);
+      expect(mapped.totalAmount).toBe(450);
+      expect(mapped.status).toBe("pending");
+    });
+
+    it("maps attendance corrections from requests payload truthfully", async () => {
+      const { mapAttendanceCorrection } = await import("../lib/data/operational-repository");
+      const employeeMap = new Map([
+        ["emp-1", { id: "emp-1", firstNameAr: "فاطمة", lastNameAr: "الغامدي", employeeNo: "EMP-088", departmentName: "المالية" } as any],
+      ]);
+
+      const row = {
+        id: "req-att-301",
+        employee_id: "emp-1",
+        type: "attendance_fix",
+        status: "approved",
+        start_date: "2026-03-10",
+        decided_by: "usr-admin",
+        decided_at: "2026-03-11T09:00:00Z",
+        created_at: "2026-03-10T18:00:00Z",
+        payload: {
+          workDate: "2026-03-10",
+          correctInTime: "08:15",
+          correctOutTime: "17:30",
+          reason: "عطل في قارئ البصمة عند البوابة",
+        },
+      };
+
+      const mapped = mapAttendanceCorrection(row, employeeMap);
+      expect(mapped.id).toBe("req-att-301");
+      expect(mapped.employeeId).toBe("emp-1");
+      expect(mapped.employeeName).toBe("فاطمة الغامدي");
+      expect(mapped.workDate).toBe("2026-03-10");
+      expect(mapped.correctInTime).toBe("08:15");
+      expect(mapped.correctOutTime).toBe("17:30");
+      expect(mapped.reason).toBe("عطل في قارئ البصمة عند البوابة");
+      expect(mapped.status).toBe("approved");
+      expect(mapped.reviewedBy).toBe("usr-admin");
+    });
+  });
+
+  describe("Conflict and Idempotency Guard Invariants", () => {
+    it("reports conflict when a record has already been decided or zero rows updated", async () => {
+      const onRejected = vi.fn();
+      const operation = vi.fn().mockRejectedValue(
+        new AppMutationError("تم اتخاذ القرار في هذا الطلب مسبقًا", "conflict"),
+      );
+
+      const result = await executeReliableMutation({
+        mode: "live",
+        mutationKey: "approve-corr-conflict-test",
+        operation,
+        onRejected,
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.kind).toBe("conflict");
+      expect(result.error?.message).toContain("تم اتخاذ القرار في هذا الطلب مسبقًا");
+      expect(onRejected).toHaveBeenCalledTimes(1);
+    });
+
+    it("never shows success toast or calls onCommitted on backend failure", async () => {
+      const onCommitted = vi.fn();
+      const onRejected = vi.fn();
+      const operation = vi.fn().mockRejectedValue(
+        new AppMutationError("خطأ في الخادم أثناء المعالجة", "backend"),
+      );
+
+      const result = await executeReliableMutation({
+        mode: "live",
+        mutationKey: "fail-test-never-commit",
+        operation,
+        onCommitted,
+        onRejected,
+      });
+
+      expect(result.ok).toBe(false);
+      expect(onCommitted).not.toHaveBeenCalled();
+      expect(onRejected).toHaveBeenCalledTimes(1);
+    });
   });
 });

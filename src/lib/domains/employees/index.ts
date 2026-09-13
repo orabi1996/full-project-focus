@@ -67,14 +67,19 @@ export function useCreateEmployee() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.all });
-          toast.success("تم إضافة الموظف وتحديث السجلات بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.employees = [newEmp, ...demoStore.employees];
           demoStore.notify();
-          toast.success("تم إضافة الموظف بنجاح (وضع العرض التجريبي)");
           return true;
+        },
+        onCommitted: () => {
+          toast.success(
+            mode === "live"
+              ? "تم إضافة الموظف وتحديث السجلات بنجاح"
+              : "تم إضافة الموظف بنجاح (وضع العرض التجريبي)",
+          );
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إضافة الموظف");
@@ -104,7 +109,6 @@ export function useUpdateEmployee() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.employees.detail(id) });
           await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم حفظ التغييرات وتحديث بيانات الموظف في النظام");
           return true;
         },
         demoOperation: () => {
@@ -112,8 +116,14 @@ export function useUpdateEmployee() {
             e.id === id ? { ...e, ...updates } : e,
           );
           demoStore.notify();
-          toast.success("تم تحديث بيانات الموظف بنجاح (وضع العرض التجريبي)");
           return true;
+        },
+        onCommitted: () => {
+          toast.success(
+            mode === "live"
+              ? "تم حفظ التغييرات وتحديث بيانات الموظف في النظام"
+              : "تم تحديث بيانات الموظف بنجاح (وضع العرض التجريبي)",
+          );
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تحديث بيانات الموظف");

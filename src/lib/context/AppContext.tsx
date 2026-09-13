@@ -173,8 +173,8 @@ export interface AppContextType {
   returnRequest: (requestId: string, note?: string) => Promise<boolean>;
   addApprovalChain: (chain: Omit<ApprovalChain, "id">) => Promise<boolean>;
   deleteApprovalChain: (id: string) => Promise<boolean>;
-  addDelegationRule: (rule: Omit<DelegationRule, "id" | "createdAt" | "status">) => void;
-  revokeDelegationRule: (id: string) => void;
+  addDelegationRule: (rule: Omit<DelegationRule, "id" | "createdAt" | "status">) => Promise<boolean> | void;
+  revokeDelegationRule: (id: string) => Promise<boolean> | void;
 
   // Leaves
   applyLeave: (payload: {

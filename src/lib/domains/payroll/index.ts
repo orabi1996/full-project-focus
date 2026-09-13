@@ -88,7 +88,6 @@ export function usePayrollMutations() {
           await runPayrollServer({ data: { payrollGroupId: groupId, year, month } });
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success(`تم تشغيل واحتساب مسير الرواتب بنجاح لشهر ${month}/${year}`);
           return true;
         },
         demoOperation: () => {
@@ -112,8 +111,10 @@ export function usePayrollMutations() {
 
           demoStore.payrollRuns = [newRun, ...demoStore.payrollRuns.filter((r) => r.id !== newRun.id)];
           demoStore.notify();
-          toast.success(`تم احتساب مسير رواتب شهر ${month}/${year} بنجاح`);
           return true;
+        },
+        onCommitted: () => {
+          toast.success(`تم تشغيل واحتساب مسير الرواتب بنجاح لشهر ${month}/${year}`);
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تشغيل مسير الرواتب");
@@ -135,7 +136,6 @@ export function usePayrollMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.run(runId) });
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.runs() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم إقفال واعتماد مسير الرواتب بنجاح");
           return true;
         },
         demoOperation: () => {
@@ -145,8 +145,10 @@ export function usePayrollMutations() {
               : r,
           );
           demoStore.notify();
-          toast.success("تم إقفال واعتماد مسير الرواتب رسمياً");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إقفال واعتماد مسير الرواتب بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إقفال مسير الرواتب");
@@ -168,7 +170,6 @@ export function usePayrollMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.run(runId) });
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.runs() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم تسجيل صرف مسير الرواتب بنجاح");
           return true;
         },
         demoOperation: () => {
@@ -181,8 +182,10 @@ export function usePayrollMutations() {
             d.payrollRunId === runId ? { ...d, paymentStatus: "paid" as const } : d,
           );
           demoStore.notify();
-          toast.success("تم صرف رواتب المسير وتحديث حالة الصرف");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم صرف رواتب المسير وتحديث حالة الصرف بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تحديث حالة صرف المسير");
@@ -231,14 +234,15 @@ export function usePayrollMutations() {
           });
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.loans() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم تسجيل السلفة بنجاح في النظام");
           return true;
         },
         demoOperation: () => {
           demoStore.loans = [newLoan, ...demoStore.loans];
           demoStore.notify();
-          toast.success("تم تسجيل السلفة بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تسجيل السلفة بنجاح في النظام");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تسجيل السلفة");
@@ -264,14 +268,15 @@ export function usePayrollMutations() {
           await createSettlementRecord(settlement);
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.settlements() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم إنشاء وحفظ تسوية نهاية الخدمة بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.settlements = [newSettlement, ...demoStore.settlements];
           demoStore.notify();
-          toast.success("تم حفظ مخالصة نهاية الخدمة بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إنشاء وحفظ تسوية نهاية الخدمة بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حفظ تسوية نهاية الخدمة");

@@ -117,14 +117,15 @@ export function useRbacMutations(
           });
           await queryClient.invalidateQueries({ queryKey: queryKeys.rbac.roles() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم حفظ الدور الوظيفي بنجاح");
           return newRole;
         },
         demoOperation: () => {
           demoStore.roles = [...demoStore.roles, newRole];
           demoStore.notify();
-          toast.success("تم إضافة الدور الوظيفي بنجاح");
           return newRole;
+        },
+        onCommitted: () => {
+          toast.success("تم حفظ الدور الوظيفي بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حفظ الدور الوظيفي");

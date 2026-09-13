@@ -81,14 +81,19 @@ export function useOrganizationMutations() {
           await updateCompanyRecord(profile);
           await queryClient.invalidateQueries({ queryKey: queryKeys.company.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم حفظ بيانات المنشأة بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.company = { ...profile };
           demoStore.notify();
-          toast.success("تم تحديث بيانات المنشأة بنجاح (وضع العرض التجريبي)");
           return true;
+        },
+        onCommitted: () => {
+          toast.success(
+            mode === "live"
+              ? "تم حفظ بيانات المنشأة بنجاح"
+              : "تم تحديث بيانات المنشأة بنجاح (وضع العرض التجريبي)",
+          );
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حفظ بيانات المنشأة");
@@ -114,14 +119,15 @@ export function useOrganizationMutations() {
           await createOrganizationUnitRecord(newUnit);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.units() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم حفظ الوحدة التنظيمية بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.orgUnits = [...demoStore.orgUnits, newUnit];
           demoStore.notify();
-          toast.success("تم إضافة الوحدة الإدارية بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم حفظ الوحدة التنظيمية بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إضافة الوحدة التنظيمية");
@@ -142,7 +148,6 @@ export function useOrganizationMutations() {
           await updateOrganizationUnitRecord(id, unit);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.units() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم تحديث بيانات الوحدة التنظيمية");
           return true;
         },
         demoOperation: () => {
@@ -150,8 +155,10 @@ export function useOrganizationMutations() {
             u.id === id ? { ...u, ...unit } : u,
           );
           demoStore.notify();
-          toast.success("تم تحديث الوحدة الإدارية بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تحديث بيانات الوحدة التنظيمية");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تحديث الوحدة التنظيمية");
@@ -172,14 +179,15 @@ export function useOrganizationMutations() {
           await deleteOrganizationUnitRecord(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.units() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم حذف الوحدة التنظيمية");
           return true;
         },
         demoOperation: () => {
           demoStore.orgUnits = demoStore.orgUnits.filter((u) => u.id !== id);
           demoStore.notify();
-          toast.success("تم حذف الوحدة الإدارية بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم حذف الوحدة التنظيمية");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حذف الوحدة التنظيمية");
@@ -205,14 +213,15 @@ export function useOrganizationMutations() {
           await createSubsidiaryRecord(newSub);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.subsidiaries() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم إضافة الشركة التابعة بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.subsidiaries = [...demoStore.subsidiaries, newSub];
           demoStore.notify();
-          toast.success("تم إضافة الشركة التابعة بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إضافة الشركة التابعة بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إضافة الشركة التابعة");
@@ -233,7 +242,6 @@ export function useOrganizationMutations() {
           await updateSubsidiaryRecord(id, subsidiary);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.subsidiaries() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم تحديث بيانات الشركة التابعة");
           return true;
         },
         demoOperation: () => {
@@ -241,8 +249,10 @@ export function useOrganizationMutations() {
             s.id === id ? { ...s, ...subsidiary } : s,
           );
           demoStore.notify();
-          toast.success("تم تحديث الشركة التابعة بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تحديث بيانات الشركة التابعة");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تحديث الشركة التابعة");
@@ -263,14 +273,15 @@ export function useOrganizationMutations() {
           await deleteSubsidiaryRecord(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.subsidiaries() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم حذف الشركة التابعة");
           return true;
         },
         demoOperation: () => {
           demoStore.subsidiaries = demoStore.subsidiaries.filter((s) => s.id !== id);
           demoStore.notify();
-          toast.success("تم حذف الشركة التابعة بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم حذف الشركة التابعة");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حذف الشركة التابعة");
@@ -295,14 +306,15 @@ export function useOrganizationMutations() {
           await createWorkLocationRecord(newLoc);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.locations() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم إضافة موقع العمل بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.workLocations = [...demoStore.workLocations, newLoc];
           demoStore.notify();
-          toast.success("تم إضافة موقع العمل بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إضافة موقع العمل بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إضافة موقع العمل");
@@ -323,7 +335,6 @@ export function useOrganizationMutations() {
           await updateWorkLocationRecord(id, location);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.locations() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم تحديث موقع العمل");
           return true;
         },
         demoOperation: () => {
@@ -331,8 +342,10 @@ export function useOrganizationMutations() {
             l.id === id ? { ...l, ...location } : l,
           );
           demoStore.notify();
-          toast.success("تم تحديث موقع العمل بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تحديث موقع العمل بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تحديث موقع العمل");
@@ -353,14 +366,15 @@ export function useOrganizationMutations() {
           await deleteWorkLocationRecord(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.locations() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم حذف موقع العمل");
           return true;
         },
         demoOperation: () => {
           demoStore.workLocations = demoStore.workLocations.filter((l) => l.id !== id);
           demoStore.notify();
-          toast.success("تم حذف موقع العمل بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم حذف موقع العمل بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حذف موقع العمل");
@@ -386,14 +400,15 @@ export function useOrganizationMutations() {
           await createCostCenterRecord(newCenter);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.costCenters() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم إضافة مركز التكلفة");
           return true;
         },
         demoOperation: () => {
           demoStore.costCenters = [...demoStore.costCenters, newCenter];
           demoStore.notify();
-          toast.success("تم إضافة مركز التكلفة بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إضافة مركز التكلفة بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إضافة مركز التكلفة");
@@ -417,7 +432,6 @@ export function useOrganizationMutations() {
           await updateCostCenterRecord(id, center);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.costCenters() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم تحديث مركز التكلفة");
           return true;
         },
         demoOperation: () => {
@@ -425,8 +439,10 @@ export function useOrganizationMutations() {
             c.id === id ? { ...c, ...center } : c,
           );
           demoStore.notify();
-          toast.success("تم تحديث مركز التكلفة بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تحديث مركز التكلفة بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تحديث مركز التكلفة");
@@ -447,14 +463,15 @@ export function useOrganizationMutations() {
           await deleteCostCenterRecord(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.costCenters() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم حذف مركز التكلفة");
           return true;
         },
         demoOperation: () => {
           demoStore.costCenters = demoStore.costCenters.filter((c) => c.id !== id);
           demoStore.notify();
-          toast.success("تم حذف مركز التكلفة بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم حذف مركز التكلفة بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حذف مركز التكلفة");
@@ -480,14 +497,15 @@ export function useOrganizationMutations() {
           await createJobPositionRecord(newPos);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.positions() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم إضافة المسمى الوظيفي");
           return true;
         },
         demoOperation: () => {
           demoStore.jobPositions = [...demoStore.jobPositions, newPos];
           demoStore.notify();
-          toast.success("تم إضافة المسمى الوظيفي بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إضافة المسمى الوظيفي بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إضافة المسمى الوظيفي");
@@ -511,7 +529,6 @@ export function useOrganizationMutations() {
           await updateJobPositionRecord(id, position);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.positions() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم تحديث المسمى الوظيفي");
           return true;
         },
         demoOperation: () => {
@@ -519,8 +536,10 @@ export function useOrganizationMutations() {
             p.id === id ? { ...p, ...position } : p,
           );
           demoStore.notify();
-          toast.success("تم تحديث المسمى الوظيفي بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تحديث المسمى الوظيفي بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تحديث المسمى الوظيفي");
@@ -541,14 +560,15 @@ export function useOrganizationMutations() {
           await deleteJobPositionRecord(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.positions() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم حذف المسمى الوظيفي");
           return true;
         },
         demoOperation: () => {
           demoStore.jobPositions = demoStore.jobPositions.filter((p) => p.id !== id);
           demoStore.notify();
-          toast.success("تم حذف المسمى الوظيفي بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم حذف المسمى الوظيفي بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حذف المسمى الوظيفي");

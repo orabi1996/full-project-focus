@@ -49,14 +49,15 @@ export function useAssetMutations() {
           await createAssetRecord(newAsset);
           await queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم تسجيل الأصل بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.assets = [...demoStore.assets, newAsset];
           demoStore.notify();
-          toast.success("تم تسجيل الأصل في المنظومة بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تسجيل الأصل بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تسجيل الأصل");
@@ -77,7 +78,6 @@ export function useAssetMutations() {
           await assignAssetRecord(assetId, employeeId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم تسليم الأصل للموظف بنجاح");
           return true;
         },
         demoOperation: () => {
@@ -94,8 +94,10 @@ export function useAssetMutations() {
               : a,
           );
           demoStore.notify();
-          toast.success("تم تسليم الأصل للموظف بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تسليم الأصل للموظف بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تسليم الأصل");
@@ -116,7 +118,6 @@ export function useAssetMutations() {
           await returnAssetRecord(assetId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم استرجاع الأصل بنجاح");
           return true;
         },
         demoOperation: () => {
@@ -132,8 +133,10 @@ export function useAssetMutations() {
               : a,
           );
           demoStore.notify();
-          toast.success("تم استرجاع الأصل إلى المستودع بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم استرجاع الأصل بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر استرجاع الأصل");

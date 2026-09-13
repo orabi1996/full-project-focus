@@ -7,6 +7,13 @@ import type {
 } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
 import { createRequestRecord, recordAttendance } from "../../data/hrms-repository";
+import {
+  approveAttendanceCorrectionRecord,
+  rejectAttendanceCorrectionRecord,
+  createOvertimeRecord,
+  approveOvertimeRecord,
+  rejectOvertimeRecord,
+} from "../../data/operational-repository";
 import { processAttendanceServer } from "../../business/attendance.functions";
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
@@ -187,14 +194,15 @@ export function useAttendanceMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.corrections() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم إرسال طلب تصحيح البصمة للمراجعة والاعتماد");
           return true;
         },
         demoOperation: () => {
           demoStore.attendanceCorrections = [newCorrection, ...demoStore.attendanceCorrections];
           demoStore.notify();
-          toast.success("تم رفع طلب تصحيح البصمة بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إرسال طلب تصحيح البصمة للمراجعة والاعتماد");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إرسال طلب التصحيح");
@@ -212,10 +220,11 @@ export function useAttendanceMutations() {
         mode,
         mutationKey: `approve-corr-${id}`,
         operation: async () => {
+          await approveAttendanceCorrectionRecord(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.corrections() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم اعتماد تصحيح البصمة وتحديث السجلات");
           return true;
         },
         demoOperation: () => {
@@ -223,8 +232,10 @@ export function useAttendanceMutations() {
             c.id === id ? { ...c, status: "approved" as const } : c,
           );
           demoStore.notify();
-          toast.success("تم اعتماد تصحيح البصمة");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم اعتماد تصحيح البصمة وتحديث السجلات");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر اعتماد طلب التصحيح");
@@ -242,9 +253,10 @@ export function useAttendanceMutations() {
         mode,
         mutationKey: `reject-corr-${id}`,
         operation: async () => {
+          await rejectAttendanceCorrectionRecord(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.corrections() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم رفض طلب تصحيح البصمة");
           return true;
         },
         demoOperation: () => {
@@ -252,8 +264,10 @@ export function useAttendanceMutations() {
             c.id === id ? { ...c, status: "rejected" as const } : c,
           );
           demoStore.notify();
-          toast.success("تم رفض طلب تصحيح البصمة");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم رفض طلب تصحيح البصمة");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر رفض طلب التصحيح");
@@ -278,23 +292,20 @@ export function useAttendanceMutations() {
         mode,
         mutationKey: `ot-${record.employeeId}-${record.workDate}-${record.hours}`,
         operation: async () => {
-          await createRequestRecord(record.employeeId, "general", {
-            type: "overtime",
-            workDate: record.workDate,
-            hours: record.hours,
-            reason: record.reason,
-          });
+          await createOvertimeRecord(record);
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.overtime() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم إرسال طلب العمل الإضافي للموافقة");
           return true;
         },
         demoOperation: () => {
           demoStore.overtimeRecords = [newOT, ...demoStore.overtimeRecords];
           demoStore.notify();
-          toast.success("تم رفع طلب العمل الإضافي بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إرسال طلب العمل الإضافي بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر رفع طلب العمل الإضافي");
@@ -312,9 +323,11 @@ export function useAttendanceMutations() {
         mode,
         mutationKey: `approve-ot-${id}`,
         operation: async () => {
+          await approveOvertimeRecord(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.overtime() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تمت الموافقة على العمل الإضافي");
           return true;
         },
         demoOperation: () => {
@@ -322,8 +335,10 @@ export function useAttendanceMutations() {
             o.id === id ? { ...o, status: "approved" as const } : o,
           );
           demoStore.notify();
-          toast.success("تمت الموافقة على طلب العمل الإضافي");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم اعتماد طلب العمل الإضافي وتحديث السجلات");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر اعتماد العمل الإضافي");
@@ -341,9 +356,10 @@ export function useAttendanceMutations() {
         mode,
         mutationKey: `reject-ot-${id}`,
         operation: async () => {
+          await rejectOvertimeRecord(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.overtime() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم رفض طلب العمل الإضافي");
           return true;
         },
         demoOperation: () => {
@@ -351,8 +367,10 @@ export function useAttendanceMutations() {
             o.id === id ? { ...o, status: "rejected" as const } : o,
           );
           demoStore.notify();
-          toast.success("تم رفض طلب العمل الإضافي");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم رفض طلب العمل الإضافي");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر رفض العمل الإضافي");
@@ -373,12 +391,13 @@ export function useAttendanceMutations() {
           await processAttendanceServer({ data: { fromDate, toDate } });
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success(`تمت معالجة سجلات الحضور بنجاح`);
           return true;
         },
         demoOperation: () => {
-          toast.success(`تمت معالجة سجلات الحضور للفترة من ${fromDate} إلى ${toDate} بنجاح`);
           return true;
+        },
+        onCommitted: () => {
+          toast.success(`تمت معالجة سجلات الحضور للفترة من ${fromDate} إلى ${toDate} بنجاح`);
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر معالجة سجلات الحضور");

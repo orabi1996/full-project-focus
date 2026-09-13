@@ -53,14 +53,15 @@ export function usePerformanceMutations() {
           await createPerformanceCycleRecord(newCycle);
           await queryClient.invalidateQueries({ queryKey: queryKeys.performance.cycles() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم إطلاق دورة التقييم بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.performanceCycles = [...demoStore.performanceCycles, newCycle];
           demoStore.notify();
-          toast.success("تم إطلاق دورة التقييم بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إطلاق دورة التقييم بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إطلاق دورة التقييم");
@@ -86,14 +87,15 @@ export function usePerformanceMutations() {
           await createEvaluationRecord(newEval);
           await queryClient.invalidateQueries({ queryKey: queryKeys.performance.evaluations() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم حفظ تقييم الأداء بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.evaluations = [...demoStore.evaluations, newEval];
           demoStore.notify();
-          toast.success("تم تسجيل تقييم الأداء بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم حفظ تقييم الأداء بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حفظ تقييم الأداء");

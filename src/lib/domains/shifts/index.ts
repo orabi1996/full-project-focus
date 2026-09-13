@@ -45,14 +45,15 @@ export function useShiftMutations() {
           await createShiftRecord(newShift);
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          toast.success("تم حفظ الوردية بنجاح");
           return true;
         },
         demoOperation: () => {
           demoStore.shifts = [...demoStore.shifts, newShift];
           demoStore.notify();
-          toast.success("تم إضافة الوردية الجديدة بنجاح");
           return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إضافة وحفظ الوردية بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حفظ الوردية");

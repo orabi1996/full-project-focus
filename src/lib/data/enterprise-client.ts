@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { supabase } from "../../integrations/supabase/client";
-import type { Database } from "../../integrations/supabase/types";
+import type { Database, Json } from "../../integrations/supabase/types";
 
 type EnterpriseTable<Row extends Record<string, unknown>> = {
   Row: Row;
@@ -169,15 +169,55 @@ export interface EmployeeExtendedRow extends Record<string, unknown> {
   manager_id: string | null;
   work_location_id: string | null;
   job_position_id: string | null;
+  cost_center_id: string | null;
   hire_date: string;
   contract_type: string;
   probation_end_date: string | null;
   status: string;
   basic_salary: number;
   total_salary: number;
+  housing_allowance: number;
+  transport_allowance: number;
+  other_allowances: number;
+  bank_name: string | null;
+  iban: string | null;
+  gosi_number: string | null;
+  avatar_url: string | null;
+  national_id_expiry: string | null;
+  passport_no: string | null;
+  passport_expiry: string | null;
+  blood_type: string | null;
+  dependents_count: number;
+  job_grade: string | null;
+  work_type: string;
+  contract_start_date: string | null;
+  contract_end_date: string | null;
+  qiwa_contract_no: string | null;
+  termination_date: string | null;
+  last_working_date: string | null;
+  termination_reason: string | null;
+  termination_type: string | null;
+  rehire_date: string | null;
   completion_score: number;
   metadata: unknown;
   created_at: string;
+  updated_at?: string;
+}
+
+export interface EmployeeContractRow extends Record<string, unknown> {
+  id: string;
+  company_id: string;
+  employee_id: string;
+  contract_number: string | null;
+  contract_type: string;
+  contract_status: string;
+  start_date: string;
+  end_date: string | null;
+  probation_end_date: string | null;
+  document_id: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 export interface RequestExtendedRow extends Record<string, unknown> {
   id: string;
@@ -507,11 +547,50 @@ export interface AccountingJournalRow extends Record<string, unknown> {
   created_at: string;
 }
 
+type EnterpriseFunctions = Database["public"]["Functions"] & {
+  generate_company_employee_no: {
+    Args: { p_company_id: string };
+    Returns: string;
+  };
+  change_employee_status: {
+    Args: {
+      p_employee_id: string;
+      p_new_status: string;
+      p_effective_date?: string | null;
+      p_reason?: string | null;
+      p_termination_type?: string | null;
+    };
+    Returns: Json;
+  };
+  bulk_change_employee_status: {
+    Args: {
+      p_employee_ids: string[];
+      p_new_status: string;
+      p_effective_date?: string | null;
+      p_reason?: string | null;
+    };
+    Returns: Json;
+  };
+  rehire_employee: {
+    Args: {
+      p_employee_id: string;
+      p_rehire_date?: string | null;
+      p_new_status?: string;
+      p_new_department_id?: string | null;
+      p_new_position_id?: string | null;
+      p_reason?: string | null;
+    };
+    Returns: Json;
+  };
+};
+
 type EnterpriseDatabase = Omit<Database, "public"> & {
-  public: Omit<Database["public"], "Tables"> & {
+  public: Omit<Database["public"], "Tables" | "Functions"> & {
+    Functions: EnterpriseFunctions;
     Tables: Omit<Database["public"]["Tables"], "departments" | "employees" | "requests"> & {
       departments: EnterpriseTable<DepartmentRow>;
       employees: EnterpriseTable<EmployeeExtendedRow>;
+      employee_contracts: EnterpriseTable<EmployeeContractRow>;
       requests: EnterpriseTable<RequestExtendedRow>;
       companies: EnterpriseTable<CompanyRow>;
       subsidiaries: EnterpriseTable<SubsidiaryRow>;

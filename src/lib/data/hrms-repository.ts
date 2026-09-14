@@ -5,6 +5,8 @@ import {
   type DepartmentRow,
   type EmployeeExtendedRow,
   type RequestExtendedRow,
+  type SubsidiaryRow,
+  type WorkLocationRow,
 } from "./enterprise-client";
 import type {
   DailyAttendanceRecord,
@@ -13,7 +15,11 @@ import type {
   RequestCategory,
   RequestStatus,
   ServiceRequest,
+  Gender,
+  MaritalStatus,
+  ContractType,
 } from "../../types";
+import { calculateProfileCompletion } from "../domains/employees/completion";
 
 type AttendanceRow = Database["public"]["Tables"]["attendance_records"]["Row"];
 type RequestRow = RequestExtendedRow;
@@ -26,149 +32,130 @@ export interface CoreSnapshot {
 }
 
 function splitName(fullName: string) {
-  const cleaned = fullName.replace(/\(مدير النظام\)/g, "").trim();
+  const cleaned = (fullName || "").replace(/\(مدير النظام\)/g, "").trim();
   if (cleaned.includes("@") || !cleaned) {
     return {
-      firstName: "أ. عبد العزيز",
-      lastName: "الفهد",
+      firstName: "",
+      lastName: "",
     };
   }
   const parts = cleaned.split(/\s+/).filter(Boolean);
   return {
-    firstName: parts[0] ?? cleaned,
-    lastName: parts.slice(1).join(" ") || "—",
+    firstName: parts[0] ?? "",
+    lastName: parts.slice(1).join(" ") || "",
   };
 }
 
 function mapEmployee(
   row: EmployeeExtendedRow,
-  departments: Map<string, DepartmentRow>,
-  subsidiaries: Map<string, { name_ar: string }>,
-  locations: Map<string, { name_ar: string }>,
+  departments: Map<string, { name?: string | null; name_ar?: string | null }>,
+  subsidiaries: Map<string, { name_ar?: string | null }>,
+  locations: Map<string, { name_ar?: string | null }>,
 ): Employee {
-  const isEmailOrEmpty =
-    !row.full_name ||
-    row.full_name.includes("@") ||
-    (row.first_name_ar && row.first_name_ar.includes("@"));
-  const isAdminEmail =
-    row.email?.toLowerCase().includes("admin") ||
-    row.email?.toLowerCase().includes("hr");
-
-  const defaultFirstName = isAdminEmail ? "أ. عبد العزيز" : "موظف";
-  const defaultLastName = isAdminEmail ? "الفهد" : "عام";
-
   const firstNameAr =
-    row.first_name_ar && !row.first_name_ar.includes("@")
-      ? row.first_name_ar
-      : isEmailOrEmpty
-        ? defaultFirstName
-        : splitName(row.full_name).firstName;
+    (row.first_name_ar && !row.first_name_ar.includes("@") ? row.first_name_ar : null) ||
+    splitName(row.full_name || "").firstName ||
+    "";
 
   const lastNameAr =
-    row.last_name_ar && row.last_name_ar !== "—" && !row.last_name_ar.includes("@")
+    (row.last_name_ar && row.last_name_ar !== "—" && !row.last_name_ar.includes("@")
       ? row.last_name_ar.replace(/\(مدير النظام\)/g, "").trim()
-      : isEmailOrEmpty
-        ? defaultLastName
-        : splitName(row.full_name).lastName;
+      : null) ||
+    splitName(row.full_name || "").lastName ||
+    "";
 
-  const defaultJobTitle = isAdminEmail
-    ? "مدير عام النظام والموارد البشرية"
-    : "اختصاصي شؤون الموظفين";
+  const firstNameEn =
+    row.first_name_en && !row.first_name_en.includes("@") ? row.first_name_en : "";
+  const lastNameEn =
+    row.last_name_en && row.last_name_en !== "—" ? row.last_name_en : "";
 
-  const jobTitleAr =
-    row.job_title && row.job_title !== "غير محدد" && row.job_title !== ""
-      ? row.job_title
-      : defaultJobTitle;
-
-  const defaultBasicSalary = isAdminEmail ? 24000 : 8500;
-  const defaultTotalSalary = isAdminEmail ? 31500 : 11000;
-
-  const basicSalary =
-    Number(row.basic_salary) > 0 ? Number(row.basic_salary) : defaultBasicSalary;
-  const totalSalary =
-    Number(row.total_salary) > 0
-      ? Number(row.total_salary)
-      : Number(row.basic_salary) > 0
-        ? Number(row.basic_salary)
-        : defaultTotalSalary;
-
-  const defaultCompletionScore = isAdminEmail ? 95 : 50;
-  const completionScore =
-    Number(row.completion_score) > 0
-      ? Number(row.completion_score)
-      : defaultCompletionScore;
-
-  const nationalId =
-    row.national_id_or_iqama && row.national_id_or_iqama !== "غير مسجل"
-      ? row.national_id_or_iqama
-      : isAdminEmail
-        ? "1010998877"
-        : "1087654321";
-
-  const nationality =
-    row.nationality && row.nationality !== "غير محدد"
-      ? row.nationality
-      : "سعودي";
+  const basicSalary = Number(row.basic_salary) || 0;
+  const totalSalary = Number(row.total_salary) || basicSalary;
+  const housingAllowance = Number(row.housing_allowance) || 0;
+  const transportAllowance = Number(row.transport_allowance) || 0;
+  const otherAllowances = Number(row.other_allowances) || 0;
 
   const department = row.department_id ? departments.get(row.department_id) : undefined;
-  const defaultDeptName = isAdminEmail ? "الإدارة العامة والموارد البشرية" : "غير محدد";
+  const subsidiary = row.subsidiary_id ? subsidiaries.get(row.subsidiary_id) : undefined;
+  const location = row.work_location_id ? locations.get(row.work_location_id) : undefined;
 
-  return {
+  const empObj: Employee = {
     id: row.id,
-    employeeNo: row.employee_no,
+    companyId: row.company_id || undefined,
+    employeeNo: row.employee_no || "",
     firstNameAr,
     lastNameAr,
-    firstNameEn:
-      row.first_name_en && !row.first_name_en.includes("@")
-        ? row.first_name_en
-        : "Abdulaziz",
-    lastNameEn:
-      row.last_name_en && row.last_name_en !== "—" ? row.last_name_en : "Al-Fahad",
+    firstNameEn,
+    lastNameEn,
     email: row.email ?? "",
     personalEmail: row.personal_email ?? undefined,
-    phone: row.phone || (isAdminEmail ? "+966 50 123 4567" : "+966 55 000 0000"),
-    nationalIdOrIqama: nationalId,
-    nationality,
-    gender: row.gender === "female" ? "female" : "male",
-    birthDate: row.birth_date ?? "1990-01-01",
+    phone: row.phone || "",
+    nationalIdOrIqama: row.national_id_or_iqama && row.national_id_or_iqama !== "غير مسجل" ? row.national_id_or_iqama : "",
+    nationality: row.nationality && row.nationality !== "غير محدد" ? row.nationality : "",
+    gender: (row.gender as Gender) || "male",
+    birthDate: row.birth_date ?? "",
     maritalStatus:
       row.marital_status === "married" ||
       row.marital_status === "divorced" ||
       row.marital_status === "widowed"
-        ? row.marital_status
-        : "married",
+        ? (row.marital_status as MaritalStatus)
+        : "single",
+    avatarUrl: row.avatar_url || undefined,
     subsidiaryId: row.subsidiary_id ?? "",
-    subsidiaryName: row.subsidiary_id
-      ? subsidiaries.get(row.subsidiary_id)?.name_ar
-      : "كلاسيرا للتقنية وتطوير البرمجيات",
+    subsidiaryName: subsidiary?.name_ar || undefined,
     departmentId: row.department_id ?? "unassigned",
-    departmentName: department?.name ?? defaultDeptName,
-    jobTitleAr,
-    jobTitleEn: row.job_title || "Super Admin & HR Director",
+    departmentName: department?.name || undefined,
+    jobTitleAr: row.job_title && row.job_title !== "غير محدد" ? row.job_title : "",
+    jobTitleEn: typeof (row.metadata as Record<string, unknown> | null)?.jobTitleEn === "string"
+      ? ((row.metadata as Record<string, unknown>).jobTitleEn as string)
+      : "",
     jobPositionId: row.job_position_id,
+    costCenterId: row.cost_center_id,
     managerId: row.manager_id,
     workLocationId: row.work_location_id ?? "",
-    workLocationName: row.work_location_id
-      ? locations.get(row.work_location_id)?.name_ar
-      : "المقر الرئيسي - برج العليا (الرياض)",
-    hireDate: row.hire_date || "2021-01-01",
+    workLocationName: location?.name_ar || undefined,
+    hireDate: row.hire_date || "",
     contractType:
       row.contract_type === "part_time" ||
       row.contract_type === "contractor" ||
       row.contract_type === "seasonal" ||
       row.contract_type === "internship"
-        ? row.contract_type
+        ? (row.contract_type as ContractType)
         : "full_time",
     probationEndDate: row.probation_end_date ?? undefined,
     status: (row.status as Employee["status"]) || "active",
-    completionScore,
+    completionScore: 0, // Computed below
+    terminationDate: row.termination_date || undefined,
+    lastWorkingDate: row.last_working_date || undefined,
+    terminationReason: row.termination_reason || undefined,
+    terminationType: row.termination_type || undefined,
+    rehireDate: row.rehire_date || undefined,
+    nationalIdExpiry: row.national_id_expiry || undefined,
+    passportNo: row.passport_no || undefined,
+    passportExpiry: row.passport_expiry || undefined,
+    bloodType: row.blood_type || undefined,
+    dependentsCount: row.dependents_count || 0,
+    jobGrade: row.job_grade || undefined,
+    workType: (row.work_type as "on_site" | "hybrid" | "remote") || "on_site",
+    contractStartDate: row.contract_start_date || row.hire_date || undefined,
+    contractEndDate: row.contract_end_date || undefined,
+    qiwaContractNo: row.qiwa_contract_no || undefined,
     basicSalary,
     totalSalary,
+    housingAllowance,
+    transportAllowance,
+    otherAllowances,
+    bankName: row.bank_name || undefined,
+    iban: row.iban || undefined,
+    gosiNumber: row.gosi_number || undefined,
     customFields: {
       ...(row.metadata && typeof row.metadata === "object" ? row.metadata : {}),
       userId: row.user_id,
     },
   };
+
+  empObj.completionScore = calculateProfileCompletion(empObj);
+  return empObj;
 }
 
 function mapOrgUnit(row: DepartmentRow): OrgUnit {
@@ -370,43 +357,100 @@ export async function fetchCoreSnapshot(): Promise<CoreSnapshot> {
   };
 }
 
-export async function createEmployeeRecord(employee: Employee) {
-  const { error } = await enterpriseSupabase.from("employees").insert({
-    employee_no: employee.employeeNo,
-    full_name: `${employee.firstNameAr} ${employee.lastNameAr}`.trim(),
-    first_name_ar: employee.firstNameAr,
-    last_name_ar: employee.lastNameAr,
-    first_name_en: employee.firstNameEn,
-    last_name_en: employee.lastNameEn,
-    department_id: employee.departmentId === "unassigned" ? null : employee.departmentId,
-    subsidiary_id: employee.subsidiaryId || null,
-    manager_id: employee.managerId ?? null,
-    work_location_id: employee.workLocationId || null,
-    job_position_id: employee.jobPositionId ?? null,
-    job_title: employee.jobTitleAr,
-    email: employee.email || null,
-    personal_email: employee.personalEmail ?? null,
-    phone: employee.phone || null,
-    national_id_or_iqama: employee.nationalIdOrIqama || null,
-    nationality: employee.nationality || null,
-    gender: employee.gender,
-    birth_date: employee.birthDate,
-    marital_status: employee.maritalStatus,
-    hire_date: employee.hireDate,
-    contract_type: employee.contractType,
-    probation_end_date: employee.probationEndDate ?? null,
-    basic_salary: employee.basicSalary,
-    total_salary: employee.totalSalary,
-    completion_score: employee.completionScore,
-    metadata: employee.customFields ?? {},
-    status:
-      employee.status === "probation" ||
-      employee.status === "preboarding" ||
-      employee.status === "draft"
-        ? "active"
-        : employee.status,
-  });
-  if (error) throw new Error(error.message);
+export async function createEmployeeRecord(employee: Employee): Promise<Employee> {
+  let companyId = employee.companyId;
+  if (!companyId) {
+    const { data: comp } = await enterpriseSupabase.from("companies").select("id").limit(1).single();
+    companyId = comp?.id;
+  }
+
+  // Generate enterprise company-scoped employee number if missing or format incomplete
+  let employeeNo = employee.employeeNo;
+  if (!employeeNo || (employeeNo.startsWith("EMP-") && employeeNo.length < 10)) {
+    if (companyId) {
+      try {
+        const { data: genNo } = await enterpriseSupabase.rpc(
+          "generate_company_employee_no",
+          { p_company_id: companyId },
+        );
+        if (genNo) employeeNo = genNo as string;
+      } catch {
+        // Fallback if RPC unavailable
+      }
+    }
+  }
+
+  const { data, error } = await enterpriseSupabase
+    .from("employees")
+    .insert({
+      company_id: companyId || null,
+      employee_no: employeeNo,
+      full_name: `${employee.firstNameAr || ""} ${employee.lastNameAr || ""}`.trim() || employee.firstNameEn || "موظف جديد",
+      first_name_ar: employee.firstNameAr || null,
+      last_name_ar: employee.lastNameAr || null,
+      first_name_en: employee.firstNameEn || null,
+      last_name_en: employee.lastNameEn || null,
+      department_id: employee.departmentId === "unassigned" || !employee.departmentId ? null : employee.departmentId,
+      subsidiary_id: employee.subsidiaryId || null,
+      manager_id: employee.managerId ?? null,
+      work_location_id: employee.workLocationId || null,
+      job_position_id: employee.jobPositionId ?? null,
+      cost_center_id: employee.costCenterId ?? null,
+      job_title: employee.jobTitleAr || employee.jobTitleEn || "",
+      email: employee.email || null,
+      personal_email: employee.personalEmail ?? null,
+      phone: employee.phone || null,
+      national_id_or_iqama: employee.nationalIdOrIqama || null,
+      nationality: employee.nationality || null,
+      gender: employee.gender || "male",
+      birth_date: employee.birthDate || null,
+      marital_status: employee.maritalStatus || "single",
+      hire_date: employee.hireDate || new Date().toISOString().split("T")[0],
+      contract_type: employee.contractType || "full_time",
+      probation_end_date: employee.probationEndDate ?? null,
+      basic_salary: Number(employee.basicSalary || 0),
+      total_salary: Number(employee.totalSalary || employee.basicSalary || 0),
+      housing_allowance: Number(employee.housingAllowance || 0),
+      transport_allowance: Number(employee.transportAllowance || 0),
+      other_allowances: Number(employee.otherAllowances || 0),
+      bank_name: employee.bankName || null,
+      iban: employee.iban || null,
+      gosi_number: employee.gosiNumber || null,
+      avatar_url: employee.avatarUrl || null,
+      national_id_expiry: employee.nationalIdExpiry || null,
+      passport_no: employee.passportNo || null,
+      passport_expiry: employee.passportExpiry || null,
+      blood_type: employee.bloodType || null,
+      dependents_count: Number(employee.dependentsCount || 0),
+      job_grade: employee.jobGrade || null,
+      work_type: employee.workType || "on_site",
+      contract_start_date: employee.contractStartDate || employee.hireDate || null,
+      contract_end_date: employee.contractEndDate || null,
+      qiwa_contract_no: employee.qiwaContractNo || null,
+      completion_score: calculateProfileCompletion(employee),
+      metadata: employee.customFields ?? {},
+      // Persist truthful status without flattening!
+      status: employee.status || "draft",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("الرقم الوظيفي مستخدم بالفعل في هذه المنشأة.");
+    }
+    throw new Error(error.message);
+  }
+  if (!data) throw new Error("تعذر إنشاء سجل الموظف في قاعدة البيانات.");
+
+  return {
+    ...employee,
+    id: data.id,
+    employeeNo: data.employee_no,
+    companyId: data.company_id ?? undefined,
+    status: data.status as Employee["status"],
+    completionScore: data.completion_score,
+  };
 }
 
 export async function updateEmployeeRecord(id: string, updates: Partial<Employee>) {
@@ -443,6 +487,12 @@ export async function updateEmployeeRecord(id: string, updates: Partial<Employee
         ? null
         : updates.jobPositionId;
   }
+  if (updates.costCenterId !== undefined) {
+    dbUpdates.cost_center_id =
+      updates.costCenterId === "unassigned" || !updates.costCenterId
+        ? null
+        : updates.costCenterId;
+  }
   if (updates.jobTitleAr !== undefined) dbUpdates.job_title = updates.jobTitleAr;
   if (updates.email !== undefined) dbUpdates.email = updates.email || null;
   if (updates.personalEmail !== undefined) dbUpdates.personal_email = updates.personalEmail || null;
@@ -454,27 +504,139 @@ export async function updateEmployeeRecord(id: string, updates: Partial<Employee
   if (updates.birthDate !== undefined) dbUpdates.birth_date = updates.birthDate || null;
   if (updates.maritalStatus !== undefined)
     dbUpdates.marital_status = updates.maritalStatus || "single";
-  if (updates.hireDate !== undefined)
-    dbUpdates.hire_date = updates.hireDate || new Date().toISOString().split("T")[0];
-  if (updates.contractType !== undefined)
-    dbUpdates.contract_type = updates.contractType || "full_time";
+  if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl || null;
+  if (updates.hireDate !== undefined) dbUpdates.hire_date = updates.hireDate;
+  if (updates.contractType !== undefined) dbUpdates.contract_type = updates.contractType;
   if (updates.probationEndDate !== undefined)
     dbUpdates.probation_end_date = updates.probationEndDate || null;
   if (updates.basicSalary !== undefined) dbUpdates.basic_salary = Number(updates.basicSalary || 0);
   if (updates.totalSalary !== undefined) dbUpdates.total_salary = Number(updates.totalSalary || 0);
+  if (updates.housingAllowance !== undefined) dbUpdates.housing_allowance = Number(updates.housingAllowance || 0);
+  if (updates.transportAllowance !== undefined) dbUpdates.transport_allowance = Number(updates.transportAllowance || 0);
+  if (updates.otherAllowances !== undefined) dbUpdates.other_allowances = Number(updates.otherAllowances || 0);
+  if (updates.bankName !== undefined) dbUpdates.bank_name = updates.bankName || null;
+  if (updates.iban !== undefined) dbUpdates.iban = updates.iban || null;
+  if (updates.gosiNumber !== undefined) dbUpdates.gosi_number = updates.gosiNumber || null;
+  if (updates.nationalIdExpiry !== undefined) dbUpdates.national_id_expiry = updates.nationalIdExpiry || null;
+  if (updates.passportNo !== undefined) dbUpdates.passport_no = updates.passportNo || null;
+  if (updates.passportExpiry !== undefined) dbUpdates.passport_expiry = updates.passportExpiry || null;
+  if (updates.bloodType !== undefined) dbUpdates.blood_type = updates.bloodType || null;
+  if (updates.dependentsCount !== undefined) dbUpdates.dependents_count = Number(updates.dependentsCount || 0);
+  if (updates.jobGrade !== undefined) dbUpdates.job_grade = updates.jobGrade || null;
+  if (updates.workType !== undefined) dbUpdates.work_type = updates.workType || "on_site";
+  if (updates.contractStartDate !== undefined) dbUpdates.contract_start_date = updates.contractStartDate || null;
+  if (updates.contractEndDate !== undefined) dbUpdates.contract_end_date = updates.contractEndDate || null;
+  if (updates.qiwaContractNo !== undefined) dbUpdates.qiwa_contract_no = updates.qiwaContractNo || null;
   if (updates.completionScore !== undefined)
     dbUpdates.completion_score = Number(updates.completionScore || 0);
   if (updates.customFields !== undefined) dbUpdates.metadata = updates.customFields;
-  if (
-    updates.status === "active" ||
-    updates.status === "on_leave" ||
-    updates.status === "suspended" ||
-    updates.status === "terminated"
-  ) {
+  if (updates.status !== undefined) {
     dbUpdates.status = updates.status;
   }
-  const { error } = await enterpriseSupabase.from("employees").update(dbUpdates).eq("id", id);
+
+  const { data, error } = await enterpriseSupabase
+    .from("employees")
+    .update(dbUpdates)
+    .eq("id", id)
+    .select("id")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("الرقم الوظيفي مستخدم بالفعل في هذه المنشأة.");
+    }
+    throw new Error(error.message);
+  }
+  if (!data) {
+    throw new Error("الموظف غير موجود أو تم حذفه مسبقاً.");
+  }
+  return data;
+}
+
+export async function changeEmployeeStatusRecord(
+  employeeId: string,
+  newStatus: string,
+  effectiveDate?: string,
+  reason?: string,
+  terminationType?: string,
+) {
+  const { data, error } = await enterpriseSupabase.rpc("change_employee_status", {
+    p_employee_id: employeeId,
+    p_new_status: newStatus,
+    p_effective_date: effectiveDate || null,
+    p_reason: reason || null,
+    p_termination_type: terminationType || null,
+  });
   if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function bulkChangeEmployeeStatusRecord(
+  employeeIds: string[],
+  newStatus: string,
+  effectiveDate?: string,
+  reason?: string,
+) {
+  const { data, error } = await enterpriseSupabase.rpc("bulk_change_employee_status", {
+    p_employee_ids: employeeIds,
+    p_new_status: newStatus,
+    p_effective_date: effectiveDate || null,
+    p_reason: reason || null,
+  });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function rehireEmployeeRecord(
+  employeeId: string,
+  rehireDate?: string,
+  newStatus = "probation",
+  newDeptId?: string,
+  newPositionId?: string,
+  reason?: string,
+) {
+  const { data, error } = await enterpriseSupabase.rpc("rehire_employee", {
+    p_employee_id: employeeId,
+    p_rehire_date: rehireDate || null,
+    p_new_status: newStatus,
+    p_new_department_id: newDeptId || null,
+    p_new_position_id: newPositionId || null,
+    p_reason: reason || null,
+  });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function fetchSingleEmployee(id: string): Promise<Employee | null> {
+  const [empResult, deptsResult, subsResult, locsResult] = await Promise.all([
+    enterpriseSupabase.from("employees").select("*").eq("id", id).single(),
+    enterpriseSupabase.from("departments").select("*"),
+    enterpriseSupabase.from("subsidiaries").select("id, name_ar"),
+    enterpriseSupabase.from("work_locations").select("id, name_ar"),
+  ]);
+
+  if (empResult.error || !empResult.data) {
+    return null;
+  }
+
+  const departments = new Map((deptsResult.data ?? []).map((row) => [row.id, row]));
+  const subsidiaries = new Map((subsResult.data ?? []).map((row) => [row.id, row]));
+  const locations = new Map((locsResult.data ?? []).map((row) => [row.id, row]));
+
+  const mapped = mapEmployee(empResult.data, departments, subsidiaries, locations);
+
+  if (mapped.managerId) {
+    const { data: mgr } = await enterpriseSupabase
+      .from("employees")
+      .select("first_name_ar, last_name_ar")
+      .eq("id", mapped.managerId)
+      .single();
+    if (mgr) {
+      mapped.managerName = `${mgr.first_name_ar || ""} ${mgr.last_name_ar || ""}`.trim() || undefined;
+    }
+  }
+
+  return mapped;
 }
 
 export async function updateRequestDecision(

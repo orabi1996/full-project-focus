@@ -7,7 +7,8 @@ export type StorageBucket =
   | 'company-documents'
   | 'expense-receipts'
   | 'candidate-cvs'
-  | 'job-offers';
+  | 'job-offers'
+  | 'employee-avatars';
 
 export type FileStatus =
   | 'active'

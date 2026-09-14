@@ -50,6 +50,15 @@ export const BUCKET_VALIDATION_RULES: Record<StorageBucket, StorageValidationRul
     allowedMimeTypes: ['application/pdf'],
     allowedExtensions: ['.pdf'],
   },
+  'employee-avatars': {
+    maxSizeBytes: 5 * 1024 * 1024, // 5 MB
+    allowedMimeTypes: [
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+    ],
+    allowedExtensions: ['.png', '.jpg', '.jpeg', '.webp'],
+  },
 };
 
 export const FORBIDDEN_EXTENSIONS = new Set([

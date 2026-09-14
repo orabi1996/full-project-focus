@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../../lib/context/AppContext";
+import { canAccessModule } from "../../lib/auth/permissions";
 import type { Employee, ContractType, Gender, MaritalStatus } from "../../types";
 import { IconSymbol } from "../ui/IconSymbol";
 import { OfficialDocumentModal, type DocType } from "../documents/OfficialDocumentModal";
@@ -79,14 +80,14 @@ export const EmployeeProfileModal: React.FC = () => {
         firstNameEn: employee.firstNameEn,
         lastNameEn: employee.lastNameEn,
         nationalIdOrIqama: employee.nationalIdOrIqama,
-        nationalIdExpiry: employee.nationalIdExpiry || "2030-01-01",
+        nationalIdExpiry: employee.nationalIdExpiry || "",
         passportNo: employee.passportNo || "",
         passportExpiry: employee.passportExpiry || "",
         nationality: employee.nationality,
         birthDate: employee.birthDate,
         gender: employee.gender,
         maritalStatus: employee.maritalStatus,
-        bloodType: employee.bloodType || "O+",
+        bloodType: employee.bloodType || "",
         dependentsCount: employee.dependentsCount || 0,
         email: employee.email,
         personalEmail: employee.personalEmail || "",
@@ -95,30 +96,30 @@ export const EmployeeProfileModal: React.FC = () => {
         departmentName: employee.departmentName,
         jobTitleAr: employee.jobTitleAr,
         jobTitleEn: employee.jobTitleEn,
-        jobGrade: employee.jobGrade || "L3 - اختصاصي",
-        costCenter: employee.costCenter || "CC-101",
+        jobGrade: employee.jobGrade || "",
+        costCenter: employee.costCenter || "",
         workType: employee.workType || "on_site",
         workLocationId: employee.workLocationId,
         workLocationName: employee.workLocationName,
         hireDate: employee.hireDate,
         contractStartDate: employee.contractStartDate || employee.hireDate,
-        contractEndDate: employee.contractEndDate || "2027-01-01",
-        qiwaContractNo: employee.qiwaContractNo || `QIWA-${employee.hireDate.split("-")[0]}-9981`,
+        contractEndDate: employee.contractEndDate || "",
+        qiwaContractNo: employee.qiwaContractNo || "",
         contractType: employee.contractType,
         status: employee.status,
         basicSalary: employee.basicSalary,
-        housingAllowance: employee.housingAllowance || Math.round(employee.basicSalary * 0.25),
-        transportAllowance: employee.transportAllowance || Math.round(employee.basicSalary * 0.08),
+        housingAllowance: employee.housingAllowance ?? 0,
+        transportAllowance: employee.transportAllowance ?? 0,
         otherAllowances: employee.otherAllowances || 0,
         totalSalary: employee.totalSalary,
-        bankName: employee.bankName || "مصرف الراجحي (Al Rajhi Bank)",
-        iban: employee.iban || "SA44 8000 0201 6080 1000 1234",
-        gosiNumber: employee.gosiNumber || "7788990011",
+        bankName: employee.bankName || "",
+        iban: employee.iban || "",
+        gosiNumber: employee.gosiNumber || "",
         managerId: employee.managerId,
         managerName: employee.managerName,
-        educationDegree: employee.educationDegree || "بكالوريوس علوم حاسب",
-        university: employee.university || "جامعة الملك سعود",
-        graduationYear: employee.graduationYear || 2018,
+        educationDegree: employee.educationDegree || "",
+        university: employee.university || "",
+        graduationYear: employee.graduationYear,
       });
       setIsEditing(false);
     }
@@ -127,6 +128,13 @@ export const EmployeeProfileModal: React.FC = () => {
   if (!employee) return null;
 
   const canEdit = ["super_admin", "hr_manager", "payroll_officer"].includes(currentRole);
+  const canViewPayroll = canAccessModule(currentRole, "payroll");
+  const maskIban = (iban?: string) => {
+    if (!iban) return "غير مسجل";
+    const clean = iban.replace(/\s+/g, "");
+    if (clean.length < 8) return "••••••••";
+    return `${clean.slice(0, 4)} •••• •••• ${clean.slice(-4)}`;
+  };
 
   const empLeaveBalance = leaveBalances.find((b) => b.employeeId === employee.id) || {
     availableBalance: 21,
@@ -261,7 +269,7 @@ export const EmployeeProfileModal: React.FC = () => {
                     </span>{" "}
                     •{" "}
                     <span className="text-primary font-bold">
-                      {employee.costCenter || "CC-101"}
+                      {employee.costCenter || "غير محدد"}
                     </span>
                   </DialogDescription>
                 </div>
@@ -342,7 +350,7 @@ export const EmployeeProfileModal: React.FC = () => {
             <div className="rounded-2xl border border-border/60 bg-muted/20 p-3 text-xs">
               <span className="text-muted-foreground font-bold">رصيد الإجازات المتاح</span>
               <p className="text-sm font-black text-emerald-600 mt-0.5 font-mono">
-                {empLeaveBalance.availableBalance} يوم
+                {empLeaveBalance ? `${empLeaveBalance.availableBalance} يوم` : "غير مسجل"}
               </p>
             </div>
             <div className="rounded-2xl border border-border/60 bg-muted/20 p-3 text-xs">
@@ -507,7 +515,7 @@ export const EmployeeProfileModal: React.FC = () => {
                   <div className="space-y-1.5">
                     <label className="font-bold text-muted-foreground">رقم جواز السفر</label>
                     <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                      {employee.passportNo || "KSA-99881122"}
+                      {employee.passportNo || "غير مسجل"}
                     </p>
                   </div>
 
@@ -521,7 +529,7 @@ export const EmployeeProfileModal: React.FC = () => {
                   <div className="space-y-1.5">
                     <label className="font-bold text-muted-foreground">فصيلة الدم</label>
                     <p className="font-bold text-primary bg-primary/10 p-2.5 rounded-2xl font-mono">
-                      {employee.bloodType || "O+"}
+                      {employee.bloodType || "غير مسجل"}
                     </p>
                   </div>
 
@@ -578,7 +586,7 @@ export const EmployeeProfileModal: React.FC = () => {
                         اسم الشارع
                       </span>
                       <span className="font-bold text-foreground">
-                        {employee.nationalAddress?.street || "شارع التخصصي"}
+                        {employee.nationalAddress?.street || "غير مسجل"}
                       </span>
                     </div>
                     <div className="bg-muted/20 p-2.5 rounded-2xl">
@@ -586,7 +594,7 @@ export const EmployeeProfileModal: React.FC = () => {
                         رقم المبنى
                       </span>
                       <span className="font-mono font-black text-primary">
-                        {employee.nationalAddress?.buildingNo || "7214"}
+                        {employee.nationalAddress?.buildingNo || "—"}
                       </span>
                     </div>
                     <div className="bg-muted/20 p-2.5 rounded-2xl">
@@ -613,7 +621,7 @@ export const EmployeeProfileModal: React.FC = () => {
                     <div className="flex justify-between bg-muted/20 p-2.5 rounded-2xl">
                       <span className="text-muted-foreground font-bold">اسم جهة الاتصال:</span>
                       <span className="font-bold text-foreground">
-                        {employee.emergencyContact?.name || "سعود المهيري"}
+                        {employee.emergencyContact?.name || "غير مسجل"}
                       </span>
                     </div>
                     <div className="flex justify-between bg-muted/20 p-2.5 rounded-2xl">
@@ -674,7 +682,7 @@ export const EmployeeProfileModal: React.FC = () => {
                       مركز التكلفة (Cost Center)
                     </label>
                     <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                      {employee.costCenter || "CC-101 - تقنية المعلومات"}
+                      {employee.costCenter || "غير محدد"}
                     </p>
                   </div>
 
@@ -751,7 +759,7 @@ export const EmployeeProfileModal: React.FC = () => {
                       رقم العقد في قوى (QIWA ID)
                     </label>
                     <p className="font-mono font-bold text-emerald-600 bg-muted/20 p-2.5 rounded-2xl">
-                      {employee.qiwaContractNo || "QIWA-2021-99812"}
+                      {employee.qiwaContractNo || "غير مسجل"}
                     </p>
                   </div>
 
@@ -854,7 +862,7 @@ export const EmployeeProfileModal: React.FC = () => {
                       البنك المعتمد لتحويل الراتب
                     </label>
                     <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                      {employee.bankName || "مصرف الراجحي (Al Rajhi Bank)"}
+                      {employee.bankName || "غير مسجل"}
                     </p>
                   </div>
 
@@ -863,7 +871,7 @@ export const EmployeeProfileModal: React.FC = () => {
                       رقم الآيبان الدولي (IBAN - نظام حماية الأجور)
                     </label>
                     <p className="font-mono font-black text-foreground bg-muted/20 p-2.5 rounded-2xl text-xs">
-                      {employee.iban || "SA44 8000 0201 6080 1000 1234"}
+                      {canViewPayroll ? (employee.iban || "غير مسجل") : maskIban(employee.iban)}
                     </p>
                   </div>
 
@@ -873,7 +881,7 @@ export const EmployeeProfileModal: React.FC = () => {
                       <span className="font-bold text-emerald-800 flex items-center gap-1.5 text-xs">
                         <Shield className="h-4 w-4 text-emerald-600" />
                         اشتراك المؤسسة العامة للتأمينات الاجتماعية (GOSI) - مسجل برقم:{" "}
-                        {employee.gosiNumber || "7788990011"}
+                        {employee.gosiNumber || "غير مسجل"}
                       </span>
                       <Badge className="bg-emerald-600 text-white text-[10px] rounded-full">
                         ساري ومطابق لنظام العمل
@@ -1016,44 +1024,35 @@ export const EmployeeProfileModal: React.FC = () => {
                   <div className="flex items-center gap-2 border-b border-border/60 pb-3">
                     <Laptop className="h-4 w-4 text-primary" />
                     <h4 className="font-black text-xs text-foreground">
-                      العهد والأجهزة المستلمة ({employee.assignedAssets?.length || 2})
+                      العهد والأجهزة المستلمة ({employee.assignedAssets?.length || 0})
                     </h4>
                   </div>
                   <div className="space-y-2 text-xs">
-                    {(
-                      employee.assignedAssets || [
-                        {
-                          name: "MacBook Pro M3 Max",
-                          type: "كمبيوتر محمول",
-                          serialNo: "APL-M3-9988",
-                          assignedDate: "2023-11-10",
-                        },
-                        {
-                          name: "شاشة Dell UltraSharp 27-inch",
-                          type: "شاشة مكتبية",
-                          serialNo: "DEL-4K-5541",
-                          assignedDate: "2023-11-10",
-                        },
-                      ]
-                    ).map((ast, idx) => (
-                      <div
-                        key={idx}
-                        className="rounded-2xl border border-border/60 bg-muted/20 p-3 flex justify-between items-center"
-                      >
-                        <div>
-                          <span className="font-bold text-foreground block">{ast.name}</span>
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            الرقم التسلسلي: {ast.serialNo}
-                          </span>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] rounded-full bg-emerald-500/10 text-emerald-700 border-emerald-200"
+                    {employee.assignedAssets && employee.assignedAssets.length > 0 ? (
+                      employee.assignedAssets.map((ast, idx) => (
+                        <div
+                          key={idx}
+                          className="rounded-2xl border border-border/60 bg-muted/20 p-3 flex justify-between items-center"
                         >
-                          مسندة
-                        </Badge>
-                      </div>
-                    ))}
+                          <div>
+                            <span className="font-bold text-foreground block">{ast.name}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              الرقم التسلسلي: {ast.serialNo}
+                            </span>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] rounded-full bg-emerald-500/10 text-emerald-700 border-emerald-200"
+                          >
+                            مسندة
+                          </Badge>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-center py-4 text-muted-foreground text-xs font-medium">
+                        لا توجد عهد أو أجهزة مستلمة مسجلة
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1062,56 +1061,45 @@ export const EmployeeProfileModal: React.FC = () => {
                   <div className="flex items-center gap-2 border-b border-border/60 pb-3">
                     <FileText className="h-4 w-4 text-emerald-600" />
                     <h4 className="font-black text-xs text-foreground">
-                      الخزينة الرقمية والمستندات المعتمدة
+                      الخزينة الرقمية والمستندات المعتمدة ({employee.documentsList?.length || 0})
                     </h4>
                   </div>
                   <div className="space-y-2 text-xs">
-                    {(
-                      employee.documentsList || [
-                        {
-                          type: "national_id",
-                          title: "الهوية الوطنية / الإقامة",
-                          docNo: employee.nationalIdOrIqama,
-                          expiryDate: "2030-05-15",
-                          status: "valid",
-                        },
-                        {
-                          type: "contract",
-                          title: "عقد العمل الموحد (قوى)",
-                          docNo: employee.qiwaContractNo || "QIWA-2021-99812",
-                          expiryDate: "2027-03-01",
-                          status: "valid",
-                        },
-                      ]
-                    ).map((doc, idx) => (
-                      <div
-                        key={idx}
-                        className="rounded-2xl border border-border/60 bg-muted/20 p-3 flex justify-between items-center"
-                      >
-                        <div>
-                          <span className="font-bold text-foreground block">{doc.title}</span>
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            رقم المستند: {doc.docNo}
-                          </span>
+                    {employee.documentsList && employee.documentsList.length > 0 ? (
+                      employee.documentsList.map((doc, idx) => (
+                        <div
+                          key={idx}
+                          className="rounded-2xl border border-border/60 bg-muted/20 p-3 flex justify-between items-center"
+                        >
+                          <div>
+                            <span className="font-bold text-foreground block">{doc.title}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              رقم المستند: {doc.docNo}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] rounded-full ${doc.status === "valid" ? "bg-emerald-500/10 text-emerald-700 border-emerald-200" : "bg-amber-500/10 text-amber-700 border-amber-200"}`}
+                            >
+                              {doc.status === "valid" ? "ساري الصلاحية" : "ينتهي قريباً"}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setDocModalType("salary_certificate")}
+                              className="h-7 w-7 p-0 rounded-full"
+                            >
+                              <Eye className="h-3.5 w-3.5 text-primary" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] rounded-full ${doc.status === "valid" ? "bg-emerald-500/10 text-emerald-700 border-emerald-200" : "bg-amber-500/10 text-amber-700 border-amber-200"}`}
-                          >
-                            {doc.status === "valid" ? "ساري الصلاحية" : "ينتهي قريباً"}
-                          </Badge>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setDocModalType("salary_certificate")}
-                            className="h-7 w-7 p-0 rounded-full"
-                          >
-                            <Eye className="h-3.5 w-3.5 text-primary" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="text-center py-4 text-muted-foreground text-xs font-medium">
+                        لا توجد مستندات مسجلة في الخزينة
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

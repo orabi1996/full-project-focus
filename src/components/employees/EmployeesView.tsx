@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
-import { canManageModule } from "../../lib/auth/permissions";
+import { canManageModule, canAccessModule } from "../../lib/auth/permissions";
+import { bulkChangeEmployeeStatusRecord } from "../../lib/data/hrms-repository";
 import type { Employee, ContractType, Gender, MaritalStatus, EmployeeStatus } from "../../types";
+import { isSaudiNationality } from "../../lib/domains/employees/completion";
 import { IconSymbol } from "../ui/IconSymbol";
 import { OfficialDocumentModal, type DocType } from "../documents/OfficialDocumentModal";
 import {
@@ -112,8 +114,9 @@ export const EmployeesView: React.FC = () => {
   // Add Employee Wizard state
   const [isAddWizardOpen, setIsAddWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
-  const [newEmp, setNewEmp] = useState({
-    employeeNo: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+
+  const createEmptyNewEmp = () => ({
+    employeeNo: "",
     firstNameAr: "",
     lastNameAr: "",
     firstNameEn: "",
@@ -123,7 +126,7 @@ export const EmployeesView: React.FC = () => {
     nationalIdOrIqama: "",
     nationality: "سعودي",
     gender: "male" as Gender,
-    birthDate: "1995-01-01",
+    birthDate: "",
     maritalStatus: "single" as MaritalStatus,
     subsidiaryId: subsidiaries[0]?.id || "",
     subsidiaryName: subsidiaries[0]?.nameAr || "",
@@ -131,19 +134,21 @@ export const EmployeesView: React.FC = () => {
     departmentName: orgUnits[0]?.nameAr || "",
     jobTitleAr: "",
     jobTitleEn: "",
-    jobGrade: "L3 - اختصاصي",
-    costCenter: "CC-101",
+    jobGrade: "",
+    costCenter: "",
     workType: "on_site" as const,
     workLocationId: workLocations[0]?.id || "",
     workLocationName: workLocations[0]?.nameAr || "",
     hireDate: new Date().toISOString().split("T")[0],
     contractType: "full_time" as ContractType,
     status: "active" as const,
-    basicSalary: 10000,
-    housingAllowance: 2500,
-    transportAllowance: 800,
-    totalSalary: 13300,
+    basicSalary: 0,
+    housingAllowance: 0,
+    transportAllowance: 0,
+    totalSalary: 0,
   });
+
+  const [newEmp, setNewEmp] = useState(createEmptyNewEmp());
 
   // Document Print Modal State
   const [docModalEmployee, setDocModalEmployee] = useState<Employee | null>(null);
@@ -151,12 +156,7 @@ export const EmployeesView: React.FC = () => {
 
   // KPI Calculations
   const totalEmployees = employees.length;
-  const saudiEmployees = employees.filter(
-    (e) =>
-      e.nationality.includes("سعود") ||
-      e.nationalIdOrIqama?.startsWith("1") ||
-      e.nationality.toLowerCase().includes("saudi"),
-  ).length;
+  const saudiEmployees = employees.filter((e) => isSaudiNationality(e.nationality)).length;
   const expatEmployees = totalEmployees - saudiEmployees;
   const saudizationRate =
     totalEmployees > 0 ? Math.round((saudiEmployees / totalEmployees) * 100) : 0;
@@ -164,8 +164,7 @@ export const EmployeesView: React.FC = () => {
   const onLeaveCount = employees.filter((e) => e.status === "on_leave").length;
   const expiringDocsCount = employees.filter(
     (e) =>
-      e.documentsList?.some((d) => d.status === "expiring" || d.status === "expired") ||
-      e.status === "probation",
+      e.documentsList?.some((d) => d.status === "expiring" || d.status === "expired")
   ).length;
 
   // Active Filters Count
@@ -231,10 +230,7 @@ export const EmployeesView: React.FC = () => {
 
       if (!matchesSearch) return false;
 
-      const isSaudi =
-        emp.nationality.includes("سعود") ||
-        emp.nationalIdOrIqama?.startsWith("1") ||
-        emp.nationality.toLowerCase().includes("saudi");
+      const isSaudi = isSaudiNationality(emp.nationality);
 
       // Quick Preset Pills
       if (quickPreset === "saudi" && !isSaudi) return false;
@@ -246,8 +242,7 @@ export const EmployeesView: React.FC = () => {
       if (quickPreset === "complete_profile" && emp.completionScore < 95) return false;
       if (
         quickPreset === "expiring_docs" &&
-        !emp.documentsList?.some((d) => d.status === "expiring" || d.status === "expired") &&
-        emp.status !== "probation"
+        !emp.documentsList?.some((d) => d.status === "expiring" || d.status === "expired")
       )
         return false;
 
@@ -310,33 +305,45 @@ export const EmployeesView: React.FC = () => {
         ? filteredEmployees.filter((e) => selectedIds.includes(e.id))
         : filteredEmployees;
 
-    const exportData = listToExport.map((e) => ({
-      "الرقم الوظيفي": e.employeeNo,
-      "الاسم الكامل": `${e.firstNameAr} ${e.lastNameAr}`,
-      "الاسم بالإنجليزية": `${e.firstNameEn} ${e.lastNameEn}`,
-      "الهوية / الإقامة": e.nationalIdOrIqama,
-      الجنسية: e.nationality,
-      الإدارة: e.departmentName,
-      "المسمى الوظيفي": e.jobTitleAr,
-      "الدرجة الوظيفية": e.jobGrade || "L3",
-      "الفرع ومقر العمل": e.workLocationName,
-      "الراتب الأساسي": e.basicSalary,
-      "بدل السكن": e.housingAllowance || 0,
-      "بدل النقل": e.transportAllowance || 0,
-      "إجمالي الراتب": e.totalSalary,
-      "البريد الإلكتروني": e.email,
-      "رقم الجوال": e.phone,
-      الحالة:
-        e.status === "active"
-          ? "نشط"
-          : e.status === "probation"
-            ? "تحت التجربة"
-            : e.status === "on_leave"
-              ? "في إجازة"
-              : "موقوف",
-      "تاريخ التعيين": e.hireDate,
-      "عقد قوى": e.qiwaContractNo || "موثق",
-    }));
+    const canViewPayroll = canAccessModule(currentRole, "payroll");
+    const exportData = listToExport.map((e) => {
+      const row: Record<string, unknown> = {
+        "الرقم الوظيفي": e.employeeNo,
+        "الاسم الكامل": `${e.firstNameAr} ${e.lastNameAr}`,
+        "الاسم بالإنجليزية": `${e.firstNameEn || ""} ${e.lastNameEn || ""}`.trim(),
+        "الهوية / الإقامة": canViewPayroll ? e.nationalIdOrIqama : "********",
+        الجنسية: e.nationality,
+        الإدارة: e.departmentName || "",
+        "المسمى الوظيفي": e.jobTitleAr,
+        "الدرجة الوظيفية": e.jobGrade || "",
+        "الفرع ومقر العمل": e.workLocationName || "",
+        "البريد الإلكتروني": e.email,
+        "رقم الجوال": e.phone || "",
+        الحالة:
+          e.status === "active"
+            ? "نشط"
+            : e.status === "probation"
+              ? "تحت التجربة"
+              : e.status === "on_leave"
+                ? "في إجازة"
+                : e.status === "suspended"
+                  ? "موقوف"
+                  : e.status === "terminated"
+                    ? "منتهي الخدمة"
+                    : e.status,
+        "تاريخ التعيين": e.hireDate,
+        "عقد العمل": e.qiwaContractNo || "سجل نظامي",
+      };
+
+      if (canViewPayroll) {
+        row["الراتب الأساسي"] = e.basicSalary;
+        row["بدل السكن"] = e.housingAllowance || 0;
+        row["بدل النقل"] = e.transportAllowance || 0;
+        row["إجمالي الراتب"] = e.totalSalary;
+      }
+
+      return row;
+    });
 
     exportToCSV(`دليل_الموظفين_${new Date().toISOString().slice(0, 10)}`, exportData);
     toast.success(`تم تصدير كشف (${listToExport.length}) موظفاً بنجاح!`);
@@ -344,14 +351,19 @@ export const EmployeesView: React.FC = () => {
 
   const handleBulkStatusUpdate = async (newStatus: EmployeeStatus) => {
     if (selectedIds.length === 0 || isSaving) return;
-    const results = await Promise.all(
-      selectedIds.map((id) => updateEmployee(id, { status: newStatus })),
-    );
-    if (results.some((saved) => !saved)) return;
-    toast.success(
-      `تم تحديث حالة (${selectedIds.length}) موظفاً إلى (${newStatus === "active" ? "نشط" : newStatus === "probation" ? "تحت التجربة" : "موقوف"}) بنجاح!`,
-    );
-    setSelectedIds([]);
+    try {
+      await bulkChangeEmployeeStatusRecord(selectedIds, newStatus, "تحديث مجمع من شاشة الموظفين");
+      await Promise.all(
+        selectedIds.map((id) => updateEmployee(id, { status: newStatus })),
+      );
+      toast.success(
+        `تم تحديث حالة (${selectedIds.length}) موظفاً بنجاح!`,
+      );
+      setSelectedIds([]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "فشل تحديث الحالة للموظفين المحددين";
+      toast.error(msg);
+    }
   };
 
   // Add Employee Submission
@@ -366,48 +378,39 @@ export const EmployeesView: React.FC = () => {
     const sub = subsidiaries.find((s) => s.id === newEmp.subsidiaryId);
     const loc = workLocations.find((l) => l.id === newEmp.workLocationId);
 
-    const b = Number(newEmp.basicSalary) || 10000;
-    const h = Number(newEmp.housingAllowance) || Math.round(b * 0.25);
-    const tr = Number(newEmp.transportAllowance) || Math.round(b * 0.08);
+    const b = Number(newEmp.basicSalary) || 0;
+    const h = Number(newEmp.housingAllowance) || 0;
+    const tr = Number(newEmp.transportAllowance) || 0;
     const total = b + h + tr;
 
-    const isSaudi =
-      newEmp.nationality.includes("سعود") ||
-      newEmp.nationalIdOrIqama.startsWith("1") ||
-      newEmp.nationality.toLowerCase().includes("saudi");
+    const isSaudi = isSaudiNationality(newEmp.nationality);
 
     const empData: Omit<Employee, "id" | "completionScore"> = {
-      employeeNo: newEmp.employeeNo,
+      employeeNo: newEmp.employeeNo || `EMP-${Date.now().toString().slice(-4)}`,
       firstNameAr: newEmp.firstNameAr,
       lastNameAr: newEmp.lastNameAr,
       firstNameEn: newEmp.firstNameEn || newEmp.firstNameAr,
       lastNameEn: newEmp.lastNameEn || newEmp.lastNameAr,
       email: newEmp.email,
-      phone: newEmp.phone || "+966 50 000 0000",
+      phone: newEmp.phone || "",
       nationalIdOrIqama: newEmp.nationalIdOrIqama,
-      nationalIdExpiry: "2030-05-15",
-      passportNo: "KSA-88992211",
-      passportExpiry: "2029-10-10",
       nationality: newEmp.nationality,
       gender: newEmp.gender,
-      birthDate: newEmp.birthDate,
+      birthDate: newEmp.birthDate || "",
       maritalStatus: newEmp.maritalStatus,
-      dependentsCount: 1,
-      bloodType: "O+",
-      subsidiaryId: newEmp.subsidiaryId || "sub-1",
-      subsidiaryName: sub?.nameAr || "كلاسيرا للتقنية",
-      departmentId: newEmp.departmentId || "dept-tech",
-      departmentName: dept?.nameAr || "تقنية المعلومات",
-      jobTitleAr: newEmp.jobTitleAr || "اختصاصي تقنية",
-      jobTitleEn: newEmp.jobTitleEn || "Specialist",
-      jobGrade: newEmp.jobGrade,
-      costCenter: newEmp.costCenter,
+      subsidiaryId: newEmp.subsidiaryId || (subsidiaries[0]?.id ?? ""),
+      subsidiaryName: sub?.nameAr || undefined,
+      departmentId: newEmp.departmentId || (orgUnits[0]?.id ?? ""),
+      departmentName: dept?.nameAr || undefined,
+      jobTitleAr: newEmp.jobTitleAr,
+      jobTitleEn: newEmp.jobTitleEn || newEmp.jobTitleAr,
+      jobGrade: newEmp.jobGrade || undefined,
+      costCenter: newEmp.costCenter || undefined,
       workType: newEmp.workType,
-      workLocationId: newEmp.workLocationId || "loc-riyadh",
-      workLocationName: loc?.nameAr || "المقر الرئيسي - الرياض",
+      workLocationId: newEmp.workLocationId || (workLocations[0]?.id ?? ""),
+      workLocationName: loc?.nameAr || undefined,
       hireDate: newEmp.hireDate,
       contractStartDate: newEmp.hireDate,
-      contractEndDate: "2027-12-31",
       contractType: newEmp.contractType,
       status: newEmp.status,
       basicSalary: b,
@@ -416,13 +419,8 @@ export const EmployeesView: React.FC = () => {
       otherAllowances: 0,
       totalSalary: total,
       gosiDeductionPercentage: isSaudi ? 9.75 : 0,
-      isGosiEnrolled: true,
-      bankName: "مصرف الراجحي",
-      iban: "SA0000000000000000000000",
-      shiftId: "shift-general",
-      avatarUrl: `https://images.unsplash.com/photo-${1534528741775 + Math.floor(Math.random() * 500)}?w=200`,
-      qiwaContractNo: `QIWA-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
-      yearsOfService: 1,
+      isGosiEnrolled: isSaudi,
+      yearsOfService: 0,
     };
 
     const saved = await addEmployee(empData);
@@ -430,38 +428,7 @@ export const EmployeesView: React.FC = () => {
     toast.success(`تم تسجيل وتعيين الموظف (${newEmp.firstNameAr} ${newEmp.lastNameAr}) بنجاح!`);
     setIsAddWizardOpen(false);
     setWizardStep(1);
-    setNewEmp({
-      employeeNo: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
-      firstNameAr: "",
-      lastNameAr: "",
-      firstNameEn: "",
-      lastNameEn: "",
-      email: "",
-      phone: "",
-      nationalIdOrIqama: "",
-      nationality: "سعودي",
-      gender: "male",
-      birthDate: "1995-01-01",
-      maritalStatus: "single",
-      subsidiaryId: subsidiaries[0]?.id || "",
-      subsidiaryName: subsidiaries[0]?.nameAr || "",
-      departmentId: orgUnits[0]?.id || "",
-      departmentName: orgUnits[0]?.nameAr || "",
-      jobTitleAr: "",
-      jobTitleEn: "",
-      jobGrade: "L3 - اختصاصي",
-      costCenter: "CC-101",
-      workType: "on_site",
-      workLocationId: workLocations[0]?.id || "",
-      workLocationName: workLocations[0]?.nameAr || "",
-      hireDate: new Date().toISOString().split("T")[0],
-      contractType: "full_time",
-      status: "active",
-      basicSalary: 10000,
-      housingAllowance: 2500,
-      transportAllowance: 800,
-      totalSalary: 13300,
-    });
+    setNewEmp(createEmptyNewEmp());
   };
 
   const openDocumentModal = (emp: Employee, type: DocType) => {
@@ -491,11 +458,11 @@ export const EmployeesView: React.FC = () => {
                   دليل وملفات الموظفين الموحد
                 </h1>
                 <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
-                  موثق مع منصة قوى
+                  منظومة الموارد البشرية
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                سجلات الموظفين الشاملة، العقود الموثقة بقوى، الهيكل الوظيفي، وبطاقات التعديل 360°
+                سجلات الموظفين الشاملة، عقود العمل، الهيكل الوظيفي، وبطاقات الملف الوظيفي 360°
               </p>
             </div>
           </div>
@@ -534,7 +501,7 @@ export const EmployeesView: React.FC = () => {
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">إجمالي الموظفين</span>
             <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">{totalEmployees}</h4>
-            <span className="text-[10px] text-emerald-600 font-bold">100% عقود سارية</span>
+            <span className="text-[10px] text-emerald-600 font-bold">{totalEmployees > 0 ? Math.round((employees.filter(e => e.status === 'active').length / totalEmployees) * 100) : 0}% على رأس العمل</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center text-primary">
             <Users className="h-5 w-5" />
@@ -547,7 +514,7 @@ export const EmployeesView: React.FC = () => {
             <h4 className="text-xl font-black text-emerald-700 mt-0.5 font-tabular-nums font-mono">
               {saudiEmployees} ({saudizationRate}%)
             </h4>
-            <span className="text-[10px] text-emerald-700 font-bold">نطاق بلاتيني معتمد</span>
+            <span className="text-[10px] text-emerald-700 font-bold">نسبة التوطين المحتسبة</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
             <ShieldCheck className="h-5 w-5" />
@@ -558,7 +525,7 @@ export const EmployeesView: React.FC = () => {
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">🌍 الكوادر المقيمة</span>
             <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">{expatEmployees}</h4>
-            <span className="text-[10px] text-muted-foreground font-bold">إقامات مهنية موثقة</span>
+            <span className="text-[10px] text-muted-foreground font-bold">كوادر غير سعودية</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
             <Building className="h-5 w-5" />
@@ -1149,10 +1116,7 @@ export const EmployeesView: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredEmployees.map((emp) => {
               const isSelected = selectedIds.includes(emp.id);
-              const isSaudi =
-                emp.nationality.includes("سعود") ||
-                emp.nationalIdOrIqama?.startsWith("1") ||
-                emp.nationality.toLowerCase().includes("saudi");
+              const isSaudi = isSaudiNationality(emp.nationality);
 
               return (
                 <div
@@ -1355,7 +1319,7 @@ export const EmployeesView: React.FC = () => {
                 </DialogDescription>
               </div>
               <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary bg-primary/5">
-                توثيق فوري مع قوى
+                سجل موظف جديد
               </Badge>
             </div>
 
@@ -1413,7 +1377,7 @@ export const EmployeesView: React.FC = () => {
                 <span className="h-4 w-4 rounded-full bg-primary-foreground/20 flex items-center justify-center text-[10px]">
                   3
                 </span>
-                <span>الرواتب وتوثيق قوى</span>
+                <span>الرواتب والبدلات</span>
               </div>
             </div>
           </DialogHeader>
@@ -1571,7 +1535,7 @@ export const EmployeesView: React.FC = () => {
                 <label className="font-bold text-foreground">نمط العمل</label>
                 <select
                   value={newEmp.workType}
-                  onChange={(e) => setNewEmp({ ...newEmp, workType: e.target.value as any })}
+                  onChange={(e) => setNewEmp({ ...newEmp, workType: e.target.value as Employee["workType"] })}
                   className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                   <option value="on_site">حضور مكتبي كامل</option>
@@ -1583,7 +1547,7 @@ export const EmployeesView: React.FC = () => {
                 <label className="font-bold text-foreground">نوع العقد الموثق</label>
                 <select
                   value={newEmp.contractType}
-                  onChange={(e) => setNewEmp({ ...newEmp, contractType: e.target.value as any })}
+                  onChange={(e) => setNewEmp({ ...newEmp, contractType: e.target.value as ContractType })}
                   className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                   <option value="full_time">دوام كامل معتمد</option>
@@ -1634,13 +1598,13 @@ export const EmployeesView: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-foreground flex items-center gap-2">
                     <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                    بطاقة مراجعة العقد الرقمي والتوثيق الحكومي
+                    مراجعة بيانات التعيين والراتب
                   </span>
                   <Badge
                     variant="outline"
                     className="text-[10px] font-mono border-emerald-300 text-emerald-600 font-bold bg-emerald-500/10"
                   >
-                    جاهز للإصدار عبر قوى
+                    جاهز للتسجيل
                   </Badge>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-[11px]">

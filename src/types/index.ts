@@ -195,8 +195,25 @@ export interface SalaryProfile {
   payrollGroupId: string;
 }
 
+export interface EmployeeContract {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  contractNumber?: string;
+  contractType: ContractType;
+  contractStatus: "active" | "expired" | "terminated" | "draft" | "renewed";
+  startDate: string;
+  endDate?: string;
+  probationEndDate?: string;
+  documentId?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Employee {
   id: string;
+  companyId?: string;
   employeeNo: string;
   firstNameAr: string;
   lastNameAr: string;
@@ -231,6 +248,13 @@ export interface Employee {
   probationEndDate?: string;
   status: EmployeeStatus;
   completionScore: number; // 0 to 100%
+
+  // Termination & Rehire Details
+  terminationDate?: string;
+  lastWorkingDate?: string;
+  terminationReason?: string;
+  terminationType?: string;
+  rehireDate?: string;
 
   // Financial Summary
   basicSalary: number;

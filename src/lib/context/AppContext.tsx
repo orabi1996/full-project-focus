@@ -137,6 +137,7 @@ export interface AppContextType {
   updateCompany: (profile: CompanyProfile) => Promise<boolean>;
   addOrgUnit: (unit: Omit<OrgUnit, "id" | "employeeCount">) => Promise<boolean>;
   updateOrgUnit: (id: string, unit: Omit<OrgUnit, "id" | "employeeCount">) => Promise<boolean>;
+  archiveOrgUnit: (id: string, reassignDeptId?: string, reparentChildrenTo?: string) => Promise<boolean>;
   deleteOrgUnit: (id: string) => Promise<boolean>;
   addSubsidiary: (subsidiary: Omit<Subsidiary, "id" | "employeeCount">) => Promise<boolean>;
   updateSubsidiary: (
@@ -545,8 +546,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         persistLiveChange(() => orgMutations.addOrgUnit(unit)).then((res) => res.ok),
       updateOrgUnit: (id, unit) =>
         persistLiveChange(() => orgMutations.updateOrgUnit(id, unit)).then((res) => res.ok),
+      archiveOrgUnit: (id, reassignDeptId, reparentChildrenTo) =>
+        persistLiveChange(() => orgMutations.archiveOrgUnit(id, reassignDeptId, reparentChildrenTo)).then((res) => res.ok),
       deleteOrgUnit: (id) =>
-        persistLiveChange(() => orgMutations.deleteOrgUnit(id)).then((res) => res.ok),
+        persistLiveChange(() => orgMutations.archiveOrgUnit(id)).then((res) => res.ok),
       addSubsidiary: (sub) =>
         persistLiveChange(() => orgMutations.addSubsidiary(sub)).then((res) => res.ok),
       updateSubsidiary: (id, sub) =>

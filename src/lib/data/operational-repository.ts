@@ -936,66 +936,154 @@ export async function markNotificationReadRecord(id: string) {
   if (error) throw new Error(error.message);
 }
 
-export async function createOrganizationUnitRecord(unit: Omit<OrgUnit, "id" | "employeeCount">) {
-  const { error } = await enterpriseSupabase.from("departments").insert({
-    company_id: unit.companyId || null,
-    parent_id: unit.parentId ?? null,
-    subsidiary_id: unit.subsidiaryId ?? null,
-    cost_center_id: unit.costCenterId ?? null,
-    name: unit.nameAr,
-    name_en: unit.nameEn,
-    description_ar: unit.descriptionAr ?? null,
-    description_en: unit.descriptionEn ?? null,
-    code: unit.code,
-    unit_type: unit.type,
-    manager_employee_id: unit.managerEmployeeId ?? null,
-    status: unit.status,
-  });
-  if (error) throw new Error(error.message);
+export async function createOrganizationUnitRecord(
+  unit: Omit<OrgUnit, "id" | "employeeCount">,
+): Promise<OrgUnit> {
+  const { data, error } = await enterpriseSupabase
+    .from("departments")
+    .insert({
+      company_id: unit.companyId || null,
+      parent_id: unit.parentId ?? null,
+      subsidiary_id: unit.subsidiaryId ?? null,
+      cost_center_id: unit.costCenterId ?? null,
+      name: unit.nameAr,
+      name_en: unit.nameEn,
+      description_ar: unit.descriptionAr ?? null,
+      description_en: unit.descriptionEn ?? null,
+      code: unit.code,
+      unit_type: unit.type,
+      manager_employee_id: unit.managerEmployeeId ?? null,
+      status: unit.status || "active",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("كود الإدارة مستخدم بالفعل.");
+    }
+    throw new Error(error.message);
+  }
+
+  return {
+    id: data.id,
+    companyId: data.company_id ?? unit.companyId ?? "",
+    parentId: data.parent_id ?? undefined,
+    subsidiaryId: data.subsidiary_id ?? undefined,
+    costCenterId: data.cost_center_id ?? undefined,
+    nameAr: (data as any).name_ar ?? data.name ?? "",
+    nameEn: data.name_en ?? "",
+    code: data.code,
+    type: (data.unit_type as any) || "department",
+    managerEmployeeId: data.manager_employee_id ?? undefined,
+    status: (data.status as any) || "active",
+    employeeCount: 0,
+  };
 }
 
-export async function createSubsidiaryRecord(subsidiary: Omit<Subsidiary, "id" | "employeeCount">) {
-  const { error } = await enterpriseSupabase.from("subsidiaries").insert({
-    company_id: subsidiary.companyId || null,
-    name_ar: subsidiary.nameAr,
-    name_en: subsidiary.nameEn,
-    code: subsidiary.code,
-    cr_number: subsidiary.crNumber ?? null,
-    tax_number: subsidiary.taxNumber ?? null,
-    unified_number: subsidiary.unifiedNumber ?? null,
-    address: subsidiary.address ?? null,
-    city: subsidiary.city ?? null,
-    email: subsidiary.email ?? null,
-    phone: subsidiary.phone ?? null,
-    manager_employee_id: subsidiary.managerEmployeeId ?? null,
-    status: subsidiary.status,
-  });
-  if (error) throw new Error(error.message);
+export async function createSubsidiaryRecord(
+  subsidiary: Omit<Subsidiary, "id" | "employeeCount">,
+): Promise<Subsidiary> {
+  const { data, error } = await enterpriseSupabase
+    .from("subsidiaries")
+    .insert({
+      company_id: subsidiary.companyId || null,
+      name_ar: subsidiary.nameAr,
+      name_en: subsidiary.nameEn,
+      code: subsidiary.code,
+      cr_number: subsidiary.crNumber ?? null,
+      tax_number: subsidiary.taxNumber ?? null,
+      unified_number: subsidiary.unifiedNumber ?? null,
+      address: subsidiary.address ?? null,
+      city: subsidiary.city ?? null,
+      email: subsidiary.email ?? null,
+      phone: subsidiary.phone ?? null,
+      manager_employee_id: subsidiary.managerEmployeeId ?? null,
+      status: subsidiary.status || "active",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("كود الشركة التابعة مستخدم بالفعل.");
+    }
+    throw new Error(error.message);
+  }
+
+  return {
+    id: data.id,
+    companyId: data.company_id ?? subsidiary.companyId ?? "",
+    nameAr: data.name_ar ?? "",
+    nameEn: data.name_en,
+    code: data.code,
+    crNumber: data.cr_number ?? undefined,
+    taxNumber: (data as any).tax_number ?? undefined,
+    unifiedNumber: (data as any).unified_number ?? undefined,
+    address: (data as any).address ?? undefined,
+    city: (data as any).city ?? undefined,
+    email: (data as any).email ?? undefined,
+    phone: (data as any).phone ?? undefined,
+    managerEmployeeId: data.manager_employee_id ?? undefined,
+    status: (data.status as any) || "active",
+    employeeCount: 0,
+  };
 }
 
-export async function createWorkLocationRecord(location: Omit<WorkLocation, "id">) {
-  const { error } = await enterpriseSupabase.from("work_locations").insert({
-    company_id: location.companyId || null,
-    subsidiary_id: location.subsidiaryId ?? null,
-    name_ar: location.nameAr,
-    name_en: location.nameEn,
-    code: location.code,
-    address: location.address,
-    city: location.city ?? null,
-    country: location.country ?? "المملكة العربية السعودية",
-    location_type: location.locationType ?? "branch",
-    timezone: location.timezone ?? "Asia/Riyadh",
-    latitude: location.latitude,
-    longitude: location.longitude,
-    radius_meters: location.radiusMeters,
-    default_shift_id: location.defaultShiftId ?? null,
-    status: location.status,
-  });
-  if (error) throw new Error(error.message);
+export async function createWorkLocationRecord(
+  location: Omit<WorkLocation, "id">,
+): Promise<WorkLocation> {
+  const { data, error } = await enterpriseSupabase
+    .from("work_locations")
+    .insert({
+      company_id: location.companyId || null,
+      subsidiary_id: location.subsidiaryId ?? null,
+      name_ar: location.nameAr,
+      name_en: location.nameEn,
+      code: location.code,
+      address: location.address,
+      city: location.city ?? null,
+      country: location.country ?? "المملكة العربية السعودية",
+      location_type: location.locationType ?? "branch",
+      timezone: location.timezone ?? "Asia/Riyadh",
+      latitude: location.latitude,
+      longitude: location.longitude,
+      radius_meters: location.radiusMeters,
+      default_shift_id: location.defaultShiftId ?? null,
+      status: location.status || "active",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("كود موقع العمل مستخدم بالفعل.");
+    }
+    throw new Error(error.message);
+  }
+
+  return {
+    id: data.id,
+    companyId: data.company_id ?? location.companyId ?? "",
+    subsidiaryId: (data as any).subsidiary_id ?? undefined,
+    nameAr: data.name_ar ?? "",
+    nameEn: data.name_en,
+    code: data.code,
+    address: data.address ?? "",
+    city: (data as any).city ?? undefined,
+    country: (data as any).country ?? "المملكة العربية السعودية",
+    locationType: ((data as any).location_type as any) || "branch",
+    timezone: (data as any).timezone ?? "Asia/Riyadh",
+    latitude: data.latitude ?? 24.7136,
+    longitude: data.longitude ?? 46.6753,
+    radiusMeters: data.radius_meters,
+    defaultShiftId: data.default_shift_id ?? undefined,
+    status: (data.status as any) || "active",
+  };
 }
 
 export async function updateCompanyRecord(company: CompanyProfile) {
-  const { error } = await enterpriseSupabase
+  const { data, error } = await enterpriseSupabase
     .from("companies")
     .update({
       legal_name_ar: company.legalNameAr,
@@ -1020,15 +1108,19 @@ export async function updateCompanyRecord(company: CompanyProfile) {
       headquarters_address: company.headquartersAddress,
       fiscal_year_start_month: company.fiscalYearStartMonth,
     })
-    .eq("id", company.id);
+    .eq("id", company.id)
+    .select()
+    .single();
+
   if (error) throw new Error(error.message);
+  if (!data) throw new Error("تعذر تحديث بيانات المنشأة: السجل غير موجود.");
 }
 
 export async function updateOrganizationUnitRecord(
   id: string,
   unit: Omit<OrgUnit, "id" | "employeeCount">,
-) {
-  const { error } = await enterpriseSupabase
+): Promise<void> {
+  const { data, error } = await enterpriseSupabase
     .from("departments")
     .update({
       company_id: unit.companyId || null,
@@ -1044,15 +1136,29 @@ export async function updateOrganizationUnitRecord(
       manager_employee_id: unit.managerEmployeeId ?? null,
       status: unit.status,
     })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("كود الإدارة مستخدم بالفعل.");
+    }
+    if (error.code === "PGRST116") {
+      throw new Error("تعذر تحديث الوحدة التنظيمية: السجل غير موجود أو تم حذفه مسبقاً.");
+    }
+    throw new Error(error.message);
+  }
+  if (!data) {
+    throw new Error("تعذر تحديث الوحدة التنظيمية: السجل غير موجود أو تم حذفه مسبقاً.");
+  }
 }
 
 export async function updateSubsidiaryRecord(
   id: string,
   subsidiary: Omit<Subsidiary, "id" | "employeeCount">,
-) {
-  const { error } = await enterpriseSupabase
+): Promise<void> {
+  const { data, error } = await enterpriseSupabase
     .from("subsidiaries")
     .update({
       company_id: subsidiary.companyId || null,
@@ -1069,12 +1175,29 @@ export async function updateSubsidiaryRecord(
       manager_employee_id: subsidiary.managerEmployeeId ?? null,
       status: subsidiary.status,
     })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("كود الشركة التابعة مستخدم بالفعل.");
+    }
+    if (error.code === "PGRST116") {
+      throw new Error("تعذر تحديث الشركة التابعة: السجل غير موجود أو تم حذفه مسبقاً.");
+    }
+    throw new Error(error.message);
+  }
+  if (!data) {
+    throw new Error("تعذر تحديث الشركة التابعة: السجل غير موجود أو تم حذفه مسبقاً.");
+  }
 }
 
-export async function updateWorkLocationRecord(id: string, location: Omit<WorkLocation, "id">) {
-  const { error } = await enterpriseSupabase
+export async function updateWorkLocationRecord(
+  id: string,
+  location: Omit<WorkLocation, "id">,
+): Promise<void> {
+  const { data, error } = await enterpriseSupabase
     .from("work_locations")
     .update({
       company_id: location.companyId || null,
@@ -1093,31 +1216,65 @@ export async function updateWorkLocationRecord(id: string, location: Omit<WorkLo
       default_shift_id: location.defaultShiftId ?? null,
       status: location.status,
     })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("كود موقع العمل مستخدم بالفعل.");
+    }
+    if (error.code === "PGRST116") {
+      throw new Error("تعذر تحديث موقع العمل: السجل غير موجود أو تم حذفه مسبقاً.");
+    }
+    throw new Error(error.message);
+  }
+  if (!data) {
+    throw new Error("تعذر تحديث موقع العمل: السجل غير موجود أو تم حذفه مسبقاً.");
+  }
 }
 
 export async function createCostCenterRecord(
   center: Omit<CostCenter, "id" | "employeeCount" | "managerName">,
-) {
-  const { error } = await enterpriseSupabase.from("cost_centers").insert({
-    company_id: center.companyId,
-    code: center.code,
-    name_ar: center.nameAr,
-    name_en: center.nameEn,
-    manager_employee_id: center.managerEmployeeId ?? null,
-    annual_budget: center.annualBudget,
-    status: center.status,
-  });
-  if (error) throw new Error(error.message);
+): Promise<CostCenter> {
+  const { data, error } = await (enterpriseSupabase.from("cost_centers" as any) as any)
+    .insert({
+      company_id: center.companyId,
+      code: center.code,
+      name_ar: center.nameAr,
+      name_en: center.nameEn,
+      manager_employee_id: center.managerEmployeeId ?? null,
+      annual_budget: center.annualBudget,
+      status: center.status || "active",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("كود مركز التكلفة مستخدم بالفعل.");
+    }
+    throw new Error(error.message);
+  }
+
+  return {
+    id: data.id,
+    companyId: data.company_id,
+    code: data.code,
+    nameAr: data.name_ar,
+    nameEn: data.name_en,
+    managerEmployeeId: data.manager_employee_id ?? undefined,
+    annualBudget: Number(data.annual_budget) || 0,
+    status: (data.status as any) || "active",
+    employeeCount: 0,
+  };
 }
 
 export async function updateCostCenterRecord(
   id: string,
   center: Omit<CostCenter, "id" | "employeeCount" | "managerName">,
-) {
-  const { error } = await enterpriseSupabase
-    .from("cost_centers")
+): Promise<void> {
+  const { data, error } = await (enterpriseSupabase.from("cost_centers" as any) as any)
     .update({
       company_id: center.companyId,
       code: center.code,
@@ -1127,36 +1284,75 @@ export async function updateCostCenterRecord(
       annual_budget: center.annualBudget,
       status: center.status,
     })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("كود مركز التكلفة مستخدم بالفعل.");
+    }
+    if (error.code === "PGRST116") {
+      throw new Error("تعذر تحديث مركز التكلفة: السجل غير موجود أو تم حذفه مسبقاً.");
+    }
+    throw new Error(error.message);
+  }
+  if (!data) {
+    throw new Error("تعذر تحديث مركز التكلفة: السجل غير موجود أو تم حذفه مسبقاً.");
+  }
 }
 
 export async function createJobPositionRecord(
   position: Omit<JobPosition, "id" | "filledHeadcount">,
-) {
-  const { error } = await enterpriseSupabase.from("job_positions").insert({
-    company_id: position.companyId,
-    subsidiary_id: position.subsidiaryId ?? null,
-    department_id: position.orgUnitId,
-    cost_center_id: position.costCenterId ?? null,
-    reports_to_position_id: position.reportsToPositionId ?? null,
-    code: position.code,
-    title_ar: position.titleAr,
-    title_en: position.titleEn,
-    grade: position.grade ?? null,
-    employment_type: position.employmentType,
-    planned_headcount: position.plannedHeadcount,
-    status: position.status,
-  });
-  if (error) throw new Error(error.message);
+): Promise<JobPosition> {
+  const { data, error } = await (enterpriseSupabase.from("job_positions" as any) as any)
+    .insert({
+      company_id: position.companyId,
+      subsidiary_id: position.subsidiaryId ?? null,
+      department_id: position.orgUnitId,
+      cost_center_id: position.costCenterId ?? null,
+      reports_to_position_id: position.reportsToPositionId ?? null,
+      code: position.code,
+      title_ar: position.titleAr,
+      title_en: position.titleEn,
+      grade: position.grade ?? null,
+      employment_type: position.employmentType,
+      planned_headcount: position.plannedHeadcount,
+      status: position.status || "active",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("كود المسمى الوظيفي مستخدم بالفعل.");
+    }
+    throw new Error(error.message);
+  }
+
+  return {
+    id: data.id,
+    companyId: data.company_id,
+    subsidiaryId: data.subsidiary_id ?? undefined,
+    orgUnitId: data.department_id,
+    costCenterId: data.cost_center_id ?? undefined,
+    reportsToPositionId: data.reports_to_position_id ?? undefined,
+    code: data.code,
+    titleAr: data.title_ar,
+    titleEn: data.title_en,
+    grade: data.grade ?? undefined,
+    employmentType: (data.employment_type as any) || "full_time",
+    plannedHeadcount: data.planned_headcount,
+    filledHeadcount: 0,
+    status: (data.status as any) || "active",
+  };
 }
 
 export async function updateJobPositionRecord(
   id: string,
   position: Omit<JobPosition, "id" | "filledHeadcount">,
-) {
-  const { error } = await enterpriseSupabase
-    .from("job_positions")
+): Promise<void> {
+  const { data, error } = await (enterpriseSupabase.from("job_positions" as any) as any)
     .update({
       company_id: position.companyId,
       subsidiary_id: position.subsidiaryId ?? null,
@@ -1171,33 +1367,131 @@ export async function updateJobPositionRecord(
       planned_headcount: position.plannedHeadcount,
       status: position.status,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("كود المسمى الوظيفي مستخدم بالفعل.");
+    }
+    if (error.code === "PGRST116") {
+      throw new Error("تعذر تحديث المسمى الوظيفي: السجل غير موجود أو تم حذفه مسبقاً.");
+    }
+    throw new Error(error.message);
+  }
+  if (!data) {
+    throw new Error("تعذر تحديث المسمى الوظيفي: السجل غير موجود أو تم حذفه مسبقاً.");
+  }
+}
+
+export async function getMasterDataDependenciesRecord(
+  entityType: "department" | "subsidiary" | "work_location" | "cost_center" | "job_position",
+  entityId: string,
+) {
+  const { data, error } = await enterpriseSupabase.rpc(
+    "get_master_data_dependencies" as any,
+    {
+      p_entity_type: entityType,
+      p_entity_id: entityId,
+    } as any,
+  );
   if (error) throw new Error(error.message);
+  return data as {
+    entity_type: string;
+    entity_id: string;
+    employees_count?: number;
+    child_departments_count?: number;
+    departments_count?: number;
+    work_locations_count?: number;
+    job_positions_count?: number;
+    has_dependencies: boolean;
+  };
+}
+
+export async function archiveOrganizationUnitRecord(
+  id: string,
+  reassignDeptId?: string,
+  reparentChildrenTo?: string,
+) {
+  const { data, error } = await enterpriseSupabase.rpc(
+    "archive_organization_unit" as any,
+    {
+      p_department_id: id,
+      p_reassign_department_id: reassignDeptId || null,
+      p_reparent_children_to: reparentChildrenTo || null,
+    } as any,
+  );
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function archiveSubsidiaryRecord(id: string, reassignSubId?: string) {
+  const { data, error } = await enterpriseSupabase.rpc(
+    "archive_subsidiary" as any,
+    {
+      p_subsidiary_id: id,
+      p_reassign_subsidiary_id: reassignSubId || null,
+    } as any,
+  );
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function archiveWorkLocationRecord(id: string, reassignLocId?: string) {
+  const { data, error } = await enterpriseSupabase.rpc(
+    "archive_work_location" as any,
+    {
+      p_location_id: id,
+      p_reassign_location_id: reassignLocId || null,
+    } as any,
+  );
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function archiveCostCenterRecord(id: string, reassignCcId?: string) {
+  const { data, error } = await enterpriseSupabase.rpc(
+    "archive_cost_center" as any,
+    {
+      p_cost_center_id: id,
+      p_reassign_cost_center_id: reassignCcId || null,
+    } as any,
+  );
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function archiveJobPositionRecord(id: string, reassignPosId?: string) {
+  const { data, error } = await enterpriseSupabase.rpc(
+    "archive_job_position" as any,
+    {
+      p_position_id: id,
+      p_reassign_position_id: reassignPosId || null,
+    } as any,
+  );
+  if (error) throw new Error(error.message);
+  return data;
 }
 
 export async function deleteOrganizationUnitRecord(id: string) {
-  const { error } = await enterpriseSupabase.from("departments").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  return archiveOrganizationUnitRecord(id);
 }
 
 export async function deleteSubsidiaryRecord(id: string) {
-  const { error } = await enterpriseSupabase.from("subsidiaries").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  return archiveSubsidiaryRecord(id);
 }
 
 export async function deleteWorkLocationRecord(id: string) {
-  const { error } = await enterpriseSupabase.from("work_locations").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  return archiveWorkLocationRecord(id);
 }
 
 export async function deleteCostCenterRecord(id: string) {
-  const { error } = await enterpriseSupabase.from("cost_centers").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  return archiveCostCenterRecord(id);
 }
 
 export async function deleteJobPositionRecord(id: string) {
-  const { error } = await enterpriseSupabase.from("job_positions").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  return archiveJobPositionRecord(id);
 }
 
 export async function createRoleDefinitionRecord(

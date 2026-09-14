@@ -280,7 +280,7 @@ interface OrgChartSvgProps {
 }
 
 export const OrgChartSvg: React.FC<OrgChartSvgProps> = ({
-  root = defaultCompanyTree,
+  root,
   language = "ar",
   onSelect,
   selectedId,
@@ -293,6 +293,7 @@ export const OrgChartSvg: React.FC<OrgChartSvgProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const visibleRoot = useMemo(() => {
+    if (!root) return null;
     const prune = (node: OrgChartNodeData): OrgChartNodeData => ({
       ...node,
       children: collapsed.has(node.id) ? [] : (node.children || []).map(prune),
@@ -301,6 +302,9 @@ export const OrgChartSvg: React.FC<OrgChartSvgProps> = ({
   }, [root, collapsed]);
 
   const { laidOut, nodes, width, height } = useMemo(() => {
+    if (!visibleRoot) {
+      return { laidOut: null, nodes: [], width: 400, height: 200 };
+    }
     const cursor = { x: 40 };
     const tree = layout(visibleRoot, 0, cursor);
     const all = flatten(tree);
@@ -326,6 +330,7 @@ export const OrgChartSvg: React.FC<OrgChartSvgProps> = ({
 
   const edges = useMemo(() => {
     const list: { from: LaidOutNode; to: LaidOutNode }[] = [];
+    if (!laidOut) return list;
     const walk = (node: LaidOutNode) => {
       node.laidOutChildren.forEach((child) => {
         list.push({ from: node, to: child });
@@ -393,6 +398,16 @@ export const OrgChartSvg: React.FC<OrgChartSvgProps> = ({
     };
     img.src = url;
   };
+
+  if (!root || !laidOut) {
+    return (
+      <div className="flex h-96 flex-col items-center justify-center rounded-3xl border border-dashed border-border/80 bg-muted/20 p-8 text-center">
+        <Building className="mb-3 h-10 w-10 text-muted-foreground/60" />
+        <p className="text-sm font-bold text-foreground">لم يتم إنشاء الهيكل التنظيمي بعد</p>
+        <p className="mt-1 text-xs text-muted-foreground">لا توجد وحدات تنظيمية معتمدة لعرضها في المخطط الشجري.</p>
+      </div>
+    );
+  }
 
   return (
     <div

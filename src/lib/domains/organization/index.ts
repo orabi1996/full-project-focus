@@ -10,6 +10,11 @@ import type {
 } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
 import {
+  archiveCostCenterRecord,
+  archiveJobPositionRecord,
+  archiveOrganizationUnitRecord,
+  archiveSubsidiaryRecord,
+  archiveWorkLocationRecord,
   createCostCenterRecord,
   createJobPositionRecord,
   createOrganizationUnitRecord,
@@ -20,6 +25,7 @@ import {
   deleteOrganizationUnitRecord,
   deleteSubsidiaryRecord,
   deleteWorkLocationRecord,
+  getMasterDataDependenciesRecord,
   updateCompanyRecord,
   updateCostCenterRecord,
   updateJobPositionRecord,
@@ -107,22 +113,23 @@ export function useOrganizationMutations() {
 
   const addOrgUnit = useCallback(
     async (unit: Omit<OrgUnit, "id" | "employeeCount">): Promise<boolean> => {
-      const newUnit: OrgUnit = {
-        ...unit,
-        id: `org-${Date.now()}`,
-        employeeCount: 0,
-      };
+      let createdUnit: OrgUnit | null = null;
       const result = await executeReliableMutation({
         mode,
         mutationKey: `create-org-unit-${unit.code || unit.nameAr}`,
         operation: async () => {
-          await createOrganizationUnitRecord(newUnit);
+          createdUnit = await createOrganizationUnitRecord(unit);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.units() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {
-          demoStore.orgUnits = [...demoStore.orgUnits, newUnit];
+          createdUnit = {
+            ...unit,
+            id: crypto.randomUUID(),
+            employeeCount: 0,
+          };
+          demoStore.orgUnits = [...demoStore.orgUnits, createdUnit];
           demoStore.notify();
           return true;
         },
@@ -170,27 +177,36 @@ export function useOrganizationMutations() {
     [mode, queryClient],
   );
 
-  const deleteOrgUnit = useCallback(
-    async (id: string): Promise<boolean> => {
+  const archiveOrgUnit = useCallback(
+    async (
+      id: string,
+      reassignDeptId?: string,
+      reparentChildrenTo?: string,
+    ): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `delete-org-unit-${id}`,
+        mutationKey: `archive-org-unit-${id}`,
         operation: async () => {
-          await deleteOrganizationUnitRecord(id);
+          await archiveOrganizationUnitRecord(id, reassignDeptId, reparentChildrenTo);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.units() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {
           demoStore.orgUnits = demoStore.orgUnits.filter((u) => u.id !== id);
+          if (reassignDeptId) {
+            demoStore.employees = demoStore.employees.map((e) =>
+              e.departmentId === id ? { ...e, departmentId: reassignDeptId } : e,
+            );
+          }
           demoStore.notify();
           return true;
         },
         onCommitted: () => {
-          toast.success("تم حذف الوحدة التنظيمية");
+          toast.success("تم أرشفة الوحدة التنظيمية بنجاح");
         },
         onRejected: (err) => {
-          toast.error(err.message || "تعذر حذف الوحدة التنظيمية");
+          toast.error(err.message || "تعذر أرشفة الوحدة التنظيمية");
         },
       });
 
@@ -199,24 +215,32 @@ export function useOrganizationMutations() {
     [mode, queryClient],
   );
 
+  const deleteOrgUnit = useCallback(
+    async (id: string): Promise<boolean> => {
+      return archiveOrgUnit(id);
+    },
+    [archiveOrgUnit],
+  );
+
   const addSubsidiary = useCallback(
     async (subsidiary: Omit<Subsidiary, "id" | "employeeCount">): Promise<boolean> => {
-      const newSub: Subsidiary = {
-        ...subsidiary,
-        id: `sub-${Date.now()}`,
-        employeeCount: 0,
-      };
+      let createdSub: Subsidiary | null = null;
       const result = await executeReliableMutation({
         mode,
         mutationKey: `create-subsidiary-${subsidiary.code || subsidiary.nameAr}`,
         operation: async () => {
-          await createSubsidiaryRecord(newSub);
+          createdSub = await createSubsidiaryRecord(subsidiary);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.subsidiaries() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {
-          demoStore.subsidiaries = [...demoStore.subsidiaries, newSub];
+          createdSub = {
+            ...subsidiary,
+            id: crypto.randomUUID(),
+            employeeCount: 0,
+          };
+          demoStore.subsidiaries = [...demoStore.subsidiaries, createdSub];
           demoStore.notify();
           return true;
         },
@@ -264,13 +288,13 @@ export function useOrganizationMutations() {
     [mode, queryClient],
   );
 
-  const deleteSubsidiary = useCallback(
-    async (id: string): Promise<boolean> => {
+  const archiveSubsidiary = useCallback(
+    async (id: string, reassignSubId?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `delete-subsidiary-${id}`,
+        mutationKey: `archive-subsidiary-${id}`,
         operation: async () => {
-          await deleteSubsidiaryRecord(id);
+          await archiveSubsidiaryRecord(id, reassignSubId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.subsidiaries() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
@@ -281,10 +305,10 @@ export function useOrganizationMutations() {
           return true;
         },
         onCommitted: () => {
-          toast.success("تم حذف الشركة التابعة");
+          toast.success("تم أرشفة الشركة التابعة بنجاح");
         },
         onRejected: (err) => {
-          toast.error(err.message || "تعذر حذف الشركة التابعة");
+          toast.error(err.message || "تعذر أرشفة الشركة التابعة");
         },
       });
 
@@ -293,23 +317,31 @@ export function useOrganizationMutations() {
     [mode, queryClient],
   );
 
+  const deleteSubsidiary = useCallback(
+    async (id: string): Promise<boolean> => {
+      return archiveSubsidiary(id);
+    },
+    [archiveSubsidiary],
+  );
+
   const addWorkLocation = useCallback(
     async (location: Omit<WorkLocation, "id">): Promise<boolean> => {
-      const newLoc: WorkLocation = {
-        ...location,
-        id: `loc-${Date.now()}`,
-      };
+      let createdLoc: WorkLocation | null = null;
       const result = await executeReliableMutation({
         mode,
         mutationKey: `create-location-${location.code || location.nameAr}`,
         operation: async () => {
-          await createWorkLocationRecord(newLoc);
+          createdLoc = await createWorkLocationRecord(location);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.locations() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {
-          demoStore.workLocations = [...demoStore.workLocations, newLoc];
+          createdLoc = {
+            ...location,
+            id: crypto.randomUUID(),
+          };
+          demoStore.workLocations = [...demoStore.workLocations, createdLoc];
           demoStore.notify();
           return true;
         },
@@ -357,13 +389,13 @@ export function useOrganizationMutations() {
     [mode, queryClient],
   );
 
-  const deleteWorkLocation = useCallback(
-    async (id: string): Promise<boolean> => {
+  const archiveWorkLocation = useCallback(
+    async (id: string, reassignLocId?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `delete-location-${id}`,
+        mutationKey: `archive-location-${id}`,
         operation: async () => {
-          await deleteWorkLocationRecord(id);
+          await archiveWorkLocationRecord(id, reassignLocId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.locations() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
@@ -374,10 +406,10 @@ export function useOrganizationMutations() {
           return true;
         },
         onCommitted: () => {
-          toast.success("تم حذف موقع العمل بنجاح");
+          toast.success("تم أرشفة موقع العمل بنجاح");
         },
         onRejected: (err) => {
-          toast.error(err.message || "تعذر حذف موقع العمل");
+          toast.error(err.message || "تعذر أرشفة موقع العمل");
         },
       });
 
@@ -386,24 +418,32 @@ export function useOrganizationMutations() {
     [mode, queryClient],
   );
 
+  const deleteWorkLocation = useCallback(
+    async (id: string): Promise<boolean> => {
+      return archiveWorkLocation(id);
+    },
+    [archiveWorkLocation],
+  );
+
   const addCostCenter = useCallback(
     async (center: Omit<CostCenter, "id" | "employeeCount" | "managerName">): Promise<boolean> => {
-      const newCenter: CostCenter = {
-        ...center,
-        id: `cc-${Date.now()}`,
-        employeeCount: 0,
-      };
+      let createdCenter: CostCenter | null = null;
       const result = await executeReliableMutation({
         mode,
         mutationKey: `create-cost-center-${center.code || center.nameAr}`,
         operation: async () => {
-          await createCostCenterRecord(newCenter);
+          createdCenter = await createCostCenterRecord(center);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.costCenters() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {
-          demoStore.costCenters = [...demoStore.costCenters, newCenter];
+          createdCenter = {
+            ...center,
+            id: crypto.randomUUID(),
+            employeeCount: 0,
+          };
+          demoStore.costCenters = [...demoStore.costCenters, createdCenter];
           demoStore.notify();
           return true;
         },
@@ -454,13 +494,13 @@ export function useOrganizationMutations() {
     [mode, queryClient],
   );
 
-  const deleteCostCenter = useCallback(
-    async (id: string): Promise<boolean> => {
+  const archiveCostCenter = useCallback(
+    async (id: string, reassignCcId?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `delete-cost-center-${id}`,
+        mutationKey: `archive-cost-center-${id}`,
         operation: async () => {
-          await deleteCostCenterRecord(id);
+          await archiveCostCenterRecord(id, reassignCcId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.costCenters() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
@@ -471,10 +511,10 @@ export function useOrganizationMutations() {
           return true;
         },
         onCommitted: () => {
-          toast.success("تم حذف مركز التكلفة بنجاح");
+          toast.success("تم أرشفة مركز التكلفة بنجاح");
         },
         onRejected: (err) => {
-          toast.error(err.message || "تعذر حذف مركز التكلفة");
+          toast.error(err.message || "تعذر أرشفة مركز التكلفة");
         },
       });
 
@@ -483,24 +523,32 @@ export function useOrganizationMutations() {
     [mode, queryClient],
   );
 
+  const deleteCostCenter = useCallback(
+    async (id: string): Promise<boolean> => {
+      return archiveCostCenter(id);
+    },
+    [archiveCostCenter],
+  );
+
   const addJobPosition = useCallback(
     async (position: Omit<JobPosition, "id" | "filledHeadcount">): Promise<boolean> => {
-      const newPos: JobPosition = {
-        ...position,
-        id: `pos-${Date.now()}`,
-        filledHeadcount: 0,
-      };
+      let createdPos: JobPosition | null = null;
       const result = await executeReliableMutation({
         mode,
         mutationKey: `create-job-pos-${position.code || position.titleAr}`,
         operation: async () => {
-          await createJobPositionRecord(newPos);
+          createdPos = await createJobPositionRecord(position);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.positions() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {
-          demoStore.jobPositions = [...demoStore.jobPositions, newPos];
+          createdPos = {
+            ...position,
+            id: crypto.randomUUID(),
+            filledHeadcount: 0,
+          };
+          demoStore.jobPositions = [...demoStore.jobPositions, createdPos];
           demoStore.notify();
           return true;
         },
@@ -551,13 +599,13 @@ export function useOrganizationMutations() {
     [mode, queryClient],
   );
 
-  const deleteJobPosition = useCallback(
-    async (id: string): Promise<boolean> => {
+  const archiveJobPosition = useCallback(
+    async (id: string, reassignPosId?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `delete-job-pos-${id}`,
+        mutationKey: `archive-job-pos-${id}`,
         operation: async () => {
-          await deleteJobPositionRecord(id);
+          await archiveJobPositionRecord(id, reassignPosId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.positions() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
@@ -568,10 +616,10 @@ export function useOrganizationMutations() {
           return true;
         },
         onCommitted: () => {
-          toast.success("تم حذف المسمى الوظيفي بنجاح");
+          toast.success("تم أرشفة المسمى الوظيفي بنجاح");
         },
         onRejected: (err) => {
-          toast.error(err.message || "تعذر حذف المسمى الوظيفي");
+          toast.error(err.message || "تعذر أرشفة المسمى الوظيفي");
         },
       });
 
@@ -580,22 +628,35 @@ export function useOrganizationMutations() {
     [mode, queryClient],
   );
 
+  const deleteJobPosition = useCallback(
+    async (id: string): Promise<boolean> => {
+      return archiveJobPosition(id);
+    },
+    [archiveJobPosition],
+  );
+
   return {
     updateCompany,
     addOrgUnit,
     updateOrgUnit,
+    archiveOrgUnit,
     deleteOrgUnit,
     addSubsidiary,
     updateSubsidiary,
+    archiveSubsidiary,
     deleteSubsidiary,
     addWorkLocation,
     updateWorkLocation,
+    archiveWorkLocation,
     deleteWorkLocation,
     addCostCenter,
     updateCostCenter,
+    archiveCostCenter,
     deleteCostCenter,
     addJobPosition,
     updateJobPosition,
+    archiveJobPosition,
     deleteJobPosition,
+    getMasterDataDependencies: getMasterDataDependenciesRecord,
   };
 }

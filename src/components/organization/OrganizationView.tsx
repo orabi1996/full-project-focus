@@ -3,7 +3,7 @@ import { OrgChartSvg, type OrgChartNodeData, defaultCompanyTree } from "./OrgCha
 import { CostCentersPanel, JobPositionsPanel } from "./OrganizationPlanningPanels";
 import { CompanyProfilePanel } from "./CompanyProfilePanel";
 import { useApp } from "../../lib/context/AppContext";
-import { canManageModule } from "../../lib/auth/permissions";
+import { canAccessModule, canManageModule } from "../../lib/auth/permissions";
 import {
   Building2,
   MapPin,
@@ -71,8 +71,10 @@ export const OrganizationView: React.FC = () => {
     costCenters,
     jobPositions,
     employees,
+    dataMode,
     addOrgUnit,
     updateOrgUnit,
+    archiveOrgUnit,
     deleteOrgUnit,
     addSubsidiary,
     updateSubsidiary,
@@ -154,7 +156,7 @@ export const OrganizationView: React.FC = () => {
     nameAr: "",
     nameEn: "",
     code: "",
-    address: "الرياض - طريق الملك فهد",
+    address: "",
     city: "الرياض",
     locationType: "branch" as WorkLocation["locationType"],
     latitude: 24.7136,
@@ -176,13 +178,19 @@ export const OrganizationView: React.FC = () => {
   const getDeptEmployees = (deptId: string) =>
     employees.filter((e) => e.departmentId === deptId);
 
-  const getDeptSalaryMass = (deptId: string) => {
+  const canViewSalaryMass = useMemo(() => {
+    return canAccessModule(currentRole, "payroll");
+  }, [currentRole]);
+
+  const getDeptSalaryMass = (deptId: string): number | null => {
+    if (!canViewSalaryMass) return null;
     const deptEmps = getDeptEmployees(deptId);
-    return deptEmps.reduce((sum, e) => {
-      const basic = e.basicSalary || 7500;
-      const housing = e.housingAllowance || 1875;
+    const total = deptEmps.reduce((sum, e) => {
+      const basic = typeof e.basicSalary === "number" ? e.basicSalary : 0;
+      const housing = typeof e.housingAllowance === "number" ? e.housingAllowance : 0;
       return sum + basic + housing;
     }, 0);
+    return total > 0 ? total : null;
   };
 
   const getSubEmployees = (subId: string) =>
@@ -238,9 +246,12 @@ export const OrganizationView: React.FC = () => {
   }, [workLocations, locSearch]);
 
   // Chart Tree Structure with live headcount
-  const chartRoot = useMemo<OrgChartNodeData>(() => {
+  const chartRoot = useMemo<OrgChartNodeData | null>(() => {
     if (!orgUnits || orgUnits.length === 0) {
-      return defaultCompanyTree;
+      if (dataMode === "demo") {
+        return defaultCompanyTree;
+      }
+      return null;
     }
 
     const byParent = new Map<string, typeof orgUnits>();
@@ -252,12 +263,21 @@ export const OrganizationView: React.FC = () => {
       byParent.set(key, bucket);
     });
 
+    const visited = new Set<string>();
+
     const build = (parentKey: string, depth: number): OrgChartNodeData[] => {
-      if (depth > 8) return [];
-      return (byParent.get(parentKey) ?? []).map((unit) => {
+      return (byParent.get(parentKey) ?? []).flatMap((unit) => {
+        if (visited.has(unit.id)) return [];
+        visited.add(unit.id);
         const headcount = getDeptEmployees(unit.id).length || unit.employeeCount;
         const salary = getDeptSalaryMass(unit.id);
-        return {
+
+        const unitPositions = (jobPositions || []).filter((p) => p.orgUnitId === unit.id);
+        const openCount = unitPositions.length > 0
+          ? unitPositions.reduce((acc, p) => acc + Math.max(0, p.plannedHeadcount - p.filledHeadcount), 0)
+          : undefined;
+
+        return [{
           id: unit.id,
           titleAr: unit.nameAr,
           titleEn: unit.nameEn,
@@ -266,27 +286,31 @@ export const OrganizationView: React.FC = () => {
           code: unit.code,
           kind: unit.type,
           employeeCount: headcount,
-          openPositions: 2,
-          budgetMonthly: salary || headcount * 16500,
+          openPositions: openCount,
+          budgetMonthly: salary ?? undefined,
           children: build(unit.id, depth + 1),
-        };
+        }];
       });
     };
 
+    const totalOpenPositions = (jobPositions && jobPositions.length > 0)
+      ? jobPositions.reduce((acc, p) => acc + Math.max(0, p.plannedHeadcount - p.filledHeadcount), 0)
+      : undefined;
+
     return {
       id: "__company__",
-      titleAr: company.legalNameAr || "مجموعة كلاسيرا القابضة",
-      titleEn: company.legalNameEn || "Classera Holding Group",
-      subtitle: `سجل تجاري ${company.crNumber || "1010892341"}`,
-      managerName: "م. عبد العزيز الفهد • الرئيس التنفيذي",
-      code: company.id || "HQ-01",
+      titleAr: company.legalNameAr || "المنشأة الرئيسية",
+      titleEn: company.legalNameEn || "Main Enterprise",
+      subtitle: company.crNumber ? `سجل تجاري ${company.crNumber}` : undefined,
+      managerName: undefined,
+      code: company.code || "HQ-01",
       kind: "company",
-      employeeCount: employees.length || 120,
-      openPositions: 8,
-      budgetMonthly: (employees.length || 120) * 17500,
+      employeeCount: employees.length,
+      openPositions: totalOpenPositions,
+      budgetMonthly: undefined,
       children: build("__root__", 1),
     };
-  }, [orgUnits, company, employees]);
+  }, [orgUnits, company, employees, dataMode, jobPositions, canViewSalaryMass]);
 
   // ===================== CRUD HANDLERS =====================
 
@@ -295,7 +319,7 @@ export const OrganizationView: React.FC = () => {
     setDeptForm({
       nameAr: "",
       nameEn: "",
-      code: `DEP-${Math.floor(100 + Math.random() * 900)}`,
+      code: "",
       type: "department",
       managerName: "",
       managerEmployeeId: "",
@@ -377,18 +401,16 @@ export const OrganizationView: React.FC = () => {
     const deptId = deleteDeptConfirm.id;
     const deptEmps = getDeptEmployees(deptId);
 
-    // If reassign department is chosen for existing employees
-    if (reassignDeptId && deptEmps.length > 0) {
-      for (const emp of deptEmps) {
-        await updateEmployee(emp.id, { departmentId: reassignDeptId });
-      }
+    if (deptEmps.length > 0 && !reassignDeptId) {
+      toast.error("يوجد موظفون مسكنون في هذه الإدارة، يرجى اختيار إدارة بديلة لإعادة التسكين");
+      return;
     }
 
-    const ok = await deleteOrgUnit(deptId);
+    const ok = await archiveOrgUnit(deptId, reassignDeptId || undefined);
     if (ok) {
-      toast.success(`تم حذف الإدارة ${deleteDeptConfirm.nameAr} بنجاح`);
+      toast.success(`تم أرشفة الإدارة ${deleteDeptConfirm.nameAr} بنجاح`);
     } else {
-      toast.error("تعذر حذف الإدارة");
+      toast.error("تعذر أرشفة الإدارة");
     }
     setDeleteDeptConfirm(null);
     setReassignDeptId("");
@@ -399,10 +421,10 @@ export const OrganizationView: React.FC = () => {
     setSubForm({
       nameAr: "",
       nameEn: "",
-      code: `SUB-${Math.floor(10 + Math.random() * 90)}`,
-      crNumber: "1010" + Math.floor(100000 + Math.random() * 900000),
-      taxNumber: "310" + Math.floor(100000000 + Math.random() * 900000000) + "00003",
-      unifiedNumber: "700" + Math.floor(1000000 + Math.random() * 9000000),
+      code: "",
+      crNumber: "",
+      taxNumber: "",
+      unifiedNumber: "",
       managerName: "",
       managerEmployeeId: "",
       city: "الرياض",
@@ -506,12 +528,12 @@ export const OrganizationView: React.FC = () => {
     setLocForm({
       nameAr: "",
       nameEn: "",
-      code: `LOC-${Math.floor(10 + Math.random() * 90)}`,
-      address: "الرياض - طريق الملك فهد",
-      city: "الرياض",
+      code: "",
+      address: "",
+      city: "",
       locationType: "branch",
-      latitude: 24.7136,
-      longitude: 46.6753,
+      latitude: 0,
+      longitude: 0,
       radiusMeters: 150,
       status: "active",
       subsidiaryId: "",
@@ -525,18 +547,25 @@ export const OrganizationView: React.FC = () => {
       toast.error("يرجى إدخال اسم المقر / الفرع بالعربية");
       return;
     }
+    const lat = Number(locForm.latitude);
+    const lng = Number(locForm.longitude);
+    const rad = Number(locForm.radiusMeters);
+    if (isNaN(lat) || lat < -90 || lat > 90 || isNaN(lng) || lng < -180 || lng > 180 || isNaN(rad) || rad <= 0) {
+      toast.error("يرجى إدخال إحداثيات جغرافية ونطاق صحيح (خط العرض -90..90، خط الطول -180..180، نصف القطر أكبر من 0).");
+      return;
+    }
     const saved = await addWorkLocation({
       companyId: company.id,
       subsidiaryId: locForm.subsidiaryId || null,
       nameAr: locForm.nameAr.trim(),
       nameEn: locForm.nameEn.trim() || locForm.nameAr.trim(),
-      code: locForm.code.trim() || `LOC-${Date.now().toString().slice(-4)}`,
+      code: locForm.code.trim(),
       address: locForm.address.trim(),
       city: locForm.city,
       locationType: locForm.locationType,
-      latitude: Number(locForm.latitude) || 24.7136,
-      longitude: Number(locForm.longitude) || 46.6753,
-      radiusMeters: Number(locForm.radiusMeters) || 150,
+      latitude: lat,
+      longitude: lng,
+      radiusMeters: rad,
       status: locForm.status,
     });
     if (!saved) return;
@@ -950,7 +979,7 @@ export const OrganizationView: React.FC = () => {
                             الكتلة المالية الشهرية
                           </span>
                           <p className="text-sm font-black text-foreground font-mono">
-                            {salaryMass.toLocaleString("ar-SA")} ر.س
+                            {salaryMass !== null ? `${salaryMass !== null ? `${salaryMass !== null ? `${salaryMass.toLocaleString("ar-SA")} ر.س` : "غير متاح"}` : "غير متاح"}` : "غير متاح"}
                           </p>
                         </div>
                       </div>
@@ -1057,7 +1086,7 @@ export const OrganizationView: React.FC = () => {
                           </Button>
                         </td>
                         <td className="p-4 font-mono font-bold text-foreground">
-                          {salaryMass.toLocaleString("ar-SA")} ر.س
+                          {salaryMass !== null ? `${salaryMass.toLocaleString("ar-SA")} ر.س` : "غير متاح"}
                         </td>
                         <td className="p-4 text-center">
                           <div className="flex items-center justify-center gap-1">
@@ -1117,7 +1146,7 @@ export const OrganizationView: React.FC = () => {
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_340px]">
             <div>
               <OrgChartSvg
-                root={chartRoot}
+                root={chartRoot || undefined}
                 language={language}
                 selectedId={selectedNodeId}
                 onSelect={setSelectedNodeId}
@@ -1140,7 +1169,7 @@ export const OrganizationView: React.FC = () => {
                     <p>
                       السجل التجاري:{" "}
                       <span className="font-mono font-bold text-foreground">
-                        {company.crNumber || "1010892341"}
+                        {company.crNumber || "غير مسجل"}
                       </span>
                     </p>
                     <p>
@@ -1149,7 +1178,7 @@ export const OrganizationView: React.FC = () => {
                         {company.taxNumber || "310298374600003"}
                       </span>
                     </p>
-                    <p>{company.headquartersAddress || "الرياض - طريق الملك فهد - أبراج العليا"}</p>
+                    <p>{company.headquartersAddress || "غير مسجل"}</p>
                     <div className="pt-2">
                       <Badge variant="outline" className="text-[10px] rounded-full">
                         {employees.length} موظف مسجل • {orgUnits.length} وحدة تنظيمية

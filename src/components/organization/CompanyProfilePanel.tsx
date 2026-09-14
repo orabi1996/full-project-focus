@@ -92,6 +92,29 @@ export const CompanyProfilePanel: React.FC = () => {
       toast.error("يرجى إدخال اسم المنشأة القانوني بالعربية");
       return;
     }
+
+    if (companyForm.timezone) {
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: companyForm.timezone });
+      } catch {
+        toast.error("المنطقة الزمنية غير صالحة. يرجى إدخال معرف زمني معتمد مثل Asia/Riyadh");
+        return;
+      }
+    }
+
+    if (companyForm.currency && !/^[A-Z]{3}$/.test(companyForm.currency.trim())) {
+      toast.error("رمز العملة غير صالح، يجب أن يتكون من 3 أحرف إنجليزية كبيرة (مثال: SAR)");
+      return;
+    }
+
+    if (
+      companyForm.fiscalYearStartMonth !== undefined &&
+      (companyForm.fiscalYearStartMonth < 1 || companyForm.fiscalYearStartMonth > 12)
+    ) {
+      toast.error("بداية السنة المالية يجب أن تكون بين شهر 1 و 12");
+      return;
+    }
+
     setBusy(true);
     try {
       const ok = await updateCompany(companyForm);
@@ -189,12 +212,29 @@ export const CompanyProfilePanel: React.FC = () => {
       {/* Financial KPIs */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "رصيد الحسابات البنكية المعتمدة", value: money(totals?.balance ?? 1250000), icon: Wallet, color: "text-primary" },
-          { label: "إجمالي الرواتب المصروفة (WPS)", value: money(totals?.paidOut ?? 845000), icon: Landmark, color: "text-emerald-600" },
-          { label: "سلف وقروض قيد التحصيل", value: money(totals?.loansOutstanding ?? 65000), icon: ShieldCheck, color: "text-amber-600" },
+          {
+            label: "رصيد الحسابات البنكية المعتمدة",
+            value: totals?.balance !== undefined && totals?.balance !== null ? money(totals.balance) : "غير متاح",
+            icon: Wallet,
+            color: "text-primary",
+          },
+          {
+            label: "إجمالي الرواتب المصروفة (WPS)",
+            value: totals?.paidOut !== undefined && totals?.paidOut !== null ? money(totals.paidOut) : "غير متاح",
+            icon: Landmark,
+            color: "text-emerald-600",
+          },
+          {
+            label: "سلف وقروض قيد التحصيل",
+            value: totals?.loansOutstanding !== undefined && totals?.loansOutstanding !== null ? money(totals.loansOutstanding) : "غير متاح",
+            icon: ShieldCheck,
+            color: "text-amber-600",
+          },
           {
             label: "موظفون بآيبان بنكي معتمد",
-            value: `${totals?.employeesWithIban ?? 118} / ${totals?.employeesTotal ?? 120} موظف`,
+            value: totals?.employeesWithIban !== undefined && totals?.employeesTotal !== undefined
+              ? `${totals.employeesWithIban} / ${totals.employeesTotal} موظف`
+              : "غير متاح",
             icon: CheckCircle2,
             color: "text-emerald-600",
           },

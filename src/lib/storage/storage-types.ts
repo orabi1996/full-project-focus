@@ -9,9 +9,27 @@ export type StorageBucket =
   | 'candidate-cvs'
   | 'job-offers';
 
-export type FileStatus = 'active' | 'archived' | 'deleted' | 'quarantined';
+export type FileStatus =
+  | 'active'
+  | 'archived'
+  | 'deleted'
+  | 'quarantined'
+  | 'orphaned'
+  | 'cleanup_failed';
 
-export type MalwareStatus = 'clean' | 'pending_scan' | 'quarantined' | 'scan_failed';
+export type MalwareStatus =
+  | 'unscanned'
+  | 'pending_scan'
+  | 'clean'
+  | 'quarantined'
+  | 'scan_failed';
+
+export interface RollbackFileOptions {
+  bucket?: StorageBucket;
+  objectPath?: string;
+  fileId?: string;
+  reason?: string;
+}
 
 export interface FileObject {
   id: string;

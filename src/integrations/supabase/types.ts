@@ -557,6 +557,9 @@ export type Database = {
           title_en: string
           version: string
           visibility_scope: string
+          department_id: string | null
+          subsidiary_id: string | null
+          status: string
         }
         Insert: {
           acknowledged_count?: number
@@ -574,6 +577,9 @@ export type Database = {
           title_en: string
           version?: string
           visibility_scope?: string
+          department_id?: string | null
+          subsidiary_id?: string | null
+          status?: string
         }
         Update: {
           acknowledged_count?: number
@@ -591,6 +597,9 @@ export type Database = {
           title_en?: string
           version?: string
           visibility_scope?: string
+          department_id?: string | null
+          subsidiary_id?: string | null
+          status?: string
         }
         Relationships: [
           {
@@ -762,6 +771,19 @@ export type Database = {
           created_by: string | null
           doc_number: string | null
           doc_type: string
+          document_type: string
+          title_ar: string
+          title_en: string | null
+          document_number: string | null
+          issue_date: string | null
+          expiry_date: string | null
+          status: string
+          confidentiality: string
+          visibility: string
+          verified_by: string | null
+          verified_at: string | null
+          rejection_reason: string | null
+          issuing_authority: string | null
           employee_id: string
           expires_at: string | null
           file_id: string | null
@@ -774,7 +796,20 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           doc_number?: string | null
-          doc_type: string
+          doc_type?: string
+          document_type?: string
+          title_ar?: string
+          title_en?: string | null
+          document_number?: string | null
+          issue_date?: string | null
+          expiry_date?: string | null
+          status?: string
+          confidentiality?: string
+          visibility?: string
+          verified_by?: string | null
+          verified_at?: string | null
+          rejection_reason?: string | null
+          issuing_authority?: string | null
           employee_id: string
           expires_at?: string | null
           file_id?: string | null
@@ -788,6 +823,19 @@ export type Database = {
           created_by?: string | null
           doc_number?: string | null
           doc_type?: string
+          document_type?: string
+          title_ar?: string
+          title_en?: string | null
+          document_number?: string | null
+          issue_date?: string | null
+          expiry_date?: string | null
+          status?: string
+          confidentiality?: string
+          visibility?: string
+          verified_by?: string | null
+          verified_at?: string | null
+          rejection_reason?: string | null
+          issuing_authority?: string | null
           employee_id?: string
           expires_at?: string | null
           file_id?: string | null
@@ -2982,10 +3030,28 @@ export type Database = {
         Returns: boolean
       }
       is_hr: { Args: { _user_id: string }; Returns: boolean }
+      archive_file_object: {
+        Args: { p_file_id: string }
+        Returns: undefined
+      }
+      finalize_file_replacement: {
+        Args: {
+          p_previous_file_id: string
+          p_new_file_id: string
+        }
+        Returns: Database["public"]["Tables"]["file_objects"]["Row"]
+      }
       log_file_download_access: {
         Args: {
           p_file_id: string
           p_access_type?: string
+        }
+        Returns: undefined
+      }
+      mark_file_orphaned: {
+        Args: {
+          p_file_id: string
+          p_reason?: string
         }
         Returns: undefined
       }

@@ -161,15 +161,23 @@ export interface EmployeeDocument {
   id: string;
   employeeId: string;
   type:
-    "national_id" | "iqama" | "passport" | "contract" | "degree" | "medical_insurance" | "other";
+    | "national_id" | "iqama" | "passport" | "contract" | "degree" | "medical_insurance" | "other";
   titleAr: string;
   titleEn: string;
   documentNumber: string;
   issueDate?: string;
   expiryDate?: string;
   fileUrl: string;
+  fileId?: string;
   fileSize?: string;
-  status: "valid" | "expiring_soon" | "expired" | "pending_verification";
+  status: "valid" | "expiring_soon" | "expired" | "pending_verification" | "pending_review" | "rejected" | "archived";
+  confidentiality?: "public" | "internal" | "confidential" | "strictly_confidential";
+  visibility?: "employee_visible" | "hr_only" | "restricted";
+  verifiedBy?: string;
+  verifiedAt?: string;
+  rejectionReason?: string;
+  issuingAuthority?: string;
+  notes?: string;
 }
 
 export interface SalaryProfile {
@@ -880,9 +888,12 @@ export interface CompanyDocument {
   expiryDate?: string;
   fileUrl: string;
   fileId?: string;
-  visibilityScope: "all" | "subsidiary" | "department";
+  visibilityScope: "all" | "subsidiary" | "department" | "hr_only";
   requiresAcknowledgment: boolean;
   acknowledgedCount: number;
+  departmentId?: string;
+  subsidiaryId?: string;
+  status?: "active" | "archived" | "inactive";
 }
 
 // ----------------------------------------------------------------------------

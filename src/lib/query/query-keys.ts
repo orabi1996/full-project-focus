@@ -77,6 +77,9 @@ export const queryKeys = {
   },
   documents: {
     all: ["documents"] as const,
+    company: () => [...queryKeys.documents.all, "company"] as const,
+    employees: () => [...queryKeys.documents.all, "employees"] as const,
+    employee: (id: string) => [...queryKeys.documents.all, "employees", id] as const,
   },
   audit: {
     all: ["audit"] as const,

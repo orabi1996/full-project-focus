@@ -13,7 +13,7 @@ import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
-import { uploadCandidateCvFile } from "../../storage";
+import { uploadCandidateCvFile, uploadJobOfferFile, rollbackUploadedFile } from "../../storage";
 
 export function useRecruitment() {
   const { session, isDemo } = useAuth();
@@ -84,7 +84,7 @@ export function useRecruitmentMutations() {
 
   const addCandidate = useCallback(
     async (candidate: Omit<Candidate, "id">, cvFile?: File): Promise<boolean> => {
-      const candId = `cand-${Date.now()}`;
+      const candId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `cand-${Date.now()}`;
       let cvFileId: string | undefined = candidate.cvFileId;
       let cvUrl: string | undefined = candidate.cvUrl;
 
@@ -114,7 +114,16 @@ export function useRecruitmentMutations() {
         mode,
         mutationKey: `create-candidate-${candidate.fullName || candidate.email}`,
         operation: async () => {
-          await createCandidateRecord(newCand);
+          try {
+            await createCandidateRecord(newCand);
+          } catch (insertErr) {
+            if (cvFileId) {
+              await rollbackUploadedFile({ fileId: cvFileId }).catch((rbErr) =>
+                console.error("Rollback of uploaded candidate CV failed:", rbErr),
+              );
+            }
+            throw insertErr;
+          }
           await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.candidates() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
@@ -200,18 +209,45 @@ export function useRecruitmentMutations() {
   );
 
   const sendJobOffer = useCallback(
-    async (offer: Omit<JobOffer, "id" | "status">): Promise<boolean> => {
+    async (offer: Omit<JobOffer, "id" | "status">, offerFile?: File): Promise<boolean> => {
+      const offerId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `off-${Date.now()}`;
+      let offerFileId: string | undefined;
+
+      if (offerFile) {
+        try {
+          const uploaded = await uploadJobOfferFile({
+            offerId,
+            candidateId: offer.candidateId,
+            file: offerFile,
+          });
+          offerFileId = uploaded.id;
+        } catch (uploadErr) {
+          const msg = uploadErr instanceof Error ? uploadErr.message : "فشل رفع وثيقة العرض الوظيفي";
+          toast.error(msg);
+          return false;
+        }
+      }
+
       const newOffer: JobOffer = {
         ...offer,
-        id: `off-${Date.now()}`,
+        id: offerId,
         status: "sent_to_candidate",
       };
 
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `send-job-offer-${offer.candidateId}-${offer.jobTitle}`,
+        mutationKey: `send-job-offer-${offer.candidateId}-${offer.jobTitle}-${offerId}`,
         operation: async () => {
-          await createJobOfferRecord(newOffer);
+          try {
+            await createJobOfferRecord(newOffer);
+          } catch (insertErr) {
+            if (offerFileId) {
+              await rollbackUploadedFile({ fileId: offerFileId }).catch((rbErr) =>
+                console.error("Rollback of uploaded job offer failed:", rbErr),
+              );
+            }
+            throw insertErr;
+          }
           await queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.offers() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;

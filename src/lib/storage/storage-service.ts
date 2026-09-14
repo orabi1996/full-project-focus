@@ -13,6 +13,7 @@ import { supabase } from '../../integrations/supabase/client';
 import { isDemoModeEnabled } from '../config/runtime-config';
 import {
   FileObject,
+  RollbackFileOptions,
   SignedUrlOptions,
   SignedUrlResult,
   StorageBucket,
@@ -21,7 +22,7 @@ import {
 import { assertSafePath, validateStorageFile } from './storage-validation';
 
 // In-memory demo storage catalog for demo mode
-const demoFileCatalog = new Map<string, FileObject>();
+export const demoFileCatalog = new Map<string, FileObject>();
 let forceDemoModeOverride: boolean | null = null;
 
 export function setStorageDemoMode(override: boolean | null): void {
@@ -98,7 +99,7 @@ export async function uploadSecureFile(options: UploadFileOptions): Promise<File
       replaces_file_id: replacesFileId ?? null,
       archived_at: null,
       deleted_at: null,
-      malware_status: 'clean',
+      malware_status: 'unscanned',
       metadata,
     };
     demoFileCatalog.set(demoId, demoObject);
@@ -120,7 +121,7 @@ export async function uploadSecureFile(options: UploadFileOptions): Promise<File
 
   // 5. Register in authoritative public.file_objects table
   const { data: userAuth } = await supabase.auth.getUser();
-  const userId = userAuth.user?.id ?? null;
+  const userId = userAuth?.user?.id ?? null;
 
   const { data: insertedRow, error: insertError } = await supabase
     .from('file_objects')
@@ -139,7 +140,7 @@ export async function uploadSecureFile(options: UploadFileOptions): Promise<File
       version,
       replaces_file_id: replacesFileId ?? null,
       status: 'active',
-      malware_status: 'clean',
+      malware_status: 'unscanned',
       metadata: metadata as any,
     })
     .select()
@@ -148,15 +149,65 @@ export async function uploadSecureFile(options: UploadFileOptions): Promise<File
   // 6. SAFE ORPHAN MANAGEMENT: If DB insert fails, delete uploaded storage object immediately!
   if (insertError || !insertedRow) {
     console.error('Database metadata registration failed after storage upload. Rolling back uploaded file to prevent orphans.', insertError);
-    try {
-      await supabase.storage.from(bucket).remove([objectPath]);
-    } catch (cleanupErr) {
-      console.error('Failed to clean up orphaned storage object:', cleanupErr);
-    }
+    await rollbackUploadedFile({
+      bucket,
+      objectPath,
+      reason: `Metadata registration failed: ${insertError?.message || 'unknown'}`,
+    });
     throw new Error(`فشل تسجيل بيانات الملف في قاعدة البيانات: ${insertError?.message || 'خطأ غير معروف'}`);
   }
 
   return insertedRow as unknown as FileObject;
+}
+
+/**
+ * Safe Rollback Helper for Uploaded Files (TASK 13).
+ * Safely removes storage object and cleans up / marks orphaned in metadata.
+ */
+export async function rollbackUploadedFile(options: RollbackFileOptions): Promise<void> {
+  const { fileId, reason = 'rollback' } = options;
+  let { bucket, objectPath } = options;
+
+  if (fileId && (!bucket || !objectPath)) {
+    const fileObj = await getFileObjectById(fileId);
+    if (fileObj) {
+      bucket = bucket || fileObj.bucket_id;
+      objectPath = objectPath || fileObj.object_path;
+    }
+  }
+
+  if (isStorageInDemoMode()) {
+    if (fileId) demoFileCatalog.delete(fileId);
+    if (bucket && objectPath) demoFileCatalog.delete(`${bucket}:${objectPath}`);
+    return;
+  }
+
+  let storageDeleted = false;
+  if (bucket && objectPath) {
+    try {
+      const { error: removeErr } = await supabase.storage.from(bucket).remove([objectPath]);
+      if (!removeErr) {
+        storageDeleted = true;
+      }
+    } catch (err) {
+      console.warn('Physical storage rollback error:', err);
+    }
+  }
+
+  if (fileId) {
+    try {
+      if (storageDeleted) {
+        const { error: delErr } = await supabase.from('file_objects').delete().eq('id', fileId);
+        if (delErr) {
+          await (supabase.rpc as any)('mark_file_orphaned', { p_file_id: fileId, p_reason: reason });
+        }
+      } else {
+        await (supabase.rpc as any)('mark_file_orphaned', { p_file_id: fileId, p_reason: `cleanup_failed: ${reason}` });
+      }
+    } catch (dbErr) {
+      console.error('Metadata rollback error:', dbErr);
+    }
+  }
 }
 
 /**
@@ -172,6 +223,34 @@ export async function createSignedDownloadUrl(
   const expiresIn = options?.expiresInSeconds ?? 300; // 5 minutes default
   const expiresAt = Date.now() + expiresIn * 1000;
   const filename = objectPath.split('/').pop() || 'document';
+
+  // Check file status to refuse deleted/quarantined/orphaned files (TASK 17)
+  let fileStatus: string | null = null;
+  let fileObjId: string | null = null;
+
+  if (isStorageInDemoMode()) {
+    const meta = demoFileCatalog.get(`${bucket}:${objectPath}`);
+    if (meta) {
+      fileStatus = meta.status;
+      fileObjId = meta.id;
+    }
+  } else {
+    const { data: fileObj } = await supabase
+      .from('file_objects')
+      .select('id, status')
+      .eq('bucket_id', bucket)
+      .eq('object_path', objectPath)
+      .maybeSingle();
+
+    if (fileObj) {
+      fileStatus = fileObj.status;
+      fileObjId = fileObj.id;
+    }
+  }
+
+  if (fileStatus && (fileStatus === 'deleted' || fileStatus === 'quarantined' || fileStatus === 'orphaned' || fileStatus === 'cleanup_failed')) {
+    throw new Error(`لا يمكن إنشاء رابط وصول للملف لأن حالته محظورة (${fileStatus})`);
+  }
 
   // Demo mode
   if (isStorageInDemoMode()) {
@@ -195,21 +274,12 @@ export async function createSignedDownloadUrl(
   }
 
   // Audit logging if file object is identifiable
-  if (options?.trackAudit !== false) {
+  if (options?.trackAudit !== false && fileObjId) {
     try {
-      const { data: fileObj } = await supabase
-        .from('file_objects')
-        .select('id')
-        .eq('bucket_id', bucket)
-        .eq('object_path', objectPath)
-        .maybeSingle();
-
-      if (fileObj?.id) {
-        await supabase.rpc('log_file_download_access', {
-          p_file_id: fileObj.id,
-          p_access_type: options?.download ? 'download' : 'view',
-        });
-      }
+      await (supabase.rpc as any)('log_file_download_access', {
+        p_file_id: fileObjId,
+        p_access_type: options?.download ? 'download' : 'view',
+      });
     } catch (auditErr) {
       // Non-blocking audit failure
       console.warn('File access audit logging warning:', auditErr);
@@ -226,7 +296,8 @@ export async function createSignedDownloadUrl(
 
 /**
  * Replace an existing file with a new version.
- * Uploads new version object, marks previous version as archived, and links replacement.
+ * Uploads new version object, marks previous version as archived via atomic RPC,
+ * and rolls back new file if finalization fails.
  */
 export async function replaceSecureFile(
   previousFileId: string,
@@ -265,17 +336,35 @@ export async function replaceSecureFile(
       previousFile.status = 'archived';
       previousFile.archived_at = new Date().toISOString();
     }
-  } else {
-    await supabase
-      .from('file_objects')
-      .update({
-        status: 'archived',
-        archived_at: new Date().toISOString(),
-      })
-      .eq('id', previousFileId);
+    return newFile;
   }
 
-  return newFile;
+  // 4. Live atomic replacement via RPC (TASK 12)
+  try {
+    const { data: finalizedRow, error: rpcError } = await (supabase.rpc as any)(
+      'finalize_file_replacement',
+      {
+        p_previous_file_id: previousFileId,
+        p_new_file_id: newFile.id,
+      }
+    );
+
+    if (rpcError) {
+      throw new Error(rpcError.message);
+    }
+
+    return (finalizedRow ?? newFile) as unknown as FileObject;
+  } catch (finalizeErr) {
+    // Rollback the newly uploaded file so we don't leave two active versions!
+    await rollbackUploadedFile({
+      bucket: options.bucket,
+      objectPath: options.objectPath,
+      fileId: newFile.id,
+      reason: 'Replacement finalization failed',
+    });
+    const msg = finalizeErr instanceof Error ? finalizeErr.message : 'فشل اعتماد استبدال الملف';
+    throw new Error(`فشل استبدال الملف وإلغاء النسخة الجديدة لضمان سلامة البيانات: ${msg}`);
+  }
 }
 
 /**
@@ -291,16 +380,19 @@ export async function archiveSecureFile(fileId: string): Promise<void> {
     return;
   }
 
-  const { error } = await supabase
-    .from('file_objects')
-    .update({
-      status: 'archived',
-      archived_at: new Date().toISOString(),
-    })
-    .eq('id', fileId);
-
+  const { error } = await (supabase.rpc as any)('archive_file_object', { p_file_id: fileId });
   if (error) {
-    throw new Error(`فشل أرشفة الملف: ${error.message}`);
+    const { error: updateErr } = await supabase
+      .from('file_objects')
+      .update({
+        status: 'archived',
+        archived_at: new Date().toISOString(),
+      })
+      .eq('id', fileId);
+
+    if (updateErr) {
+      throw new Error(`فشل أرشفة الملف: ${updateErr.message}`);
+    }
   }
 }
 
@@ -349,4 +441,21 @@ export async function getFileObjectById(fileId: string): Promise<FileObject | nu
   }
 
   return data as unknown as FileObject;
+}
+
+/**
+ * Get signed URL directly by fileId
+ */
+export async function getSignedUrlForFileId(
+  fileId: string,
+  options?: SignedUrlOptions
+): Promise<SignedUrlResult> {
+  const file = await getFileObjectById(fileId);
+  if (!file) {
+    throw new Error(`الملف غير موجود (${fileId})`);
+  }
+  if (file.status === 'deleted' || file.status === 'quarantined' || file.status === 'orphaned' || file.status === 'cleanup_failed') {
+    throw new Error(`لا يمكن الوصول إلى الملف لأن حالته محظورة (${file.status})`);
+  }
+  return createSignedDownloadUrl(file.bucket_id, file.object_path, options);
 }

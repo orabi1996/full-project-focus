@@ -122,6 +122,7 @@ export interface StoredDocument {
   rejectionReason?: string;
   renewalFeeEstimated?: number;
   versions?: DocumentVersion[];
+  isCompanyDoc?: boolean;
 }
 
 export interface DocumentRequest {
@@ -363,7 +364,18 @@ export function generateDocumentHtml(
 }
 
 export const DocumentVaultView: React.FC = () => {
-  const { employees, company, language, t } = useApp();
+  const {
+    employees,
+    company,
+    language,
+    t,
+    companyDocs,
+    employeeDocs,
+    addCompanyDocument,
+    addEmployeeDocument,
+    archiveDocument,
+    verifyEmployeeDocument,
+  } = useApp();
 
   // Navigation State
   const [mainTab, setMainTab] = useState<MainTab>("vault");
@@ -393,7 +405,7 @@ export const DocumentVaultView: React.FC = () => {
   const [rejectReasonInput, setRejectReasonInput] = useState("");
 
   // Initial Enterprise Documents
-  const [documents, setDocuments] = useState<StoredDocument[]>([
+  const [localDocuments, setLocalDocuments] = useState<StoredDocument[]>([
     {
       id: "doc-1",
       employeeId: employees[0]?.id || "emp-1",
@@ -587,6 +599,74 @@ export const DocumentVaultView: React.FC = () => {
       notes: "تم رفع العنوان الوطني الجديد من قبل الموظف وبانتظار اعتماد مسؤولي الموارد البشرية",
     },
   ]);
+
+  const mappedLiveDocs = useMemo<StoredDocument[]>(() => {
+    const list: StoredDocument[] = [];
+    if (employeeDocs && employeeDocs.length > 0) {
+      for (const d of employeeDocs) {
+        if (d.status === "archived") continue;
+        const emp = employees.find((e) => e.id === d.employeeId);
+        list.push({
+          id: d.id,
+          employeeId: d.employeeId,
+          employeeName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "موظف",
+          employeeNo: emp?.employeeNo,
+          departmentName: emp?.departmentName,
+          title: d.titleAr,
+          category: (d.type === "iqama" ? "iqama_id" : d.type) as any,
+          docNumber: d.documentNumber,
+          issuingAuthority: d.issuingAuthority || "رسمي",
+          fileName: d.titleAr.replace(/\s+/g, "_") + ".pdf",
+          fileSize: d.fileSize || "1.4 MB",
+          uploadDate: d.issueDate || new Date().toISOString().split("T")[0],
+          expiryDate: d.expiryDate,
+          status: (d.status as any) || "valid",
+          confidentiality: (d.confidentiality as any) || "confidential",
+          verifiedBy: d.verifiedBy,
+          verifiedAt: d.verifiedAt,
+          rejectionReason: d.rejectionReason,
+          notes: d.notes,
+          renewalFeeEstimated: d.type === "iqama" ? 650 : 0,
+          fileId: d.fileId,
+          fileUrl: d.fileUrl,
+          isCompanyDoc: false,
+        });
+      }
+    }
+    if (companyDocs && companyDocs.length > 0) {
+      for (const d of companyDocs) {
+        if (d.status === "archived") continue;
+        list.push({
+          id: d.id,
+          employeeId: "company-hq",
+          employeeName: company.legalNameAr || "المستندات المؤسسية",
+          employeeNo: "CORP",
+          departmentName: d.departmentId || "عام",
+          title: d.titleAr,
+          category: (d.category === "policy" ? "policy" : "company") as any,
+          docNumber: d.version || "v1.0",
+          issuingAuthority: "الإدارة العامة",
+          fileName: d.titleAr.replace(/\s+/g, "_") + ".pdf",
+          fileSize: "1.2 MB",
+          uploadDate: new Date().toISOString().split("T")[0],
+          expiryDate: d.expiryDate,
+          status: "valid",
+          confidentiality: d.visibilityScope === "hr_only" ? "strictly_confidential" : "internal",
+          fileId: d.fileId,
+          fileUrl: d.fileUrl,
+          isCompanyDoc: true,
+        });
+      }
+    }
+    return list;
+  }, [employeeDocs, companyDocs, employees, company]);
+
+  const documents = useMemo<StoredDocument[]>(() => {
+    if (mappedLiveDocs.length > 0) {
+      return mappedLiveDocs;
+    }
+    return localDocuments;
+  }, [mappedLiveDocs, localDocuments]);
 
   // Document Requests Pipeline State
   const [documentRequests, setDocumentRequests] = useState<DocumentRequest[]>([
@@ -868,18 +948,20 @@ export const DocumentVaultView: React.FC = () => {
     toast.success(`تم تصدير كشف (${listToExport.length}) وثائق بنجاح!`);
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     if (selectedDocIds.length === 0) return;
-    const count = selectedDocIds.length;
-    setDocuments((prev) => prev.filter((d) => !selectedDocIds.includes(d.id)));
+    for (const id of selectedDocIds) {
+      const doc = documents.find((d) => d.id === id);
+      await archiveDocument(id, doc?.isCompanyDoc ? "company" : "employee", doc?.fileId);
+    }
+    setLocalDocuments((prev) => prev.filter((d) => !selectedDocIds.includes(d.id)));
     setSelectedDocIds([]);
-    toast.success(`تم حذف (${count}) وثائق من المستودع السحابي!`);
   };
 
-  const handleDeleteSingle = (id: string) => {
+  const handleDeleteSingle = async (id: string) => {
     const doc = documents.find((d) => d.id === id);
-    setDocuments((prev) => prev.filter((d) => d.id !== id));
-    toast.success(`تم حذف الوثيقة (${doc?.title || ""}) بنجاح`);
+    await archiveDocument(id, doc?.isCompanyDoc ? "company" : "employee", doc?.fileId);
+    setLocalDocuments((prev) => prev.filter((d) => d.id !== id));
     if (selectedDocForPreview?.id === id) {
       setSelectedDocForPreview(null);
     }
@@ -979,8 +1061,9 @@ export const DocumentVaultView: React.FC = () => {
   };
 
   // Verification Pipeline Actions
-  const handleApproveDocument = (docId: string) => {
-    setDocuments((prev) =>
+  const handleApproveDocument = async (docId: string) => {
+    await verifyEmployeeDocument(docId, "valid");
+    setLocalDocuments((prev) =>
       prev.map((d) =>
         d.id === docId
           ? {
@@ -992,7 +1075,6 @@ export const DocumentVaultView: React.FC = () => {
           : d,
       ),
     );
-    toast.success("تم اعتماد وتوثيق الوثيقة بنجاح وإشعار الموظف!");
   };
 
   const handleOpenRejectModal = (doc: StoredDocument) => {
@@ -1000,9 +1082,10 @@ export const DocumentVaultView: React.FC = () => {
     setRejectReasonInput("الصورة غير واضحة / المستند منتهي الصلاحية");
   };
 
-  const handleConfirmReject = () => {
+  const handleConfirmReject = async () => {
     if (!rejectReasonModalDoc) return;
-    setDocuments((prev) =>
+    await verifyEmployeeDocument(rejectReasonModalDoc.id, "rejected", rejectReasonInput);
+    setLocalDocuments((prev) =>
       prev.map((d) =>
         d.id === rejectReasonModalDoc.id
           ? {
@@ -1013,7 +1096,6 @@ export const DocumentVaultView: React.FC = () => {
           : d,
       ),
     );
-    toast.error(`تم رفض الوثيقة وإرسال إشعار للموظف: ${rejectReasonInput}`);
     setRejectReasonModalDoc(null);
   };
 
@@ -1024,81 +1106,51 @@ export const DocumentVaultView: React.FC = () => {
       return;
     }
 
-    const emp = employees.find((e) => e.id === newDoc.employeeId);
-    const ownerName =
-      newDoc.employeeId === "company-hq"
-        ? company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري"
-        : emp
-          ? `${emp.firstNameAr} ${emp.lastNameAr}`
-          : "موظف عام";
+    const isComp = newDoc.category === "company" || newDoc.category === "policy" || newDoc.employeeId === "company-hq";
 
-    let uploadedFileId: string | undefined;
-    let uploadedPath: string | undefined;
-
-    if (selectedUploadFile) {
-      try {
-        const isComp = newDoc.category === "company" || newDoc.category === "policy";
-        if (isComp) {
-          const res = await uploadCompanyDocumentFile({
-            documentId: `doc-${Date.now()}`,
-            file: selectedUploadFile,
-            category: newDoc.category,
-          });
-          uploadedFileId = res.id;
-          uploadedPath = res.object_path;
-        } else {
-          const res = await uploadEmployeeDocumentFile({
-            employeeId: newDoc.employeeId,
-            documentId: `emp-doc-${Date.now()}`,
-            file: selectedUploadFile,
-            docType: newDoc.category,
-          });
-          uploadedFileId = res.id;
-          uploadedPath = res.object_path;
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "فشل رفع الملف إلى التخزين الآمن";
-        toast.error(msg);
-        return;
-      }
+    if (isComp) {
+      const ok = await addCompanyDocument(
+        {
+          titleAr: newDoc.title,
+          titleEn: newDoc.title,
+          category: newDoc.category === "policy" ? "policy" : "handbook",
+          version: newDoc.docNumber || "v1.0",
+          expiryDate: newDoc.expiryDate || undefined,
+          fileUrl: "",
+          visibilityScope: newDoc.confidentiality === "strictly_confidential" ? "hr_only" : "all",
+          requiresAcknowledgment: false,
+        },
+        selectedUploadFile || undefined,
+      );
+      if (!ok) return;
+    } else {
+      const ok = await addEmployeeDocument(
+        {
+          employeeId: newDoc.employeeId,
+          type:
+            newDoc.category === "iqama_id"
+              ? "iqama"
+              : newDoc.category === "passport"
+                ? "passport"
+                : newDoc.category === "contract"
+                  ? "contract"
+                  : "other",
+          titleAr: newDoc.title,
+          titleEn: newDoc.title,
+          documentNumber: newDoc.docNumber || `DOC-${Math.floor(100000 + Math.random() * 900000)}`,
+          issueDate: new Date().toISOString().split("T")[0],
+          expiryDate: newDoc.expiryDate || undefined,
+          fileUrl: "",
+          status: "valid",
+          confidentiality: (newDoc.confidentiality as any) || "confidential",
+          notes: newDoc.notes,
+          issuingAuthority: newDoc.issuingAuthority,
+        },
+        selectedUploadFile || undefined,
+      );
+      if (!ok) return;
     }
 
-    const docItem: StoredDocument = {
-      id: `doc-${Date.now()}`,
-      employeeId: newDoc.employeeId,
-      employeeName: ownerName,
-      employeeNo: emp?.employeeNo,
-      departmentName: emp?.departmentName,
-      title: newDoc.title,
-      category: newDoc.category,
-      docNumber: newDoc.docNumber || `DOC-${Math.floor(100000 + Math.random() * 900000)}`,
-      issuingAuthority: newDoc.issuingAuthority || "الجهة المعتمدة",
-      fileName: selectedUploadFile
-        ? selectedUploadFile.name
-        : (newDoc.fileName || `${newDoc.title.toLowerCase().replace(/\s+/g, "_")}.pdf`),
-      fileSize: selectedUploadFileSize || "1.4 MB",
-      uploadDate: new Date().toISOString().split("T")[0],
-      expiryDate: newDoc.expiryDate || undefined,
-      status:
-        newDoc.expiryDate && new Date(newDoc.expiryDate) < new Date()
-          ? "expired"
-          : newDoc.expiryDate &&
-              new Date(newDoc.expiryDate).getTime() - new Date().getTime() <
-                30 * 24 * 60 * 60 * 1000
-            ? "expiring_soon"
-            : "valid",
-      confidentiality: newDoc.confidentiality,
-      notes: newDoc.notes,
-      verifiedBy: "مسؤول الموارد البشرية",
-      verifiedAt: new Date().toLocaleDateString("ar-SA"),
-      renewalFeeEstimated: newDoc.category === "iqama_id" ? 650 : newDoc.category === "contract" ? 120 : 0,
-      fileId: uploadedFileId,
-      fileUrl: uploadedPath || (selectedUploadFile ? URL.createObjectURL(selectedUploadFile) : undefined),
-      versions: [],
-    };
-
-    setDocuments([docItem, ...documents]);
-    toast.success(`تمت أرشفة وحفظ (${newDoc.title}) في الخزينة السحابية الآمنة بنجاح!`);
     setIsUploadModalOpen(false);
     setSelectedUploadFile(null);
     setSelectedUploadFileSize("");
@@ -1156,7 +1208,7 @@ export const DocumentVaultView: React.FC = () => {
         : d,
     );
 
-    setDocuments(updated);
+    setLocalDocuments(updated);
     setSelectedDocForPreview({
       ...selectedDocForPreview,
       expiryDate: newRenewalExpiry,

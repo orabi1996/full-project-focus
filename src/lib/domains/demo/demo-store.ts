@@ -68,10 +68,48 @@ import type {
   JobPosition,
   HardwareAsset,
   CompanyDocument,
+  EmployeeDocument,
   AuditLogEntry,
   AppNotification,
   AccountingJournalEntry,
 } from "../../../types";
+
+const mockEmployeeDocs: EmployeeDocument[] = [
+  {
+    id: "emp-doc-1",
+    employeeId: "emp-1",
+    type: "iqama",
+    titleAr: "بطاقة الهوية الوطنية / الإقامة",
+    titleEn: "National ID / Iqama Card",
+    documentNumber: "1098765432",
+    issueDate: "2024-01-15",
+    expiryDate: "2027-01-14",
+    fileUrl: "employees/emp-1/doc-1/v1_national_id.pdf",
+    fileId: "file-mock-1",
+    status: "valid",
+    confidentiality: "internal",
+    visibility: "employee_visible",
+    verifiedBy: "أ. نورة التميمي (مسؤول الموارد البشرية)",
+    verifiedAt: "2024-01-16T10:00:00Z",
+  },
+  {
+    id: "emp-doc-2",
+    employeeId: "emp-2",
+    type: "contract",
+    titleAr: "عقد عمل موثق - منصة قوى",
+    titleEn: "Verified Employment Contract - Qiwa",
+    documentNumber: "QIWA-2024-99881",
+    issueDate: "2024-03-01",
+    expiryDate: "2026-02-28",
+    fileUrl: "employees/emp-2/doc-2/v1_qiwa_contract.pdf",
+    fileId: "file-mock-2",
+    status: "valid",
+    confidentiality: "confidential",
+    visibility: "employee_visible",
+    verifiedBy: "أ. نورة التميمي (مسؤول الموارد البشرية)",
+    verifiedAt: "2024-03-02T12:00:00Z",
+  },
+];
 
 type Listener = () => void;
 
@@ -108,6 +146,7 @@ class DemoStore {
   jobPositions: JobPosition[] = [...mockJobPositions];
   assets: HardwareAsset[] = [...mockAssets];
   companyDocs: CompanyDocument[] = [...mockCompanyDocs];
+  employeeDocs: EmployeeDocument[] = [...mockEmployeeDocs];
   auditLogs: AuditLogEntry[] = [...mockAuditLogs];
   notifications: AppNotification[] = [...mockNotifications];
   accountingJournals: AccountingJournalEntry[] = [...mockAccountingJournals];
@@ -156,6 +195,7 @@ class DemoStore {
     this.jobPositions = [...mockJobPositions];
     this.assets = [...mockAssets];
     this.companyDocs = [...mockCompanyDocs];
+    this.employeeDocs = [...mockEmployeeDocs];
     this.auditLogs = [...mockAuditLogs];
     this.notifications = [...mockNotifications];
     this.accountingJournals = [...mockAccountingJournals];

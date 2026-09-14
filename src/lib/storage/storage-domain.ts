@@ -193,20 +193,4 @@ export async function uploadJobOfferFile({
   });
 }
 
-/**
- * Get a short-lived signed URL for any file by its authoritative file_id
- */
-export async function getSignedUrlForFileId(
-  fileId: string,
-  options?: SignedUrlOptions
-): Promise<SignedUrlResult> {
-  const fileObj = await getFileObjectById(fileId);
-  if (!fileObj) {
-    throw new Error(`الملف المطلوب غير موجود في سجل الملفات (${fileId})`);
-  }
 
-  return createSignedDownloadUrl(fileObj.bucket_id, fileObj.object_path, {
-    ...options,
-    download: options?.download ?? fileObj.original_filename,
-  });
-}

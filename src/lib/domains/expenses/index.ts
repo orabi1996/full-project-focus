@@ -12,7 +12,7 @@ import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
 
-import { uploadExpenseReceiptFile } from "../../storage";
+import { uploadExpenseReceiptFile, rollbackUploadedFile } from "../../storage";
 
 export function useExpenses() {
   const { session, isDemo } = useAuth();
@@ -48,7 +48,7 @@ export function useExpenseMutations() {
     ): Promise<boolean> => {
       const cat = demoStore.expenseCategories.find((c) => c.id === claim.categoryId);
       const isWarning = cat ? claim.amount > cat.maxLimitWarning : false;
-      const expenseId = `exp-${Date.now()}`;
+      const expenseId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `exp-${Date.now()}`;
 
       let receiptFileId: string | undefined = claim.receiptFileId;
       let receiptUrl: string | undefined = claim.receiptUrl;
@@ -82,7 +82,16 @@ export function useExpenseMutations() {
         mode,
         mutationKey: `create-expense-claim-${claim.employeeId}-${claim.categoryId}-${claim.amount}`,
         operation: async () => {
-          await createExpenseClaimRecord(newClaim);
+          try {
+            await createExpenseClaimRecord(newClaim);
+          } catch (insertErr) {
+            if (receiptFileId) {
+              await rollbackUploadedFile({ fileId: receiptFileId }).catch((rbErr) =>
+                console.error("Rollback of uploaded expense receipt failed:", rbErr),
+              );
+            }
+            throw insertErr;
+          }
           await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.claims() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;

@@ -10,6 +10,7 @@ import type {
   CompanyDocument,
   DelegationRule,
   Employee,
+  EmployeeDocument,
   EmployeeLeaveBalance,
   EmployeePayrollDetail,
   EvaluationRecord,
@@ -78,6 +79,7 @@ export interface OperationalSnapshot {
   jobOffers: JobOffer[];
   assets: HardwareAsset[];
   companyDocs: CompanyDocument[];
+  employeeDocs: EmployeeDocument[];
   auditLogs: AuditLogEntry[];
   notifications: AppNotification[];
   accountingJournals: AccountingJournalEntry[];
@@ -216,6 +218,7 @@ export async function fetchOperationalSnapshot(
     delegationRulesResult,
     overtimeResult,
     attendanceCorrectionsResult,
+    employeeDocsResult,
   ] = await Promise.all([
     enterpriseSupabase.from("companies").select("*").limit(1),
     enterpriseSupabase.from("subsidiaries").select("*").order("name_ar"),
@@ -281,6 +284,10 @@ export async function fetchOperationalSnapshot(
       .select("*")
       .eq("type", "attendance_fix")
       .order("created_at", { ascending: false }),
+    enterpriseSupabase
+      .from("employee_documents")
+      .select("*")
+      .order("created_at", { ascending: false }),
   ]);
 
   const results = [
@@ -315,6 +322,7 @@ export async function fetchOperationalSnapshot(
     delegationRulesResult,
     overtimeResult,
     attendanceCorrectionsResult,
+    employeeDocsResult,
   ];
   const firstError = results.map((result) => result.error).find(Boolean);
   if (firstError) throw new Error(firstError.message);
@@ -758,6 +766,29 @@ export async function fetchOperationalSnapshot(
       visibilityScope: row.visibility_scope as CompanyDocument["visibilityScope"],
       requiresAcknowledgment: row.requires_acknowledgment,
       acknowledgedCount: row.acknowledged_count,
+      departmentId: (row as any).department_id ?? undefined,
+      subsidiaryId: (row as any).subsidiary_id ?? undefined,
+      status: ((row as any).status || "active") as CompanyDocument["status"],
+    })),
+    employeeDocs: (employeeDocsResult.data ?? []).map((row) => ({
+      id: row.id,
+      employeeId: row.employee_id,
+      type: (row.document_type || (row as any).doc_type || "other") as EmployeeDocument["type"],
+      titleAr: row.title_ar || (row as any).doc_type || "وثيقة موظف",
+      titleEn: row.title_en || "",
+      documentNumber: row.document_number || (row as any).doc_number || "",
+      issueDate: row.issue_date || (row as any).issued_at || undefined,
+      expiryDate: row.expiry_date || (row as any).expires_at || undefined,
+      fileUrl: row.file_url || "",
+      fileId: (row as any).file_id ?? undefined,
+      status: ((row.status || "valid") as EmployeeDocument["status"]),
+      confidentiality: ((row as any).confidentiality || "internal") as EmployeeDocument["confidentiality"],
+      visibility: ((row as any).visibility || "employee_visible") as EmployeeDocument["visibility"],
+      verifiedBy: (row as any).verified_by ?? undefined,
+      verifiedAt: (row as any).verified_at ?? undefined,
+      rejectionReason: (row as any).rejection_reason ?? undefined,
+      issuingAuthority: (row as any).issuing_authority ?? undefined,
+      notes: row.notes ?? undefined,
     })),
     auditLogs: (auditResult.data ?? []).map((row) => ({
       id: row.id,
@@ -879,9 +910,10 @@ export async function adjustLeaveBalanceRecord(
 }
 
 export async function createExpenseClaimRecord(
-  claim: Omit<ExpenseClaim, "id" | "status" | "policyWarningTriggered">,
+  claim: Omit<ExpenseClaim, "status" | "policyWarningTriggered"> & { id?: string },
 ) {
   const { error } = await enterpriseSupabase.from("expense_claims").insert({
+    id: claim.id ?? undefined,
     employee_id: claim.employeeId,
     category_id: claim.categoryId,
     amount: claim.amount,
@@ -1382,8 +1414,9 @@ export async function createJobOpeningRecord(job: Omit<JobOpening, "id">) {
   if (error) throw new Error(error.message);
 }
 
-export async function createCandidateRecord(candidate: Omit<Candidate, "id">) {
+export async function createCandidateRecord(candidate: Omit<Candidate, "id"> & { id?: string }) {
   const { error } = await enterpriseSupabase.from("candidates").insert({
+    id: candidate.id ?? undefined,
     job_id: candidate.jobId || null,
     full_name: candidate.fullName,
     email: candidate.email,
@@ -1412,8 +1445,9 @@ export async function updateCandidateRecord(
   if (error) throw new Error(error.message);
 }
 
-export async function createJobOfferRecord(offer: Omit<JobOffer, "id" | "status">) {
+export async function createJobOfferRecord(offer: Omit<JobOffer, "status"> & { id?: string }) {
   const { error } = await enterpriseSupabase.from("job_offers").insert({
+    id: offer.id ?? undefined,
     candidate_id: offer.candidateId,
     basic_salary: offer.basicSalary,
     housing_allowance: offer.housingAllowance,
@@ -1471,9 +1505,10 @@ export async function returnAssetRecord(assetId: string) {
 }
 
 export async function createCompanyDocumentRecord(
-  document: Omit<CompanyDocument, "id" | "acknowledgedCount">,
+  document: Omit<CompanyDocument, "acknowledgedCount"> & { id?: string },
 ) {
   const { error } = await enterpriseSupabase.from("company_documents").insert({
+    id: document.id ?? undefined,
     title_ar: document.titleAr,
     title_en: document.titleEn,
     category: document.category,
@@ -1484,7 +1519,86 @@ export async function createCompanyDocumentRecord(
     visibility_scope: document.visibilityScope,
     requires_acknowledgment: document.requiresAcknowledgment,
     acknowledged_count: 0,
+    department_id: document.departmentId ?? null,
+    subsidiary_id: document.subsidiaryId ?? null,
+    status: document.status ?? "active",
   });
+  if (error) throw new Error(error.message);
+}
+
+export async function createEmployeeDocumentRecord(
+  document: Omit<EmployeeDocument, "id"> & { id?: string },
+) {
+  const { error } = await enterpriseSupabase.from("employee_documents").insert({
+    id: document.id ?? undefined,
+    employee_id: document.employeeId,
+    document_type: document.type,
+    doc_type: document.type,
+    title_ar: document.titleAr,
+    title_en: document.titleEn ?? null,
+    document_number: document.documentNumber ?? null,
+    doc_number: document.documentNumber ?? null,
+    issue_date: document.issueDate ?? null,
+    issued_at: document.issueDate ?? null,
+    expiry_date: document.expiryDate ?? null,
+    expires_at: document.expiryDate ?? null,
+    file_url: document.fileUrl,
+    file_id: document.fileId ?? null,
+    status: document.status,
+    confidentiality: document.confidentiality ?? "internal",
+    visibility: document.visibility ?? "employee_visible",
+    verified_by: document.verifiedBy ?? null,
+    verified_at: document.verifiedAt ?? null,
+    rejection_reason: document.rejectionReason ?? null,
+    issuing_authority: document.issuingAuthority ?? null,
+    notes: document.notes ?? null,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function archiveDocumentRecord(
+  docId: string,
+  type: "company" | "employee",
+  fileId?: string,
+) {
+  if (type === "company") {
+    const { error } = await enterpriseSupabase
+      .from("company_documents")
+      .update({ status: "archived" })
+      .eq("id", docId);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await enterpriseSupabase
+      .from("employee_documents")
+      .update({ status: "archived" })
+      .eq("id", docId);
+    if (error) throw new Error(error.message);
+  }
+
+  if (fileId) {
+    try {
+      await (enterpriseSupabase.rpc as any)("archive_file_object", { p_file_id: fileId });
+    } catch {
+      // best effort metadata archive
+    }
+  }
+}
+
+export async function verifyEmployeeDocumentRecord(
+  docId: string,
+  status: "valid" | "rejected" | "expired",
+  verifiedBy: string = "مسؤول الموارد البشرية",
+  rejectionReason?: string,
+) {
+  const { error } = await enterpriseSupabase
+    .from("employee_documents")
+    .update({
+      status,
+      verified_by: verifiedBy,
+      verified_at: new Date().toISOString(),
+      rejection_reason: rejectionReason ?? null,
+    })
+    .eq("id", docId);
   if (error) throw new Error(error.message);
 }
 

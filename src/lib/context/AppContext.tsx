@@ -36,6 +36,7 @@ import type {
   JobPosition,
   HardwareAsset,
   CompanyDocument,
+  EmployeeDocument,
   AuditLogEntry,
   AppNotification,
   AccountingJournalEntry,
@@ -122,6 +123,7 @@ export interface AppContextType {
   jobOffers: JobOffer[];
   assets: HardwareAsset[];
   companyDocs: CompanyDocument[];
+  employeeDocs: EmployeeDocument[];
   auditLogs: AuditLogEntry[];
   notifications: AppNotification[];
   accountingJournals: AccountingJournalEntry[];
@@ -224,29 +226,47 @@ export interface AppContextType {
   }) => Promise<boolean>;
   createSettlement: (settlement: Omit<FinalSettlementRecord, "id">) => Promise<boolean>;
 
-  // Expenses
+  // Expenses Mutators
   addExpenseClaim: (
     claim: Omit<ExpenseClaim, "id" | "status" | "policyWarningTriggered">,
     receiptFile?: File,
   ) => Promise<boolean>;
-  addExpenseCategory: (input: { nameAr: string; warningLimit: number; blockLimit: number }) => Promise<boolean>;
+  addExpenseCategory: (input: {
+    nameAr: string;
+    warningLimit: number;
+    blockLimit: number;
+  }) => Promise<boolean>;
 
   // Performance
   addPerformanceCycle: (cycle: Omit<PerformanceCycle, "id">) => Promise<boolean>;
   addEvaluation: (evaluation: Omit<EvaluationRecord, "id">) => Promise<boolean>;
 
-  // ATS / Recruitment
-  addJobOpening: (job: Omit<JobOpening, "id">) => Promise<boolean>;
+  // ATS Mutators
+  addJobOpening: (job: Omit<JobOpening, "id" | "applicantsCount">) => Promise<boolean>;
   addCandidate: (candidate: Omit<Candidate, "id">, cvFile?: File) => Promise<boolean>;
   updateCandidateScore: (candidateId: string, score: number) => Promise<boolean>;
   moveCandidateStage: (candidateId: string, newStage: CandidateStage) => Promise<boolean>;
-  sendJobOffer: (offer: Omit<JobOffer, "id" | "status">) => Promise<boolean>;
+  sendJobOffer: (offer: Omit<JobOffer, "id" | "status">, offerFile?: File) => Promise<boolean>;
 
   // Assets & Docs
   addAsset: (asset: Omit<HardwareAsset, "id">) => Promise<boolean>;
   addCompanyDocument: (
     document: Omit<CompanyDocument, "id" | "acknowledgedCount">,
     file?: File,
+  ) => Promise<boolean>;
+  addEmployeeDocument: (
+    document: Omit<EmployeeDocument, "id">,
+    file?: File,
+  ) => Promise<boolean>;
+  archiveDocument: (
+    docId: string,
+    type: "company" | "employee",
+    fileId?: string,
+  ) => Promise<boolean>;
+  verifyEmployeeDocument: (
+    docId: string,
+    status: "valid" | "expired" | "rejected",
+    rejectionReason?: string,
   ) => Promise<boolean>;
   assignAsset: (assetId: string, employeeId: string) => Promise<boolean>;
   returnAsset: (assetId: string) => Promise<boolean>;
@@ -501,6 +521,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       jobOffers: bootstrap.jobOffers,
       assets: bootstrap.assets,
       companyDocs: bootstrap.companyDocs,
+      employeeDocs: bootstrap.employeeDocs,
       auditLogs: bootstrap.auditLogs,
       notifications: bootstrap.notifications,
       accountingJournals: bootstrap.accountingJournals,
@@ -620,11 +641,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         recruitmentMutations.updateCandidateScore(id, score),
       moveCandidateStage: (id, stage) =>
         recruitmentMutations.moveCandidateStage(id, stage),
-      sendJobOffer: (offer) => recruitmentMutations.sendJobOffer(offer),
+      sendJobOffer: (offer, offerFile) => recruitmentMutations.sendJobOffer(offer, offerFile),
 
       // Assets & Docs Mutators
       addAsset: (asset) => assetMutations.addAsset(asset),
       addCompanyDocument: (doc, file) => documentMutations.addCompanyDocument(doc, file),
+      addEmployeeDocument: (doc, file) => documentMutations.addEmployeeDocument(doc, file),
+      archiveDocument: (docId, type, fileId) => documentMutations.archiveDocument(docId, type, fileId),
+      verifyEmployeeDocument: (docId, status, rejectionReason) =>
+        documentMutations.verifyEmployeeDocument(docId, status, rejectionReason),
       assignAsset: (assetId, empId) => assetMutations.assignAsset(assetId, empId),
       returnAsset: (assetId) => assetMutations.returnAsset(assetId),
       acknowledgeDocument: (docId) => documentMutations.acknowledgeDocument(docId),

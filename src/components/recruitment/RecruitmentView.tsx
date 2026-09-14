@@ -110,6 +110,8 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
   const [offerHousing, setOfferHousing] = useState(4000);
   const [offerTransport, setOfferTransport] = useState(1000);
   const [offerStartDate, setOfferStartDate] = useState("2026-10-01");
+  const [offerFile, setOfferFile] = useState<File | null>(null);
+  const offerFileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Onboarding (Convert to Employee) State
   const [onboardEmpNo, setOnboardEmpNo] = useState("");
@@ -253,17 +255,21 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
   const handleSendOffer = () => {
     if (!selectedCandidate) return;
-    sendJobOffer({
-      candidateId: selectedCandidate.id,
-      candidateName: selectedCandidate.fullName,
-      jobTitle: selectedCandidate.jobTitle,
-      basicSalary: offerBasic,
-      housingAllowance: offerHousing,
-      transportAllowance: offerTransport,
-      proposedStartDate: offerStartDate,
-    });
-    toast.success(`تم إصدار وتوثيق عرض العمل للمرشح (${selectedCandidate.fullName}) بنجاح`);
+    sendJobOffer(
+      {
+        candidateId: selectedCandidate.id,
+        candidateName: selectedCandidate.fullName,
+        jobTitle: selectedCandidate.jobTitle,
+        basicSalary: offerBasic,
+        housingAllowance: offerHousing,
+        transportAllowance: offerTransport,
+        proposedStartDate: offerStartDate,
+      },
+      offerFile || undefined,
+    );
     setIsOfferModalOpen(false);
+    setOfferFile(null);
+    if (offerFileInputRef.current) offerFileInputRef.current.value = "";
   };
 
   const handleOpenOnboarding = (cand: Candidate) => {
@@ -1196,6 +1202,20 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                   value={offerStartDate}
                   onChange={(e) => setOfferStartDate(e.target.value)}
                   className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold flex items-center gap-1.5">
+                  <Upload className="h-3.5 w-3.5 text-primary" />
+                  مرفق خطاب العرض الرسمي (اختياري - PDF / صورة)
+                </label>
+                <input
+                  ref={offerFileInputRef}
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  onChange={(e) => setOfferFile(e.target.files?.[0] || null)}
+                  className="w-full text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
                 />
               </div>
             </div>

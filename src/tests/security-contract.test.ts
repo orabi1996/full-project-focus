@@ -48,4 +48,11 @@ describe("client-side security contracts", () => {
     ];
     expect(files.join("\n")).not.toMatch(/ghp_[A-Za-z0-9]{20,}/);
   });
+
+  it("writes candidate personal data only through the RLS-scoped client", () => {
+    const repository = source("../lib/data/operational-repository.ts");
+    expect(repository).toContain('enterpriseSupabase.from("candidates").insert(');
+    expect(repository).not.toContain("supabaseAdmin");
+    expect(repository).not.toMatch(/SERVICE_ROLE/);
+  });
 });

@@ -25,7 +25,11 @@ import {
   ShieldCheck,
   Building2,
   ArrowRight,
+  Upload,
+  X,
+  Paperclip,
 } from "lucide-react";
+import { createSignedDownloadUrl, getSignedUrlForFileId } from "../../lib/storage";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
@@ -98,6 +102,8 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
   const [applicantName, setApplicantName] = useState("");
   const [applicantEmail, setApplicantEmail] = useState("");
   const [applicantPhone, setApplicantPhone] = useState("");
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const cvInputRef = React.useRef<HTMLInputElement>(null);
 
   // Offer State
   const [offerBasic, setOfferBasic] = useState(16000);
@@ -183,28 +189,58 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
     });
   };
 
+  const handleViewCandidateCv = async (cand: Candidate) => {
+    try {
+      if (cand.cvFileId) {
+        toast.info("جاري إنشاء رابط السيرة الذاتية الآمن...");
+        const result = await getSignedUrlForFileId(cand.cvFileId);
+        window.open(result.signedUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+      if (cand.cvUrl) {
+        if (!cand.cvUrl.startsWith("http") && !cand.cvUrl.startsWith("blob:")) {
+          toast.info("جاري إنشاء رابط السيرة الذاتية الآمن...");
+          const result = await createSignedDownloadUrl("candidate-cvs", cand.cvUrl);
+          window.open(result.signedUrl, "_blank", "noopener,noreferrer");
+          return;
+        }
+        window.open(cand.cvUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+      toast.error("لا توجد سيرة ذاتية مرفقة لهذا المرشح");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "تعذر فتح السيرة الذاتية";
+      toast.error(msg);
+    }
+  };
+
   const handleApplyForJob = () => {
     if (!applicantName.trim() || !applicantEmail.trim()) {
       toast.error("يرجى استكمال الاسم والبريد الإلكتروني");
       return;
     }
-    addCandidate({
-      jobId: applyingJob?.id || "job-1",
-      jobTitle: applyingJob?.titleAr || "مهندس برمجيات",
-      fullName: applicantName,
-      email: applicantEmail,
-      phone: applicantPhone || "0550001234",
-      stage: "applied",
-      ratingScore: 5.0,
-      appliedDate: new Date().toISOString().split("T")[0],
-      source: "website",
-      notesCount: 0,
-      cvUrl: "https://cdn.classera-pulse.com/resumes/applicant.pdf",
-    });
+    addCandidate(
+      {
+        jobId: applyingJob?.id || "job-1",
+        jobTitle: applyingJob?.titleAr || "مهندس برمجيات",
+        fullName: applicantName,
+        email: applicantEmail,
+        phone: applicantPhone || "0550001234",
+        stage: "applied",
+        ratingScore: 5.0,
+        appliedDate: new Date().toISOString().split("T")[0],
+        source: "website",
+        notesCount: 0,
+      },
+      cvFile || undefined,
+    );
     toast.success(`تم استلام طلب التقديم لـ (${applicantName}) ونقله فورياً لمرحلة الفرز في الـ ATS!`);
     setIsApplyModalOpen(false);
     setApplicantName("");
     setApplicantEmail("");
+    setApplicantPhone("");
+    setCvFile(null);
+    if (cvInputRef.current) cvInputRef.current.value = "";
   };
 
   const handleSaveScorecard = () => {
@@ -465,6 +501,18 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                               <Award className="h-3 w-3 mr-0.5" />
                               تقييم
                             </Button>
+
+                            {(cand.cvFileId || cand.cvUrl) && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleViewCandidateCv(cand)}
+                                className="h-6 text-[9px] px-1.5 rounded-full font-bold text-muted-foreground hover:text-primary hover:bg-secondary gap-0.5"
+                              >
+                                <FileText className="h-3 w-3" />
+                                السيرة الذاتية
+                              </Button>
+                            )}
 
                             {stage.key !== "job_offer" && stage.key !== "hired" ? (
                               <Button
@@ -1022,6 +1070,57 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                 placeholder="05XXXXXXXX"
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
+            </div>
+            <div className="space-y-1.5">
+              <label className="font-bold">السيرة الذاتية (CV / Resume)</label>
+              <input
+                ref={cvInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.size > 15 * 1024 * 1024) {
+                      toast.error("حجم الملف يتجاوز الحد الأقصى (15 ميجابايت)");
+                      return;
+                    }
+                    setCvFile(file);
+                  }
+                }}
+              />
+              {cvFile ? (
+                <div className="flex items-center justify-between p-3 rounded-2xl border border-emerald-500/40 bg-emerald-500/5">
+                  <div className="flex items-center gap-2 truncate">
+                    <FileText className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span className="text-xs font-bold truncate text-foreground">{cvFile.name}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+                      ({(cvFile.size / 1024).toFixed(0)} KB)
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setCvFile(null);
+                      if (cvInputRef.current) cvInputRef.current.value = "";
+                    }}
+                    className="h-6 w-6 p-0 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => cvInputRef.current?.click()}
+                  className="border-2 border-dashed border-emerald-500/30 rounded-2xl p-4 text-center text-muted-foreground hover:bg-secondary/30 cursor-pointer transition-colors"
+                >
+                  <Upload className="mx-auto h-6 w-6 mb-1 text-emerald-600" />
+                  <span className="text-[11px] font-bold text-foreground block">اضغط هنا لإرفاق السيرة الذاتية</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">يدعم PDF, DOC, DOCX بحد أقصى 15MB</span>
+                </div>
+              )}
             </div>
           </div>
 

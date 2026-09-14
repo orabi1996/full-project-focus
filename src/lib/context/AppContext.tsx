@@ -225,7 +225,10 @@ export interface AppContextType {
   createSettlement: (settlement: Omit<FinalSettlementRecord, "id">) => Promise<boolean>;
 
   // Expenses
-  addExpenseClaim: (claim: Omit<ExpenseClaim, "id" | "status" | "policyWarningTriggered">) => Promise<boolean>;
+  addExpenseClaim: (
+    claim: Omit<ExpenseClaim, "id" | "status" | "policyWarningTriggered">,
+    receiptFile?: File,
+  ) => Promise<boolean>;
   addExpenseCategory: (input: { nameAr: string; warningLimit: number; blockLimit: number }) => Promise<boolean>;
 
   // Performance
@@ -234,14 +237,17 @@ export interface AppContextType {
 
   // ATS / Recruitment
   addJobOpening: (job: Omit<JobOpening, "id">) => Promise<boolean>;
-  addCandidate: (candidate: Omit<Candidate, "id">) => Promise<boolean>;
+  addCandidate: (candidate: Omit<Candidate, "id">, cvFile?: File) => Promise<boolean>;
   updateCandidateScore: (candidateId: string, score: number) => Promise<boolean>;
   moveCandidateStage: (candidateId: string, newStage: CandidateStage) => Promise<boolean>;
   sendJobOffer: (offer: Omit<JobOffer, "id" | "status">) => Promise<boolean>;
 
   // Assets & Docs
   addAsset: (asset: Omit<HardwareAsset, "id">) => Promise<boolean>;
-  addCompanyDocument: (document: Omit<CompanyDocument, "id" | "acknowledgedCount">) => Promise<boolean>;
+  addCompanyDocument: (
+    document: Omit<CompanyDocument, "id" | "acknowledgedCount">,
+    file?: File,
+  ) => Promise<boolean>;
   assignAsset: (assetId: string, employeeId: string) => Promise<boolean>;
   returnAsset: (assetId: string) => Promise<boolean>;
   acknowledgeDocument: (docId: string) => Promise<boolean>;
@@ -600,7 +606,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createSettlement: (settlement) => payrollMutations.createSettlement(settlement),
 
       // Expenses Mutators
-      addExpenseClaim: (claim) => expenseMutations.addExpenseClaim(claim),
+      addExpenseClaim: (claim, receiptFile) => expenseMutations.addExpenseClaim(claim, receiptFile),
       addExpenseCategory: (input) => expenseMutations.addExpenseCategory(input),
 
       // Performance Mutators
@@ -609,7 +615,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // ATS Mutators
       addJobOpening: (job) => recruitmentMutations.addJobOpening(job),
-      addCandidate: (candidate) => recruitmentMutations.addCandidate(candidate),
+      addCandidate: (candidate, cvFile) => recruitmentMutations.addCandidate(candidate, cvFile),
       updateCandidateScore: (id, score) =>
         recruitmentMutations.updateCandidateScore(id, score),
       moveCandidateStage: (id, stage) =>
@@ -618,7 +624,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Assets & Docs Mutators
       addAsset: (asset) => assetMutations.addAsset(asset),
-      addCompanyDocument: (doc) => documentMutations.addCompanyDocument(doc),
+      addCompanyDocument: (doc, file) => documentMutations.addCompanyDocument(doc, file),
       assignAsset: (assetId, empId) => assetMutations.assignAsset(assetId, empId),
       returnAsset: (assetId) => assetMutations.returnAsset(assetId),
       acknowledgeDocument: (docId) => documentMutations.acknowledgeDocument(docId),

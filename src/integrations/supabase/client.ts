@@ -61,11 +61,29 @@ function createSupabaseClient() {
 
 let _supabase: ReturnType<typeof createSupabaseClient> | undefined;
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
 export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>, {
-  get(_, prop, receiver) {
+  get(target, prop, receiver) {
+    if (prop in target) {
+      return Reflect.get(target, prop, receiver);
+    }
     if (!_supabase) _supabase = createSupabaseClient();
     return Reflect.get(_supabase, prop, receiver);
+  },
+  set(target, prop, value) {
+    if (!_supabase) _supabase = createSupabaseClient();
+    Reflect.set(_supabase, prop, value);
+    return Reflect.set(target, prop, value);
+  },
+  has(target, prop) {
+    if (prop in target) return true;
+    if (!_supabase) _supabase = createSupabaseClient();
+    return Reflect.has(_supabase, prop);
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    if (prop in target) {
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    }
+    if (!_supabase) _supabase = createSupabaseClient();
+    return Reflect.getOwnPropertyDescriptor(_supabase, prop);
   },
 });

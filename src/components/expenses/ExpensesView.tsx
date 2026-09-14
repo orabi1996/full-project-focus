@@ -15,7 +15,10 @@ import {
   DollarSign,
   Download,
   Settings,
+  Eye,
+  X,
 } from "lucide-react";
+import { createSignedDownloadUrl, getSignedUrlForFileId } from "../../lib/storage";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import {
@@ -49,6 +52,8 @@ export const ExpensesView: React.FC = () => {
   const [amount, setAmount] = useState(500);
   const [merchant, setMerchant] = useState("");
   const [description, setDescription] = useState("");
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Category Form State
   const [newCatName, setNewCatName] = useState("");
@@ -60,6 +65,31 @@ export const ExpensesView: React.FC = () => {
   const selectedCat = expenseCategories.find((c) => c.id === selectedCatId);
   const isOverWarning = selectedCat ? amount > selectedCat.maxLimitWarning : false;
   const isOverBlock = selectedCat ? amount > selectedCat.maxLimitBlock : false;
+
+  const handleViewReceipt = async (claim: typeof expenseClaims[0]) => {
+    try {
+      if (claim.receiptFileId) {
+        toast.info("جاري تجهيز رابط الإيصال الآمن...");
+        const result = await getSignedUrlForFileId(claim.receiptFileId);
+        window.open(result.signedUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+      if (claim.receiptUrl) {
+        if (!claim.receiptUrl.startsWith("http") && !claim.receiptUrl.startsWith("blob:")) {
+          toast.info("جاري تجهيز رابط الإيصال الآمن...");
+          const result = await createSignedDownloadUrl("expense-receipts", claim.receiptUrl);
+          window.open(result.signedUrl, "_blank", "noopener,noreferrer");
+          return;
+        }
+        window.open(claim.receiptUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+      toast.error("لا يوجد إيصال مرفق مع هذه المطالبة");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "تعذر فتح الإيصال";
+      toast.error(msg);
+    }
+  };
 
   const handleAddClaim = async () => {
     if (isOverBlock) {
@@ -74,23 +104,28 @@ export const ExpensesView: React.FC = () => {
     setIsSubmittingClaim(true);
 
     try {
-      const ok = await addExpenseClaim({
-        employeeId: currentUser.id,
-        categoryId: selectedCatId,
-        categoryNameAr: selectedCat?.nameAr || "نفقات عامة",
-        categoryNameEn: selectedCat?.nameEn || "General",
-        amount,
-        currency: "SAR",
-        spentAt: new Date().toISOString().split("T")[0],
-        merchantName: merchant,
-        description,
-      });
+      const ok = await addExpenseClaim(
+        {
+          employeeId: currentUser.id,
+          categoryId: selectedCatId,
+          categoryNameAr: selectedCat?.nameAr || "نفقات عامة",
+          categoryNameEn: selectedCat?.nameEn || "General",
+          amount,
+          currency: "SAR",
+          spentAt: new Date().toISOString().split("T")[0],
+          merchantName: merchant,
+          description,
+        },
+        receiptFile || undefined,
+      );
 
       if (ok) {
         toast.success("تم تقديم مطالبة المصروفات بنجاح وإرسالها للمدير والمالية للاعتماد");
         setIsClaimModalOpen(false);
         setMerchant("");
         setDescription("");
+        setReceiptFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
       }
     } finally {
       setIsSubmittingClaim(false);
@@ -234,6 +269,7 @@ export const ExpensesView: React.FC = () => {
                 <th className="py-3 px-4 text-start">الوصف</th>
                 <th className="py-3 px-4 text-start">التاريخ</th>
                 <th className="py-3 px-4 text-start">المبلغ</th>
+                <th className="py-3 px-4 text-start">الإيصال</th>
                 <th className="py-3 px-4 text-start">الحالة</th>
               </tr>
             </thead>
@@ -246,6 +282,21 @@ export const ExpensesView: React.FC = () => {
                   <td className="py-3 px-4 text-muted-foreground font-mono font-tabular-nums">{c.spentAt}</td>
                   <td className="py-3 px-4 font-black text-primary font-mono font-tabular-nums">
                     {c.amount.toLocaleString()} {c.currency}
+                  </td>
+                  <td className="py-3 px-4">
+                    {c.receiptFileId || c.receiptUrl ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleViewReceipt(c)}
+                        className="h-6 text-[10px] px-2 rounded-full font-bold text-primary hover:bg-primary/10 gap-1"
+                      >
+                        <Eye className="h-3 w-3" />
+                        عرض الإيصال
+                      </Button>
+                    ) : (
+                      <span className="text-muted-foreground text-[10px]">—</span>
+                    )}
                   </td>
                   <td className="py-3 px-4">
                     <Badge
@@ -341,11 +392,54 @@ export const ExpensesView: React.FC = () => {
 
             <div className="space-y-1.5">
               <label className="font-bold">إرفاق صورة الفاتورة / الإيصال</label>
-              <div className="border-2 border-dashed border-primary/30 rounded-2xl p-4 text-center text-muted-foreground hover:bg-secondary/30 cursor-pointer transition-colors">
-                <Upload className="mx-auto h-6 w-6 mb-1 text-primary" />
-                <span className="text-[11px] font-bold text-foreground block">اضغط هنا لرفع الإيصال</span>
-                <span className="text-[10px] text-muted-foreground font-mono">يدعم PNG, JPG, PDF بحد أقصى 10MB</span>
-              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.size > 10 * 1024 * 1024) {
+                      toast.error("حجم الملف يتجاوز الحد الأقصى (10 ميجابايت)");
+                      return;
+                    }
+                    setReceiptFile(file);
+                  }
+                }}
+              />
+              {receiptFile ? (
+                <div className="flex items-center justify-between p-3 rounded-2xl border border-primary/40 bg-primary/5">
+                  <div className="flex items-center gap-2 truncate">
+                    <FileText className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-xs font-bold truncate text-foreground">{receiptFile.name}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+                      ({(receiptFile.size / 1024).toFixed(0)} KB)
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setReceiptFile(null);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                    className="h-6 w-6 p-0 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-primary/30 rounded-2xl p-4 text-center text-muted-foreground hover:bg-secondary/30 cursor-pointer transition-colors"
+                >
+                  <Upload className="mx-auto h-6 w-6 mb-1 text-primary" />
+                  <span className="text-[11px] font-bold text-foreground block">اضغط هنا لرفع الإيصال</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">يدعم PNG, JPG, PDF بحد أقصى 10MB</span>
+                </div>
+              )}
             </div>
           </div>
 

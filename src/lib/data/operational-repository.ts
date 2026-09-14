@@ -632,6 +632,7 @@ export async function fetchOperationalSnapshot(
         spentAt: row.spent_at,
         merchantName: row.merchant_name,
         receiptUrl: row.receipt_url ?? undefined,
+        receiptFileId: (row as any).receipt_file_id ?? undefined,
         description: row.description ?? "",
         policyWarningTriggered: row.policy_warning_triggered,
         status: row.status as ExpenseClaim["status"],
@@ -712,6 +713,7 @@ export async function fetchOperationalSnapshot(
           ? row.source
           : "website",
       cvUrl: row.cv_url ?? undefined,
+      cvFileId: (row as any).cv_file_id ?? undefined,
       notesCount: row.notes_count,
     })),
     jobOffers: (offersResult.data ?? []).map((row) => {
@@ -725,6 +727,8 @@ export async function fetchOperationalSnapshot(
         housingAllowance: numberValue(row.housing_allowance),
         transportAllowance: numberValue(row.transport_allowance),
         proposedStartDate: row.proposed_start_date,
+        offerFileId: (row as any).offer_file_id ?? undefined,
+        offerFileUrl: (row as any).offer_file_url ?? undefined,
         status: row.status as JobOffer["status"],
       };
     }),
@@ -749,6 +753,7 @@ export async function fetchOperationalSnapshot(
       category: row.category as CompanyDocument["category"],
       version: row.version,
       fileUrl: row.file_url,
+      fileId: (row as any).file_id ?? undefined,
       expiryDate: row.expiry_date ?? undefined,
       visibilityScope: row.visibility_scope as CompanyDocument["visibilityScope"],
       requiresAcknowledgment: row.requires_acknowledgment,
@@ -884,6 +889,7 @@ export async function createExpenseClaimRecord(
     spent_at: claim.spentAt,
     merchant_name: claim.merchantName,
     receipt_url: claim.receiptUrl ?? null,
+    receipt_file_id: claim.receiptFileId ?? null,
     description: claim.description,
     status: "submitted",
   });
@@ -1386,6 +1392,7 @@ export async function createCandidateRecord(candidate: Omit<Candidate, "id">) {
     rating_score: candidate.ratingScore,
     source: candidate.source,
     cv_url: candidate.cvUrl ?? null,
+    cv_file_id: candidate.cvFileId ?? null,
     notes_count: candidate.notesCount,
   });
   if (error) throw new Error(error.message);
@@ -1412,6 +1419,8 @@ export async function createJobOfferRecord(offer: Omit<JobOffer, "id" | "status"
     housing_allowance: offer.housingAllowance,
     transport_allowance: offer.transportAllowance,
     proposed_start_date: offer.proposedStartDate,
+    offer_file_id: offer.offerFileId ?? null,
+    offer_file_url: offer.offerFileUrl ?? null,
     status: "sent_to_candidate",
   });
   if (error) throw new Error(error.message);
@@ -1470,7 +1479,8 @@ export async function createCompanyDocumentRecord(
     category: document.category,
     version: document.version,
     expiry_date: document.expiryDate ?? null,
-    file_url: document.fileUrl,
+    file_url: document.fileUrl ?? null,
+    file_id: document.fileId ?? null,
     visibility_scope: document.visibilityScope,
     requires_acknowledgment: document.requiresAcknowledgment,
     acknowledged_count: 0,

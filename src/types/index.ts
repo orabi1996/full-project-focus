@@ -724,6 +724,7 @@ export interface ExpenseClaim {
   spentAt: string;
   merchantName: string;
   receiptUrl?: string;
+  receiptFileId?: string;
   description: string;
   policyWarningTriggered: boolean;
   status: "draft" | "submitted" | "approved" | "rejected" | "reimbursed";
@@ -834,6 +835,7 @@ export interface Candidate {
   stage: CandidateStage;
   ratingScore: number; // 1 to 5
   cvUrl?: string;
+  cvFileId?: string;
   appliedDate: string;
   source: "website" | "linkedin" | "referral" | "agency";
   notesCount: number;
@@ -848,6 +850,8 @@ export interface JobOffer {
   housingAllowance: number;
   transportAllowance: number;
   proposedStartDate: string;
+  offerFileId?: string;
+  offerFileUrl?: string;
   status: "draft" | "pending_approval" | "sent_to_candidate" | "accepted" | "declined";
 }
 
@@ -875,6 +879,7 @@ export interface CompanyDocument {
   version: string;
   expiryDate?: string;
   fileUrl: string;
+  fileId?: string;
   visibilityScope: "all" | "subsidiary" | "department";
   requiresAcknowledgment: boolean;
   acknowledgedCount: number;

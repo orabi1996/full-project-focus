@@ -73,6 +73,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../ui/dialog";
+import {
+  uploadEmployeeDocumentFile,
+  uploadCompanyDocumentFile,
+  createSignedDownloadUrl,
+  getSignedUrlForFileId,
+} from "../../lib/storage";
 
 export interface DocumentVersion {
   version: string;
@@ -108,6 +114,7 @@ export interface StoredDocument {
   issueDate?: string;
   status: "valid" | "expiring_soon" | "expired" | "pending_review" | "rejected";
   confidentiality: "public" | "internal" | "confidential" | "strictly_confidential";
+  fileId?: string;
   fileUrl?: string;
   notes?: string;
   verifiedBy?: string;
@@ -882,30 +889,64 @@ export const DocumentVaultView: React.FC = () => {
   };
 
   // Real File Download Handler
-  const handleDownloadDocument = (doc: StoredDocument) => {
-    if (doc.fileUrl) {
+  const handleDownloadDocument = async (doc: StoredDocument) => {
+    try {
+      if (doc.fileId) {
+        toast.info("جاري إنشاء رابط التنزيل الآمن...");
+        const result = await getSignedUrlForFileId(doc.fileId, { download: doc.fileName });
+        const link = document.createElement("a");
+        link.href = result.signedUrl;
+        link.download = doc.fileName;
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success(`تم بدء تنزيل المستند (${doc.fileName}) بنجاح!`);
+        return;
+      }
+
+      if (doc.fileUrl) {
+        if (!doc.fileUrl.startsWith("http") && !doc.fileUrl.startsWith("blob:")) {
+          toast.info("جاري إنشاء رابط التنزيل الآمن...");
+          const bucket = doc.category === "company" || doc.category === "policy" ? "company-documents" : "employee-documents";
+          const result = await createSignedDownloadUrl(bucket, doc.fileUrl, { download: doc.fileName });
+          const link = document.createElement("a");
+          link.href = result.signedUrl;
+          link.download = doc.fileName;
+          link.target = "_blank";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          toast.success(`تم بدء تنزيل المستند (${doc.fileName}) بنجاح!`);
+          return;
+        }
+
+        const link = document.createElement("a");
+        link.href = doc.fileUrl;
+        link.download = doc.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success(`تم بدء تنزيل المستند (${doc.fileName}) وحفظه على جهازك بنجاح!`);
+        return;
+      }
+
+      const htmlContent = generateDocumentHtml(doc, company);
+      const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = doc.fileUrl;
-      link.download = doc.fileName;
+      link.href = url;
+      const baseName = doc.fileName.replace(/\.[^/.]+$/, "");
+      link.download = `${baseName}_وثيقة_رسمية.html`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      toast.success(`تم بدء تنزيل المستند (${doc.fileName}) وحفظه على جهازك بنجاح!`);
-      return;
+      URL.revokeObjectURL(url);
+      toast.success(`تم بدء تنزيل المستند (${doc.title}) وحفظه على جهازك بنجاح!`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "تعذر تنزيل المستند";
+      toast.error(msg);
     }
-
-    const htmlContent = generateDocumentHtml(doc, company);
-    const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    const baseName = doc.fileName.replace(/\.[^/.]+$/, "");
-    link.download = `${baseName}_وثيقة_رسمية.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success(`تم بدء تنزيل المستند (${doc.title}) وحفظه على جهازك بنجاح!`);
   };
 
   // Isolated Clean Document Print Handler
@@ -977,7 +1018,7 @@ export const DocumentVaultView: React.FC = () => {
   };
 
   // Upload Submit
-  const handleUploadSubmit = () => {
+  const handleUploadSubmit = async () => {
     if (!newDoc.title.trim()) {
       toast.error("يرجى إدخال عنوان الوثيقة");
       return;
@@ -990,6 +1031,37 @@ export const DocumentVaultView: React.FC = () => {
         : emp
           ? `${emp.firstNameAr} ${emp.lastNameAr}`
           : "موظف عام";
+
+    let uploadedFileId: string | undefined;
+    let uploadedPath: string | undefined;
+
+    if (selectedUploadFile) {
+      try {
+        const isComp = newDoc.category === "company" || newDoc.category === "policy";
+        if (isComp) {
+          const res = await uploadCompanyDocumentFile({
+            documentId: `doc-${Date.now()}`,
+            file: selectedUploadFile,
+            category: newDoc.category,
+          });
+          uploadedFileId = res.id;
+          uploadedPath = res.object_path;
+        } else {
+          const res = await uploadEmployeeDocumentFile({
+            employeeId: newDoc.employeeId,
+            documentId: `emp-doc-${Date.now()}`,
+            file: selectedUploadFile,
+            docType: newDoc.category,
+          });
+          uploadedFileId = res.id;
+          uploadedPath = res.object_path;
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "فشل رفع الملف إلى التخزين الآمن";
+        toast.error(msg);
+        return;
+      }
+    }
 
     const docItem: StoredDocument = {
       id: `doc-${Date.now()}`,
@@ -1020,12 +1092,13 @@ export const DocumentVaultView: React.FC = () => {
       verifiedBy: "مسؤول الموارد البشرية",
       verifiedAt: new Date().toLocaleDateString("ar-SA"),
       renewalFeeEstimated: newDoc.category === "iqama_id" ? 650 : newDoc.category === "contract" ? 120 : 0,
-      fileUrl: selectedUploadFile ? URL.createObjectURL(selectedUploadFile) : undefined,
+      fileId: uploadedFileId,
+      fileUrl: uploadedPath || (selectedUploadFile ? URL.createObjectURL(selectedUploadFile) : undefined),
       versions: [],
     };
 
     setDocuments([docItem, ...documents]);
-    toast.success(`تمت أرشفة وحفظ (${newDoc.title}) في الخزينة السحابية بنجاح!`);
+    toast.success(`تمت أرشفة وحفظ (${newDoc.title}) في الخزينة السحابية الآمنة بنجاح!`);
     setIsUploadModalOpen(false);
     setSelectedUploadFile(null);
     setSelectedUploadFileSize("");

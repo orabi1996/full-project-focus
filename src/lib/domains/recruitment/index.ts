@@ -13,6 +13,7 @@ import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
+import { uploadCandidateCvFile } from "../../storage";
 
 export function useRecruitment() {
   const { session, isDemo } = useAuth();
@@ -82,10 +83,31 @@ export function useRecruitmentMutations() {
   );
 
   const addCandidate = useCallback(
-    async (candidate: Omit<Candidate, "id">): Promise<boolean> => {
+    async (candidate: Omit<Candidate, "id">, cvFile?: File): Promise<boolean> => {
+      const candId = `cand-${Date.now()}`;
+      let cvFileId: string | undefined = candidate.cvFileId;
+      let cvUrl: string | undefined = candidate.cvUrl;
+
+      if (cvFile) {
+        try {
+          const uploaded = await uploadCandidateCvFile({
+            candidateId: candId,
+            file: cvFile,
+          });
+          cvFileId = uploaded.id;
+          cvUrl = uploaded.object_path;
+        } catch (uploadErr) {
+          const msg = uploadErr instanceof Error ? uploadErr.message : "فشل رفع السيرة الذاتية";
+          toast.error(msg);
+          return false;
+        }
+      }
+
       const newCand: Candidate = {
         ...candidate,
-        id: `cand-${Date.now()}`,
+        id: candId,
+        cvFileId,
+        cvUrl,
       };
 
       const result = await executeReliableMutation({

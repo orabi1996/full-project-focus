@@ -12,6 +12,8 @@ import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
 
+import { uploadCompanyDocumentFile } from "../../storage";
+
 export function useDocuments() {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
@@ -35,10 +37,35 @@ export function useDocumentMutations() {
   const queryClient = useQueryClient();
 
   const addCompanyDocument = useCallback(
-    async (document: Omit<CompanyDocument, "id" | "acknowledgedCount">): Promise<boolean> => {
+    async (
+      document: Omit<CompanyDocument, "id" | "acknowledgedCount">,
+      file?: File,
+    ): Promise<boolean> => {
+      const docId = `doc-${Date.now()}`;
+      let fileId: string | undefined = document.fileId;
+      let fileUrl: string = document.fileUrl;
+
+      if (file) {
+        try {
+          const uploaded = await uploadCompanyDocumentFile({
+            documentId: docId,
+            file,
+            category: document.category,
+          });
+          fileId = uploaded.id;
+          fileUrl = uploaded.object_path;
+        } catch (uploadErr) {
+          const msg = uploadErr instanceof Error ? uploadErr.message : "فشل رفع الملف";
+          toast.error(msg);
+          return false;
+        }
+      }
+
       const newDoc: CompanyDocument = {
         ...document,
-        id: `doc-${Date.now()}`,
+        id: docId,
+        fileId,
+        fileUrl,
         acknowledgedCount: 0,
       };
 

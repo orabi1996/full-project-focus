@@ -385,6 +385,7 @@ export type Database = {
       candidates: {
         Row: {
           created_at: string
+          cv_file_id: string | null
           cv_url: string | null
           email: string
           full_name: string
@@ -400,6 +401,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          cv_file_id?: string | null
           cv_url?: string | null
           email: string
           full_name: string
@@ -415,6 +417,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          cv_file_id?: string | null
           cv_url?: string | null
           email?: string
           full_name?: string
@@ -434,6 +437,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "job_openings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidates_cv_file_id_fkey"
+            columns: ["cv_file_id"]
+            isOneToOne: false
+            referencedRelation: "file_objects"
             referencedColumns: ["id"]
           },
         ]
@@ -537,7 +547,8 @@ export type Database = {
           category: string
           created_at: string
           expiry_date: string | null
-          file_url: string
+          file_id: string | null
+          file_url: string | null
           id: string
           requires_ack: boolean | null
           requires_acknowledgment: boolean
@@ -553,7 +564,8 @@ export type Database = {
           category: string
           created_at?: string
           expiry_date?: string | null
-          file_url: string
+          file_id?: string | null
+          file_url?: string | null
           id?: string
           requires_ack?: boolean | null
           requires_acknowledgment?: boolean
@@ -569,7 +581,8 @@ export type Database = {
           category?: string
           created_at?: string
           expiry_date?: string | null
-          file_url?: string
+          file_id?: string | null
+          file_url?: string | null
           id?: string
           requires_ack?: boolean | null
           requires_acknowledgment?: boolean
@@ -579,7 +592,15 @@ export type Database = {
           version?: string
           visibility_scope?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "company_documents_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "file_objects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       delegation_rules: {
         Row: {
@@ -743,6 +764,7 @@ export type Database = {
           doc_type: string
           employee_id: string
           expires_at: string | null
+          file_id: string | null
           file_url: string | null
           id: string
           issued_at: string | null
@@ -755,6 +777,7 @@ export type Database = {
           doc_type: string
           employee_id: string
           expires_at?: string | null
+          file_id?: string | null
           file_url?: string | null
           id?: string
           issued_at?: string | null
@@ -767,6 +790,7 @@ export type Database = {
           doc_type?: string
           employee_id?: string
           expires_at?: string | null
+          file_id?: string | null
           file_url?: string | null
           id?: string
           issued_at?: string | null
@@ -778,6 +802,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_documents_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "file_objects"
             referencedColumns: ["id"]
           },
         ]
@@ -1069,6 +1100,7 @@ export type Database = {
           policy_category_id: string | null
           policy_warning_triggered: boolean
           receipt_attached: boolean | null
+          receipt_file_id: string | null
           receipt_url: string | null
           report_id: string | null
           report_no: string | null
@@ -1094,6 +1126,7 @@ export type Database = {
           policy_category_id?: string | null
           policy_warning_triggered?: boolean
           receipt_attached?: boolean | null
+          receipt_file_id?: string | null
           receipt_url?: string | null
           report_id?: string | null
           report_no?: string | null
@@ -1119,6 +1152,7 @@ export type Database = {
           policy_category_id?: string | null
           policy_warning_triggered?: boolean
           receipt_attached?: boolean | null
+          receipt_file_id?: string | null
           receipt_url?: string | null
           report_id?: string | null
           report_no?: string | null
@@ -1145,6 +1179,13 @@ export type Database = {
             columns: ["report_id"]
             isOneToOne: false
             referencedRelation: "expense_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_claims_receipt_file_id_fkey"
+            columns: ["receipt_file_id"]
+            isOneToOne: false
+            referencedRelation: "file_objects"
             referencedColumns: ["id"]
           },
         ]
@@ -1183,6 +1224,99 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      file_objects: {
+        Row: {
+          archived_at: string | null
+          bucket_id: string
+          checksum_sha256: string | null
+          company_id: string | null
+          content_type: string
+          created_at: string
+          deleted_at: string | null
+          employee_id: string | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          malware_status: string
+          metadata: Json
+          object_path: string
+          original_filename: string
+          replaces_file_id: string | null
+          safe_filename: string
+          size_bytes: number
+          status: string
+          updated_at: string
+          uploaded_at: string
+          uploaded_by: string | null
+          version: number
+        }
+        Insert: {
+          archived_at?: string | null
+          bucket_id: string
+          checksum_sha256?: string | null
+          company_id?: string | null
+          content_type: string
+          created_at?: string
+          deleted_at?: string | null
+          employee_id?: string | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          malware_status?: string
+          metadata?: Json
+          object_path: string
+          original_filename: string
+          replaces_file_id?: string | null
+          safe_filename: string
+          size_bytes: number
+          status?: string
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+          version?: number
+        }
+        Update: {
+          archived_at?: string | null
+          bucket_id?: string
+          checksum_sha256?: string | null
+          company_id?: string | null
+          content_type?: string
+          created_at?: string
+          deleted_at?: string | null
+          employee_id?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          malware_status?: string
+          metadata?: Json
+          object_path?: string
+          original_filename?: string
+          replaces_file_id?: string | null
+          safe_filename?: string
+          size_bytes?: number
+          status?: string
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_objects_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_objects_replaces_file_id_fkey"
+            columns: ["replaces_file_id"]
+            isOneToOne: false
+            referencedRelation: "file_objects"
             referencedColumns: ["id"]
           },
         ]
@@ -1256,6 +1390,8 @@ export type Database = {
           housing_allowance: number | null
           id: string
           offered_salary: number | null
+          offer_file_id: string | null
+          offer_file_url: string | null
           proposed_start_date: string | null
           start_date: string | null
           status: string
@@ -1269,6 +1405,8 @@ export type Database = {
           housing_allowance?: number | null
           id?: string
           offered_salary?: number | null
+          offer_file_id?: string | null
+          offer_file_url?: string | null
           proposed_start_date?: string | null
           start_date?: string | null
           status?: string
@@ -1282,6 +1420,8 @@ export type Database = {
           housing_allowance?: number | null
           id?: string
           offered_salary?: number | null
+          offer_file_id?: string | null
+          offer_file_url?: string | null
           proposed_start_date?: string | null
           start_date?: string | null
           status?: string
@@ -1293,6 +1433,13 @@ export type Database = {
             columns: ["candidate_id"]
             isOneToOne: false
             referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_offers_offer_file_id_fkey"
+            columns: ["offer_file_id"]
+            isOneToOne: false
+            referencedRelation: "file_objects"
             referencedColumns: ["id"]
           },
         ]
@@ -2820,6 +2967,13 @@ export type Database = {
         Args: { p_overtime_id: string }
         Returns: Json
       }
+      can_access_storage_object: {
+        Args: {
+          p_bucket_id: string
+          p_object_name: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2828,6 +2982,13 @@ export type Database = {
         Returns: boolean
       }
       is_hr: { Args: { _user_id: string }; Returns: boolean }
+      log_file_download_access: {
+        Args: {
+          p_file_id: string
+          p_access_type?: string
+        }
+        Returns: undefined
+      }
       reject_attendance_correction: {
         Args: { p_request_id: string }
         Returns: Json

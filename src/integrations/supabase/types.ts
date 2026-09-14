@@ -197,7 +197,6 @@ export type Database = {
           is_manual: boolean
           late_minutes: number | null
           note: string | null
-          overtime_hours: number
           overtime_minutes: number | null
           status: Database["public"]["Enums"]["attendance_status"]
           work_date: string
@@ -213,7 +212,6 @@ export type Database = {
           is_manual?: boolean
           late_minutes?: number | null
           note?: string | null
-          overtime_hours?: number
           overtime_minutes?: number | null
           status?: Database["public"]["Enums"]["attendance_status"]
           work_date: string
@@ -229,7 +227,6 @@ export type Database = {
           is_manual?: boolean
           late_minutes?: number | null
           note?: string | null
-          overtime_hours?: number
           overtime_minutes?: number | null
           status?: Database["public"]["Enums"]["attendance_status"]
           work_date?: string
@@ -385,7 +382,6 @@ export type Database = {
       candidates: {
         Row: {
           created_at: string
-          cv_file_id: string | null
           cv_url: string | null
           email: string
           full_name: string
@@ -401,7 +397,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          cv_file_id?: string | null
           cv_url?: string | null
           email: string
           full_name: string
@@ -417,7 +412,6 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          cv_file_id?: string | null
           cv_url?: string | null
           email?: string
           full_name?: string
@@ -437,13 +431,6 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "job_openings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "candidates_cv_file_id_fkey"
-            columns: ["cv_file_id"]
-            isOneToOne: false
-            referencedRelation: "file_objects"
             referencedColumns: ["id"]
           },
         ]
@@ -547,8 +534,7 @@ export type Database = {
           category: string
           created_at: string
           expiry_date: string | null
-          file_id: string | null
-          file_url: string | null
+          file_url: string
           id: string
           requires_ack: boolean | null
           requires_acknowledgment: boolean
@@ -557,9 +543,6 @@ export type Database = {
           title_en: string
           version: string
           visibility_scope: string
-          department_id: string | null
-          subsidiary_id: string | null
-          status: string
         }
         Insert: {
           acknowledged_count?: number
@@ -567,8 +550,7 @@ export type Database = {
           category: string
           created_at?: string
           expiry_date?: string | null
-          file_id?: string | null
-          file_url?: string | null
+          file_url: string
           id?: string
           requires_ack?: boolean | null
           requires_acknowledgment?: boolean
@@ -577,9 +559,6 @@ export type Database = {
           title_en: string
           version?: string
           visibility_scope?: string
-          department_id?: string | null
-          subsidiary_id?: string | null
-          status?: string
         }
         Update: {
           acknowledged_count?: number
@@ -587,8 +566,7 @@ export type Database = {
           category?: string
           created_at?: string
           expiry_date?: string | null
-          file_id?: string | null
-          file_url?: string | null
+          file_url?: string
           id?: string
           requires_ack?: boolean | null
           requires_acknowledgment?: boolean
@@ -597,76 +575,8 @@ export type Database = {
           title_en?: string
           version?: string
           visibility_scope?: string
-          department_id?: string | null
-          subsidiary_id?: string | null
-          status?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "company_documents_file_id_fkey"
-            columns: ["file_id"]
-            isOneToOne: false
-            referencedRelation: "file_objects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      delegation_rules: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          delegate_id: string
-          delegator_id: string
-          end_date: string
-          id: string
-          reason: string
-          revoked_at: string | null
-          scope: string
-          start_date: string
-          status: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          delegate_id: string
-          delegator_id: string
-          end_date: string
-          id?: string
-          reason?: string
-          revoked_at?: string | null
-          scope?: string
-          start_date: string
-          status?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          delegate_id?: string
-          delegator_id?: string
-          end_date?: string
-          id?: string
-          reason?: string
-          revoked_at?: string | null
-          scope?: string
-          start_date?: string
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "delegation_rules_delegate_id_fkey"
-            columns: ["delegate_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "delegation_rules_delegator_id_fkey"
-            columns: ["delegator_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       departments: {
         Row: {
@@ -771,22 +681,8 @@ export type Database = {
           created_by: string | null
           doc_number: string | null
           doc_type: string
-          document_type: string
-          title_ar: string
-          title_en: string | null
-          document_number: string | null
-          issue_date: string | null
-          expiry_date: string | null
-          status: string
-          confidentiality: string
-          visibility: string
-          verified_by: string | null
-          verified_at: string | null
-          rejection_reason: string | null
-          issuing_authority: string | null
           employee_id: string
           expires_at: string | null
-          file_id: string | null
           file_url: string | null
           id: string
           issued_at: string | null
@@ -796,23 +692,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           doc_number?: string | null
-          doc_type?: string
-          document_type?: string
-          title_ar?: string
-          title_en?: string | null
-          document_number?: string | null
-          issue_date?: string | null
-          expiry_date?: string | null
-          status?: string
-          confidentiality?: string
-          visibility?: string
-          verified_by?: string | null
-          verified_at?: string | null
-          rejection_reason?: string | null
-          issuing_authority?: string | null
+          doc_type: string
           employee_id: string
           expires_at?: string | null
-          file_id?: string | null
           file_url?: string | null
           id?: string
           issued_at?: string | null
@@ -823,22 +705,8 @@ export type Database = {
           created_by?: string | null
           doc_number?: string | null
           doc_type?: string
-          document_type?: string
-          title_ar?: string
-          title_en?: string | null
-          document_number?: string | null
-          issue_date?: string | null
-          expiry_date?: string | null
-          status?: string
-          confidentiality?: string
-          visibility?: string
-          verified_by?: string | null
-          verified_at?: string | null
-          rejection_reason?: string | null
-          issuing_authority?: string | null
           employee_id?: string
           expires_at?: string | null
-          file_id?: string | null
           file_url?: string | null
           id?: string
           issued_at?: string | null
@@ -850,13 +718,6 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_documents_file_id_fkey"
-            columns: ["file_id"]
-            isOneToOne: false
-            referencedRelation: "file_objects"
             referencedColumns: ["id"]
           },
         ]
@@ -1148,7 +1009,6 @@ export type Database = {
           policy_category_id: string | null
           policy_warning_triggered: boolean
           receipt_attached: boolean | null
-          receipt_file_id: string | null
           receipt_url: string | null
           report_id: string | null
           report_no: string | null
@@ -1174,7 +1034,6 @@ export type Database = {
           policy_category_id?: string | null
           policy_warning_triggered?: boolean
           receipt_attached?: boolean | null
-          receipt_file_id?: string | null
           receipt_url?: string | null
           report_id?: string | null
           report_no?: string | null
@@ -1200,7 +1059,6 @@ export type Database = {
           policy_category_id?: string | null
           policy_warning_triggered?: boolean
           receipt_attached?: boolean | null
-          receipt_file_id?: string | null
           receipt_url?: string | null
           report_id?: string | null
           report_no?: string | null
@@ -1227,13 +1085,6 @@ export type Database = {
             columns: ["report_id"]
             isOneToOne: false
             referencedRelation: "expense_reports"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "expense_claims_receipt_file_id_fkey"
-            columns: ["receipt_file_id"]
-            isOneToOne: false
-            referencedRelation: "file_objects"
             referencedColumns: ["id"]
           },
         ]
@@ -1272,99 +1123,6 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      file_objects: {
-        Row: {
-          archived_at: string | null
-          bucket_id: string
-          checksum_sha256: string | null
-          company_id: string | null
-          content_type: string
-          created_at: string
-          deleted_at: string | null
-          employee_id: string | null
-          entity_id: string | null
-          entity_type: string
-          id: string
-          malware_status: string
-          metadata: Json
-          object_path: string
-          original_filename: string
-          replaces_file_id: string | null
-          safe_filename: string
-          size_bytes: number
-          status: string
-          updated_at: string
-          uploaded_at: string
-          uploaded_by: string | null
-          version: number
-        }
-        Insert: {
-          archived_at?: string | null
-          bucket_id: string
-          checksum_sha256?: string | null
-          company_id?: string | null
-          content_type: string
-          created_at?: string
-          deleted_at?: string | null
-          employee_id?: string | null
-          entity_id?: string | null
-          entity_type: string
-          id?: string
-          malware_status?: string
-          metadata?: Json
-          object_path: string
-          original_filename: string
-          replaces_file_id?: string | null
-          safe_filename: string
-          size_bytes: number
-          status?: string
-          updated_at?: string
-          uploaded_at?: string
-          uploaded_by?: string | null
-          version?: number
-        }
-        Update: {
-          archived_at?: string | null
-          bucket_id?: string
-          checksum_sha256?: string | null
-          company_id?: string | null
-          content_type?: string
-          created_at?: string
-          deleted_at?: string | null
-          employee_id?: string | null
-          entity_id?: string | null
-          entity_type?: string
-          id?: string
-          malware_status?: string
-          metadata?: Json
-          object_path?: string
-          original_filename?: string
-          replaces_file_id?: string | null
-          safe_filename?: string
-          size_bytes?: number
-          status?: string
-          updated_at?: string
-          uploaded_at?: string
-          uploaded_by?: string | null
-          version?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "file_objects_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "file_objects_replaces_file_id_fkey"
-            columns: ["replaces_file_id"]
-            isOneToOne: false
-            referencedRelation: "file_objects"
             referencedColumns: ["id"]
           },
         ]
@@ -1438,8 +1196,6 @@ export type Database = {
           housing_allowance: number | null
           id: string
           offered_salary: number | null
-          offer_file_id: string | null
-          offer_file_url: string | null
           proposed_start_date: string | null
           start_date: string | null
           status: string
@@ -1453,8 +1209,6 @@ export type Database = {
           housing_allowance?: number | null
           id?: string
           offered_salary?: number | null
-          offer_file_id?: string | null
-          offer_file_url?: string | null
           proposed_start_date?: string | null
           start_date?: string | null
           status?: string
@@ -1468,8 +1222,6 @@ export type Database = {
           housing_allowance?: number | null
           id?: string
           offered_salary?: number | null
-          offer_file_id?: string | null
-          offer_file_url?: string | null
           proposed_start_date?: string | null
           start_date?: string | null
           status?: string
@@ -1481,13 +1233,6 @@ export type Database = {
             columns: ["candidate_id"]
             isOneToOne: false
             referencedRelation: "candidates"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "job_offers_offer_file_id_fkey"
-            columns: ["offer_file_id"]
-            isOneToOne: false
-            referencedRelation: "file_objects"
             referencedColumns: ["id"]
           },
         ]
@@ -1832,71 +1577,6 @@ export type Database = {
           value?: Json | null
         }
         Relationships: []
-      }
-      overtime_records: {
-        Row: {
-          approved_at: string | null
-          approved_by: string | null
-          created_at: string
-          created_by: string | null
-          employee_id: string
-          end_time: string
-          hourly_rate: number
-          hours: number
-          id: string
-          rate_multiplier: number
-          rate_type: string
-          reason: string
-          start_time: string
-          status: string
-          total_amount: number
-          work_date: string
-        }
-        Insert: {
-          approved_at?: string | null
-          approved_by?: string | null
-          created_at?: string
-          created_by?: string | null
-          employee_id: string
-          end_time?: string
-          hourly_rate?: number
-          hours?: number
-          id?: string
-          rate_multiplier?: number
-          rate_type?: string
-          reason?: string
-          start_time?: string
-          status?: string
-          total_amount?: number
-          work_date: string
-        }
-        Update: {
-          approved_at?: string | null
-          approved_by?: string | null
-          created_at?: string
-          created_by?: string | null
-          employee_id?: string
-          end_time?: string
-          hourly_rate?: number
-          hours?: number
-          id?: string
-          rate_multiplier?: number
-          rate_type?: string
-          reason?: string
-          start_time?: string
-          status?: string
-          total_amount?: number
-          work_date?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "overtime_records_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       payroll_details: {
         Row: {
@@ -2480,7 +2160,6 @@ export type Database = {
           employee_id: string
           end_date: string | null
           id: string
-          payload: Json | null
           reason: string | null
           reference: string
           start_date: string | null
@@ -2501,7 +2180,6 @@ export type Database = {
           employee_id: string
           end_date?: string | null
           id?: string
-          payload?: Json | null
           reason?: string | null
           reference?: string
           start_date?: string | null
@@ -2522,7 +2200,6 @@ export type Database = {
           employee_id?: string
           end_date?: string | null
           id?: string
-          payload?: Json | null
           reason?: string | null
           reference?: string
           start_date?: string | null
@@ -3007,21 +2684,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      approve_attendance_correction: {
-        Args: { p_request_id: string }
-        Returns: Json
-      }
-      approve_overtime_request: {
-        Args: { p_overtime_id: string }
-        Returns: Json
-      }
-      can_access_storage_object: {
-        Args: {
-          p_bucket_id: string
-          p_object_name: string
-        }
-        Returns: boolean
-      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

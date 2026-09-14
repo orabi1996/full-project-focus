@@ -4,21 +4,43 @@ import { supabase } from "../../../integrations/supabase/client";
 import { queryKeys } from "../../query/query-keys";
 import { demoStore, useDemoStore } from "../demo/demo-store";
 type DemoStore = typeof demoStore;
-import type { Employee, ServiceRequest, DailyAttendanceRecord, EmployeeDocument, JobOpening, Candidate } from "../../../types";
+import type {
+  Employee,
+  ServiceRequest,
+  DailyAttendanceRecord,
+  EmployeeDocument,
+  JobOpening,
+  Candidate,
+} from "../../../types";
 import type {
   DashboardFilters,
   DashboardAnalytics,
   DashboardAttendanceTrend,
   DashboardIntegrations,
   DashboardAnalyticsState,
+  DashboardPendingApprovalItem,
 } from "./dashboard-types";
 
-// ─── Default Period Filter ─────────────────────────────────────────────────────
-export function getDefaultDashboardFilters(): DashboardFilters {
-  const today = new Date();
-  const todayStr = today.toISOString().split("T")[0]!;
+// ─── Timezone-Aware Business Date Helpers ─────────────────────────────────────
+export function getCompanyToday(timezone: string = "Asia/Riyadh"): string {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    return formatter.format(new Date());
+  } catch {
+    return new Date().toISOString().split("T")[0]!;
+  }
+}
+
+export function getDefaultDashboardFilters(timezone: string = "Asia/Riyadh"): DashboardFilters {
+  const todayStr = getCompanyToday(timezone);
+  const today = new Date(todayStr + "T00:00:00Z");
   const last7Start = new Date(today);
-  last7Start.setDate(today.getDate() - 6);
+  last7Start.setUTCDate(today.getUTCDate() - 6);
   return {
     preset: "last7",
     startDate: last7Start.toISOString().split("T")[0]!,
@@ -58,24 +80,53 @@ async function fetchIntegrationHealth(): Promise<DashboardIntegrations> {
 }
 
 // ─── Demo Analytics Builder ────────────────────────────────────────────────────
-// Uses existing demo store data to synthesize a typed DashboardAnalytics object.
-function buildDemoAnalytics(demoData: DemoStore): DashboardAnalytics {
+function buildDemoAnalytics(demoData: DemoStore, timezone: string = "Asia/Riyadh"): DashboardAnalytics {
   const employees: Employee[] = demoData.employees;
   const requests: ServiceRequest[] = demoData.requests;
   const attendanceRecords: DailyAttendanceRecord[] = demoData.attendanceRecords;
   const payrollRuns = demoData.payrollRuns;
   const employeeDocs: EmployeeDocument[] = demoData.employeeDocs;
-  const today = new Date().toISOString().split("T")[0]!;
+  const today = getCompanyToday(timezone);
 
-  const activeEmployees = employees.filter((e: Employee) => e.status === "active");
+  // Active workforce definition: active, probation, on_leave (excludes suspended, terminated)
+  const activeEmployees = employees.filter(
+    (e: Employee) => e.status === "active" || e.status === "probation" || e.status === "on_leave",
+  );
+
+  // Authoritative Saudization: Based purely on nationality field
   const saudiCount = activeEmployees.filter(
     (e: Employee) =>
       e.nationality?.includes("سعود") ||
-      e.nationality?.toLowerCase().includes("saudi") ||
-      e.nationalIdOrIqama?.startsWith("1"),
+      e.nationality?.toLowerCase().includes("saudi"),
+  ).length;
+
+  const nonSaudiCount = activeEmployees.filter(
+    (e: Employee) =>
+      e.nationality &&
+      !e.nationality.includes("سعود") &&
+      !e.nationality.toLowerCase().includes("saudi"),
+  ).length;
+
+  const unknownNationalityCount = activeEmployees.filter(
+    (e: Employee) => !e.nationality || e.nationality.trim() === "",
   ).length;
 
   const pendingReqs = requests.filter((r: ServiceRequest) => r.status === "pending_approval");
+  const pendingItems: DashboardPendingApprovalItem[] = pendingReqs.slice(0, 10).map((r) => ({
+    id: r.id,
+    referenceNo: r.referenceNo,
+    type: r.type,
+    requesterId: r.requesterId,
+    requesterName: r.requesterName,
+    departmentName: r.departmentName,
+    submittedAt: r.submittedAt,
+    reason: String(
+      (r.payload as Record<string, unknown> | undefined)?.["reason"] ||
+      (r.payload as Record<string, unknown> | undefined)?.["notes"] ||
+      "طلب معتمد في مسار الخدمة",
+    ),
+  }));
+
   const todayRecs = attendanceRecords.filter((a: DailyAttendanceRecord) => {
     if ("workDate" in a) return (a as { workDate?: string }).workDate === today;
     return false;
@@ -139,6 +190,7 @@ function buildDemoAnalytics(demoData: DemoStore): DashboardAnalytics {
 
   return {
     scope: "organization",
+    timezone,
     anchorDate: today,
     startDate: today,
     endDate: today,
@@ -146,9 +198,12 @@ function buildDemoAnalytics(demoData: DemoStore): DashboardAnalytics {
       available: true,
       activeCount: activeEmployees.length,
       newHires: 0,
-      departures: 0,
       prevNewHires: 0,
       saudiCount,
+      nonSaudiCount,
+      unknownNationalityCount,
+      turnoverRate: null,
+      reasonTurnoverUnavailable: "termination_date_not_available",
     },
     attendance: {
       available: true,
@@ -158,7 +213,11 @@ function buildDemoAnalytics(demoData: DemoStore): DashboardAnalytics {
       absent: absentCount,
       onLeave: onLeaveRequests.length,
     },
-    pendingApprovals: { available: true, count: pendingReqs.length },
+    pendingApprovals: {
+      available: true,
+      count: pendingReqs.length,
+      items: pendingItems,
+    },
     payroll: {
       available: true,
       period: latestRun
@@ -186,34 +245,28 @@ function buildDemoAnalytics(demoData: DemoStore): DashboardAnalytics {
       ).length,
     },
     leaveRoster,
-    integrations: {
-      available: true,
-      platforms: [
-        { name: "منصة قوى (Qiwa)", configured: false, status: "not_configured" },
-        { name: "منصة مقيم (Muqeem)", configured: false, status: "not_configured" },
-        { name: "منصة مَدَد (Mudad)", configured: false, status: "not_configured" },
-        { name: "التأمينات (GOSI)", configured: false, status: "not_configured" },
-        { name: "هيئة الزكاة (ZATCA)", configured: false, status: "not_configured" },
-      ],
-    },
   };
 }
 
 function buildDemoAttendanceTrend(
   demoData: DemoStore,
   days: number,
+  timezone: string = "Asia/Riyadh",
 ): DashboardAttendanceTrend {
   const employees: Employee[] = demoData.employees;
-  const activeCount = employees.filter((e: Employee) => e.status === "active").length;
+  const activeCount = employees.filter(
+    (e: Employee) => e.status === "active" || e.status === "probation" || e.status === "on_leave",
+  ).length;
   const records: DailyAttendanceRecord[] = demoData.attendanceRecords;
-  const today = new Date();
+  const todayStr = getCompanyToday(timezone);
+  const today = new Date(todayStr + "T00:00:00Z");
   const dayNames = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
   const trend = Array.from({ length: days }, (_, i) => {
     const d = new Date(today);
-    d.setDate(today.getDate() - (days - 1 - i));
+    d.setUTCDate(today.getUTCDate() - (days - 1 - i));
     const dateStr = d.toISOString().split("T")[0]!;
-    const dayLabel = dayNames[d.getDay()] ?? d.toLocaleDateString("ar-SA", { weekday: "short" });
+    const dayLabel = dayNames[d.getUTCDay()] ?? "يوم";
     const dayRecs = records.filter((a: DailyAttendanceRecord) => {
       if ("workDate" in a) return (a as { workDate?: string }).workDate === dateStr;
       return false;
@@ -222,27 +275,29 @@ function buildDemoAttendanceTrend(
     const late = dayRecs.filter((a: DailyAttendanceRecord) => a.status === "late").length;
     const absent = dayRecs.filter((a: DailyAttendanceRecord) => a.status === "absent").length;
     const hasData = present + late + absent > 0;
+    const isWeekend = d.getUTCDay() === 5 || d.getUTCDay() === 6;
     return {
       date: dateStr,
       dayLabelAr: dayLabel,
-      present: hasData ? present : d.getDay() === 5 || d.getDay() === 6 ? 0 : Math.round(activeCount * 0.92),
-      late: hasData ? late : d.getDay() === 5 || d.getDay() === 6 ? 0 : Math.round(activeCount * 0.03),
-      absent: hasData ? absent : d.getDay() === 5 || d.getDay() === 6 ? 0 : Math.round(activeCount * 0.05),
+      present: hasData ? present : isWeekend ? 0 : Math.round(activeCount * 0.92),
+      late: hasData ? late : isWeekend ? 0 : Math.round(activeCount * 0.03),
+      absent: hasData ? absent : isWeekend ? 0 : Math.round(activeCount * 0.05),
     };
   });
 
   return {
     available: true,
-    anchorDate: today.toISOString().split("T")[0]!,
+    timezone,
+    anchorDate: todayStr,
     days,
     trend,
   };
 }
 
-// ─── Public Hooks ──────────────────────────────────────────────────────────────
-
+// ─── Public Hook ───────────────────────────────────────────────────────────────
 export function useDashboardAnalytics(
   filters: DashboardFilters,
+  companyTimezone: string = "Asia/Riyadh",
 ): DashboardAnalyticsState {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
@@ -257,7 +312,11 @@ export function useDashboardAnalytics(
     staleTime: 2 * 60 * 1000,
   });
 
-  const trendDays = filters.preset === "last30" || filters.preset === "thisMonth" || filters.preset === "prevMonth" ? 30 : 7;
+  const trendDays =
+    filters.preset === "last30" || filters.preset === "thisMonth" || filters.preset === "prevMonth"
+      ? 30
+      : 7;
+
   const trendQuery = useQuery<DashboardAttendanceTrend, Error>({
     queryKey: queryKeys.dashboard.attendance({ anchor: filters.endDate, days: trendDays }),
     queryFn: () => fetchAttendanceTrend(filters.endDate, trendDays),
@@ -277,19 +336,31 @@ export function useDashboardAnalytics(
       void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     }
   };
+
   const refetchTrend = () => {
     if (isLive) {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.attendance({ anchor: filters.endDate, days: trendDays }) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.dashboard.attendance({ anchor: filters.endDate, days: trendDays }),
+      });
     }
   };
 
   if (!isLive) {
-    const demoAnalytics = buildDemoAnalytics(demoState);
-    const demoTrend = buildDemoAttendanceTrend(demoState, trendDays);
+    const demoAnalytics = buildDemoAnalytics(demoState, companyTimezone);
+    const demoTrend = buildDemoAttendanceTrend(demoState, trendDays, companyTimezone);
     return {
       data: demoAnalytics,
       trend: demoTrend,
-      integrationHealth: demoAnalytics.integrations,
+      integrationHealth: {
+        available: true,
+        platforms: [
+          { name: "منصة قوى (Qiwa)", configured: false, status: "not_configured" },
+          { name: "منصة مقيم (Muqeem)", configured: false, status: "not_configured" },
+          { name: "منصة مَدَد (Mudad)", configured: false, status: "not_configured" },
+          { name: "التأمينات (GOSI)", configured: false, status: "not_configured" },
+          { name: "هيئة الزكاة (ZATCA)", configured: false, status: "not_configured" },
+        ],
+      },
       isLoading: false,
       isError: false,
       error: null,
@@ -299,12 +370,16 @@ export function useDashboardAnalytics(
     };
   }
 
-  const isLoading = summaryQuery.isLoading || trendQuery.isLoading;
-  const isError = summaryQuery.isError || trendQuery.isError;
+  const isLoading = summaryQuery.isLoading || trendQuery.isLoading || integrationQuery.isLoading;
+  const isError = summaryQuery.isError || trendQuery.isError || integrationQuery.isError;
   const error =
     summaryQuery.error?.message ??
     trendQuery.error?.message ??
+    integrationQuery.error?.message ??
     null;
+
+  const isRefreshing =
+    summaryQuery.isFetching || trendQuery.isFetching || integrationQuery.isFetching;
 
   return {
     data: summaryQuery.data,
@@ -313,7 +388,7 @@ export function useDashboardAnalytics(
     isLoading,
     isError,
     error,
-    isRefreshing: summaryQuery.isFetching || trendQuery.isFetching,
+    isRefreshing,
     refetch,
     refetchTrend,
   };

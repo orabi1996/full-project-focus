@@ -1,9 +1,9 @@
-﻿/**
+/**
  * Dashboard Analytics — Typed Response Contract
  *
  * Every metric section includes an `available` flag.
  * When `available` is false, the UI must show an honest unavailability state
- * (e.g. "غير متاح") and NEVER substitute zeros or fallback demo data.
+ * (e.g. "غير متاح" or "غير مخوّل") and NEVER substitute zeros or fallback demo data.
  */
 
 export type DashboardPeriodPreset =
@@ -25,10 +25,19 @@ export interface DashboardHeadcount {
   reasonUnavailable?: string;
   activeCount?: number;
   newHires?: number;
-  departures?: number;
   prevNewHires?: number;
-  /** Saudi nationals — for Saudization %. No Nitaqat band label ever. */
+  /** Saudi nationals based on authoritative nationality field */
   saudiCount?: number;
+  /** Non-Saudi nationals based on authoritative nationality field */
+  nonSaudiCount?: number;
+  /** Count of employees with missing/unspecified nationality */
+  unknownNationalityCount?: number;
+  /**
+   * Turnover is null when no authoritative termination date field exists.
+   * Never estimated from updated_at.
+   */
+  turnoverRate?: number | null;
+  reasonTurnoverUnavailable?: string;
 }
 
 export interface DashboardAttendance {
@@ -41,9 +50,21 @@ export interface DashboardAttendance {
   onLeave?: number;
 }
 
+export interface DashboardPendingApprovalItem {
+  id: string;
+  referenceNo: string;
+  type: string;
+  requesterId: string;
+  requesterName: string;
+  departmentName?: string;
+  submittedAt: string;
+  reason?: string;
+}
+
 export interface DashboardPendingApprovals {
   available: true;
   count: number;
+  items: DashboardPendingApprovalItem[];
 }
 
 export interface DashboardPayroll {
@@ -62,6 +83,7 @@ export interface DashboardPayroll {
 
 export interface DashboardDocuments {
   available: boolean;
+  reasonUnavailable?: string;
   expired: number;
   within7d: number;
   within30d: number;
@@ -111,6 +133,7 @@ export interface DashboardAttendanceTrendDay {
 export interface DashboardAttendanceTrend {
   available: boolean;
   reasonUnavailable?: string;
+  timezone?: string;
   anchorDate?: string;
   days?: number;
   trend: DashboardAttendanceTrendDay[];
@@ -118,6 +141,7 @@ export interface DashboardAttendanceTrend {
 
 export interface DashboardAnalytics {
   scope: "organization" | "self";
+  timezone?: string;
   anchorDate: string;
   startDate: string;
   endDate: string;
@@ -128,7 +152,7 @@ export interface DashboardAnalytics {
   documents: DashboardDocuments;
   recruitment: DashboardRecruitment;
   leaveRoster: DashboardLeaveRosterEntry[];
-  integrations: DashboardIntegrations;
+  integrations?: DashboardIntegrations;
 }
 
 export interface DashboardAnalyticsState {

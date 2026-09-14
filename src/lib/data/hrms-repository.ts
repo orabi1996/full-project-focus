@@ -233,6 +233,7 @@ function mapRequestStatus(status: RequestRow["status"]): RequestStatus {
   const statuses: Record<RequestRow["status"], RequestStatus> = {
     draft: "draft",
     pending: "pending_approval",
+    pending_approval: "pending_approval",
     approved: "approved",
     rejected: "rejected",
     returned: "returned",
@@ -269,7 +270,7 @@ function mapRequest(
     currentStepIndex: row.current_step_index,
     totalSteps: row.total_steps,
     currentApproverRole:
-      row.status === "pending" ? (row.current_approver_role ?? "مدير الموارد البشرية") : undefined,
+      row.status === "pending" || row.status === "pending_approval" ? (row.current_approver_role ?? "مدير الموارد البشرية") : undefined,
     submittedAt: row.created_at,
     updatedAt: row.decided_at ?? row.created_at,
     payload: {
@@ -484,7 +485,7 @@ export async function updateRequestDecision(
   isFinalApproval = true,
 ) {
   const { data: userData } = await supabase.auth.getUser();
-  const persistedStatus = status === "approved" && !isFinalApproval ? "pending" : status;
+  const persistedStatus = status === "approved" && !isFinalApproval ? "pending_approval" : status;
   const { error } = await enterpriseSupabase
     .from("requests")
     .update({
@@ -493,7 +494,7 @@ export async function updateRequestDecision(
       decided_by: userData.user?.id ?? null,
       decided_at: new Date().toISOString(),
       current_step_index: nextStep,
-      current_approver_role: persistedStatus === "pending" ? "المعتمد التالي" : null,
+      current_approver_role: persistedStatus === "pending_approval" ? "المعتمد التالي" : null,
     })
     .eq("id", requestId);
   if (error) throw new Error(error.message);
@@ -528,7 +529,7 @@ export async function createRequestRecord(
     .insert({
       employee_id: employeeId,
       type: dbType,
-      status: "pending",
+      status: "pending_approval",
       start_date: typeof payload.startDate === "string" ? payload.startDate : null,
       end_date: typeof payload.endDate === "string" ? payload.endDate : null,
       days: typeof payload.totalDays === "number" ? payload.totalDays : null,

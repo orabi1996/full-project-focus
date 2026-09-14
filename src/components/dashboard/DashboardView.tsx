@@ -6,41 +6,21 @@ import {
   CalendarDays,
   Clock,
   Wallet,
-  TrendingUp,
   AlertCircle,
   CheckCircle2,
   ArrowUpRight,
-  ArrowDownRight,
-  MapPin,
-  FileText,
-  DollarSign,
-  Briefcase,
   Layers,
   Activity,
-  Award,
-  Zap,
   ShieldCheck,
   ShieldAlert,
-  ArrowLeftRight,
   XCircle,
   Search,
-  Filter,
   RefreshCw,
   FolderOpen,
   Calendar,
-  Building,
   Building2,
-  UserX,
-  ExternalLink,
-  Plus,
-  Check,
   Globe,
-  Radio,
   FileSpreadsheet,
-  ChevronLeft,
-  ChevronRight,
-  FileBadge,
-  BadgeCheck,
   Loader2,
 } from "lucide-react";
 import { Button } from "../ui/button";
@@ -65,6 +45,7 @@ import {
 import {
   useDashboardAnalytics,
   getDefaultDashboardFilters,
+  getCompanyToday,
 } from "../../lib/domains/dashboard";
 import type {
   DashboardFilters,
@@ -72,7 +53,6 @@ import type {
 } from "../../lib/domains/dashboard/dashboard-types";
 
 // ─── Period Presets ─────────────────────────────────────────────────────────
-
 const PERIOD_PRESETS: { value: DashboardPeriodPreset; labelAr: string }[] = [
   { value: "today",     labelAr: "اليوم" },
   { value: "last7",     labelAr: "آخر 7 أيام" },
@@ -81,33 +61,38 @@ const PERIOD_PRESETS: { value: DashboardPeriodPreset; labelAr: string }[] = [
   { value: "prevMonth", labelAr: "الشهر الماضي" },
 ];
 
-function buildFiltersFromPreset(preset: DashboardPeriodPreset): DashboardFilters {
-  const now = new Date();
+function buildFiltersFromPreset(
+  preset: DashboardPeriodPreset,
+  timezone: string = "Asia/Riyadh",
+): DashboardFilters {
+  const todayStr = getCompanyToday(timezone);
+  const today = new Date(todayStr + "T00:00:00Z");
   const fmt = (d: Date) => d.toISOString().split("T")[0]!;
-  const today = fmt(now);
 
   switch (preset) {
     case "today":
-      return { preset, startDate: today, endDate: today };
+      return { preset, startDate: todayStr, endDate: todayStr };
     case "last7": {
-      const s = new Date(now); s.setDate(now.getDate() - 6);
-      return { preset, startDate: fmt(s), endDate: today };
+      const s = new Date(today);
+      s.setUTCDate(today.getUTCDate() - 6);
+      return { preset, startDate: fmt(s), endDate: todayStr };
     }
     case "last30": {
-      const s = new Date(now); s.setDate(now.getDate() - 29);
-      return { preset, startDate: fmt(s), endDate: today };
+      const s = new Date(today);
+      s.setUTCDate(today.getUTCDate() - 29);
+      return { preset, startDate: fmt(s), endDate: todayStr };
     }
     case "thisMonth": {
-      const s = new Date(now.getFullYear(), now.getMonth(), 1);
-      return { preset, startDate: fmt(s), endDate: today };
+      const s = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+      return { preset, startDate: fmt(s), endDate: todayStr };
     }
     case "prevMonth": {
-      const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const e = new Date(now.getFullYear(), now.getMonth(), 0);
+      const s = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
+      const e = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0));
       return { preset, startDate: fmt(s), endDate: fmt(e) };
     }
     default:
-      return getDefaultDashboardFilters();
+      return getDefaultDashboardFilters(timezone);
   }
 }
 
@@ -130,7 +115,6 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
   const {
     t,
     language,
-    currentRole,
     currentUser,
     company,
     orgUnits,
@@ -140,44 +124,50 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     approveRequest,
     rejectRequest,
     isSaving,
-    requests,
   } = useApp();
 
+  const companyTimezone = company?.timezone || "Asia/Riyadh";
+
   // ── Period Filter State ────────────────────────────────────────────────────
-  const [filters, setFilters] = useState<DashboardFilters>(getDefaultDashboardFilters);
+  const [filters, setFilters] = useState<DashboardFilters>(() =>
+    getDefaultDashboardFilters(companyTimezone),
+  );
 
   const handlePreset = (preset: DashboardPeriodPreset) => {
-    setFilters(buildFiltersFromPreset(preset));
+    setFilters(buildFiltersFromPreset(preset, companyTimezone));
   };
 
   // ── Analytics from server-side RPCs ───────────────────────────────────────
   const {
     data: analytics,
     trend: trendData,
+    integrationHealth,
     isLoading: analyticsLoading,
     isRefreshing,
     refetch,
-  } = useDashboardAnalytics(filters);
+  } = useDashboardAnalytics(filters, companyTimezone);
 
   // ── Search & Filter for Approvals Stream ──────────────────────────────────
   const [taskSearch, setTaskSearch] = useState("");
   const [taskCategoryFilter, setTaskCategoryFilter] = useState("all");
 
-  // Pending approvals: list from AppContext for interactive decisions
-  const pendingApprovals = useMemo(
-    () => requests.filter((r) => r.status === "pending_approval"),
-    [requests],
+  // Pending approvals & actionable items: derived directly from server analytics
+  const pendingApprovalsData = analytics?.pendingApprovals;
+  const pendingCount = pendingApprovalsData?.count ?? 0;
+  const actionableRequests = useMemo(
+    () => pendingApprovalsData?.items ?? [],
+    [pendingApprovalsData?.items],
   );
 
   const filteredPendingTasks = useMemo(() => {
-    return pendingApprovals.filter((r) => {
+    return actionableRequests.filter((r) => {
       const matchesSearch =
-        r.requesterName?.toLowerCase().includes(taskSearch.toLowerCase()) ||
-        r.referenceNo?.toLowerCase().includes(taskSearch.toLowerCase());
+        r.requesterName.toLowerCase().includes(taskSearch.toLowerCase()) ||
+        r.referenceNo.toLowerCase().includes(taskSearch.toLowerCase());
       const matchesCat = taskCategoryFilter === "all" || r.type === taskCategoryFilter;
       return matchesSearch && matchesCat;
     });
-  }, [pendingApprovals, taskSearch, taskCategoryFilter]);
+  }, [actionableRequests, taskSearch, taskCategoryFilter]);
 
   // ── Derived from analytics ─────────────────────────────────────────────────
   const headcount = analytics?.headcount;
@@ -185,19 +175,27 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
   const payroll = analytics?.payroll;
   const documents = analytics?.documents;
   const leaveRoster = analytics?.leaveRoster ?? [];
-  const pendingCount = analytics?.pendingApprovals?.count ?? pendingApprovals.length;
 
-  // Saudization (from real headcount data — NO Nitaqat band label)
+  // Saudization: from authoritative nationality data — NO Nitaqat band label
   const saudiCount = headcount?.saudiCount ?? 0;
+  const nonSaudiCount = headcount?.nonSaudiCount ?? 0;
+  const unknownNationalityCount = headcount?.unknownNationalityCount ?? 0;
   const activeCount = headcount?.activeCount ?? 0;
+
   const saudizationRate =
     activeCount > 0 ? ((saudiCount / activeCount) * 100).toFixed(1) : "0";
-  const expatCount = Math.max(0, activeCount - saudiCount);
 
-  const saudizationPieData = [
-    { name: "موظفون سعوديون", value: Math.max(1, saudiCount), color: "#004BCE" },
-    { name: "موظفون مقيمون", value: Math.max(1, expatCount), color: "#10b981" },
-  ];
+  // Real pie data: Never mutate 0 to 1
+  const saudizationPieData = useMemo(() => {
+    const data = [
+      { name: "موظفون سعوديون", value: saudiCount, color: "#004BCE" },
+      { name: "موظفون مقيمون", value: nonSaudiCount, color: "#10b981" },
+    ];
+    if (unknownNationalityCount > 0) {
+      data.push({ name: "جنسية غير محددة", value: unknownNationalityCount, color: "#94a3b8" });
+    }
+    return data.filter((d) => d.value > 0);
+  }, [saudiCount, nonSaudiCount, unknownNationalityCount]);
 
   // Attendance trend chart data
   const attendanceTrendData = useMemo(() => {
@@ -210,24 +208,31 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     }));
   }, [trendData]);
 
-  // Department distribution (from real orgUnits)
+  // Department distribution: real headcount only, no fabricated budget amounts
   const departmentDistributionData = orgUnits.map((unit) => ({
     name:
       language === "ar"
         ? unit.nameAr.replace("قطاع ", "").replace("إدارة ", "").replace("الإدارة العامة لـ", "")
         : unit.nameEn,
     count: unit.employeeCount,
-    budget: Math.round(unit.employeeCount * 18500),
   }));
 
-  // Document alert total for KPI badge
-  const docAlertTotal = documents
+  // Document alert total for KPI badge (only when authorized)
+  const docAlertTotal = documents?.available
     ? documents.expired + documents.within7d + documents.within30d
     : 0;
-  const docCriticalTotal = documents ? documents.expired + documents.within7d : 0;
+  const docCriticalTotal = documents?.available
+    ? documents.expired + documents.within7d
+    : 0;
 
-  // Integration health (from analytics)
-  const integrationPlatforms = analytics?.integrations?.platforms ?? [];
+  // Integration health: directly sourced from integrationHealth query
+  const integrationPlatforms = integrationHealth?.platforms ?? [];
+
+  // Attendance rate display
+  const attendanceRateFormatted =
+    attendance?.available && attendance.eligible && attendance.eligible > 0
+      ? `${Math.round(((attendance.present ?? 0) / attendance.eligible) * 100)}%`
+      : null;
 
   // ── Quick Action Handlers ─────────────────────────────────────────────────
   const handleQuickPunch = async (type: "in" | "out") => {
@@ -241,6 +246,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     const saved = await approveRequest(id, "تم الاعتماد الفوري عبر لوحة القيادة التنفيذية");
     if (!saved) return;
     toast.success(`تم اعتماد طلب (${requesterName}) بنجاح`);
+    refetch();
   };
 
   const handleDirectReject = async (id: string, requesterName: string) => {
@@ -248,6 +254,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     const saved = await rejectRequest(id, "تم الرفض عبر لوحة القيادة لعدم استيفاء الشروط");
     if (!saved) return;
     toast.info(`تم رفض طلب (${requesterName})`);
+    refetch();
   };
 
   // ── Date display ──────────────────────────────────────────────────────────
@@ -256,6 +263,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: companyTimezone,
   });
 
   const payrollPeriodLabel = payroll?.period
@@ -320,11 +328,9 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                 <span className="text-muted-foreground">حضور اليوم:</span>
                 {analyticsLoading ? (
                   <span className="w-8 h-3 bg-muted animate-pulse rounded" />
-                ) : attendance?.available ? (
+                ) : attendanceRateFormatted ? (
                   <span className="font-bold text-foreground font-mono">
-                    {attendance.eligible && attendance.eligible > 0
-                      ? Math.round(((attendance.present ?? 0) / attendance.eligible) * 100)
-                      : 0}%
+                    {attendanceRateFormatted}
                   </span>
                 ) : (
                   <Unavailable reason={attendance?.reasonUnavailable} />
@@ -473,8 +479,8 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           </div>
           <p className="mt-1 text-[10px] text-muted-foreground font-medium truncate">
             {headcount?.available && headcount.newHires != null
-              ? `${headcount.newHires} تعيين • ${headcount.departures ?? 0} مغادرة`
-              : "إجمالي الكوادر النشطة"}
+              ? `${headcount.newHires} تعيين جديد في الفترة`
+              : "إجمالي الكوادر الموظفة"}
           </p>
         </div>
 
@@ -497,11 +503,11 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                 <span className="text-2xl md:text-3xl font-black text-foreground">
                   {attendance.present ?? 0} / {attendance.eligible ?? 0}
                 </span>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded-full">
-                  {attendance.eligible && attendance.eligible > 0
-                    ? Math.round(((attendance.present ?? 0) / attendance.eligible) * 100)
-                    : 0}%
-                </span>
+                {attendanceRateFormatted && (
+                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded-full">
+                    {attendanceRateFormatted}
+                  </span>
+                )}
               </>
             ) : (
               <Unavailable reason={attendance?.reasonUnavailable} />
@@ -536,7 +542,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           </div>
           <p className="mt-1 text-[10px] text-muted-foreground font-medium truncate">
             {headcount?.available
-              ? `${saudiCount} مواطن • ${expatCount} مقيم`
+              ? `${saudiCount} مواطن • ${nonSaudiCount} مقيم`
               : "نسبة السعوديين"}
           </p>
         </div>
@@ -611,7 +617,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
           <div className="mt-2.5 flex items-baseline gap-2">
             {analyticsLoading ? (
               <MetricSkeleton />
-            ) : (
+            ) : documents?.available ? (
               <>
                 <span className={`text-2xl md:text-3xl font-black ${docAlertTotal > 0 ? "text-rose-600" : "text-muted-foreground"}`}>
                   {docAlertTotal}
@@ -622,6 +628,8 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                   </Badge>
                 )}
               </>
+            ) : (
+              <Unavailable reason={documents?.reasonUnavailable} />
             )}
           </div>
           <p className="mt-1 text-[10px] text-muted-foreground font-medium truncate">
@@ -738,7 +746,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             )}
           </div>
 
-          {/* Card B: Department Headcount & Budget Distribution */}
+          {/* Card B: Department Headcount Distribution (NO fake budget) */}
           <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3.5">
               <div className="flex items-center gap-3">
@@ -747,10 +755,10 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                 </div>
                 <div>
                   <h2 className="text-sm md:text-base font-black text-foreground">
-                    توزيع الكوادر والميزانيات التقديرية عبر الإدارات
+                    توزيع الكوادر الوظيفية عبر الإدارات
                   </h2>
                   <p className="text-[11px] text-muted-foreground font-medium">
-                    متابعة توزيع الملاكات الوظيفية والكتلة الشهرية لكل قطاع
+                    متابعة توزيع الملاكات الوظيفية لكل قطاع
                   </p>
                 </div>
               </div>
@@ -774,12 +782,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip
-                    formatter={(value: unknown, name: string) => [
-                      name === "count"
-                        ? `${value} موظف`
-                        : `${Number(value).toLocaleString()} ${t.currency} (تقديري)`,
-                      name === "count" ? "عدد الكوادر" : "الميزانية الشهرية التقديرية",
-                    ]}
+                    formatter={(value: unknown) => [`${value} موظف`, "عدد الكوادر"]}
                     contentStyle={{
                       backgroundColor: "rgba(255, 255, 255, 0.95)",
                       borderRadius: "12px",
@@ -794,7 +797,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             </div>
           </div>
 
-          {/* Card C: Actionable Decision Center */}
+          {/* Card C: Actionable Decision Center (Directly Aligned with Server Authorization) */}
           <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-border/60 pb-4">
               <div>
@@ -837,9 +840,9 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                 >
                   <option value="all">كل الأنواع</option>
                   <option value="leave">إجازات</option>
-                  <option value="attendance_correction">تصحيح بصمة</option>
-                  <option value="expense_claim">مصروفات</option>
-                  <option value="loan_advance">سلف رواتب</option>
+                  <option value="attendance_fix">تصحيح بصمة</option>
+                  <option value="expense">مصروفات</option>
+                  <option value="advance">سلف رواتب</option>
                 </select>
 
                 <Button
@@ -865,18 +868,18 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {filteredPendingTasks.slice(0, 5).map((req) => (
+                  {filteredPendingTasks.map((req) => (
                     <tr key={req.id} className="hover:bg-muted/20 transition-colors">
                       <td className="py-3 px-4 font-mono font-bold text-primary">
                         {req.referenceNo}
                         <Badge variant="outline" className="text-[10px] rounded-full mr-2">
                           {req.type === "leave"
                             ? "طلب إجازة"
-                            : req.type === "expense_claim"
+                            : req.type === "expense" || req.type === "expense_claim"
                               ? "مطالبة مالية"
-                              : req.type === "attendance_correction"
+                              : req.type === "attendance_fix" || req.type === "attendance_correction"
                                 ? "تصحيح بصمة"
-                                : req.type === "loan_advance"
+                                : req.type === "advance" || req.type === "loan_advance"
                                   ? "سلفة راتب"
                                   : "طلب إداري"}
                         </Badge>
@@ -889,12 +892,14 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                         >
                           {req.requesterName}
                         </button>
-                        <span className="text-[10px] text-muted-foreground block">
-                          {req.departmentName}
-                        </span>
+                        {req.departmentName && (
+                          <span className="text-[10px] text-muted-foreground block">
+                            {req.departmentName}
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 px-4 max-w-xs truncate text-muted-foreground font-medium">
-                        {String(req.payload?.reason || req.payload?.notes || "طلب معتمد في مسار الخدمة")}
+                        {req.reason || "طلب معتمد في مسار الخدمة"}
                       </td>
                       <td className="py-3 px-4 text-center font-mono text-[10px] text-muted-foreground">
                         {new Date(req.submittedAt).toLocaleDateString("ar-SA")}
@@ -1014,7 +1019,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
         {/* Right / Side Command Tower (4 Columns) */}
         <div className="xl:col-span-4 space-y-6">
-          {/* Card E: Saudization Radar Donut (no Nitaqat band label) */}
+          {/* Card E: Saudization Radar Donut (Real values, no 1-padding, no Nitaqat tier) */}
           <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <div className="flex items-center gap-2.5">
@@ -1042,6 +1047,11 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             ) : !headcount?.available ? (
               <div className="h-44 w-full flex items-center justify-center text-muted-foreground">
                 <Unavailable reason={headcount?.reasonUnavailable} />
+              </div>
+            ) : activeCount === 0 || saudizationPieData.length === 0 ? (
+              <div className="h-44 w-full flex flex-col items-center justify-center text-muted-foreground text-xs gap-1">
+                <ShieldCheck className="h-6 w-6 opacity-30" />
+                <span>لا توجد بيانات موظفين مسجلة</span>
               </div>
             ) : (
               <div className="h-44 w-full flex items-center justify-center relative">
@@ -1087,9 +1097,20 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                     الموظفون المقيمون:
                   </span>
                   <span className="font-bold text-foreground font-mono">
-                    {expatCount} ({(100 - Number(saudizationRate)).toFixed(1)}%)
+                    {nonSaudiCount} ({activeCount > 0 ? ((nonSaudiCount / activeCount) * 100).toFixed(1) : 0}%)
                   </span>
                 </div>
+                {unknownNationalityCount > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
+                      جنسية غير محددة:
+                    </span>
+                    <span className="font-bold text-foreground font-mono">
+                      {unknownNationalityCount}
+                    </span>
+                  </div>
+                )}
                 <div className="rounded-xl bg-muted/50 border border-border/50 p-2.5 text-[11px] text-muted-foreground flex items-center justify-between mt-2">
                   <span>تصنيف نطاقات:</span>
                   <span className="font-bold font-mono text-foreground">غير محدد (يتطلب ربط وزارة الموارد)</span>
@@ -1098,7 +1119,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             )}
           </div>
 
-          {/* Card F: Critical Document Expiry Watch */}
+          {/* Card F: Critical Document Expiry Watch (Protected RBAC) */}
           <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <div className="flex items-center gap-2.5">
@@ -1130,7 +1151,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
               </div>
             ) : !documents?.available ? (
               <div className="py-6 text-center text-muted-foreground">
-                <Unavailable />
+                <Unavailable reason={documents?.reasonUnavailable} />
               </div>
             ) : docAlertTotal === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 gap-2 text-muted-foreground">
@@ -1197,7 +1218,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
             )}
           </div>
 
-          {/* Card G: Government Platforms Health Monitor */}
+          {/* Card G: Government Platforms Health Monitor (Wired directly to integrationHealth) */}
           <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <div className="flex items-center gap-2.5">
@@ -1268,7 +1289,9 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                       </span>
                       {item.lastSyncAt && (
                         <span className="text-[9px] text-muted-foreground font-mono">
-                          {new Date(item.lastSyncAt).toLocaleTimeString("ar-SA")}
+                          {new Date(item.lastSyncAt).toLocaleTimeString("ar-SA", {
+                            timeZone: companyTimezone,
+                          })}
                         </span>
                       )}
                     </div>
@@ -1313,6 +1336,7 @@ export const DashboardView: React.FC<{ onNavigate: (tabId: string) => void }> = 
                         {new Date(log.timestamp).toLocaleTimeString("ar-SA", {
                           hour: "2-digit",
                           minute: "2-digit",
+                          timeZone: companyTimezone,
                         })}
                       </span>
                     </div>

@@ -79,6 +79,7 @@ import {
   createSignedDownloadUrl,
   getSignedUrlForFileId,
 } from "../../lib/storage";
+import { useDocuments } from "../../lib/domains/documents";
 
 export interface DocumentVersion {
   version: string;
@@ -369,13 +370,21 @@ export const DocumentVaultView: React.FC = () => {
     company,
     language,
     t,
-    companyDocs,
-    employeeDocs,
     addCompanyDocument,
     addEmployeeDocument,
     archiveDocument,
     verifyEmployeeDocument,
   } = useApp();
+
+  const {
+    isLive,
+    companyDocs,
+    employeeDocs,
+    isLoading: isDocsLoading,
+    isError: isDocsError,
+    error: docsError,
+    refetch: refetchDocs,
+  } = useDocuments();
 
   // Navigation State
   const [mainTab, setMainTab] = useState<MainTab>("vault");
@@ -662,11 +671,11 @@ export const DocumentVaultView: React.FC = () => {
   }, [employeeDocs, companyDocs, employees, company]);
 
   const documents = useMemo<StoredDocument[]>(() => {
-    if (mappedLiveDocs.length > 0) {
+    if (isLive) {
       return mappedLiveDocs;
     }
-    return localDocuments;
-  }, [mappedLiveDocs, localDocuments]);
+    return mappedLiveDocs.length > 0 ? mappedLiveDocs : localDocuments;
+  }, [isLive, mappedLiveDocs, localDocuments]);
 
   // Document Requests Pipeline State
   const [documentRequests, setDocumentRequests] = useState<DocumentRequest[]>([
@@ -848,7 +857,7 @@ export const DocumentVaultView: React.FC = () => {
     [documents],
   );
   const pendingReviewCount = useMemo(
-    () => documents.filter((d) => d.status === "pending_review").length,
+    () => documents.filter((d) => d.status === "pending_review" && !d.isCompanyDoc).length,
     [documents],
   );
   const contractsCount = useMemo(
@@ -950,23 +959,51 @@ export const DocumentVaultView: React.FC = () => {
 
   const handleDeleteSelected = async () => {
     if (selectedDocIds.length === 0) return;
+    const successIds: string[] = [];
+    const failedIds: string[] = [];
+
     for (const id of selectedDocIds) {
       const doc = documents.find((d) => d.id === id);
-      await archiveDocument(id, doc?.isCompanyDoc ? "company" : "employee", doc?.fileId);
+      const docType = doc?.isCompanyDoc ? "company" : "employee";
+      try {
+        const ok = await archiveDocument(id, docType, doc?.fileId);
+        if (ok) {
+          successIds.push(id);
+        } else {
+          failedIds.push(id);
+        }
+      } catch {
+        failedIds.push(id);
+      }
     }
-    setLocalDocuments((prev) => prev.filter((d) => !selectedDocIds.includes(d.id)));
-    setSelectedDocIds([]);
+
+    if (successIds.length > 0) {
+      setLocalDocuments((prev) => prev.filter((d) => !successIds.includes(d.id)));
+    }
+    setSelectedDocIds(failedIds);
+
+    if (failedIds.length === 0) {
+      toast.success(`تم أرشفة (${successIds.length}) مستندات بنجاح!`);
+    } else if (successIds.length > 0) {
+      toast.warning(`تم أرشفة ${successIds.length} مستندات، وتعذر أرشفة ${failedIds.length} مستند.`);
+    } else {
+      toast.error(`تعذر أرشفة (${failedIds.length}) مستندات.`);
+    }
   };
 
   const handleDeleteSingle = async (id: string) => {
     const doc = documents.find((d) => d.id === id);
-    await archiveDocument(id, doc?.isCompanyDoc ? "company" : "employee", doc?.fileId);
-    setLocalDocuments((prev) => prev.filter((d) => d.id !== id));
-    if (selectedDocForPreview?.id === id) {
-      setSelectedDocForPreview(null);
-    }
-    if (sidePrintDoc?.id === id) {
-      setSidePrintDoc(null);
+    const docType = doc?.isCompanyDoc ? "company" : "employee";
+    const ok = await archiveDocument(id, docType, doc?.fileId);
+    if (ok) {
+      setLocalDocuments((prev) => prev.filter((d) => d.id !== id));
+      setSelectedDocIds((prev) => prev.filter((item) => item !== id));
+      if (selectedDocForPreview?.id === id) {
+        setSelectedDocForPreview(null);
+      }
+      if (sidePrintDoc?.id === id) {
+        setSidePrintDoc(null);
+      }
     }
   };
 
@@ -1062,40 +1099,53 @@ export const DocumentVaultView: React.FC = () => {
 
   // Verification Pipeline Actions
   const handleApproveDocument = async (docId: string) => {
-    await verifyEmployeeDocument(docId, "valid");
-    setLocalDocuments((prev) =>
-      prev.map((d) =>
-        d.id === docId
-          ? {
-              ...d,
-              status: "valid",
-              verifiedBy: "أ. نورة التميمي (مسؤول الموارد البشرية)",
-              verifiedAt: new Date().toLocaleDateString("ar-SA"),
-            }
-          : d,
-      ),
-    );
+    const targetDoc = documents.find((d) => d.id === docId);
+    if (targetDoc?.isCompanyDoc) {
+      toast.error("لا يمكن اعتماد أو تدقيق مستند مؤسسي عبر مسار وثائق الموظفين");
+      return;
+    }
+    const ok = await verifyEmployeeDocument(docId, "valid");
+    if (ok) {
+      setLocalDocuments((prev) =>
+        prev.map((d) =>
+          d.id === docId
+            ? {
+                ...d,
+                status: "valid",
+                verifiedBy: "أ. نورة التميمي (مسؤول الموارد البشرية)",
+                verifiedAt: new Date().toLocaleDateString("ar-SA"),
+              }
+            : d,
+        ),
+      );
+    }
   };
 
   const handleOpenRejectModal = (doc: StoredDocument) => {
+    if (doc.isCompanyDoc) {
+      toast.error("لا يمكن رفض المستندات المؤسسية عبر مسار تدقيق وثائق الموظفين");
+      return;
+    }
     setRejectReasonModalDoc(doc);
     setRejectReasonInput("الصورة غير واضحة / المستند منتهي الصلاحية");
   };
 
   const handleConfirmReject = async () => {
-    if (!rejectReasonModalDoc) return;
-    await verifyEmployeeDocument(rejectReasonModalDoc.id, "rejected", rejectReasonInput);
-    setLocalDocuments((prev) =>
-      prev.map((d) =>
-        d.id === rejectReasonModalDoc.id
-          ? {
-              ...d,
-              status: "rejected",
-              rejectionReason: rejectReasonInput,
-            }
-          : d,
-      ),
-    );
+    if (!rejectReasonModalDoc || rejectReasonModalDoc.isCompanyDoc) return;
+    const ok = await verifyEmployeeDocument(rejectReasonModalDoc.id, "rejected", rejectReasonInput);
+    if (ok) {
+      setLocalDocuments((prev) =>
+        prev.map((d) =>
+          d.id === rejectReasonModalDoc.id
+            ? {
+                ...d,
+                status: "rejected",
+                rejectionReason: rejectReasonInput,
+              }
+            : d,
+        ),
+      );
+    }
     setRejectReasonModalDoc(null);
   };
 
@@ -1687,8 +1737,44 @@ export const DocumentVaultView: React.FC = () => {
             </div>
           </div>
 
-          {/* VIEW 1: SMART CARDS GRID */}
-          {viewMode === "grid" && (
+          {isLive && isDocsLoading ? (
+            <div className="py-20 text-center space-y-3">
+              <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto" />
+              <p className="text-sm font-bold text-muted-foreground">جاري تحميل مستندات المنشأة الموثقة من السحابة...</p>
+            </div>
+          ) : isLive && isDocsError ? (
+            <div className="py-16 text-center space-y-3 rounded-3xl border border-destructive/30 bg-destructive/5 p-6">
+              <AlertTriangle className="h-8 w-8 text-destructive mx-auto" />
+              <p className="text-sm font-bold text-destructive">تعذر تحميل المستندات من الخادم</p>
+              <p className="text-xs text-muted-foreground">{docsError || "حدث خطأ غير متوقع"}</p>
+              <Button size="sm" variant="outline" onClick={() => refetchDocs()} className="mt-2">
+                إعادة المحاولة
+              </Button>
+            </div>
+          ) : filteredDocs.length === 0 ? (
+            <div className="text-center py-16 px-4 rounded-3xl border border-dashed border-border bg-card/50 flex flex-col items-center justify-center space-y-3">
+              <Folder className="h-12 w-12 text-muted-foreground/50" />
+              <h3 className="font-bold text-sm text-foreground">لا توجد مستندات</h3>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                {documents.length === 0
+                  ? "لم يتم رفع أو حفظ أي وثائق في المستودع بعد. يمكنك رفع وثيقة جديدة للبدء."
+                  : "لا توجد وثائق تطابق معايير البحث والفلترة المحددة."}
+              </p>
+              {documents.length === 0 && (
+                <Button
+                  size="sm"
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="rounded-full text-xs font-bold gap-1 mt-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  رفع أول وثيقة
+                </Button>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* VIEW 1: SMART CARDS GRID */}
+              {viewMode === "grid" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredDocs.map((doc) => {
                 const isSelected = selectedDocIds.includes(doc.id);
@@ -2058,6 +2144,8 @@ export const DocumentVaultView: React.FC = () => {
               </div>
             </div>
           )}
+            </>
+          )}
         </div>
       )}
 
@@ -2213,7 +2301,7 @@ export const DocumentVaultView: React.FC = () => {
 
             <div className="space-y-3">
               {documents
-                .filter((d) => d.status === "pending_review")
+                .filter((d) => d.status === "pending_review" && !d.isCompanyDoc)
                 .map((doc) => (
                   <div
                     key={doc.id}

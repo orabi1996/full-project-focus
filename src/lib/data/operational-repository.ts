@@ -1559,28 +1559,15 @@ export async function createEmployeeDocumentRecord(
 export async function archiveDocumentRecord(
   docId: string,
   type: "company" | "employee",
-  fileId?: string,
+  _fileId?: string,
 ) {
-  if (type === "company") {
-    const { error } = await enterpriseSupabase
-      .from("company_documents")
-      .update({ status: "archived" })
-      .eq("id", docId);
-    if (error) throw new Error(error.message);
-  } else {
-    const { error } = await enterpriseSupabase
-      .from("employee_documents")
-      .update({ status: "archived" })
-      .eq("id", docId);
-    if (error) throw new Error(error.message);
-  }
+  const { error } = await (enterpriseSupabase.rpc as any)("archive_business_document", {
+    p_document_id: docId,
+    p_document_type: type,
+  });
 
-  if (fileId) {
-    try {
-      await (enterpriseSupabase.rpc as any)("archive_file_object", { p_file_id: fileId });
-    } catch {
-      // best effort metadata archive
-    }
+  if (error) {
+    throw new Error(`تعذر أرشفة المستند: ${error.message}`);
   }
 }
 
@@ -1590,7 +1577,7 @@ export async function verifyEmployeeDocumentRecord(
   verifiedBy: string = "مسؤول الموارد البشرية",
   rejectionReason?: string,
 ) {
-  const { error } = await enterpriseSupabase
+  const { data, error } = await enterpriseSupabase
     .from("employee_documents")
     .update({
       status,
@@ -1598,8 +1585,14 @@ export async function verifyEmployeeDocumentRecord(
       verified_at: new Date().toISOString(),
       rejection_reason: rejectionReason ?? null,
     })
-    .eq("id", docId);
+    .eq("id", docId)
+    .select("id");
+
   if (error) throw new Error(error.message);
+
+  if (!data || data.length === 0) {
+    throw new Error(`وثيقة الموظف غير موجودة (${docId}) أو لم يتم تحديث أي سجل`);
+  }
 }
 
 export async function acknowledgeDocumentRecord(documentId: string, employeeId: string) {

@@ -3034,6 +3034,13 @@ export type Database = {
         Args: { p_file_id: string }
         Returns: undefined
       }
+      archive_business_document: {
+        Args: {
+          p_document_id: string
+          p_document_type: string
+        }
+        Returns: undefined
+      }
       finalize_file_replacement: {
         Args: {
           p_previous_file_id: string

@@ -33,6 +33,7 @@ export function useDocuments() {
   const employeeDocs = isLive ? bootstrap.employeeDocs : demoDocs.employeeDocs;
 
   return {
+    isLive,
     companyDocs,
     employeeDocs,
     isLoading: isLive ? bootstrap.isLoading : false,
@@ -231,6 +232,11 @@ export function useDocumentMutations() {
       status: "valid" | "expired" | "rejected",
       rejectionReason?: string,
     ): Promise<boolean> => {
+      if (demoStore.companyDocs.some((d) => d.id === docId)) {
+        toast.error("لا يمكن اعتماد أو تدقيق مستند مؤسسي عبر مسار وثائق الموظفين");
+        return false;
+      }
+
       const result = await executeReliableMutation({
         mode,
         mutationKey: `verify-emp-doc-${docId}-${status}`,

@@ -199,10 +199,18 @@ export async function rollbackUploadedFile(options: RollbackFileOptions): Promis
       if (storageDeleted) {
         const { error: delErr } = await supabase.from('file_objects').delete().eq('id', fileId);
         if (delErr) {
-          await (supabase.rpc as any)('mark_file_orphaned', { p_file_id: fileId, p_reason: reason });
+          const { error: rpcErr } = await (supabase.rpc as any)('mark_file_orphaned', { p_file_id: fileId, p_reason: reason });
+          if (rpcErr) {
+            console.error('Failed to mark file orphaned:', rpcErr);
+            throw new Error(`تعذر تمييز الملف المعزول: ${rpcErr.message}`);
+          }
         }
       } else {
-        await (supabase.rpc as any)('mark_file_orphaned', { p_file_id: fileId, p_reason: `cleanup_failed: ${reason}` });
+        const { error: rpcErr } = await (supabase.rpc as any)('mark_file_orphaned', { p_file_id: fileId, p_reason: `cleanup_failed: ${reason}` });
+        if (rpcErr) {
+          console.error('Failed to mark file cleanup failed:', rpcErr);
+          throw new Error(`تعذر تمييز فشل تنظيف الملف: ${rpcErr.message}`);
+        }
       }
     } catch (dbErr) {
       console.error('Metadata rollback error:', dbErr);
@@ -276,10 +284,13 @@ export async function createSignedDownloadUrl(
   // Audit logging if file object is identifiable
   if (options?.trackAudit !== false && fileObjId) {
     try {
-      await (supabase.rpc as any)('log_file_download_access', {
+      const { error: auditError } = await (supabase.rpc as any)('log_file_download_access', {
         p_file_id: fileObjId,
         p_access_type: options?.download ? 'download' : 'view',
       });
+      if (auditError) {
+        console.warn('File access audit logging returned error:', auditError.message);
+      }
     } catch (auditErr) {
       // Non-blocking audit failure
       console.warn('File access audit logging warning:', auditErr);
@@ -382,17 +393,29 @@ export async function archiveSecureFile(fileId: string): Promise<void> {
 
   const { error } = await (supabase.rpc as any)('archive_file_object', { p_file_id: fileId });
   if (error) {
-    const { error: updateErr } = await supabase
-      .from('file_objects')
-      .update({
-        status: 'archived',
-        archived_at: new Date().toISOString(),
-      })
-      .eq('id', fileId);
+    throw new Error(`فشل أرشفة بيانات الملف عبر الإجراء المخزن: ${error.message}`);
+  }
+}
 
-    if (updateErr) {
-      throw new Error(`فشل أرشفة الملف: ${updateErr.message}`);
-    }
+/**
+ * Authoritative atomic archival of a business document (company or employee)
+ * and its linked file object metadata via PostgreSQL RPC.
+ */
+export async function archiveBusinessDocument(
+  documentId: string,
+  documentType: 'company' | 'employee'
+): Promise<void> {
+  if (isStorageInDemoMode()) {
+    return;
+  }
+
+  const { error } = await (supabase.rpc as any)('archive_business_document', {
+    p_document_id: documentId,
+    p_document_type: documentType,
+  });
+
+  if (error) {
+    throw new Error(`تعذر أرشفة المستند عبر الإجراء المخزن: ${error.message}`);
   }
 }
 

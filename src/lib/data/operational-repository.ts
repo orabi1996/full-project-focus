@@ -1692,6 +1692,9 @@ export async function approveAttendanceCorrectionRecord(id: string): Promise<voi
     if (code === "42501") {
       throw new AppMutationError(error.message, "authorization", { details: error });
     }
+    if (code === "22023") {
+      throw new AppMutationError(error.message, "validation", { details: error });
+    }
     throw new AppMutationError(error.message, "backend", { details: error });
   }
 

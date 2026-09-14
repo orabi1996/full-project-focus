@@ -117,6 +117,10 @@ export function normalizeMutationError(error: unknown, defaultMessage?: string):
   ) {
     kind = "network";
   }
+  // 6. Validation / Invalid Parameter value (22023)
+  else if (code === "22023" || rawMessage.toLowerCase().includes("validation")) {
+    kind = "validation";
+  }
 
   const finalMessage = rawMessage || defaultMessage || "تعذر حفظ التغييرات";
 

@@ -2812,6 +2812,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_attendance_correction: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
+      approve_overtime_request: {
+        Args: { p_overtime_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2820,6 +2828,14 @@ export type Database = {
         Returns: boolean
       }
       is_hr: { Args: { _user_id: string }; Returns: boolean }
+      reject_attendance_correction: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
+      reject_overtime_request: {
+        Args: { p_overtime_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role:

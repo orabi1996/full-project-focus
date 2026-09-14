@@ -439,4 +439,106 @@ describe("Reliable Mutations Contract Tests", () => {
       expect(onRejected).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("Schema Security Contract Tests", () => {
+    it("migration 20260914010000 must drop insecure USING(true) policies and NOT re-introduce them", () => {
+      const migrationDir = path.resolve(__dirname, "../../supabase/migrations");
+      const hardeningFile = path.join(
+        migrationDir,
+        "20260914010000_harden_overtime_delegation_rls_and_atomic_decisions.sql",
+      );
+      expect(fs.existsSync(hardeningFile)).toBe(true);
+      const content = fs.readFileSync(hardeningFile, "utf-8");
+
+      // Must drop the insecure policies from the earlier migration
+      expect(content).toContain("DROP POLICY IF EXISTS \"delegation_rules_read_authenticated\"");
+      expect(content).toContain("DROP POLICY IF EXISTS \"delegation_rules_write_authenticated\"");
+      expect(content).toContain("DROP POLICY IF EXISTS \"overtime_records_read_authenticated\"");
+      expect(content).toContain("DROP POLICY IF EXISTS \"overtime_records_write_authenticated\"");
+
+      // Must NOT introduce new unrestricted USING(true) policies for ALL authenticated
+      // Only check non-comment lines (lines not starting with --)
+      const nonCommentLines = content
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("--"))
+        .join("\n");
+      const usingtrue = /USING\s*\(\s*true\s*\)/gi;
+      const matches = nonCommentLines.match(usingtrue) ?? [];
+      expect(matches.length).toBe(0);
+
+      // Must revoke GRANT ALL to authenticated on both tables
+      expect(content).toContain("REVOKE ALL ON public.overtime_records FROM authenticated");
+      expect(content).toContain("REVOKE ALL ON public.delegation_rules  FROM authenticated");
+    });
+
+    it("insecure migration 20260914000000 must NOT be the last migration file (must be superseded)", () => {
+      const migrationDir = path.resolve(__dirname, "../../supabase/migrations");
+      const files = fs.readdirSync(migrationDir).filter((f) => f.endsWith(".sql")).sort();
+      const lastFile = files[files.length - 1];
+      expect(lastFile).not.toBe("20260914000000_delegation_rules_and_decisions.sql");
+      // The hardening migration must exist and come after
+      expect(files).toContain(
+        "20260914010000_harden_overtime_delegation_rls_and_atomic_decisions.sql",
+      );
+    });
+
+    it("hardening migration must define all four atomic decision RPCs", () => {
+      const migrationDir = path.resolve(__dirname, "../../supabase/migrations");
+      const hardeningFile = path.join(
+        migrationDir,
+        "20260914010000_harden_overtime_delegation_rls_and_atomic_decisions.sql",
+      );
+      const content = fs.readFileSync(hardeningFile, "utf-8");
+
+      expect(content).toContain("approve_overtime_request");
+      expect(content).toContain("reject_overtime_request");
+      expect(content).toContain("approve_attendance_correction");
+      expect(content).toContain("reject_attendance_correction");
+    });
+
+    it("operational repository decision functions must call atomic RPCs, not multi-step client writes", () => {
+      const repoPath = path.resolve(__dirname, "../lib/data/operational-repository.ts");
+      const content = fs.readFileSync(repoPath, "utf-8");
+
+      // All four functions must use supabase.rpc()
+      expect(content).toContain('supabase.rpc("approve_overtime_request"');
+      expect(content).toContain('supabase.rpc("reject_overtime_request"');
+      expect(content).toContain('supabase.rpc("approve_attendance_correction"');
+      expect(content).toContain('supabase.rpc("reject_attendance_correction"');
+
+      // Must NOT contain the old multi-step approve pattern (fetch then update separately)
+      // The tell-tale sign is fetching overtime_records then separately updating it for approval
+      const oldApprovePattern = /from\("overtime_records"\)[\s\S]{0,200}\.update\(\s*\{[\s\S]*?status:\s*"approved"/;
+      expect(content).not.toMatch(oldApprovePattern);
+    });
+
+    it("authorization errors (42501) from RPCs must be classified as 'authorization' kind", () => {
+      const err = normalizeMutationError({ code: "42501", message: "permission denied" });
+      expect(err).toBeInstanceOf(AppMutationError);
+      expect(err.kind).toBe("authorization");
+    });
+
+    it("hardening migration must add DB constraints preventing invalid overtime and delegation data", () => {
+      const migrationDir = path.resolve(__dirname, "../../supabase/migrations");
+      const hardeningFile = path.join(
+        migrationDir,
+        "20260914010000_harden_overtime_delegation_rls_and_atomic_decisions.sql",
+      );
+      const content = fs.readFileSync(hardeningFile, "utf-8");
+
+      // Overtime constraints
+      expect(content).toContain("overtime_hours_positive");
+      expect(content).toContain("overtime_rate_positive");
+      expect(content).toContain("overtime_status_values");
+
+      // Delegation constraints
+      expect(content).toContain("delegation_not_self");
+      expect(content).toContain("delegation_date_order");
+      expect(content).toContain("delegation_status_values");
+
+      // Unique index preventing duplicate pending overtime
+      expect(content).toContain("overtime_active_unique_per_employee_date");
+    });
+  });
 });
+

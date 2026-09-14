@@ -1609,96 +1609,49 @@ export async function createOvertimeRecord(
   return data.id;
 }
 
+type RpcDecisionResult = { ok: boolean } | null;
+
 export async function approveOvertimeRecord(id: string): Promise<void> {
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: raw, error } = await supabase.rpc("approve_overtime_request", {
+    p_overtime_id: id,
+  });
+  const data = raw as RpcDecisionResult;
 
-  const { data: record, error: fetchErr } = await enterpriseSupabase
-    .from("overtime_records")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (fetchErr) throw new AppMutationError(fetchErr.message, "backend", { details: fetchErr });
-  if (!record) throw new AppMutationError("طلب العمل الإضافي غير موجود", "conflict");
-  if (record.status !== "pending") {
-    throw new AppMutationError("تم اتخاذ القرار في طلب العمل الإضافي مسبقًا", "conflict");
+  if (error) {
+    const code = (error as { code?: string }).code ?? "";
+    if (code === "23505" || code === "P0002") {
+      throw new AppMutationError(error.message, "conflict", { details: error });
+    }
+    if (code === "42501") {
+      throw new AppMutationError(error.message, "authorization", { details: error });
+    }
+    throw new AppMutationError(error.message, "backend", { details: error });
   }
 
-  const { data: updatedRows, error: updateErr } = await enterpriseSupabase
-    .from("overtime_records")
-    .update({
-      status: "approved",
-      approved_by: userData.user?.id ?? null,
-      approved_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("status", "pending")
-    .select("id");
-
-  if (updateErr) throw new AppMutationError(updateErr.message, "backend", { details: updateErr });
-  if (!updatedRows || updatedRows.length === 0) {
-    throw new AppMutationError("تعذر اعتماد العمل الإضافي؛ ربما عُولج الطلب بالفعل", "conflict");
-  }
-
-  // Authoritatively update attendance_records with overtime_hours
-  const { data: existingAtt } = await supabase
-    .from("attendance_records")
-    .select("id, overtime_hours")
-    .eq("employee_id", record.employee_id)
-    .eq("work_date", record.work_date)
-    .maybeSingle();
-
-  const currentOt = Number(existingAtt?.overtime_hours ?? 0);
-  const newOt = currentOt + Number(record.hours || 0);
-
-  if (existingAtt) {
-    const { error: attErr } = await supabase
-      .from("attendance_records")
-      .update({ overtime_hours: newOt })
-      .eq("id", existingAtt.id);
-    if (attErr) throw new AppMutationError(attErr.message, "backend", { details: attErr });
-  } else {
-    const { error: attErr } = await supabase.from("attendance_records").insert({
-      employee_id: record.employee_id,
-      work_date: record.work_date,
-      overtime_hours: newOt,
-      status: "present",
-      worked_hours: 0,
-      note: "سجل حضور مضاف آلياً مع العمل الإضافي",
-    });
-    if (attErr) throw new AppMutationError(attErr.message, "backend", { details: attErr });
+  if (!data?.ok) {
+    throw new AppMutationError("تعذر اعتماد العمل الإضافي", "backend");
   }
 }
 
 export async function rejectOvertimeRecord(id: string): Promise<void> {
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: raw, error } = await supabase.rpc("reject_overtime_request", {
+    p_overtime_id: id,
+  });
+  const data = raw as RpcDecisionResult;
 
-  const { data: record, error: fetchErr } = await enterpriseSupabase
-    .from("overtime_records")
-    .select("id, status")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (fetchErr) throw new AppMutationError(fetchErr.message, "backend", { details: fetchErr });
-  if (!record) throw new AppMutationError("طلب العمل الإضافي غير موجود", "conflict");
-  if (record.status !== "pending") {
-    throw new AppMutationError("تم اتخاذ القرار في طلب العمل الإضافي مسبقًا", "conflict");
+  if (error) {
+    const code = (error as { code?: string }).code ?? "";
+    if (code === "23505" || code === "P0002") {
+      throw new AppMutationError(error.message, "conflict", { details: error });
+    }
+    if (code === "42501") {
+      throw new AppMutationError(error.message, "authorization", { details: error });
+    }
+    throw new AppMutationError(error.message, "backend", { details: error });
   }
 
-  const { data: updatedRows, error: updateErr } = await enterpriseSupabase
-    .from("overtime_records")
-    .update({
-      status: "rejected",
-      approved_by: userData.user?.id ?? null,
-      approved_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("status", "pending")
-    .select("id");
-
-  if (updateErr) throw new AppMutationError(updateErr.message, "backend", { details: updateErr });
-  if (!updatedRows || updatedRows.length === 0) {
-    throw new AppMutationError("تعذر رفض العمل الإضافي؛ ربما عُولج الطلب بالفعل", "conflict");
+  if (!data?.ok) {
+    throw new AppMutationError("تعذر رفض العمل الإضافي", "backend");
   }
 }
 
@@ -1721,118 +1674,45 @@ export async function fetchAttendanceCorrectionsServer(
 }
 
 export async function approveAttendanceCorrectionRecord(id: string): Promise<void> {
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: raw, error } = await supabase.rpc("approve_attendance_correction", {
+    p_request_id: id,
+  });
+  const data = raw as RpcDecisionResult;
 
-  const { data: req, error: fetchErr } = await enterpriseSupabase
-    .from("requests")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (fetchErr) throw new AppMutationError(fetchErr.message, "backend", { details: fetchErr });
-  if (!req) throw new AppMutationError("طلب تصحيح البصمة غير موجود", "conflict");
-  if (req.status !== "pending") {
-    throw new AppMutationError("تم اتخاذ القرار في هذا الطلب مسبقًا", "conflict");
+  if (error) {
+    const code = (error as { code?: string }).code ?? "";
+    if (code === "23505" || code === "P0002") {
+      throw new AppMutationError(error.message, "conflict", { details: error });
+    }
+    if (code === "42501") {
+      throw new AppMutationError(error.message, "authorization", { details: error });
+    }
+    throw new AppMutationError(error.message, "backend", { details: error });
   }
 
-  const { data: updatedRows, error: updateErr } = await enterpriseSupabase
-    .from("requests")
-    .update({
-      status: "approved",
-      decided_by: userData.user?.id ?? null,
-      decided_at: new Date().toISOString(),
-      decision_note: "تم اعتماد تصحيح البصمة وتحديث السجلات",
-    })
-    .eq("id", id)
-    .eq("status", "pending")
-    .select("id");
-
-  if (updateErr) throw new AppMutationError(updateErr.message, "backend", { details: updateErr });
-  if (!updatedRows || updatedRows.length === 0) {
-    throw new AppMutationError("تعذر اعتماد الطلب؛ ربما تم اتخاذ قرار مسبقًا", "conflict");
-  }
-
-  const payload = (typeof req.payload === "object" && req.payload !== null
-    ? req.payload
-    : {}) as Record<string, any>;
-  const workDate =
-    req.start_date || payload.workDate || new Date().toISOString().split("T")[0];
-  const checkIn = String(payload.correctInTime || payload.correctIn || "08:00");
-  const checkOut = String(payload.correctOutTime || payload.correctOut || "17:00");
-
-  const parseHourMin = (timeStr: string) => {
-    const parts = timeStr.split(":");
-    return (Number(parts[0]) || 0) + (Number(parts[1]) || 0) / 60;
-  };
-  const inHours = parseHourMin(checkIn);
-  const outHours = parseHourMin(checkOut);
-  const workedHours = Math.max(0, Number((outHours - inHours).toFixed(2)));
-
-  const formattedIn = checkIn.length === 5 ? `${checkIn}:00` : checkIn;
-  const formattedOut = checkOut.length === 5 ? `${checkOut}:00` : checkOut;
-
-  const { data: existingAtt } = await supabase
-    .from("attendance_records")
-    .select("id")
-    .eq("employee_id", req.employee_id)
-    .eq("work_date", workDate)
-    .maybeSingle();
-
-  if (existingAtt) {
-    const { error: attErr } = await supabase
-      .from("attendance_records")
-      .update({
-        check_in: formattedIn,
-        check_out: formattedOut,
-        status: "present",
-        worked_hours: workedHours,
-        note: "تم تصحيح البصمة بموجب طلب معتمد",
-      })
-      .eq("id", existingAtt.id);
-    if (attErr) throw new AppMutationError(attErr.message, "backend", { details: attErr });
-  } else {
-    const { error: attErr } = await supabase.from("attendance_records").insert({
-      employee_id: req.employee_id,
-      work_date: workDate,
-      check_in: formattedIn,
-      check_out: formattedOut,
-      status: "present",
-      worked_hours: workedHours,
-      note: "سجل حضور تم إنشاؤه بموجب تصحيح بصمة معتمد",
-    });
-    if (attErr) throw new AppMutationError(attErr.message, "backend", { details: attErr });
+  if (!data?.ok) {
+    throw new AppMutationError("تعذر اعتماد تصحيح البصمة", "backend");
   }
 }
 
 export async function rejectAttendanceCorrectionRecord(id: string): Promise<void> {
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: raw, error } = await supabase.rpc("reject_attendance_correction", {
+    p_request_id: id,
+  });
+  const data = raw as RpcDecisionResult;
 
-  const { data: req, error: fetchErr } = await enterpriseSupabase
-    .from("requests")
-    .select("id, status")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (fetchErr) throw new AppMutationError(fetchErr.message, "backend", { details: fetchErr });
-  if (!req) throw new AppMutationError("طلب تصحيح البصمة غير موجود", "conflict");
-  if (req.status !== "pending") {
-    throw new AppMutationError("تم اتخاذ القرار في هذا الطلب مسبقًا", "conflict");
+  if (error) {
+    const code = (error as { code?: string }).code ?? "";
+    if (code === "23505" || code === "P0002") {
+      throw new AppMutationError(error.message, "conflict", { details: error });
+    }
+    if (code === "42501") {
+      throw new AppMutationError(error.message, "authorization", { details: error });
+    }
+    throw new AppMutationError(error.message, "backend", { details: error });
   }
 
-  const { data: updatedRows, error: updateErr } = await enterpriseSupabase
-    .from("requests")
-    .update({
-      status: "rejected",
-      decided_by: userData.user?.id ?? null,
-      decided_at: new Date().toISOString(),
-      decision_note: "تم رفض طلب تصحيح البصمة",
-    })
-    .eq("id", id)
-    .eq("status", "pending")
-    .select("id");
-
-  if (updateErr) throw new AppMutationError(updateErr.message, "backend", { details: updateErr });
-  if (!updatedRows || updatedRows.length === 0) {
-    throw new AppMutationError("تعذر رفض الطلب؛ ربما تم اتخاذ قرار مسبقًا", "conflict");
+  if (!data?.ok) {
+    throw new AppMutationError("تعذر رفض تصحيح البصمة", "backend");
   }
 }

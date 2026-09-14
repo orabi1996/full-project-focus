@@ -1545,20 +1545,27 @@ export async function createDelegationRuleRecord(
   return data.id;
 }
 
-export async function revokeDelegationRuleRecord(id: string): Promise<void> {
-  const { data, error } = await enterpriseSupabase
-    .from("delegation_rules")
-    .update({
-      status: "revoked",
-      revoked_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("status", "active")
-    .select("id");
+type RpcDecisionResult = { ok: boolean } | null;
 
-  if (error) throw new AppMutationError(error.message, "backend", { details: error });
-  if (!data || data.length === 0) {
-    throw new AppMutationError("قاعدة التفويض غير موجودة أو تم إلغاؤها بالفعل", "conflict");
+export async function revokeDelegationRuleRecord(id: string): Promise<void> {
+  const { data: raw, error } = await supabase.rpc("revoke_delegation_rule", {
+    p_delegation_id: id,
+  });
+  const data = raw as RpcDecisionResult;
+
+  if (error) {
+    const code = (error as { code?: string }).code ?? "";
+    if (code === "23505" || code === "P0002") {
+      throw new AppMutationError(error.message, "conflict", { details: error });
+    }
+    if (code === "42501") {
+      throw new AppMutationError(error.message, "authorization", { details: error });
+    }
+    throw new AppMutationError(error.message, "backend", { details: error });
+  }
+
+  if (!data?.ok) {
+    throw new AppMutationError("تعذر إلغاء قاعدة التفويض", "backend");
   }
 }
 
@@ -1608,8 +1615,6 @@ export async function createOvertimeRecord(
   if (!data?.id) throw new AppMutationError("تعذر تسجيل طلب العمل الإضافي", "backend");
   return data.id;
 }
-
-type RpcDecisionResult = { ok: boolean } | null;
 
 export async function approveOvertimeRecord(id: string): Promise<void> {
   const { data: raw, error } = await supabase.rpc("approve_overtime_request", {

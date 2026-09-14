@@ -535,10 +535,90 @@ describe("Reliable Mutations Contract Tests", () => {
       expect(content).toContain("delegation_not_self");
       expect(content).toContain("delegation_date_order");
       expect(content).toContain("delegation_status_values");
+    });
 
-      // Unique index preventing duplicate pending overtime
-      expect(content).toContain("overtime_active_unique_per_employee_date");
+    it("migration 20260914020000 must convert all 4 decision RPCs to SECURITY DEFINER with internal role and auth checks", () => {
+      const migrationDir = path.resolve(__dirname, "../../supabase/migrations");
+      const fixMigrationFile = path.join(
+        migrationDir,
+        "20260914020000_fix_atomic_rpc_execution_and_delegation_revoke.sql",
+      );
+      expect(fs.existsSync(fixMigrationFile)).toBe(true);
+      const content = fs.readFileSync(fixMigrationFile, "utf-8");
+
+      // Must be SECURITY DEFINER
+      expect(content).toContain("approve_overtime_request(p_overtime_id uuid)\nRETURNS jsonb\nLANGUAGE plpgsql\nSECURITY DEFINER");
+      expect(content).toContain("reject_overtime_request(p_overtime_id uuid)\nRETURNS jsonb\nLANGUAGE plpgsql\nSECURITY DEFINER");
+      expect(content).toContain("approve_attendance_correction(p_request_id uuid)\nRETURNS jsonb\nLANGUAGE plpgsql\nSECURITY DEFINER");
+      expect(content).toContain("reject_attendance_correction(p_request_id uuid)\nRETURNS jsonb\nLANGUAGE plpgsql\nSECURITY DEFINER");
+
+      // Must enforce search_path = public
+      const searchPathMatches = content.match(/SET search_path = public/g);
+      expect(searchPathMatches?.length).toBeGreaterThanOrEqual(5);
+
+      // Must check auth.uid() IS NULL
+      const authNullMatches = content.match(/auth\.uid\(\)\s+IS\s+NULL/g);
+      expect(authNullMatches?.length).toBeGreaterThanOrEqual(5);
+
+      // Must check caller role inside functions
+      expect(content).toContain("current_user_has_any_role");
+    });
+
+    it("migration 20260914020000 must create atomic revoke_delegation_rule RPC with ownership and role checks", () => {
+      const migrationDir = path.resolve(__dirname, "../../supabase/migrations");
+      const fixMigrationFile = path.join(
+        migrationDir,
+        "20260914020000_fix_atomic_rpc_execution_and_delegation_revoke.sql",
+      );
+      const content = fs.readFileSync(fixMigrationFile, "utf-8");
+
+      expect(content).toContain("FUNCTION public.revoke_delegation_rule(p_delegation_id uuid)");
+      expect(content).toContain("SECURITY DEFINER");
+      expect(content).toContain("REVOKE ALL ON FUNCTION public.revoke_delegation_rule(uuid) FROM PUBLIC");
+      expect(content).toContain("GRANT EXECUTE ON FUNCTION public.revoke_delegation_rule(uuid) TO authenticated");
+
+      // Must check delegator ownership or admin role
+      expect(content).toContain("v_rule.delegator_id <> public.current_employee_id()");
+      expect(content).toContain("public.current_user_has_any_role(ARRAY['super_admin','org_admin','hr_manager'])");
+    });
+
+    it("operational repository revokeDelegationRuleRecord must call revoke_delegation_rule RPC", () => {
+      const repoPath = path.resolve(__dirname, "../lib/data/operational-repository.ts");
+      const content = fs.readFileSync(repoPath, "utf-8");
+
+      expect(content).toContain('supabase.rpc("revoke_delegation_rule"');
+      // Must not contain direct client-side update on delegation_rules
+      const oldDelegationUpdate = /from\("delegation_rules"\)\s*\.update\(/;
+      expect(content).not.toMatch(oldDelegationUpdate);
+    });
+
+    it("migration 20260914020000 must replace overtime active index with time-boundary segments", () => {
+      const migrationDir = path.resolve(__dirname, "../../supabase/migrations");
+      const fixMigrationFile = path.join(
+        migrationDir,
+        "20260914020000_fix_atomic_rpc_execution_and_delegation_revoke.sql",
+      );
+      const content = fs.readFileSync(fixMigrationFile, "utf-8");
+
+      expect(content).toContain("DROP INDEX IF EXISTS public.overtime_active_unique_per_employee_date");
+      expect(content).toContain("overtime_active_unique_per_employee_time");
+      expect(content).toContain("(employee_id, work_date, start_time, end_time)");
+      expect(content).toContain("WHERE status = 'pending'");
+    });
+
+    it("must not grant generic broad UPDATE on delegation_rules to authenticated", () => {
+      const migrationDir = path.resolve(__dirname, "../../supabase/migrations");
+      const files = [
+        "20260914010000_harden_overtime_delegation_rls_and_atomic_decisions.sql",
+        "20260914020000_fix_atomic_rpc_execution_and_delegation_revoke.sql",
+      ];
+      for (const file of files) {
+        const filePath = path.join(migrationDir, file);
+        const content = fs.readFileSync(filePath, "utf-8");
+        expect(content).not.toMatch(/GRANT\s+.*UPDATE.*ON\s+public\.delegation_rules\s+TO\s+authenticated/i);
+      }
     });
   });
 });
+
 

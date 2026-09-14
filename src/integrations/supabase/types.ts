@@ -2836,6 +2836,10 @@ export type Database = {
         Args: { p_overtime_id: string }
         Returns: Json
       }
+      revoke_delegation_rule: {
+        Args: { p_delegation_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role:

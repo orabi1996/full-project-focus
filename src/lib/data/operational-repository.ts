@@ -421,11 +421,11 @@ export async function fetchOperationalSnapshot(
       code: row.code,
       address: row.address ?? "",
       city: row.city ?? undefined,
-      country: row.country,
+      country: row.country ?? undefined,
       locationType: (row.location_type || "branch") as WorkLocation["locationType"],
-      timezone: row.timezone,
-      latitude: numberValue(row.latitude),
-      longitude: numberValue(row.longitude),
+      timezone: row.timezone ?? undefined,
+      latitude: row.latitude != null ? Number(row.latitude) : undefined,
+      longitude: row.longitude != null ? Number(row.longitude) : undefined,
       radiusMeters: row.radius_meters,
       status: row.status === "inactive" ? "inactive" : "active",
       defaultShiftId: row.default_shift_id ?? undefined,
@@ -1043,9 +1043,9 @@ export async function createWorkLocationRecord(
       code: location.code,
       address: location.address,
       city: location.city ?? null,
-      country: location.country ?? "المملكة العربية السعودية",
+      country: location.country ?? undefined,
       location_type: location.locationType ?? "branch",
-      timezone: location.timezone ?? "Asia/Riyadh",
+      timezone: location.timezone ?? undefined,
       latitude: location.latitude,
       longitude: location.longitude,
       radius_meters: location.radiusMeters,
@@ -1071,11 +1071,11 @@ export async function createWorkLocationRecord(
     code: data.code,
     address: data.address ?? "",
     city: (data as any).city ?? undefined,
-    country: (data as any).country ?? "المملكة العربية السعودية",
+    country: (data as any).country ?? undefined,
     locationType: ((data as any).location_type as any) || "branch",
-    timezone: (data as any).timezone ?? "Asia/Riyadh",
-    latitude: data.latitude ?? 24.7136,
-    longitude: data.longitude ?? 46.6753,
+    timezone: (data as any).timezone ?? undefined,
+    latitude: data.latitude != null ? Number(data.latitude) : (location.latitude ?? undefined),
+    longitude: data.longitude != null ? Number(data.longitude) : (location.longitude ?? undefined),
     radiusMeters: data.radius_meters,
     defaultShiftId: data.default_shift_id ?? undefined,
     status: (data.status as any) || "active",
@@ -1207,9 +1207,9 @@ export async function updateWorkLocationRecord(
       code: location.code,
       address: location.address,
       city: location.city ?? null,
-      country: location.country ?? "المملكة العربية السعودية",
+      country: location.country ?? undefined,
       location_type: location.locationType ?? "branch",
-      timezone: location.timezone ?? "Asia/Riyadh",
+      timezone: location.timezone ?? undefined,
       latitude: location.latitude,
       longitude: location.longitude,
       radius_meters: location.radiusMeters,
@@ -1409,6 +1409,12 @@ export async function getMasterDataDependenciesRecord(
   };
 }
 
+interface ArchiveRpcResponse {
+  success?: boolean;
+  message?: string;
+  [key: string]: unknown;
+}
+
 export async function archiveOrganizationUnitRecord(
   id: string,
   reassignDeptId?: string,
@@ -1423,6 +1429,10 @@ export async function archiveOrganizationUnitRecord(
     } as any,
   );
   if (error) throw new Error(error.message);
+  const res = data as ArchiveRpcResponse | null;
+  if (!res || (typeof res === "object" && res.success === false)) {
+    throw new Error("فشلت عملية أرشفة الإدارة التنظيمية");
+  }
   return data;
 }
 
@@ -1435,6 +1445,10 @@ export async function archiveSubsidiaryRecord(id: string, reassignSubId?: string
     } as any,
   );
   if (error) throw new Error(error.message);
+  const res = data as ArchiveRpcResponse | null;
+  if (!res || (typeof res === "object" && res.success === false)) {
+    throw new Error("فشلت عملية أرشفة الشركة التابعة");
+  }
   return data;
 }
 
@@ -1447,6 +1461,10 @@ export async function archiveWorkLocationRecord(id: string, reassignLocId?: stri
     } as any,
   );
   if (error) throw new Error(error.message);
+  const res = data as ArchiveRpcResponse | null;
+  if (!res || (typeof res === "object" && res.success === false)) {
+    throw new Error("فشلت عملية أرشفة موقع العمل");
+  }
   return data;
 }
 
@@ -1459,6 +1477,10 @@ export async function archiveCostCenterRecord(id: string, reassignCcId?: string)
     } as any,
   );
   if (error) throw new Error(error.message);
+  const res = data as ArchiveRpcResponse | null;
+  if (!res || (typeof res === "object" && res.success === false)) {
+    throw new Error("فشلت عملية أرشفة مركز التكلفة");
+  }
   return data;
 }
 
@@ -1471,6 +1493,10 @@ export async function archiveJobPositionRecord(id: string, reassignPosId?: strin
     } as any,
   );
   if (error) throw new Error(error.message);
+  const res = data as ArchiveRpcResponse | null;
+  if (!res || (typeof res === "object" && res.success === false)) {
+    throw new Error("فشلت عملية أرشفة المسمى الوظيفي");
+  }
   return data;
 }
 

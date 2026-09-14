@@ -1,3 +1,8 @@
+
+/** Canonical workforce employed definition: active, probation, on_leave (excludes terminated, suspended) */
+export const isEmployedWorkforce = (status?: string | null): boolean => {
+  return status === "active" || status === "probation" || status === "on_leave";
+};
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import type {
@@ -305,7 +310,7 @@ export function useOrganizationMutations() {
           return true;
         },
         onCommitted: () => {
-          toast.success("تم أرشفة الشركة التابعة بنجاح");
+          toast.success("تمت أرشفة الشركة التابعة بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر أرشفة الشركة التابعة");
@@ -406,7 +411,7 @@ export function useOrganizationMutations() {
           return true;
         },
         onCommitted: () => {
-          toast.success("تم أرشفة موقع العمل بنجاح");
+          toast.success("تمت أرشفة موقع العمل بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر أرشفة موقع العمل");
@@ -511,7 +516,7 @@ export function useOrganizationMutations() {
           return true;
         },
         onCommitted: () => {
-          toast.success("تم أرشفة مركز التكلفة بنجاح");
+          toast.success("تمت أرشفة مركز التكلفة بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر أرشفة مركز التكلفة");
@@ -616,7 +621,7 @@ export function useOrganizationMutations() {
           return true;
         },
         onCommitted: () => {
-          toast.success("تم أرشفة المسمى الوظيفي بنجاح");
+          toast.success("تمت أرشفة المسمى الوظيفي بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر أرشفة المسمى الوظيفي");

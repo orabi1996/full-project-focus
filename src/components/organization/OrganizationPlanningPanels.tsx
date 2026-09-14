@@ -124,7 +124,7 @@ export function CostCentersPanel() {
     if (!deleteConfirmCenter || isSaving) return;
     const ok = await deleteCostCenter(deleteConfirmCenter.id);
     if (ok) {
-      toast.success(`تم حذف مركز التكلفة ${deleteConfirmCenter.nameAr} بنجاح`);
+      toast.success(`تمت أرشفة مركز التكلفة ${deleteConfirmCenter.nameAr} بنجاح`);
     } else {
       toast.error("تعذر حذف مركز التكلفة");
     }
@@ -460,7 +460,7 @@ export function JobPositionsPanel() {
     if (!deleteConfirmPosition || isSaving) return;
     const ok = await deleteJobPosition(deleteConfirmPosition.id);
     if (ok) {
-      toast.success(`تم حذف المنصب ${deleteConfirmPosition.titleAr} بنجاح`);
+      toast.success(`تمت أرشفة المنصب ${deleteConfirmPosition.titleAr} بنجاح`);
     } else {
       toast.error("تعذر حذف المنصب");
     }

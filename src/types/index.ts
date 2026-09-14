@@ -110,8 +110,8 @@ export interface WorkLocation {
   country?: string;
   locationType?: "headquarters" | "branch" | "office" | "warehouse" | "remote";
   timezone?: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
   radiusMeters: number;
   status: "active" | "inactive";
   defaultShiftId?: string;

@@ -4,6 +4,7 @@ import { CostCentersPanel, JobPositionsPanel } from "./OrganizationPlanningPanel
 import { CompanyProfilePanel } from "./CompanyProfilePanel";
 import { useApp } from "../../lib/context/AppContext";
 import { canAccessModule, canManageModule } from "../../lib/auth/permissions";
+import { isEmployedWorkforce } from "../../lib/domains/organization";
 import {
   Building2,
   MapPin,
@@ -139,7 +140,7 @@ export const OrganizationView: React.FC = () => {
     unifiedNumber: "",
     managerName: "",
     managerEmployeeId: "",
-    city: "الرياض",
+    city: "",
     address: "",
     email: "",
     phone: "",
@@ -157,10 +158,10 @@ export const OrganizationView: React.FC = () => {
     nameEn: "",
     code: "",
     address: "",
-    city: "الرياض",
+    city: "",
     locationType: "branch" as WorkLocation["locationType"],
-    latitude: 24.7136,
-    longitude: 46.6753,
+    latitude: "" as string | number,
+    longitude: "" as string | number,
     radiusMeters: 150,
     status: "active" as "active" | "inactive",
     subsidiaryId: "",
@@ -174,9 +175,9 @@ export const OrganizationView: React.FC = () => {
     [orgUnits, selectedNodeId],
   );
 
-  // Dynamic Headcount Helpers
+  // Dynamic Headcount Helpers (canonical workforce: active, probation, on_leave)
   const getDeptEmployees = (deptId: string) =>
-    employees.filter((e) => e.departmentId === deptId);
+    employees.filter((e) => e.departmentId === deptId && isEmployedWorkforce(e.status));
 
   const canViewSalaryMass = useMemo(() => {
     return canAccessModule(currentRole, "payroll");
@@ -194,10 +195,10 @@ export const OrganizationView: React.FC = () => {
   };
 
   const getSubEmployees = (subId: string) =>
-    employees.filter((e) => e.subsidiaryId === subId);
+    employees.filter((e) => e.subsidiaryId === subId && isEmployedWorkforce(e.status));
 
   const getLocEmployees = (locId: string) =>
-    employees.filter((e) => e.workLocationId === locId);
+    employees.filter((e) => e.workLocationId === locId && isEmployedWorkforce(e.status));
 
   // Filtered Departments
   const filteredOrgUnits = useMemo(() => {
@@ -269,7 +270,7 @@ export const OrganizationView: React.FC = () => {
       return (byParent.get(parentKey) ?? []).flatMap((unit) => {
         if (visited.has(unit.id)) return [];
         visited.add(unit.id);
-        const headcount = getDeptEmployees(unit.id).length || unit.employeeCount;
+        const headcount = getDeptEmployees(unit.id).length;
         const salary = getDeptSalaryMass(unit.id);
 
         const unitPositions = (jobPositions || []).filter((p) => p.orgUnitId === unit.id);
@@ -303,14 +304,20 @@ export const OrganizationView: React.FC = () => {
       titleEn: company.legalNameEn || "Main Enterprise",
       subtitle: company.crNumber ? `سجل تجاري ${company.crNumber}` : undefined,
       managerName: undefined,
-      code: company.code || "HQ-01",
+      code: company.code || undefined,
       kind: "company",
-      employeeCount: employees.length,
+      employeeCount: employees.filter((e) => isEmployedWorkforce(e.status)).length,
       openPositions: totalOpenPositions,
       budgetMonthly: undefined,
       children: build("__root__", 1),
     };
   }, [orgUnits, company, employees, dataMode, jobPositions, canViewSalaryMass]);
+
+  const getEmployeeFullName = (emp?: Employee): string | undefined => {
+    if (!emp) return undefined;
+    const name = `${emp.firstNameAr || ""} ${emp.lastNameAr || ""}`.trim();
+    return name || undefined;
+  };
 
   // ===================== CRUD HANDLERS =====================
 
@@ -336,6 +343,13 @@ export const OrganizationView: React.FC = () => {
       toast.error("يرجى إدخال اسم الإدارة / القسم بالعربية");
       return;
     }
+    if (!deptForm.code.trim()) {
+      toast.error("يرجى إدخال كود الإدارة التنظيمية");
+      return;
+    }
+    const mgrEmp = deptForm.managerEmployeeId
+      ? employees.find((e) => e.id === deptForm.managerEmployeeId)
+      : undefined;
     const saved = await addOrgUnit({
       companyId: company.id,
       parentId: deptForm.parentId || null,
@@ -343,10 +357,10 @@ export const OrganizationView: React.FC = () => {
       costCenterId: deptForm.costCenterId || null,
       nameAr: deptForm.nameAr.trim(),
       nameEn: deptForm.nameEn.trim() || deptForm.nameAr.trim(),
-      code: deptForm.code.trim() || `DEP-${Date.now().toString().slice(-4)}`,
+      code: deptForm.code.trim(),
       type: deptForm.type,
       managerEmployeeId: deptForm.managerEmployeeId || undefined,
-      managerName: deptForm.managerName || "غير معين",
+      managerName: getEmployeeFullName(mgrEmp),
       status: "active",
     });
     if (!saved) return;
@@ -377,6 +391,13 @@ export const OrganizationView: React.FC = () => {
       toast.error("يرجى إدخال اسم الإدارة بالعربية");
       return;
     }
+    if (!deptForm.code.trim()) {
+      toast.error("يرجى إدخال كود الإدارة التنظيمية");
+      return;
+    }
+    const mgrEmp = deptForm.managerEmployeeId
+      ? employees.find((e) => e.id === deptForm.managerEmployeeId)
+      : undefined;
     const saved = await updateOrgUnit(editingDeptId, {
       companyId: company.id,
       parentId: deptForm.parentId || null,
@@ -387,7 +408,7 @@ export const OrganizationView: React.FC = () => {
       code: deptForm.code.trim(),
       type: deptForm.type,
       managerEmployeeId: deptForm.managerEmployeeId || undefined,
-      managerName: deptForm.managerName || "غير معين",
+      managerName: getEmployeeFullName(mgrEmp),
       status: "active",
     });
     if (!saved) return;
@@ -408,7 +429,7 @@ export const OrganizationView: React.FC = () => {
 
     const ok = await archiveOrgUnit(deptId, reassignDeptId || undefined);
     if (ok) {
-      toast.success(`تم أرشفة الإدارة ${deleteDeptConfirm.nameAr} بنجاح`);
+      toast.success(`تمت أرشفة الإدارة ${deleteDeptConfirm.nameAr} بنجاح`);
     } else {
       toast.error("تعذر أرشفة الإدارة");
     }
@@ -427,7 +448,7 @@ export const OrganizationView: React.FC = () => {
       unifiedNumber: "",
       managerName: "",
       managerEmployeeId: "",
-      city: "الرياض",
+      city: "",
       address: "",
       email: "",
       phone: "",
@@ -442,20 +463,27 @@ export const OrganizationView: React.FC = () => {
       toast.error("يرجى إدخال اسم الشركة التابعة بالعربية");
       return;
     }
+    if (!subForm.code.trim()) {
+      toast.error("يرجى إدخال كود الشركة التابعة");
+      return;
+    }
+    const mgrEmp = subForm.managerEmployeeId
+      ? employees.find((e) => e.id === subForm.managerEmployeeId)
+      : undefined;
     const saved = await addSubsidiary({
       companyId: company.id,
       nameAr: subForm.nameAr.trim(),
       nameEn: subForm.nameEn.trim() || subForm.nameAr.trim(),
-      code: subForm.code.trim() || `SUB-${Date.now().toString().slice(-4)}`,
+      code: subForm.code.trim(),
       crNumber: subForm.crNumber.trim() || undefined,
       taxNumber: subForm.taxNumber.trim() || undefined,
       unifiedNumber: subForm.unifiedNumber.trim() || undefined,
-      managerName: subForm.managerName || "غير معين",
+      managerName: getEmployeeFullName(mgrEmp),
       managerEmployeeId: subForm.managerEmployeeId || undefined,
-      city: subForm.city,
-      address: subForm.address,
-      email: subForm.email,
-      phone: subForm.phone,
+      city: subForm.city || undefined,
+      address: subForm.address || undefined,
+      email: subForm.email || undefined,
+      phone: subForm.phone || undefined,
       status: subForm.status,
     });
     if (!saved) return;
@@ -475,7 +503,7 @@ export const OrganizationView: React.FC = () => {
       unifiedNumber: sub.unifiedNumber || "",
       managerName: sub.managerName || "",
       managerEmployeeId: sub.managerEmployeeId || "",
-      city: sub.city || "الرياض",
+      city: sub.city || "",
       address: sub.address || "",
       email: sub.email || "",
       phone: sub.phone || "",
@@ -490,6 +518,9 @@ export const OrganizationView: React.FC = () => {
       toast.error("يرجى إدخال اسم الشركة التابعة");
       return;
     }
+    const mgrEmp = subForm.managerEmployeeId
+      ? employees.find((e) => e.id === subForm.managerEmployeeId)
+      : undefined;
     const saved = await updateSubsidiary(editingSubId, {
       companyId: company.id,
       nameAr: subForm.nameAr.trim(),
@@ -498,12 +529,12 @@ export const OrganizationView: React.FC = () => {
       crNumber: subForm.crNumber.trim() || undefined,
       taxNumber: subForm.taxNumber.trim() || undefined,
       unifiedNumber: subForm.unifiedNumber.trim() || undefined,
-      managerName: subForm.managerName || "غير معين",
+      managerName: getEmployeeFullName(mgrEmp),
       managerEmployeeId: subForm.managerEmployeeId || undefined,
-      city: subForm.city,
-      address: subForm.address,
-      email: subForm.email,
-      phone: subForm.phone,
+      city: subForm.city || undefined,
+      address: subForm.address || undefined,
+      email: subForm.email || undefined,
+      phone: subForm.phone || undefined,
       status: subForm.status,
     });
     if (!saved) return;
@@ -516,7 +547,7 @@ export const OrganizationView: React.FC = () => {
     if (!deleteSubConfirm || isSaving) return;
     const ok = await deleteSubsidiary(deleteSubConfirm.id);
     if (ok) {
-      toast.success(`تم حذف الشركة التابعة ${deleteSubConfirm.nameAr} بنجاح`);
+      toast.success(`تمت أرشفة الشركة التابعة ${deleteSubConfirm.nameAr} بنجاح`);
     } else {
       toast.error("تعذر حذف الشركة التابعة");
     }
@@ -532,8 +563,8 @@ export const OrganizationView: React.FC = () => {
       address: "",
       city: "",
       locationType: "branch",
-      latitude: 0,
-      longitude: 0,
+      latitude: "",
+      longitude: "",
       radiusMeters: 150,
       status: "active",
       subsidiaryId: "",
@@ -547,13 +578,27 @@ export const OrganizationView: React.FC = () => {
       toast.error("يرجى إدخال اسم المقر / الفرع بالعربية");
       return;
     }
-    const lat = Number(locForm.latitude);
-    const lng = Number(locForm.longitude);
-    const rad = Number(locForm.radiusMeters);
-    if (isNaN(lat) || lat < -90 || lat > 90 || isNaN(lng) || lng < -180 || lng > 180 || isNaN(rad) || rad <= 0) {
-      toast.error("يرجى إدخال إحداثيات جغرافية ونطاق صحيح (خط العرض -90..90، خط الطول -180..180، نصف القطر أكبر من 0).");
+    if (!locForm.code.trim()) {
+      toast.error("يرجى إدخال كود موقع العمل");
       return;
     }
+    const latStr = String(locForm.latitude ?? "").trim();
+    const lngStr = String(locForm.longitude ?? "").trim();
+    const lat = latStr !== "" ? Number(latStr) : undefined;
+    const lng = lngStr !== "" ? Number(lngStr) : undefined;
+    const rad = Number(locForm.radiusMeters);
+
+    if (lat !== undefined || lng !== undefined) {
+      if (lat === undefined || isNaN(lat) || lat < -90 || lat > 90 || lng === undefined || isNaN(lng) || lng < -180 || lng > 180) {
+        toast.error("يرجى إدخال إحداثيات جغرافية صحيحة (خط العرض -90..90، خط الطول -180..180).");
+        return;
+      }
+    }
+    if (isNaN(rad) || rad <= 0) {
+      toast.error("يرجى إدخال نصف قطر صحيح أكبر من 0.");
+      return;
+    }
+
     const saved = await addWorkLocation({
       companyId: company.id,
       subsidiaryId: locForm.subsidiaryId || null,
@@ -561,7 +606,7 @@ export const OrganizationView: React.FC = () => {
       nameEn: locForm.nameEn.trim() || locForm.nameAr.trim(),
       code: locForm.code.trim(),
       address: locForm.address.trim(),
-      city: locForm.city,
+      city: locForm.city || undefined,
       locationType: locForm.locationType,
       latitude: lat,
       longitude: lng,
@@ -581,10 +626,10 @@ export const OrganizationView: React.FC = () => {
       nameEn: loc.nameEn,
       code: loc.code,
       address: loc.address,
-      city: loc.city || "الرياض",
+      city: loc.city || "",
       locationType: loc.locationType || "branch",
-      latitude: loc.latitude,
-      longitude: loc.longitude,
+      latitude: loc.latitude != null ? loc.latitude : "",
+      longitude: loc.longitude != null ? loc.longitude : "",
       radiusMeters: loc.radiusMeters,
       status: loc.status,
       subsidiaryId: loc.subsidiaryId || "",
@@ -598,6 +643,27 @@ export const OrganizationView: React.FC = () => {
       toast.error("يرجى إدخال اسم الموقع الجغرافي");
       return;
     }
+    if (!locForm.code.trim()) {
+      toast.error("يرجى إدخال كود موقع العمل");
+      return;
+    }
+    const latStr = String(locForm.latitude ?? "").trim();
+    const lngStr = String(locForm.longitude ?? "").trim();
+    const lat = latStr !== "" ? Number(latStr) : undefined;
+    const lng = lngStr !== "" ? Number(lngStr) : undefined;
+    const rad = Number(locForm.radiusMeters);
+
+    if (lat !== undefined || lng !== undefined) {
+      if (lat === undefined || isNaN(lat) || lat < -90 || lat > 90 || lng === undefined || isNaN(lng) || lng < -180 || lng > 180) {
+        toast.error("يرجى إدخال إحداثيات جغرافية صحيحة (خط العرض -90..90، خط الطول -180..180).");
+        return;
+      }
+    }
+    if (isNaN(rad) || rad <= 0) {
+      toast.error("يرجى إدخال نصف قطر صحيح أكبر من 0.");
+      return;
+    }
+
     const saved = await updateWorkLocation(editingLocId, {
       companyId: company.id,
       subsidiaryId: locForm.subsidiaryId || null,
@@ -605,11 +671,11 @@ export const OrganizationView: React.FC = () => {
       nameEn: locForm.nameEn.trim() || locForm.nameAr.trim(),
       code: locForm.code.trim(),
       address: locForm.address.trim(),
-      city: locForm.city,
+      city: locForm.city || undefined,
       locationType: locForm.locationType,
-      latitude: Number(locForm.latitude),
-      longitude: Number(locForm.longitude),
-      radiusMeters: Number(locForm.radiusMeters),
+      latitude: lat,
+      longitude: lng,
+      radiusMeters: rad,
       status: locForm.status,
     });
     if (!saved) return;
@@ -622,7 +688,7 @@ export const OrganizationView: React.FC = () => {
     if (!deleteLocConfirm || isSaving) return;
     const ok = await deleteWorkLocation(deleteLocConfirm.id);
     if (ok) {
-      toast.success(`تم حذف الموقع ${deleteLocConfirm.nameAr} وإعادة توجيه الموظفين بنجاح`);
+      toast.success(`تمت أرشفة الموقع ${deleteLocConfirm.nameAr} بنجاح`);
     } else {
       toast.error("تعذر حذف الموقع");
     }
@@ -1431,7 +1497,8 @@ export const OrganizationView: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredWorkLocations.map((loc) => {
               const assignedCount = getLocEmployees(loc.id).length;
-              const mapsUrl = `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`;
+              const hasCoords = loc.latitude != null && loc.longitude != null && !isNaN(loc.latitude) && !isNaN(loc.longitude);
+              const mapsUrl = hasCoords ? `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}` : undefined;
 
               return (
                 <div
@@ -1460,7 +1527,7 @@ export const OrganizationView: React.FC = () => {
                       <div className="flex justify-between text-muted-foreground">
                         <span>{t.org.coordinates}:</span>
                         <span className="font-bold text-foreground">
-                          {loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}
+                          {hasCoords ? `${loc.latitude!.toFixed(4)}, ${loc.longitude!.toFixed(4)}` : "غير محدد"}
                         </span>
                       </div>
                       <div className="flex justify-between text-muted-foreground">

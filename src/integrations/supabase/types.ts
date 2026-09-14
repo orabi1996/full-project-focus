@@ -3074,6 +3074,28 @@ export type Database = {
         Args: { p_delegation_id: string }
         Returns: Json
       }
+      current_user_company_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_dashboard_summary: {
+        Args: {
+          p_start_date?: string
+          p_end_date?: string
+        }
+        Returns: Json
+      }
+      get_dashboard_attendance_trend: {
+        Args: {
+          p_anchor_date?: string
+          p_days?: number
+        }
+        Returns: Json
+      }
+      get_dashboard_integration_health: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
     }
     Enums: {
       app_role:

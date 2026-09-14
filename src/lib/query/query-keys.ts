@@ -90,6 +90,14 @@ export const queryKeys = {
   integrations: {
     all: ["integrations"] as const,
   },
+  dashboard: {
+    all: ["dashboard"] as const,
+    summary: (filters: { start: string; end: string }) =>
+      [...queryKeys.dashboard.all, "summary", filters.start, filters.end] as const,
+    attendance: (filters: { anchor: string; days: number }) =>
+      [...queryKeys.dashboard.all, "attendance-trend", filters.anchor, filters.days] as const,
+    integrations: () => [...queryKeys.dashboard.all, "integration-health"] as const,
+  },
   rbac: {
     all: ["rbac"] as const,
     roles: () => [...queryKeys.rbac.all, "roles"] as const,

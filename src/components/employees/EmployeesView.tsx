@@ -1,8 +1,14 @@
 import React, { useState, useMemo } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
-import { canManageModule, canAccessModule } from "../../lib/auth/permissions";
-import { bulkChangeEmployeeStatusRecord } from "../../lib/data/hrms-repository";
+import {
+  canManageModule,
+  canAccessModule,
+  canChangeLifecycle,
+  canExportEmployees,
+  canEditHrProfile,
+} from "../../lib/auth/permissions";
+import { useBulkChangeStatus } from "../../lib/domains/employees";
 import type { Employee, ContractType, Gender, MaritalStatus, EmployeeStatus } from "../../types";
 import { isSaudiNationality } from "../../lib/domains/employees/completion";
 import { IconSymbol } from "../ui/IconSymbol";
@@ -87,6 +93,7 @@ export const EmployeesView: React.FC = () => {
     isSaving,
   } = useApp();
   const canManage = canManageModule(currentRole, "employees");
+  const { bulkChangeStatus } = useBulkChangeStatus();
 
   // View Mode: Table vs Smart Cards
   const [viewMode, setViewMode] = useState<ViewMode>("table");
@@ -124,7 +131,7 @@ export const EmployeesView: React.FC = () => {
     email: "",
     phone: "",
     nationalIdOrIqama: "",
-    nationality: "سعودي",
+    nationality: "",
     gender: "male" as Gender,
     birthDate: "",
     maritalStatus: "single" as MaritalStatus,
@@ -136,12 +143,12 @@ export const EmployeesView: React.FC = () => {
     jobTitleEn: "",
     jobGrade: "",
     costCenter: "",
-    workType: "on_site" as const,
+    workType: "on_site" as Employee["workType"],
     workLocationId: workLocations[0]?.id || "",
     workLocationName: workLocations[0]?.nameAr || "",
     hireDate: new Date().toISOString().split("T")[0],
     contractType: "full_time" as ContractType,
-    status: "active" as const,
+    status: "draft" as const,
     basicSalary: 0,
     housingAllowance: 0,
     transportAllowance: 0,
@@ -300,19 +307,26 @@ export const EmployeesView: React.FC = () => {
   };
 
   const handleExportSelectedOrAll = () => {
+    if (!canExportEmployees(currentRole)) {
+      toast.error("غير مصرح لك بتصدير بيانات الموظفين");
+      return;
+    }
+
     const listToExport =
       selectedIds.length > 0
         ? filteredEmployees.filter((e) => selectedIds.includes(e.id))
         : filteredEmployees;
 
     const canViewPayroll = canAccessModule(currentRole, "payroll");
+    const canViewSensitive = canEditHrProfile(currentRole) || currentRole === "auditor";
     const exportData = listToExport.map((e) => {
       const row: Record<string, unknown> = {
         "الرقم الوظيفي": e.employeeNo,
         "الاسم الكامل": `${e.firstNameAr} ${e.lastNameAr}`,
-        "الاسم بالإنجليزية": `${e.firstNameEn || ""} ${e.lastNameEn || ""}`.trim(),
-        "الهوية / الإقامة": canViewPayroll ? e.nationalIdOrIqama : "********",
-        الجنسية: e.nationality,
+        "الهوية / الإقامة":
+          canViewSensitive && (canViewPayroll ? e.nationalIdOrIqama : "********")
+            ? e.nationalIdOrIqama
+            : "********",
         الإدارة: e.departmentName || "",
         "المسمى الوظيفي": e.jobTitleAr,
         "الدرجة الوظيفية": e.jobGrade || "",
@@ -332,7 +346,7 @@ export const EmployeesView: React.FC = () => {
                     ? "منتهي الخدمة"
                     : e.status,
         "تاريخ التعيين": e.hireDate,
-        "عقد العمل": e.qiwaContractNo || "سجل نظامي",
+        "عقد العمل": e.qiwaContractNo || "غير مربوط",
       };
 
       if (canViewPayroll) {
@@ -351,26 +365,32 @@ export const EmployeesView: React.FC = () => {
 
   const handleBulkStatusUpdate = async (newStatus: EmployeeStatus) => {
     if (selectedIds.length === 0 || isSaving) return;
-    try {
-      await bulkChangeEmployeeStatusRecord(selectedIds, newStatus, "تحديث مجمع من شاشة الموظفين");
-      await Promise.all(
-        selectedIds.map((id) => updateEmployee(id, { status: newStatus })),
-      );
-      toast.success(
-        `تم تحديث حالة (${selectedIds.length}) موظفاً بنجاح!`,
-      );
+    if (!canChangeLifecycle(currentRole)) {
+      toast.error("غير مصرح لك بتعديل الحالة التعاقدية للموظفين");
+      return;
+    }
+    const ok = await bulkChangeStatus(
+      selectedIds,
+      newStatus,
+      undefined,
+      "تحديث مجمع من شاشة الموظفين",
+    );
+    if (ok) {
       setSelectedIds([]);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "فشل تحديث الحالة للموظفين المحددين";
-      toast.error(msg);
     }
   };
 
   // Add Employee Submission
   const handleCreateEmployee = async () => {
     if (isSaving) return;
-    if (!newEmp.firstNameAr || !newEmp.lastNameAr || !newEmp.email || !newEmp.nationalIdOrIqama) {
-      toast.error("يرجى استكمال الحقول الإلزامية للموظف");
+    if (
+      !newEmp.firstNameAr ||
+      !newEmp.lastNameAr ||
+      !newEmp.email ||
+      !newEmp.nationalIdOrIqama ||
+      !newEmp.nationality.trim()
+    ) {
+      toast.error("يرجى استكمال الحقول الإلزامية للموظف (بما في ذلك الجنسية)");
       return;
     }
 
@@ -874,27 +894,29 @@ export const EmployeesView: React.FC = () => {
               </select>
             </div>
 
-            {/* Basic Salary Range */}
-            <div className="space-y-1.5">
-              <label className="font-bold text-muted-foreground">نطاق الراتب الأساسي (ر.س)</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  placeholder="من"
-                  value={minSalary}
-                  onChange={(e) => setMinSalary(e.target.value ? Number(e.target.value) : "")}
-                  className="w-full h-9 rounded-2xl border border-border/80 bg-muted/30 px-3 font-mono text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-                <span className="text-muted-foreground font-bold">-</span>
-                <input
-                  type="number"
-                  placeholder="إلى"
-                  value={maxSalary}
-                  onChange={(e) => setMaxSalary(e.target.value ? Number(e.target.value) : "")}
-                  className="w-full h-9 rounded-2xl border border-border/80 bg-muted/30 px-3 font-mono text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
+            {/* Basic Salary Range (Payroll permission only) */}
+            {canAccessModule(currentRole, "payroll") && (
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">نطاق الراتب الأساسي (ر.س)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    placeholder="من"
+                    value={minSalary}
+                    onChange={(e) => setMinSalary(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full h-9 rounded-2xl border border-border/80 bg-muted/30 px-3 font-mono text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <span className="text-muted-foreground font-bold">-</span>
+                  <input
+                    type="number"
+                    placeholder="إلى"
+                    value={maxSalary}
+                    onChange={(e) => setMaxSalary(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full h-9 rounded-2xl border border-border/80 bg-muted/30 px-3 font-mono text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -1257,49 +1279,56 @@ export const EmployeesView: React.FC = () => {
       )}
 
       {/* Floating Bulk Actions Bar */}
-      {selectedIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-full bg-foreground text-background px-6 py-3 shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
-          <span className="text-xs font-black">
-            تم تحديد <span className="text-primary font-mono">{selectedIds.length}</span> موظفاً
-          </span>
+      {selectedIds.length > 0 &&
+        (canChangeLifecycle(currentRole) || canExportEmployees(currentRole)) && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-full bg-foreground text-background px-6 py-3 shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
+            <span className="text-xs font-black">
+              تم تحديد <span className="text-primary font-mono">{selectedIds.length}</span> موظفاً
+            </span>
 
-          <div className="h-4 w-px bg-background/30" />
+            <div className="h-4 w-px bg-background/30" />
 
-          <Button
-            size="sm"
-            onClick={handleExportSelectedOrAll}
-            className="rounded-full text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white h-8 px-3.5 shadow-xs"
-          >
-            <Download className="h-3.5 w-3.5" />
-            تصدير المحدد (CSV)
-          </Button>
+            {canExportEmployees(currentRole) && (
+              <Button
+                size="sm"
+                onClick={handleExportSelectedOrAll}
+                className="rounded-full text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white h-8 px-3.5 shadow-xs"
+              >
+                <Download className="h-3.5 w-3.5" />
+                تصدير المحدد (CSV)
+              </Button>
+            )}
 
-          <Button
-            size="sm"
-            onClick={() => handleBulkStatusUpdate("active")}
-            className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground h-8 px-3.5 shadow-xs"
-          >
-            تفعيل كـ "نشط"
-          </Button>
+            {canChangeLifecycle(currentRole) && (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => handleBulkStatusUpdate("active")}
+                  className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground h-8 px-3.5 shadow-xs"
+                >
+                  تفعيل كـ "نشط"
+                </Button>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleBulkStatusUpdate("probation")}
-            className="rounded-full text-xs font-bold text-background border-background/40 hover:bg-background/20 h-8 px-3"
-          >
-            تحت التجربة
-          </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBulkStatusUpdate("probation")}
+                  className="rounded-full text-xs font-bold text-background border-background/40 hover:bg-background/20 h-8 px-3"
+                >
+                  تحت التجربة
+                </Button>
+              </>
+            )}
 
-          <button
-            type="button"
-            onClick={() => setSelectedIds([])}
-            className="text-xs font-bold text-muted-foreground hover:text-background transition-colors mr-2"
-          >
-            إلغاء
-          </button>
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="text-xs font-bold text-muted-foreground hover:text-background transition-colors mr-2"
+            >
+              إلغاء
+            </button>
+          </div>
+        )}
 
       {/* 3-Step Add Employee Wizard Modal (Classera Pulse Executive) */}
       <Dialog open={isAddWizardOpen} onOpenChange={setIsAddWizardOpen}>
@@ -1446,11 +1475,12 @@ export const EmployeesView: React.FC = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold text-foreground">الجنسية</label>
+                <label className="font-bold text-foreground">الجنسية *</label>
                 <input
                   type="text"
                   value={newEmp.nationality}
                   onChange={(e) => setNewEmp({ ...newEmp, nationality: e.target.value })}
+                  placeholder="اختر أو اكتب الجنسية (مثال: سعودي)"
                   className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>

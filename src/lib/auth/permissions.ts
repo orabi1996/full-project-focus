@@ -83,3 +83,31 @@ export function canAccessModule(role: UserRole, moduleId: string) {
 export function canManageModule(role: UserRole, moduleId: string) {
   return moduleManageAccess[moduleId]?.includes(role) ?? false;
 }
+
+export function canEditHrProfile(role: UserRole): boolean {
+  return role === "super_admin" || role === "hr_manager";
+}
+
+export function canEditAssignment(role: UserRole): boolean {
+  return role === "super_admin" || role === "hr_manager";
+}
+
+export function canEditPayroll(role: UserRole): boolean {
+  return role === "super_admin" || role === "hr_manager" || role === "payroll_officer";
+}
+
+export function canEditBank(role: UserRole): boolean {
+  return role === "super_admin" || role === "hr_manager" || role === "payroll_officer";
+}
+
+export function canChangeLifecycle(role: UserRole): boolean {
+  return role === "super_admin" || role === "hr_manager";
+}
+
+export function canManageDocuments(role: UserRole): boolean {
+  return role === "super_admin" || role === "hr_manager";
+}
+
+export function canExportEmployees(role: UserRole): boolean {
+  return role === "super_admin" || role === "hr_manager" || role === "auditor";
+}

@@ -215,6 +215,7 @@ export interface Employee {
   id: string;
   companyId?: string;
   employeeNo: string;
+  fullName?: string;
   firstNameAr: string;
   lastNameAr: string;
   firstNameEn: string;
@@ -228,6 +229,7 @@ export interface Employee {
   birthDate: string;
   maritalStatus: MaritalStatus;
   avatarUrl?: string;
+  avatarStoragePath?: string | null;
 
   // Organization Placement
   subsidiaryId: string;
@@ -328,6 +330,52 @@ export interface Employee {
 
   // Custom Fields
   customFields?: Record<string, unknown>;
+}
+
+export interface EmployeeDirectoryItem {
+  id: string;
+  employeeNo: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  firstNameEn?: string | null;
+  lastNameEn?: string | null;
+  fullName: string;
+  email?: string | null;
+  phone?: string | null;
+  jobTitle: string;
+  status: EmployeeStatus;
+  hireDate: string;
+  contractType: ContractType;
+  workType: string;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  subsidiaryId?: string | null;
+  subsidiaryName?: string | null;
+  workLocationId?: string | null;
+  workLocationName?: string | null;
+  avatarUrl?: string | null;
+  avatarStoragePath?: string | null;
+  completionScore: number;
+  nationality?: string | null;
+  qiwaContractNo?: string | null;
+}
+
+export interface EmployeeDirectoryFilters {
+  search?: string;
+  status?: string;
+  departmentId?: string;
+  subsidiaryId?: string;
+  locationId?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+}
+
+export interface EmployeeDirectoryResponse {
+  items: EmployeeDirectoryItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }
 
 // ----------------------------------------------------------------------------

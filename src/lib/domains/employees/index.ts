@@ -1,6 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
-import type { Employee } from "../../../types";
+import type {
+  Employee,
+  EmployeeDirectoryFilters,
+  EmployeeDirectoryResponse,
+  EmployeeDirectoryItem,
+} from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
 import {
   createEmployeeRecord,
@@ -9,6 +14,12 @@ import {
   bulkChangeEmployeeStatusRecord,
   rehireEmployeeRecord,
   fetchSingleEmployee,
+  fetchEmployeeDetailRecord,
+  fetchEmployeeDirectoryRecord,
+  updateEmployeeHrProfileRecord,
+  updateEmployeeAssignmentRecord,
+  updateEmployeeBankDetailsRecord,
+  updateEmployeeCompensationRecord,
 } from "../../data/hrms-repository";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
@@ -38,16 +49,16 @@ export function useEmployees() {
 export function useEmployee(id?: string | null) {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
-  const { employees, isLoading: isListLoading } = useEmployees();
+  const demoEmployees = useDemoStore((s) => s.employees);
 
   const query = useQuery({
     queryKey: queryKeys.employees.detail(id || ""),
     queryFn: async () => {
       if (!id) return null;
       if (!isLive) {
-        return employees.find((e) => e.id === id) ?? null;
+        return demoEmployees.find((e) => e.id === id) ?? null;
       }
-      return fetchSingleEmployee(id);
+      return fetchEmployeeDetailRecord(id);
     },
     enabled: Boolean(id),
     staleTime: 30_000,
@@ -55,17 +66,100 @@ export function useEmployee(id?: string | null) {
 
   const employee = useMemo(() => {
     if (!id) return null;
-    if (query.data !== undefined && query.data !== null) return query.data;
-    return employees.find((e) => e.id === id) ?? null;
-  }, [id, query.data, employees]);
+    if (!isLive) {
+      return demoEmployees.find((e) => e.id === id) ?? null;
+    }
+    return query.data ?? null;
+  }, [id, isLive, query.data, demoEmployees]);
 
   return {
     employee,
     data: employee,
-    isLoading: query.isLoading || (isLive && !employee && isListLoading),
+    isLoading: query.isLoading || (isLive && !employee && query.isFetching),
     isError: query.isError,
     error: query.error,
     refetch: query.refetch,
+  };
+}
+
+export function useEmployeeDirectory(filters: EmployeeDirectoryFilters = {}) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+  const demoEmployees = useDemoStore((s) => s.employees);
+
+  const query = useQuery({
+    queryKey: queryKeys.employees.directory(filters as Record<string, unknown>),
+    queryFn: async (): Promise<EmployeeDirectoryResponse> => {
+      if (!isLive) {
+        let filtered = [...demoEmployees];
+        if (filters.status && filters.status !== "all") {
+          filtered = filtered.filter((e) => e.status === filters.status);
+        }
+        if (filters.departmentId) {
+          filtered = filtered.filter((e) => e.departmentId === filters.departmentId);
+        }
+        if (filters.subsidiaryId) {
+          filtered = filtered.filter((e) => e.subsidiaryId === filters.subsidiaryId);
+        }
+        if (filters.locationId) {
+          filtered = filtered.filter((e) => e.workLocationId === filters.locationId);
+        }
+        if (filters.search?.trim()) {
+          const s = filters.search.trim().toLowerCase();
+          filtered = filtered.filter(
+            (e) =>
+              e.employeeNo.toLowerCase().includes(s) ||
+              e.firstNameAr.toLowerCase().includes(s) ||
+              e.lastNameAr.toLowerCase().includes(s) ||
+              (e.fullName ? e.fullName.toLowerCase().includes(s) : false) ||
+              (e.email && e.email.toLowerCase().includes(s)),
+          );
+        }
+        const page = filters.page ?? 1;
+        const pageSize = filters.pageSize ?? 25;
+        const totalCount = filtered.length;
+        const items: EmployeeDirectoryItem[] = filtered
+          .slice((page - 1) * pageSize, page * pageSize)
+          .map((e) => ({
+            id: e.id,
+            employeeNo: e.employeeNo,
+            firstNameAr: e.firstNameAr,
+            lastNameAr: e.lastNameAr,
+            firstNameEn: e.firstNameEn,
+            lastNameEn: e.lastNameEn,
+            fullName: `${e.firstNameAr} ${e.lastNameAr}`.trim() || e.fullName || `${e.firstNameEn} ${e.lastNameEn}`.trim() || "موظف",
+            email: e.email,
+            phone: e.phone,
+            jobTitle: e.jobTitleAr || e.jobTitleEn,
+            status: e.status,
+            hireDate: e.hireDate,
+            contractType: e.contractType,
+            workType: e.workType || "on_site",
+            departmentId: e.departmentId,
+            departmentName: e.departmentName,
+            subsidiaryId: e.subsidiaryId,
+            subsidiaryName: e.subsidiaryName,
+            workLocationId: e.workLocationId,
+            workLocationName: e.workLocationName,
+            avatarUrl: e.avatarUrl,
+            avatarStoragePath: e.avatarStoragePath,
+            completionScore: e.completionScore,
+            nationality: e.nationality,
+            qiwaContractNo: e.qiwaContractNo,
+          }));
+        return { items, totalCount, page, pageSize };
+      }
+      return fetchEmployeeDirectoryRecord(filters);
+    },
+    staleTime: 30_000,
+  });
+
+  return {
+    ...query,
+    items: query.data?.items ?? [],
+    totalCount: query.data?.totalCount ?? 0,
+    page: query.data?.page ?? (filters.page ?? 1),
+    pageSize: query.data?.pageSize ?? (filters.pageSize ?? 25),
   };
 }
 
@@ -336,3 +430,206 @@ export function useRehireEmployee() {
 
   return { rehire };
 }
+
+export function useUpdateEmployeeHrProfile() {
+  const { session, isDemo } = useAuth();
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
+  const queryClient = useQueryClient();
+
+  const updateHrProfile = useCallback(
+    async (payload: Parameters<typeof updateEmployeeHrProfileRecord>[0]): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `update-hr-profile-${payload.employeeId}`,
+        operation: async () => {
+          await updateEmployeeHrProfileRecord(payload);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.employees.detail(payload.employeeId) });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.employees = demoStore.employees.map((e) =>
+            e.id === payload.employeeId
+              ? {
+                  ...e,
+                  firstNameAr: payload.firstNameAr,
+                  lastNameAr: payload.lastNameAr,
+                  firstNameEn: payload.firstNameEn ?? e.firstNameEn,
+                  lastNameEn: payload.lastNameEn ?? e.lastNameEn,
+                  email: payload.email ?? e.email,
+                  phone: payload.phone ?? e.phone,
+                  nationalIdOrIqama: payload.nationalId ?? e.nationalIdOrIqama,
+                  nationality: payload.nationality ?? e.nationality,
+                  gender: (payload.gender as Employee["gender"]) ?? e.gender,
+                  birthDate: payload.birthDate ?? e.birthDate,
+                  maritalStatus: (payload.maritalStatus as Employee["maritalStatus"]) ?? e.maritalStatus,
+                  jobTitleAr: payload.jobTitle ?? e.jobTitleAr,
+                }
+              : e,
+          );
+          demoStore.notify();
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تحديث البيانات الشخصية بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر تحديث البيانات الشخصية");
+        },
+      });
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
+  return { updateHrProfile };
+}
+
+export function useUpdateEmployeeAssignment() {
+  const { session, isDemo } = useAuth();
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
+  const queryClient = useQueryClient();
+
+  const updateAssignment = useCallback(
+    async (payload: Parameters<typeof updateEmployeeAssignmentRecord>[0]): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `update-assignment-${payload.employeeId}`,
+        operation: async () => {
+          await updateEmployeeAssignmentRecord(payload);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.employees.detail(payload.employeeId) });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.organization.all });
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.employees = demoStore.employees.map((e) =>
+            e.id === payload.employeeId
+              ? {
+                  ...e,
+                  departmentId: payload.departmentId ?? e.departmentId,
+                  subsidiaryId: payload.subsidiaryId ?? e.subsidiaryId,
+                  workLocationId: payload.workLocationId ?? e.workLocationId,
+                  jobPositionId: payload.jobPositionId ?? e.jobPositionId,
+                  costCenterId: payload.costCenterId ?? e.costCenterId,
+                  managerId: payload.managerId ?? e.managerId,
+                  workType: (payload.workType as Employee["workType"]) ?? e.workType,
+                }
+              : e,
+          );
+          demoStore.notify();
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تحديث التعيين الإداري بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر تحديث التعيين الإداري");
+        },
+      });
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
+  return { updateAssignment };
+}
+
+export function useUpdateEmployeeBankDetails() {
+  const { session, isDemo } = useAuth();
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
+  const queryClient = useQueryClient();
+
+  const updateBankDetails = useCallback(
+    async (payload: Parameters<typeof updateEmployeeBankDetailsRecord>[0]): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `update-bank-${payload.employeeId}`,
+        operation: async () => {
+          await updateEmployeeBankDetailsRecord(payload);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.employees.detail(payload.employeeId) });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.employees = demoStore.employees.map((e) =>
+            e.id === payload.employeeId
+              ? {
+                  ...e,
+                  bankName: payload.bankName,
+                  iban: payload.iban,
+                }
+              : e,
+          );
+          demoStore.notify();
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تحديث الحساب البنكي بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر تحديث الحساب البنكي");
+        },
+      });
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
+  return { updateBankDetails };
+}
+
+export function useUpdateEmployeeCompensation() {
+  const { session, isDemo } = useAuth();
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
+  const queryClient = useQueryClient();
+
+  const updateCompensation = useCallback(
+    async (payload: Parameters<typeof updateEmployeeCompensationRecord>[0]): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `update-comp-${payload.employeeId}`,
+        operation: async () => {
+          await updateEmployeeCompensationRecord(payload);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.employees.detail(payload.employeeId) });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          return true;
+        },
+        demoOperation: () => {
+          demoStore.employees = demoStore.employees.map((e) =>
+            e.id === payload.employeeId
+              ? {
+                  ...e,
+                  basicSalary: payload.basicSalary,
+                  housingAllowance: payload.housingAllowance ?? 0,
+                  transportAllowance: payload.transportAllowance ?? 0,
+                  otherAllowances: payload.otherAllowances ?? 0,
+                  totalSalary:
+                    payload.basicSalary +
+                    (payload.housingAllowance ?? 0) +
+                    (payload.transportAllowance ?? 0) +
+                    (payload.otherAllowances ?? 0),
+                }
+              : e,
+          );
+          demoStore.notify();
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تم تحديث البيانات المالية بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر تحديث البيانات المالية");
+        },
+      });
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
+  return { updateCompensation };
+}
+

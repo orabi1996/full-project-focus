@@ -18,6 +18,10 @@ import type {
   Gender,
   MaritalStatus,
   ContractType,
+  EmployeeStatus,
+  EmployeeDirectoryItem,
+  EmployeeDirectoryFilters,
+  EmployeeDirectoryResponse,
 } from "../../types";
 import { calculateProfileCompletion } from "../domains/employees/completion";
 
@@ -358,36 +362,45 @@ export async function fetchCoreSnapshot(): Promise<CoreSnapshot> {
 }
 
 export async function createEmployeeRecord(employee: Employee): Promise<Employee> {
+  const firstName = employee.firstNameAr?.trim();
+  const lastName = employee.lastNameAr?.trim();
+  if (!firstName || !lastName) {
+    throw new Error("الاسم الأول واسم العائلة باللغة العربية إلزاميان للتوثيق المالي والقانوني ولإنشاء الموظف.");
+  }
+
+  // Authoritative company resolution (never pick arbitrary first company!)
   let companyId = employee.companyId;
   if (!companyId) {
-    const { data: comp } = await enterpriseSupabase.from("companies").select("id").limit(1).single();
-    companyId = comp?.id;
+    const { data: userData } = await supabase.auth.getUser();
+    companyId = userData.user?.user_metadata?.company_id;
+  }
+
+  if (!companyId) {
+    throw new Error("تعذر تحديد منشأة الموظف المعتمدة بصورة آمنة وموثوقة. يرجى التأكد من تسجيل الدخول ضمن منشأة معتمدة.");
   }
 
   // Generate enterprise company-scoped employee number if missing or format incomplete
-  let employeeNo = employee.employeeNo;
+  let employeeNo = employee.employeeNo?.trim();
   if (!employeeNo || (employeeNo.startsWith("EMP-") && employeeNo.length < 10)) {
-    if (companyId) {
-      try {
-        const { data: genNo } = await enterpriseSupabase.rpc(
-          "generate_company_employee_no",
-          { p_company_id: companyId },
-        );
-        if (genNo) employeeNo = genNo as string;
-      } catch {
-        // Fallback if RPC unavailable
-      }
+    const { data: genNo, error: genErr } = await enterpriseSupabase.rpc("generate_company_employee_no", {
+      p_company_id: companyId,
+    });
+    if (genErr || !genNo) {
+      throw new Error(`فشل توليد الرقم الوظيفي للموظف: ${genErr?.message || "تعذر إكمال العملية"}`);
     }
+    employeeNo = genNo as string;
   }
+
+  const fullName = `${firstName} ${lastName}`.trim();
 
   const { data, error } = await enterpriseSupabase
     .from("employees")
     .insert({
-      company_id: companyId || null,
+      company_id: companyId,
       employee_no: employeeNo,
-      full_name: `${employee.firstNameAr || ""} ${employee.lastNameAr || ""}`.trim() || employee.firstNameEn || "موظف جديد",
-      first_name_ar: employee.firstNameAr || null,
-      last_name_ar: employee.lastNameAr || null,
+      full_name: fullName,
+      first_name_ar: firstName,
+      last_name_ar: lastName,
       first_name_en: employee.firstNameEn || null,
       last_name_en: employee.lastNameEn || null,
       department_id: employee.departmentId === "unassigned" || !employee.departmentId ? null : employee.departmentId,
@@ -417,6 +430,7 @@ export async function createEmployeeRecord(employee: Employee): Promise<Employee
       iban: employee.iban || null,
       gosi_number: employee.gosiNumber || null,
       avatar_url: employee.avatarUrl || null,
+      avatar_storage_path: employee.avatarStoragePath || null,
       national_id_expiry: employee.nationalIdExpiry || null,
       passport_no: employee.passportNo || null,
       passport_expiry: employee.passportExpiry || null,
@@ -429,7 +443,7 @@ export async function createEmployeeRecord(employee: Employee): Promise<Employee
       qiwa_contract_no: employee.qiwaContractNo || null,
       completion_score: calculateProfileCompletion(employee),
       metadata: employee.customFields ?? {},
-      // Persist truthful status without flattening!
+      // Persist truthful status (default to draft if not set)
       status: employee.status || "draft",
     })
     .select()
@@ -446,10 +460,10 @@ export async function createEmployeeRecord(employee: Employee): Promise<Employee
   return {
     ...employee,
     id: data.id,
-    employeeNo: data.employee_no,
-    companyId: data.company_id ?? undefined,
-    status: data.status as Employee["status"],
-    completionScore: data.completion_score,
+    employeeNo: data.employee_no || employeeNo,
+    companyId: data.company_id || companyId,
+    status: (data.status as EmployeeStatus) || "draft",
+    completionScore: data.completion_score ?? 0,
   };
 }
 
@@ -529,10 +543,11 @@ export async function updateEmployeeRecord(id: string, updates: Partial<Employee
   if (updates.qiwaContractNo !== undefined) dbUpdates.qiwa_contract_no = updates.qiwaContractNo || null;
   if (updates.completionScore !== undefined)
     dbUpdates.completion_score = Number(updates.completionScore || 0);
+  if (updates.avatarStoragePath !== undefined) dbUpdates.avatar_storage_path = updates.avatarStoragePath || null;
   if (updates.customFields !== undefined) dbUpdates.metadata = updates.customFields;
-  if (updates.status !== undefined) {
-    dbUpdates.status = updates.status;
-  }
+  // NOTE: Lifecycle status is strictly excluded from generic update!
+  // Production lifecycle status changes MUST use changeEmployeeStatusRecord / rehireEmployeeRecord.
+  delete (dbUpdates as Record<string, unknown>).status;
 
   const { data, error } = await enterpriseSupabase
     .from("employees")
@@ -606,6 +621,230 @@ export async function rehireEmployeeRecord(
   if (error) throw new Error(error.message);
   return data;
 }
+
+export async function fetchEmployeeDirectoryRecord(
+  filters: EmployeeDirectoryFilters = {},
+): Promise<EmployeeDirectoryResponse> {
+  const { data, error } = await enterpriseSupabase.rpc("get_employee_directory", {
+    p_search: filters.search?.trim() || null,
+    p_status: filters.status || null,
+    p_department_id: filters.departmentId || null,
+    p_subsidiary_id: filters.subsidiaryId || null,
+    p_location_id: filters.locationId || null,
+    p_page: filters.page ?? 1,
+    p_page_size: filters.pageSize ?? 25,
+    p_sort: filters.sort || "name_asc",
+  });
+
+  if (error) throw new Error(error.message);
+
+  const raw = (data as Record<string, unknown>) || {};
+  const rawItems = (raw.items as Record<string, unknown>[]) || [];
+
+  const items: EmployeeDirectoryItem[] = rawItems.map((item) => ({
+    id: String(item.id),
+    employeeNo: String(item.employee_no || ""),
+    firstNameAr: String(item.first_name_ar || ""),
+    lastNameAr: String(item.last_name_ar || ""),
+    firstNameEn: item.first_name_en ? String(item.first_name_en) : null,
+    lastNameEn: item.last_name_en ? String(item.last_name_en) : null,
+    fullName: String(item.full_name || ""),
+    email: item.email ? String(item.email) : null,
+    phone: item.phone ? String(item.phone) : null,
+    jobTitle: String(item.job_title || ""),
+    status: (item.status as EmployeeStatus) || "draft",
+    hireDate: String(item.hire_date || ""),
+    contractType: (item.contract_type as ContractType) || "full_time",
+    workType: String(item.work_type || "on_site"),
+    departmentId: item.department_id ? String(item.department_id) : null,
+    departmentName: item.department_name ? String(item.department_name) : null,
+    subsidiaryId: item.subsidiary_id ? String(item.subsidiary_id) : null,
+    subsidiaryName: item.subsidiary_name ? String(item.subsidiary_name) : null,
+    workLocationId: item.work_location_id ? String(item.work_location_id) : null,
+    workLocationName: item.work_location_name ? String(item.work_location_name) : null,
+    avatarUrl: item.avatar_url ? String(item.avatar_url) : null,
+    avatarStoragePath: item.avatar_storage_path ? String(item.avatar_storage_path) : null,
+    completionScore: Number(item.completion_score ?? 0),
+    nationality: item.nationality ? String(item.nationality) : null,
+    qiwaContractNo: item.qiwa_contract_no ? String(item.qiwa_contract_no) : null,
+  }));
+
+  return {
+    items,
+    totalCount: Number(raw.total_count ?? items.length),
+    page: Number(raw.page ?? (filters.page ?? 1)),
+    pageSize: Number(raw.page_size ?? (filters.pageSize ?? 25)),
+  };
+}
+
+function mapEmployeeDetail(data: Record<string, unknown>): Employee {
+  return {
+    id: String(data.id),
+    companyId: data.company_id ? String(data.company_id) : undefined,
+    employeeNo: String(data.employee_no || ""),
+    firstNameAr: String(data.first_name_ar || ""),
+    lastNameAr: String(data.last_name_ar || ""),
+    firstNameEn: String(data.first_name_en || ""),
+    lastNameEn: String(data.last_name_en || ""),
+    email: String(data.email || ""),
+    personalEmail: data.personal_email ? String(data.personal_email) : undefined,
+    phone: String(data.phone || ""),
+    nationalIdOrIqama: String(data.national_id_or_iqama || ""),
+    nationality: String(data.nationality || ""),
+    gender: (data.gender as Gender) || "male",
+    birthDate: String(data.birth_date || ""),
+    maritalStatus: (data.marital_status as MaritalStatus) || "single",
+    avatarUrl: data.avatar_url ? String(data.avatar_url) : undefined,
+    avatarStoragePath: data.avatar_storage_path ? String(data.avatar_storage_path) : null,
+    subsidiaryId: String(data.subsidiary_id || ""),
+    subsidiaryName: data.subsidiary_name ? String(data.subsidiary_name) : undefined,
+    departmentId: String(data.department_id || ""),
+    departmentName: data.department_name ? String(data.department_name) : undefined,
+    jobTitleAr: String(data.job_title || ""),
+    jobTitleEn: String(data.job_title || ""),
+    jobPositionId: data.job_position_id ? String(data.job_position_id) : null,
+    managerId: data.manager_id ? String(data.manager_id) : null,
+    managerName: data.manager_name ? String(data.manager_name) : undefined,
+    workLocationId: String(data.work_location_id || ""),
+    workLocationName: data.work_location_name ? String(data.work_location_name) : undefined,
+    hireDate: String(data.hire_date || ""),
+    contractType: (data.contract_type as ContractType) || "full_time",
+    status: (data.status as EmployeeStatus) || "draft",
+    completionScore: Number(data.completion_score ?? 0),
+    terminationDate: data.termination_date ? String(data.termination_date) : undefined,
+    lastWorkingDate: data.last_working_date ? String(data.last_working_date) : undefined,
+    terminationReason: data.termination_reason ? String(data.termination_reason) : undefined,
+    terminationType: data.termination_type ? String(data.termination_type) : undefined,
+    rehireDate: data.rehire_date ? String(data.rehire_date) : undefined,
+    basicSalary: typeof data.basic_salary === "number" ? data.basic_salary : 0,
+    totalSalary: typeof data.total_salary === "number" ? data.total_salary : 0,
+    housingAllowance: typeof data.housing_allowance === "number" ? data.housing_allowance : 0,
+    transportAllowance: typeof data.transport_allowance === "number" ? data.transport_allowance : 0,
+    otherAllowances: typeof data.other_allowances === "number" ? data.other_allowances : 0,
+    bankName: data.bank_name ? String(data.bank_name) : undefined,
+    iban: data.iban ? String(data.iban) : undefined,
+    gosiNumber: data.gosi_number ? String(data.gosi_number) : undefined,
+    jobGrade: data.job_grade ? String(data.job_grade) : undefined,
+    costCenterId: data.cost_center_id ? String(data.cost_center_id) : null,
+    contractStartDate: data.contract_start_date ? String(data.contract_start_date) : undefined,
+    contractEndDate: data.contract_end_date ? String(data.contract_end_date) : undefined,
+    qiwaContractNo: data.qiwa_contract_no ? String(data.qiwa_contract_no) : undefined,
+    workType: (data.work_type as Employee["workType"]) || "on_site",
+    bloodType: data.blood_type ? String(data.blood_type) : undefined,
+    dependentsCount: typeof data.dependents_count === "number" ? data.dependents_count : 0,
+    passportNo: data.passport_no ? String(data.passport_no) : undefined,
+    passportExpiry: data.passport_expiry ? String(data.passport_expiry) : undefined,
+    nationalIdExpiry: data.national_id_expiry ? String(data.national_id_expiry) : undefined,
+  };
+}
+
+export async function fetchEmployeeDetailRecord(id: string): Promise<Employee | null> {
+  const { data, error } = await enterpriseSupabase.rpc("get_employee_detail", {
+    p_employee_id: id,
+  });
+
+  if (error) {
+    if (error.message.includes("غير موجود") || error.code === "PGRST116") {
+      return null;
+    }
+    return fetchSingleEmployee(id);
+  }
+
+  if (!data) return null;
+
+  return mapEmployeeDetail(data as Record<string, unknown>);
+}
+
+export async function updateEmployeeHrProfileRecord(payload: {
+  employeeId: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  firstNameEn?: string;
+  lastNameEn?: string;
+  email?: string;
+  phone?: string;
+  nationalId?: string;
+  nationality?: string;
+  gender?: string;
+  birthDate?: string;
+  maritalStatus?: string;
+  jobTitle?: string;
+}) {
+  const { data, error } = await enterpriseSupabase.rpc("update_employee_hr_profile", {
+    p_employee_id: payload.employeeId,
+    p_first_name_ar: payload.firstNameAr,
+    p_last_name_ar: payload.lastNameAr,
+    p_first_name_en: payload.firstNameEn || null,
+    p_last_name_en: payload.lastNameEn || null,
+    p_email: payload.email || null,
+    p_phone: payload.phone || null,
+    p_national_id: payload.nationalId || null,
+    p_nationality: payload.nationality || null,
+    p_gender: payload.gender || null,
+    p_birth_date: payload.birthDate || null,
+    p_marital_status: payload.maritalStatus || null,
+    p_job_title: payload.jobTitle || null,
+  });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function updateEmployeeAssignmentRecord(payload: {
+  employeeId: string;
+  departmentId?: string;
+  subsidiaryId?: string;
+  workLocationId?: string;
+  jobPositionId?: string;
+  costCenterId?: string;
+  managerId?: string;
+  workType?: string;
+}) {
+  const { data, error } = await enterpriseSupabase.rpc("update_employee_assignment", {
+    p_employee_id: payload.employeeId,
+    p_department_id: payload.departmentId || null,
+    p_subsidiary_id: payload.subsidiaryId || null,
+    p_work_location_id: payload.workLocationId || null,
+    p_job_position_id: payload.jobPositionId || null,
+    p_cost_center_id: payload.costCenterId || null,
+    p_manager_id: payload.managerId || null,
+    p_work_type: payload.workType || null,
+  });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function updateEmployeeBankDetailsRecord(payload: {
+  employeeId: string;
+  bankName: string;
+  iban: string;
+}) {
+  const { data, error } = await enterpriseSupabase.rpc("update_employee_bank_details", {
+    p_employee_id: payload.employeeId,
+    p_bank_name: payload.bankName,
+    p_iban: payload.iban,
+  });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function updateEmployeeCompensationRecord(payload: {
+  employeeId: string;
+  basicSalary: number;
+  housingAllowance?: number;
+  transportAllowance?: number;
+  otherAllowances?: number;
+}) {
+  const { data, error } = await enterpriseSupabase.rpc("update_employee_compensation", {
+    p_employee_id: payload.employeeId,
+    p_basic_salary: payload.basicSalary,
+    p_housing_allowance: payload.housingAllowance ?? 0,
+    p_transport_allowance: payload.transportAllowance ?? 0,
+    p_other_allowances: payload.otherAllowances ?? 0,
+  });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 
 export async function fetchSingleEmployee(id: string): Promise<Employee | null> {
   const [empResult, deptsResult, subsResult, locsResult] = await Promise.all([

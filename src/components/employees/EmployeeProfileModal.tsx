@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../../lib/context/AppContext";
-import { canAccessModule } from "../../lib/auth/permissions";
+import {
+  canAccessModule,
+  canEditHrProfile,
+  canEditAssignment,
+  canEditPayroll,
+  canEditBank,
+  canChangeLifecycle,
+} from "../../lib/auth/permissions";
+import { useEmployee } from "../../lib/domains/employees";
 import type { Employee, ContractType, Gender, MaritalStatus } from "../../types";
 import { IconSymbol } from "../ui/IconSymbol";
 import { OfficialDocumentModal, type DocType } from "../documents/OfficialDocumentModal";
@@ -62,7 +70,7 @@ export const EmployeeProfileModal: React.FC = () => {
     t,
   } = useApp();
 
-  const employee = employees.find((e) => e.id === activeEmployeeModalId) || null;
+  const { employee, isLoading: isEmployeeLoading } = useEmployee(activeEmployeeModalId);
 
   // Edit Mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -125,9 +133,27 @@ export const EmployeeProfileModal: React.FC = () => {
     }
   }, [employee]);
 
+  if (!activeEmployeeModalId) return null;
+
+  if (isEmployeeLoading && !employee) {
+    return (
+      <Dialog open={Boolean(activeEmployeeModalId)} onOpenChange={(open) => !open && closeEmployeeProfile()}>
+        <DialogContent className="max-w-md rounded-3xl p-8 border border-border/80 text-center space-y-4">
+          <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground font-semibold">جاري استرجاع بيانات الموظف...</p>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   if (!employee) return null;
 
-  const canEdit = ["super_admin", "hr_manager", "payroll_officer"].includes(currentRole);
+  const canEditHr = canEditHrProfile(currentRole);
+  const canEditAssign = canEditAssignment(currentRole);
+  const canEditPay = canEditPayroll(currentRole);
+  const canEditBnk = canEditBank(currentRole);
+  const canChangeStatus = canChangeLifecycle(currentRole);
+  const canEdit = canEditHr || canEditAssign || canEditPay || canEditBnk;
   const canViewPayroll = canAccessModule(currentRole, "payroll");
   const maskIban = (iban?: string) => {
     if (!iban) return "غير مسجل";

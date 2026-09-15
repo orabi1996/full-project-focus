@@ -199,6 +199,7 @@ export interface EmployeeExtendedRow extends Record<string, unknown> {
   termination_type: string | null;
   rehire_date: string | null;
   completion_score: number;
+  avatar_storage_path?: string | null;
   metadata: unknown;
   created_at: string;
   updated_at?: string;
@@ -579,6 +580,74 @@ type EnterpriseFunctions = Database["public"]["Functions"] & {
       p_new_department_id?: string | null;
       p_new_position_id?: string | null;
       p_reason?: string | null;
+    };
+    Returns: Json;
+  };
+  get_employee_directory: {
+    Args: {
+      p_search?: string | null;
+      p_status?: string | null;
+      p_department_id?: string | null;
+      p_subsidiary_id?: string | null;
+      p_location_id?: string | null;
+      p_page?: number | null;
+      p_page_size?: number | null;
+      p_sort?: string | null;
+    };
+    Returns: Json;
+  };
+  get_employee_detail: {
+    Args: {
+      p_employee_id: string;
+    };
+    Returns: Json;
+  };
+  update_employee_hr_profile: {
+    Args: {
+      p_employee_id: string;
+      p_first_name_ar: string;
+      p_last_name_ar: string;
+      p_first_name_en?: string | null;
+      p_last_name_en?: string | null;
+      p_email?: string | null;
+      p_phone?: string | null;
+      p_national_id?: string | null;
+      p_nationality?: string | null;
+      p_gender?: string | null;
+      p_birth_date?: string | null;
+      p_marital_status?: string | null;
+      p_job_title?: string | null;
+    };
+    Returns: Json;
+  };
+  update_employee_assignment: {
+    Args: {
+      p_employee_id: string;
+      p_department_id?: string | null;
+      p_subsidiary_id?: string | null;
+      p_work_location_id?: string | null;
+      p_job_position_id?: string | null;
+      p_cost_center_id?: string | null;
+      p_manager_id?: string | null;
+      p_work_type?: string | null;
+    };
+    Returns: Json;
+  };
+  update_employee_bank_details: {
+    Args: {
+      p_employee_id: string;
+      p_bank_name: string;
+      p_iban: string;
+    };
+    Returns: Json;
+  };
+  update_employee_compensation: {
+    Args: {
+      p_employee_id: string;
+      p_basic_salary: number;
+      p_housing_allowance?: number | null;
+      p_transport_allowance?: number | null;
+      p_other_allowances?: number | null;
     };
     Returns: Json;
   };

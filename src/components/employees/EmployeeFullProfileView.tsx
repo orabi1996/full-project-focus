@@ -1,7 +1,21 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useApp } from "../../lib/context/AppContext";
-import { canAccessModule } from "../../lib/auth/permissions";
-import { isStorageInDemoMode, uploadSecureFile, createSignedDownloadUrl } from "../../lib/storage/storage-service";
+import {
+  canAccessModule,
+  canEditHrProfile,
+  canEditAssignment,
+  canEditPayroll,
+  canEditBank,
+  canChangeLifecycle,
+  canManageDocuments,
+} from "../../lib/auth/permissions";
+import {
+  isStorageInDemoMode,
+  uploadSecureFile,
+  createSignedDownloadUrl,
+  deleteStorageFile,
+} from "../../lib/storage/storage-service";
+import { useEmployee } from "../../lib/domains/employees";
 import type { Employee, ContractType, Gender, MaritalStatus } from "../../types";
 import { IconSymbol } from "../ui/IconSymbol";
 import { OfficialDocumentModal, type DocType } from "../documents/OfficialDocumentModal";
@@ -90,7 +104,8 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
     t,
   } = useApp();
 
-  const employee = employees.find((e) => e.id === employeeId) || null;
+  // Authoritative 360 query (never fall back to employees.find((e) => e.id === employeeId) || null)
+  const { employee, isLoading: isEmployeeLoading } = useEmployee(employeeId);
 
   // Edit Mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -108,11 +123,17 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
   useEffect(() => {
     if (employee) {
       const dynamicYears = employee.hireDate
-        ? Math.max(0, Math.floor((Date.now() - new Date(employee.hireDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25)))
+        ? Math.max(
+            0,
+            Math.floor(
+              (Date.now() - new Date(employee.hireDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25),
+            ),
+          )
         : (employee.yearsOfService ?? 0);
 
       setFormData({
         avatarUrl: employee.avatarUrl,
+        avatarStoragePath: employee.avatarStoragePath,
         firstNameAr: employee.firstNameAr,
         lastNameAr: employee.lastNameAr,
         firstNameEn: employee.firstNameEn || "",
@@ -170,6 +191,17 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
     }
   }, [employee]);
 
+  if (isEmployeeLoading && !employee) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] p-6 text-center space-y-4">
+        <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-muted-foreground font-semibold">
+          جاري استرجاع السجل الموحد للموظف...
+        </p>
+      </div>
+    );
+  }
+
   if (!employee) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] p-6 text-center space-y-4">
@@ -177,9 +209,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
           <UserX className="h-8 w-8" />
         </div>
         <div>
-          <h2 className="text-xl font-black text-foreground">
-            الموظف المطلوب غير موجود
-          </h2>
+          <h2 className="text-xl font-black text-foreground">الموظف المطلوب غير موجود</h2>
           <p className="text-sm text-muted-foreground mt-1 max-w-md">
             لم يتم العثور على سجل للموظف بالمعرّف المحدد ضمن نطاق صلاحيات المنشأة الحالية.
           </p>
@@ -196,7 +226,12 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
     );
   }
 
-  const canEdit = ["super_admin", "hr_manager", "payroll_officer"].includes(currentRole);
+  const canEditHr = canEditHrProfile(currentRole);
+  const canEditAssign = canEditAssignment(currentRole);
+  const canEditPay = canEditPayroll(currentRole);
+  const canEditBnk = canEditBank(currentRole);
+  const canEditLifecycle = canChangeLifecycle(currentRole);
+  const canEdit = canEditHr || canEditAssign || canEditPay || canEditBnk;
   const canViewPayroll = canAccessModule(currentRole, "payroll");
   const maskIban = (iban?: string) => {
     if (!iban) return "غير مسجل";
@@ -225,9 +260,20 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
 
     try {
       let finalAvatarUrl: string;
+      let newStoragePath: string | null = null;
+
       if (isStorageInDemoMode()) {
         finalAvatarUrl = URL.createObjectURL(file);
       } else {
+        // Clean up previous avatar file from storage if present
+        if (employee.avatarStoragePath) {
+          try {
+            await deleteStorageFile("employee-avatars", employee.avatarStoragePath);
+          } catch (delErr) {
+            console.warn("Failed to delete previous avatar file:", delErr);
+          }
+        }
+
         const fileExt = file.name.split(".").pop() || "png";
         const objectPath = `${employee.companyId || "org"}/${employee.id}/avatar-${Date.now()}.${fileExt}`;
         await uploadSecureFile({
@@ -245,11 +291,19 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
           expiresInSeconds: 86400 * 7,
         });
         finalAvatarUrl = signed.signedUrl;
+        newStoragePath = objectPath;
       }
 
-      const saved = await updateEmployee(employee.id, { avatarUrl: finalAvatarUrl });
+      const saved = await updateEmployee(employee.id, {
+        avatarUrl: finalAvatarUrl,
+        avatarStoragePath: newStoragePath,
+      });
       if (saved) {
-        setFormData((prev) => ({ ...prev, avatarUrl: finalAvatarUrl }));
+        setFormData((prev) => ({
+          ...prev,
+          avatarUrl: finalAvatarUrl,
+          avatarStoragePath: newStoragePath,
+        }));
         setIsAvatarModalOpen(false);
         toast.success("تم تحديث صورة البروفايل بنجاح!");
       }
@@ -1446,51 +1500,55 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
               </Button>
             </div>
 
-            {/* Presets Gallery */}
-            <div className="space-y-2 pt-2 border-t border-border/60">
-              <span className="text-xs font-bold text-foreground block">
-                2. أو اختر صورة رمزية احترافية جاهزة:
-              </span>
-              <div className="grid grid-cols-5 gap-2.5">
-                {PRESET_AVATARS.map((url, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleSelectPresetAvatar(url)}
-                    className="relative rounded-full overflow-hidden border-2 border-border hover:border-primary hover:scale-105 transition-all aspect-square"
-                  >
-                    <img
-                      src={url}
-                      alt={`Avatar ${idx + 1}`}
-                      className="h-full w-full object-cover"
-                    />
-                  </button>
-                ))}
+            {/* Presets Gallery (Demo Mode only) */}
+            {isStorageInDemoMode() && (
+              <div className="space-y-2 pt-2 border-t border-border/60">
+                <span className="text-xs font-bold text-foreground block">
+                  2. أو اختر صورة رمزية احترافية جاهزة (وضع العرض التجريبي فقط):
+                </span>
+                <div className="grid grid-cols-5 gap-2.5">
+                  {PRESET_AVATARS.map((url, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSelectPresetAvatar(url)}
+                      className="relative rounded-full overflow-hidden border-2 border-border hover:border-primary hover:scale-105 transition-all aspect-square"
+                    >
+                      <img
+                        src={url}
+                        alt={`Avatar ${idx + 1}`}
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Direct Image URL */}
-            <div className="space-y-2 pt-2 border-t border-border/60">
-              <span className="text-xs font-bold text-foreground block">
-                3. أو أدخل رابط صورة خارجي مباشر:
-              </span>
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  placeholder="https://example.com/photo.jpg"
-                  value={customAvatarUrl}
-                  onChange={(e) => setCustomAvatarUrl(e.target.value)}
-                  className="flex-1 h-9 rounded-2xl border border-border/80 bg-muted/30 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-                <Button
-                  size="sm"
-                  onClick={handleSaveCustomAvatarUrl}
-                  className="rounded-2xl h-9 text-xs font-bold px-3"
-                >
-                  تعيين
-                </Button>
+            {/* Direct Image URL (Demo Mode only) */}
+            {isStorageInDemoMode() && (
+              <div className="space-y-2 pt-2 border-t border-border/60">
+                <span className="text-xs font-bold text-foreground block">
+                  3. أو أدخل رابط صورة خارجي مباشر (وضع العرض التجريبي فقط):
+                </span>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    placeholder="https://example.com/photo.jpg"
+                    value={customAvatarUrl}
+                    onChange={(e) => setCustomAvatarUrl(e.target.value)}
+                    className="flex-1 h-9 rounded-2xl border border-border/80 bg-muted/30 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSaveCustomAvatarUrl}
+                    className="rounded-2xl h-9 text-xs font-bold px-3"
+                  >
+                    تعيين
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

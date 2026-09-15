@@ -482,3 +482,20 @@ export async function getSignedUrlForFileId(
   }
   return createSignedDownloadUrl(file.bucket_id, file.object_path, options);
 }
+
+/**
+ * Delete a file directly from a Supabase Storage bucket.
+ * Safe for avatar cleanup and orphan prevention.
+ */
+export async function deleteStorageFile(bucket: StorageBucket, objectPath: string): Promise<void> {
+  assertSafePath(objectPath);
+  if (isStorageInDemoMode()) {
+    demoFileCatalog.delete(`${bucket}:${objectPath}`);
+    return;
+  }
+  const { error } = await supabase.storage.from(bucket).remove([objectPath]);
+  if (error) {
+    console.warn(`Failed to delete storage file from ${bucket}/${objectPath}:`, error.message);
+  }
+}
+

@@ -583,6 +583,40 @@ type EnterpriseFunctions = Database["public"]["Functions"] & {
     };
     Returns: Json;
   };
+  create_employee: {
+    Args: {
+      p_first_name_ar: string;
+      p_last_name_ar: string;
+      p_first_name_en?: string | null;
+      p_last_name_en?: string | null;
+      p_email?: string | null;
+      p_phone?: string | null;
+      p_national_id_or_iqama?: string | null;
+      p_nationality?: string | null;
+      p_gender?: string | null;
+      p_birth_date?: string | null;
+      p_marital_status?: string | null;
+      p_hire_date?: string | null;
+      p_contract_type?: string | null;
+      p_job_title?: string | null;
+      p_department_id?: string | null;
+      p_subsidiary_id?: string | null;
+      p_work_location_id?: string | null;
+      p_job_position_id?: string | null;
+      p_cost_center_id?: string | null;
+      p_manager_id?: string | null;
+      p_work_type?: string | null;
+      p_basic_salary?: number | null;
+      p_housing_allowance?: number | null;
+      p_transport_allowance?: number | null;
+      p_other_allowances?: number | null;
+      p_bank_name?: string | null;
+      p_iban?: string | null;
+      p_job_grade?: string | null;
+      p_target_company_id?: string | null;
+    };
+    Returns: Json;
+  };
   get_employee_directory: {
     Args: {
       p_search?: string | null;
@@ -593,7 +627,16 @@ type EnterpriseFunctions = Database["public"]["Functions"] & {
       p_page?: number | null;
       p_page_size?: number | null;
       p_sort?: string | null;
+      p_contract_type?: string | null;
+      p_nationality?: string | null;
+      p_quick_preset?: string | null;
+      p_min_salary?: number | null;
+      p_max_salary?: number | null;
     };
+    Returns: Json;
+  };
+  get_employee_directory_kpis: {
+    Args: Record<string, never>;
     Returns: Json;
   };
   get_employee_detail: {

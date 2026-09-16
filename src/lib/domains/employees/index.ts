@@ -5,6 +5,7 @@ import type {
   EmployeeDirectoryFilters,
   EmployeeDirectoryResponse,
   EmployeeDirectoryItem,
+  EmployeeDirectoryKpis,
 } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
 import {
@@ -16,12 +17,15 @@ import {
   fetchSingleEmployee,
   fetchEmployeeDetailRecord,
   fetchEmployeeDirectoryRecord,
+  fetchEmployeeDirectoryKpisRecord,
   updateEmployeeHrProfileRecord,
   updateEmployeeAssignmentRecord,
   updateEmployeeBankDetailsRecord,
   updateEmployeeCompensationRecord,
 } from "../../data/hrms-repository";
 import { queryKeys } from "../../query/query-keys";
+import { createSignedDownloadUrl } from "../../storage/storage-service";
+import { isStorageInDemoMode } from "../../storage/storage-service";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
@@ -95,14 +99,37 @@ export function useEmployeeDirectory(filters: EmployeeDirectoryFilters = {}) {
         if (filters.status && filters.status !== "all") {
           filtered = filtered.filter((e) => e.status === filters.status);
         }
-        if (filters.departmentId) {
+        if (filters.departmentId && filters.departmentId !== "all") {
           filtered = filtered.filter((e) => e.departmentId === filters.departmentId);
         }
-        if (filters.subsidiaryId) {
+        if (filters.subsidiaryId && filters.subsidiaryId !== "all") {
           filtered = filtered.filter((e) => e.subsidiaryId === filters.subsidiaryId);
         }
-        if (filters.locationId) {
+        if (filters.locationId && filters.locationId !== "all") {
           filtered = filtered.filter((e) => e.workLocationId === filters.locationId);
+        }
+        if (filters.contractType && filters.contractType !== "all") {
+          filtered = filtered.filter((e) => e.contractType === filters.contractType);
+        }
+        if (filters.nationality && filters.nationality !== "all") {
+          filtered = filtered.filter((e) => e.nationality === filters.nationality);
+        }
+        if (filters.quickPreset) {
+          if (filters.quickPreset === "saudi") {
+            filtered = filtered.filter((e) => e.nationality === "Saudi" || e.nationality === "سعودي" || e.nationality === "سعودية");
+          } else if (filters.quickPreset === "expat") {
+            filtered = filtered.filter((e) => e.nationality !== "Saudi" && e.nationality !== "سعودي" && e.nationality !== "سعودية");
+          } else if (filters.quickPreset === "probation") {
+            filtered = filtered.filter((e) => e.status === "probation");
+          } else if (filters.quickPreset === "on_leave") {
+            filtered = filtered.filter((e) => e.status === "on_leave");
+          }
+        }
+        if (filters.minSalary !== undefined) {
+          filtered = filtered.filter((e) => (e.basicSalary ?? 0) >= filters.minSalary!);
+        }
+        if (filters.maxSalary !== undefined) {
+          filtered = filtered.filter((e) => (e.basicSalary ?? 0) <= filters.maxSalary!);
         }
         if (filters.search?.trim()) {
           const s = filters.search.trim().toLowerCase();
@@ -115,6 +142,27 @@ export function useEmployeeDirectory(filters: EmployeeDirectoryFilters = {}) {
               (e.email && e.email.toLowerCase().includes(s)),
           );
         }
+
+        const sort = filters.sort || "name_asc";
+        filtered.sort((a, b) => {
+          if (sort === "name_asc") {
+            const nameA = a.fullName || `${a.firstNameAr} ${a.lastNameAr}`;
+            const nameB = b.fullName || `${b.firstNameAr} ${b.lastNameAr}`;
+            return nameA.localeCompare(nameB, "ar");
+          } else if (sort === "name_desc") {
+            const nameA = a.fullName || `${a.firstNameAr} ${a.lastNameAr}`;
+            const nameB = b.fullName || `${b.firstNameAr} ${b.lastNameAr}`;
+            return nameB.localeCompare(nameA, "ar");
+          } else if (sort === "hire_date_desc") {
+            return (b.hireDate || "").localeCompare(a.hireDate || "");
+          } else if (sort === "hire_date_asc") {
+            return (a.hireDate || "").localeCompare(b.hireDate || "");
+          } else if (sort === "employee_no_asc") {
+            return (a.employeeNo || "").localeCompare(b.employeeNo || "");
+          }
+          return 0;
+        });
+
         const page = filters.page ?? 1;
         const pageSize = filters.pageSize ?? 25;
         const totalCount = filtered.length;
@@ -161,6 +209,78 @@ export function useEmployeeDirectory(filters: EmployeeDirectoryFilters = {}) {
     page: query.data?.page ?? (filters.page ?? 1),
     pageSize: query.data?.pageSize ?? (filters.pageSize ?? 25),
   };
+}
+
+export function useEmployeeDirectoryKpis() {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+  const demoEmployees = useDemoStore((s) => s.employees);
+
+  const query = useQuery({
+    queryKey: queryKeys.employees.kpis(),
+    queryFn: async (): Promise<EmployeeDirectoryKpis> => {
+      if (!isLive) {
+        const totalEmployees = demoEmployees.length;
+        const activeEmployees = demoEmployees.filter((e) => e.status === "active").length;
+        const saudiEmployees = demoEmployees.filter(
+          (e) => e.nationality === "Saudi" || e.nationality === "سعودي" || e.nationality === "سعودية",
+        ).length;
+        const expatEmployees = totalEmployees - saudiEmployees;
+        const saudizationRate = totalEmployees > 0 ? Math.round((saudiEmployees / totalEmployees) * 100) : 0;
+        const probationCount = demoEmployees.filter((e) => e.status === "probation").length;
+        const onLeaveCount = demoEmployees.filter((e) => e.status === "on_leave").length;
+        return {
+          available: true,
+          totalEmployees,
+          activeEmployees,
+          saudiEmployees,
+          expatEmployees,
+          saudizationRate,
+          probationCount,
+          onLeaveCount,
+          expiringDocsCount: 0,
+        };
+      }
+      return fetchEmployeeDirectoryKpisRecord();
+    },
+    staleTime: 60_000,
+  });
+
+  return {
+    kpis: query.data ?? null,
+    data: query.data ?? null,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+export function useEmployeeAvatar(avatarStoragePath?: string | null, fallbackAvatarUrl?: string | null) {
+  const query = useQuery({
+    queryKey: ["employee-avatar-url", avatarStoragePath || fallbackAvatarUrl || "none"],
+    queryFn: async () => {
+      if (!avatarStoragePath) {
+        return fallbackAvatarUrl || "";
+      }
+      if (isStorageInDemoMode()) {
+        return fallbackAvatarUrl || "";
+      }
+      try {
+        const result = await createSignedDownloadUrl("employee-avatars", avatarStoragePath, {
+          expiresInSeconds: 3600,
+        });
+        return result.signedUrl;
+      } catch (err) {
+        console.warn("Failed to generate signed avatar URL:", err);
+        return fallbackAvatarUrl || "";
+      }
+    },
+    staleTime: 1000 * 60 * 30, // 30 minutes
+    enabled: Boolean(avatarStoragePath || fallbackAvatarUrl),
+  });
+
+  return query.data ?? fallbackAvatarUrl ?? "";
 }
 
 export function useCreateEmployee() {

@@ -343,6 +343,8 @@ export interface EmployeeDirectoryItem {
   email?: string | null;
   phone?: string | null;
   jobTitle: string;
+  jobTitleAr?: string | null;
+  jobTitleEn?: string | null;
   status: EmployeeStatus;
   hireDate: string;
   contractType: ContractType;
@@ -358,6 +360,12 @@ export interface EmployeeDirectoryItem {
   completionScore: number;
   nationality?: string | null;
   qiwaContractNo?: string | null;
+  nationalIdOrIqama?: string | null;
+  basicSalary?: number | null;
+  housingAllowance?: number | null;
+  transportAllowance?: number | null;
+  totalSalary?: number | null;
+  jobGrade?: string | null;
 }
 
 export interface EmployeeDirectoryFilters {
@@ -369,6 +377,11 @@ export interface EmployeeDirectoryFilters {
   page?: number;
   pageSize?: number;
   sort?: string;
+  contractType?: string;
+  nationality?: string;
+  quickPreset?: string;
+  minSalary?: number;
+  maxSalary?: number;
 }
 
 export interface EmployeeDirectoryResponse {
@@ -376,6 +389,19 @@ export interface EmployeeDirectoryResponse {
   totalCount: number;
   page: number;
   pageSize: number;
+}
+
+export interface EmployeeDirectoryKpis {
+  available: boolean;
+  totalEmployees: number;
+  activeEmployees?: number;
+  saudiEmployees: number;
+  expatEmployees: number;
+  saudizationRate: number;
+  probationCount: number;
+  onLeaveCount: number;
+  expiringDocsCount: number;
+  reason?: string;
 }
 
 // ----------------------------------------------------------------------------

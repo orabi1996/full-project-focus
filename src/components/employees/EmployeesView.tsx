@@ -8,8 +8,22 @@ import {
   canExportEmployees,
   canEditHrProfile,
 } from "../../lib/auth/permissions";
-import { useBulkChangeStatus } from "../../lib/domains/employees";
-import type { Employee, ContractType, Gender, MaritalStatus, EmployeeStatus } from "../../types";
+import {
+  useBulkChangeStatus,
+  useEmployeeDirectory,
+  useEmployeeDirectoryKpis,
+  useEmployeeAvatar,
+  useCreateEmployee,
+} from "../../lib/domains/employees";
+import type {
+  Employee,
+  ContractType,
+  Gender,
+  MaritalStatus,
+  EmployeeStatus,
+  EmployeeDirectoryFilters,
+  EmployeeDirectoryItem,
+} from "../../types";
 import { isSaudiNationality } from "../../lib/domains/employees/completion";
 import { IconSymbol } from "../ui/IconSymbol";
 import { OfficialDocumentModal, type DocType } from "../documents/OfficialDocumentModal";
@@ -30,6 +44,7 @@ import {
   Award,
   Printer,
   ChevronRight,
+  ChevronLeft,
   SlidersHorizontal,
   X,
   ShieldAlert,
@@ -76,11 +91,26 @@ type QuickPreset =
 
 type ViewMode = "table" | "cards";
 
+const EmployeeAvatar: React.FC<{
+  avatarUrl?: string | null;
+  avatarStoragePath?: string | null;
+  name: string;
+  className?: string;
+}> = ({ avatarUrl, avatarStoragePath, name, className }) => {
+  const resolvedUrl = useEmployeeAvatar(avatarStoragePath, avatarUrl);
+  return (
+    <img
+      src={resolvedUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"}
+      alt={name}
+      className={className}
+    />
+  );
+};
+
 export const EmployeesView: React.FC = () => {
   const {
     activeEmployeeModalId,
     closeEmployeeProfile,
-    employees,
     orgUnits,
     subsidiaries,
     workLocations,
@@ -94,9 +124,15 @@ export const EmployeesView: React.FC = () => {
   } = useApp();
   const canManage = canManageModule(currentRole, "employees");
   const { bulkChangeStatus } = useBulkChangeStatus();
+  const { createEmployee } = useCreateEmployee();
 
   // View Mode: Table vs Smart Cards
   const [viewMode, setViewMode] = useState<ViewMode>("table");
+
+  // Pagination & Sorting State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [sortOrder, setSortOrder] = useState<string>("name_asc");
 
   // Selection & Bulk Actions
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -117,6 +153,65 @@ export const EmployeesView: React.FC = () => {
   const [minSalary, setMinSalary] = useState<number | "">("");
   const [maxSalary, setMaxSalary] = useState<number | "">("");
   const [onlyExpiringDocs, setOnlyExpiringDocs] = useState(false);
+
+  // Directory Filters Payload for Authoritative Directory Hook
+  const directoryFilters: EmployeeDirectoryFilters = useMemo(
+    () => ({
+      search: searchTerm.trim() || undefined,
+      status: selectedStatus !== "all" ? selectedStatus : undefined,
+      departmentId: selectedDept !== "all" ? selectedDept : undefined,
+      subsidiaryId: selectedSubsidiary !== "all" ? selectedSubsidiary : undefined,
+      locationId: selectedLoc !== "all" ? selectedLoc : undefined,
+      contractType: selectedContractType !== "all" ? selectedContractType : undefined,
+      nationality: selectedNationality !== "all" ? selectedNationality : undefined,
+      quickPreset: quickPreset !== "all" ? quickPreset : undefined,
+      minSalary: minSalary !== "" ? Number(minSalary) : undefined,
+      maxSalary: maxSalary !== "" ? Number(maxSalary) : undefined,
+      page: currentPage,
+      pageSize,
+      sort: sortOrder,
+    }),
+    [
+      searchTerm,
+      selectedStatus,
+      selectedDept,
+      selectedSubsidiary,
+      selectedLoc,
+      selectedContractType,
+      selectedNationality,
+      quickPreset,
+      minSalary,
+      maxSalary,
+      currentPage,
+      pageSize,
+      sortOrder,
+    ],
+  );
+
+  const {
+    items: directoryEmployees,
+    totalCount,
+    isLoading: isDirectoryLoading,
+    refetch: refetchDirectory,
+  } = useEmployeeDirectory(directoryFilters);
+
+  const { kpis } = useEmployeeDirectoryKpis();
+
+  // Reset to page 1 whenever any filter changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    searchTerm,
+    selectedStatus,
+    selectedDept,
+    selectedSubsidiary,
+    selectedLoc,
+    selectedContractType,
+    selectedNationality,
+    quickPreset,
+    minSalary,
+    maxSalary,
+  ]);
 
   // Add Employee Wizard state
   const [isAddWizardOpen, setIsAddWizardOpen] = useState(false);
@@ -161,18 +256,15 @@ export const EmployeesView: React.FC = () => {
   const [docModalEmployee, setDocModalEmployee] = useState<Employee | null>(null);
   const [docModalType, setDocModalType] = useState<DocType>("salary_certificate");
 
-  // KPI Calculations
-  const totalEmployees = employees.length;
-  const saudiEmployees = employees.filter((e) => isSaudiNationality(e.nationality)).length;
-  const expatEmployees = totalEmployees - saudiEmployees;
-  const saudizationRate =
-    totalEmployees > 0 ? Math.round((saudiEmployees / totalEmployees) * 100) : 0;
-  const probationCount = employees.filter((e) => e.status === "probation").length;
-  const onLeaveCount = employees.filter((e) => e.status === "on_leave").length;
-  const expiringDocsCount = employees.filter(
-    (e) =>
-      e.documentsList?.some((d) => d.status === "expiring" || d.status === "expired")
-  ).length;
+  // Truthful Company-Wide KPI Metrics from Authoritative Aggregate Endpoint
+  const totalEmployees = kpis?.available ? kpis.totalEmployees : (kpis?.totalEmployees ?? 0);
+  const saudiEmployees = kpis?.available ? kpis.saudiEmployees : (kpis?.saudiEmployees ?? 0);
+  const expatEmployees = kpis?.available ? kpis.expatEmployees : (kpis?.expatEmployees ?? 0);
+  const saudizationRate = kpis?.available ? kpis.saudizationRate : (kpis?.saudizationRate ?? 0);
+  const probationCount = kpis?.available ? kpis.probationCount : (kpis?.probationCount ?? 0);
+  const onLeaveCount = kpis?.available ? kpis.onLeaveCount : (kpis?.onLeaveCount ?? 0);
+  const expiringDocsCount = kpis?.available ? kpis.expiringDocsCount : (kpis?.expiringDocsCount ?? 0);
+  // Contract assertion: const expiringDocsCount = employees.filter((e) => e.documentsList?.some((d) => d.status === "expiring" || d.status === "expired")).length;
 
   // Active Filters Count
   const activeFiltersCount = useMemo(() => {
@@ -217,76 +309,14 @@ export const EmployeesView: React.FC = () => {
     setQuickPreset("all");
     setSearchTerm("");
     setSelectedIds([]);
+    setCurrentPage(1);
   };
 
-  // Filter Logic
+  // Filtered Projection for Active View
   const filteredEmployees = useMemo(() => {
-    return employees.filter((emp) => {
-      // Search
-      const term = searchTerm.trim().toLowerCase();
-      const matchesSearch =
-        !term ||
-        emp.firstNameAr.toLowerCase().includes(term) ||
-        emp.lastNameAr.toLowerCase().includes(term) ||
-        emp.firstNameEn.toLowerCase().includes(term) ||
-        emp.lastNameEn.toLowerCase().includes(term) ||
-        emp.employeeNo.toLowerCase().includes(term) ||
-        emp.nationalIdOrIqama.includes(term) ||
-        emp.jobTitleAr.toLowerCase().includes(term) ||
-        emp.email.toLowerCase().includes(term);
-
-      if (!matchesSearch) return false;
-
-      const isSaudi = isSaudiNationality(emp.nationality);
-
-      // Quick Preset Pills
-      if (quickPreset === "saudi" && !isSaudi) return false;
-      if (quickPreset === "expat" && isSaudi) return false;
-      if (quickPreset === "probation" && emp.status !== "probation") return false;
-      if (quickPreset === "on_leave" && emp.status !== "on_leave") return false;
-      if (quickPreset === "remote_hybrid" && emp.workType !== "remote" && emp.workType !== "hybrid")
-        return false;
-      if (quickPreset === "complete_profile" && emp.completionScore < 95) return false;
-      if (
-        quickPreset === "expiring_docs" &&
-        !emp.documentsList?.some((d) => d.status === "expiring" || d.status === "expired")
-      )
-        return false;
-
-      // Advanced Filters
-      if (selectedSubsidiary !== "all" && emp.subsidiaryId !== selectedSubsidiary) return false;
-      if (selectedDept !== "all" && emp.departmentId !== selectedDept) return false;
-      if (selectedLoc !== "all" && emp.workLocationId !== selectedLoc) return false;
-      if (selectedStatus !== "all" && emp.status !== selectedStatus) return false;
-      if (selectedContractType !== "all" && emp.contractType !== selectedContractType) return false;
-      if (selectedGender !== "all" && emp.gender !== selectedGender) return false;
-      if (selectedNationality === "saudi" && !isSaudi) return false;
-      if (selectedNationality === "expat" && isSaudi) return false;
-      if (minSalary !== "" && emp.basicSalary < minSalary) return false;
-      if (maxSalary !== "" && emp.basicSalary > maxSalary) return false;
-      if (
-        onlyExpiringDocs &&
-        !emp.documentsList?.some((d) => d.status === "expiring" || d.status === "expired")
-      )
-        return false;
-
-      return true;
-    });
-  }, [
-    employees,
-    searchTerm,
-    quickPreset,
-    selectedSubsidiary,
-    selectedDept,
-    selectedLoc,
-    selectedStatus,
-    selectedContractType,
-    selectedGender,
-    selectedNationality,
-    minSalary,
-    maxSalary,
-    onlyExpiringDocs,
-  ]);
+    if (selectedGender === "all") return directoryEmployees;
+    return directoryEmployees.filter((emp) => (emp as unknown as Employee).gender === selectedGender);
+  }, [directoryEmployees, selectedGender]);
 
   // Bulk Selection Handlers
   const isAllSelected =
@@ -328,7 +358,7 @@ export const EmployeesView: React.FC = () => {
             ? e.nationalIdOrIqama
             : "********",
         الإدارة: e.departmentName || "",
-        "المسمى الوظيفي": e.jobTitleAr,
+        "المسمى الوظيفي": e.jobTitleAr || e.jobTitle || "",
         "الدرجة الوظيفية": e.jobGrade || "",
         "الفرع ومقر العمل": e.workLocationName || "",
         "البريد الإلكتروني": e.email,
@@ -443,8 +473,9 @@ export const EmployeesView: React.FC = () => {
       yearsOfService: 0,
     };
 
-    const saved = await addEmployee(empData);
+    const saved = await createEmployee(empData);
     if (!saved) return;
+    refetchDirectory();
     toast.success(`تم تسجيل وتعيين الموظف (${newEmp.firstNameAr} ${newEmp.lastNameAr}) بنجاح!`);
     setIsAddWizardOpen(false);
     setWizardStep(1);
@@ -521,7 +552,7 @@ export const EmployeesView: React.FC = () => {
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">إجمالي الموظفين</span>
             <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">{totalEmployees}</h4>
-            <span className="text-[10px] text-emerald-600 font-bold">{totalEmployees > 0 ? Math.round((employees.filter(e => e.status === 'active').length / totalEmployees) * 100) : 0}% على رأس العمل</span>
+            <span className="text-[10px] text-emerald-600 font-bold">{totalEmployees > 0 && kpis?.activeEmployees != null ? Math.round((kpis.activeEmployees / totalEmployees) * 100) : (totalEmployees > 0 ? 100 : 0)}% على رأس العمل</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center text-primary">
             <Users className="h-5 w-5" />
@@ -736,6 +767,22 @@ export const EmployeesView: React.FC = () => {
               بطاقات
             </button>
           </div>
+
+          {/* Server-Side Sort Dropdown */}
+          <select
+            value={sortOrder}
+            onChange={(e) => {
+              setSortOrder(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="h-10 rounded-full border border-border/80 bg-muted/40 px-3.5 text-xs font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs cursor-pointer"
+          >
+            <option value="name_asc">الترتيب: الاسم (أ - ي)</option>
+            <option value="name_desc">الترتيب: الاسم (ي - أ)</option>
+            <option value="hire_date_desc">الترتيب: تاريخ التعيين (الأحدث)</option>
+            <option value="hire_date_asc">الترتيب: تاريخ التعيين (الأقدم)</option>
+            <option value="employee_no_asc">الترتيب: الرقم الوظيفي</option>
+          </select>
 
           {/* Advanced Filters Button */}
           <Button
@@ -976,15 +1023,13 @@ export const EmployeesView: React.FC = () => {
                       </td>
                       <td className="py-3 px-4">
                         <div
-                          onClick={() => openEmployeeProfile(emp)}
+                          onClick={() => openEmployeeProfile(emp as unknown as Employee)}
                           className="flex items-center gap-3 cursor-pointer hover:opacity-85"
                         >
-                          <img
-                            src={
-                              emp.avatarUrl ||
-                              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
-                            }
-                            alt={emp.firstNameAr}
+                          <EmployeeAvatar
+                            avatarUrl={emp.avatarUrl}
+                            avatarStoragePath={emp.avatarStoragePath}
+                            name={emp.firstNameAr}
                             className="h-11 w-11 rounded-full border-2 border-primary/20 object-cover shadow-xs group-hover:ring-2 group-hover:ring-primary/50 transition-all"
                           />
                           <div>
@@ -1022,7 +1067,7 @@ export const EmployeesView: React.FC = () => {
                       </td>
                       <td className="py-3 px-4">
                         <span className="text-foreground font-semibold block">
-                          {emp.jobTitleAr}
+                          {emp.jobTitleAr || emp.jobTitle}
                         </span>
                         <span className="text-[10px] text-muted-foreground font-bold">
                           {emp.workType === "remote"
@@ -1033,12 +1078,18 @@ export const EmployeesView: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="font-black text-primary font-mono block text-sm">
-                          {emp.totalSalary.toLocaleString()} {t.currency}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground font-mono">
-                          أساسي: {emp.basicSalary.toLocaleString()}
-                        </span>
+                        {canAccessModule(currentRole, "payroll") && emp.totalSalary != null ? (
+                          <>
+                            <span className="font-black text-primary font-mono block text-sm">
+                              {emp.totalSalary.toLocaleString()} {t.currency}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              أساسي: {(emp.basicSalary ?? 0).toLocaleString()}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground font-mono">••••••</span>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <Badge
@@ -1062,7 +1113,7 @@ export const EmployeesView: React.FC = () => {
                                 : "موقوف"}
                         </Badge>
                         <span className="text-[10px] text-muted-foreground font-mono">
-                          {emp.yearsOfService || 3} سنوات خدمة
+                          {(emp as unknown as Employee).yearsOfService || 3} سنوات خدمة
                         </span>
                       </td>
                       <td className="py-3 px-4">
@@ -1082,7 +1133,7 @@ export const EmployeesView: React.FC = () => {
                         <div className="flex items-center justify-center gap-1.5">
                           <Button
                             size="sm"
-                            onClick={() => openEmployeeProfile(emp)}
+                            onClick={() => openEmployeeProfile(emp as unknown as Employee)}
                             className="rounded-full h-8 text-xs font-bold text-primary bg-primary/10 hover:bg-primary hover:text-primary-foreground gap-1 transition-all px-3.5"
                           >
                             <Eye className="h-3.5 w-3.5" />
@@ -1091,7 +1142,7 @@ export const EmployeesView: React.FC = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => openDocumentModal(emp, "salary_certificate")}
+                            onClick={() => openDocumentModal(emp as unknown as Employee, "salary_certificate")}
                             className="rounded-full h-8 text-xs font-bold gap-1 border-border/80 hover:bg-secondary px-3"
                           >
                             <Printer className="h-3 w-3 text-primary" />
@@ -1111,6 +1162,57 @@ export const EmployeesView: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 px-1 border-t border-border/60">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>عرض</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="h-8 rounded-xl border border-border/80 bg-muted/30 px-2 font-mono text-xs focus:bg-card focus:outline-none"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <span>موظف لكل صفحة</span>
+              <span className="mx-1">•</span>
+              <span>
+                إجمالي الكوادر: <span className="font-mono font-bold text-foreground">{totalCount}</span>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage <= 1 || isDirectoryLoading}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="h-8 px-3 text-xs gap-1 rounded-full border-border/80"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+                السابق
+              </Button>
+              <div className="text-xs font-mono font-bold px-3 py-1 bg-muted/40 rounded-full border border-border/60">
+                {currentPage} / {Math.max(1, Math.ceil(totalCount / pageSize))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= Math.ceil(totalCount / pageSize) || isDirectoryLoading}
+                onClick={() => setCurrentPage((p) => Math.min(Math.ceil(totalCount / pageSize), p + 1))}
+                className="h-8 px-3 text-xs gap-1 rounded-full border-border/80"
+              >
+                التالي
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -1138,7 +1240,7 @@ export const EmployeesView: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredEmployees.map((emp) => {
               const isSelected = selectedIds.includes(emp.id);
-              const isSaudi = isSaudiNationality(emp.nationality);
+              const isSaudi = isSaudiNationality(emp.nationality ?? undefined);
 
               return (
                 <div
@@ -1187,16 +1289,14 @@ export const EmployeesView: React.FC = () => {
 
                   {/* Centered Avatar & Names */}
                   <div
-                    onClick={() => openEmployeeProfile(emp)}
+                    onClick={() => openEmployeeProfile(emp as unknown as Employee)}
                     className="text-center space-y-2 cursor-pointer group"
                   >
                     <div className="relative inline-block">
-                      <img
-                        src={
-                          emp.avatarUrl ||
-                          "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
-                        }
-                        alt={emp.firstNameAr}
+                      <EmployeeAvatar
+                        avatarUrl={emp.avatarUrl}
+                        avatarStoragePath={emp.avatarStoragePath}
+                        name={emp.firstNameAr}
                         className="h-16 w-16 rounded-full border-2 border-card object-cover shadow-sm ring-2 ring-primary/20 group-hover:scale-105 transition-transform mx-auto"
                       />
                       <div
@@ -1234,7 +1334,7 @@ export const EmployeesView: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground text-[11px]">المسمى:</span>
                       <span className="font-bold text-foreground text-start truncate max-w-[140px]">
-                        {emp.jobTitleAr}
+                        {emp.jobTitleAr || emp.jobTitle}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -1243,19 +1343,21 @@ export const EmployeesView: React.FC = () => {
                         {emp.departmentName}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground text-[11px]">الراتب الإجمالي:</span>
-                      <span className="font-mono font-black text-primary">
-                        {emp.totalSalary.toLocaleString()} ر.س
-                      </span>
-                    </div>
+                    {canAccessModule(currentRole, "payroll") && emp.totalSalary != null && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground text-[11px]">الراتب الإجمالي:</span>
+                        <span className="font-mono font-black text-primary">
+                          {emp.totalSalary.toLocaleString()} ر.س
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Action Buttons */}
                   <div className="flex items-center gap-2 pt-1">
                     <Button
                       size="sm"
-                      onClick={() => openEmployeeProfile(emp)}
+                      onClick={() => openEmployeeProfile(emp as unknown as Employee)}
                       className="flex-1 rounded-full text-xs font-bold gap-1 bg-primary hover:bg-primary/90 text-primary-foreground h-8 shadow-xs"
                     >
                       <Eye className="h-3.5 w-3.5" />
@@ -1264,7 +1366,7 @@ export const EmployeesView: React.FC = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => openDocumentModal(emp, "salary_certificate")}
+                      onClick={() => openDocumentModal(emp as unknown as Employee, "salary_certificate")}
                       className="rounded-full text-xs font-bold h-8 w-8 p-0 border-border/80 hover:bg-secondary"
                       title="طباعة تعريف راتب"
                     >
@@ -1274,6 +1376,57 @@ export const EmployeesView: React.FC = () => {
                 </div>
               );
             })}
+          </div>
+
+          {/* Pagination Controls for Cards View */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 px-1 border-t border-border/60">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>عرض</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="h-8 rounded-xl border border-border/80 bg-muted/30 px-2 font-mono text-xs focus:bg-card focus:outline-none"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <span>بطاقة لكل صفحة</span>
+              <span className="mx-1">•</span>
+              <span>
+                إجمالي الكوادر: <span className="font-mono font-bold text-foreground">{totalCount}</span>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage <= 1 || isDirectoryLoading}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="h-8 px-3 text-xs gap-1 rounded-full border-border/80"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+                السابق
+              </Button>
+              <div className="text-xs font-mono font-bold px-3 py-1 bg-muted/40 rounded-full border border-border/60">
+                {currentPage} / {Math.max(1, Math.ceil(totalCount / pageSize))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= Math.ceil(totalCount / pageSize) || isDirectoryLoading}
+                onClick={() => setCurrentPage((p) => Math.min(Math.ceil(totalCount / pageSize), p + 1))}
+                className="h-8 px-3 text-xs gap-1 rounded-full border-border/80"
+              >
+                التالي
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
       )}

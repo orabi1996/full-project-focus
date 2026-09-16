@@ -15,7 +15,7 @@ import {
   createSignedDownloadUrl,
   deleteStorageFile,
 } from "../../lib/storage/storage-service";
-import { useEmployee } from "../../lib/domains/employees";
+import { useEmployee, useEmployeeAvatar } from "../../lib/domains/employees";
 import type { Employee, ContractType, Gender, MaritalStatus } from "../../types";
 import { IconSymbol } from "../ui/IconSymbol";
 import { OfficialDocumentModal, type DocType } from "../documents/OfficialDocumentModal";
@@ -118,6 +118,11 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
 
   // Document Modal state
   const [docModalType, setDocModalType] = useState<DocType | null>(null);
+
+  const resolvedAvatarUrl = useEmployeeAvatar(
+    formData.avatarStoragePath || employee?.avatarStoragePath,
+    formData.avatarUrl || employee?.avatarUrl,
+  );
 
   // Sync formData when employee changes
   useEffect(() => {
@@ -264,18 +269,24 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
 
       if (isStorageInDemoMode()) {
         finalAvatarUrl = URL.createObjectURL(file);
-      } else {
-        // Clean up previous avatar file from storage if present
-        if (employee.avatarStoragePath) {
-          try {
-            await deleteStorageFile("employee-avatars", employee.avatarStoragePath);
-          } catch (delErr) {
-            console.warn("Failed to delete previous avatar file:", delErr);
-          }
+        const saved = await updateEmployee(employee.id, {
+          avatarUrl: finalAvatarUrl,
+          avatarStoragePath: newStoragePath,
+        });
+        if (saved) {
+          setFormData((prev) => ({
+            ...prev,
+            avatarUrl: finalAvatarUrl,
+            avatarStoragePath: newStoragePath,
+          }));
+          setIsAvatarModalOpen(false);
+          toast.success("تم تحديث صورة البروفايل بنجاح!");
         }
-
+      } else {
         const fileExt = file.name.split(".").pop() || "png";
         const objectPath = `${employee.companyId || "org"}/${employee.id}/avatar-${Date.now()}.${fileExt}`;
+
+        // 1. Upload new file and register metadata in file_objects
         await uploadSecureFile({
           bucket: "employee-avatars",
           objectPath,
@@ -287,25 +298,43 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
           employeeId: employee.id,
           companyId: employee.companyId,
         });
-        const signed = await createSignedDownloadUrl("employee-avatars", objectPath, {
-          expiresInSeconds: 86400 * 7,
-        });
-        finalAvatarUrl = signed.signedUrl;
         newStoragePath = objectPath;
-      }
 
-      const saved = await updateEmployee(employee.id, {
-        avatarUrl: finalAvatarUrl,
-        avatarStoragePath: newStoragePath,
-      });
-      if (saved) {
-        setFormData((prev) => ({
-          ...prev,
-          avatarUrl: finalAvatarUrl,
+        // 2. Persist avatar_storage_path to employee record (do not persist temporary signed URL)
+        const oldStoragePath = employee.avatarStoragePath;
+        const saved = await updateEmployee(employee.id, {
           avatarStoragePath: newStoragePath,
-        }));
-        setIsAvatarModalOpen(false);
-        toast.success("تم تحديث صورة البروفايل بنجاح!");
+        });
+
+        // 3. Confirm commit before deleting old file
+        if (saved) {
+          // Delete previous avatar file from storage ONLY after confirmed database commit
+          if (oldStoragePath && employee.avatarStoragePath) {
+            try {
+              await deleteStorageFile("employee-avatars", employee.avatarStoragePath);
+            } catch (delErr) {
+              console.warn("Failed to delete previous avatar file:", delErr);
+            }
+          }
+
+          // Generate short-lived signed URL for immediate local preview
+          try {
+            const signed = await createSignedDownloadUrl("employee-avatars", newStoragePath, {
+              expiresInSeconds: 3600,
+            });
+            finalAvatarUrl = signed.signedUrl;
+          } catch {
+            finalAvatarUrl = "";
+          }
+
+          setFormData((prev) => ({
+            ...prev,
+            avatarUrl: finalAvatarUrl || prev.avatarUrl,
+            avatarStoragePath: newStoragePath,
+          }));
+          setIsAvatarModalOpen(false);
+          toast.success("تم تحديث صورة البروفايل بنجاح!");
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "فشل رفع الصورة";
@@ -475,6 +504,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
             >
               <img
                 src={
+                  resolvedAvatarUrl ||
                   formData.avatarUrl ||
                   employee.avatarUrl ||
                   "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200"

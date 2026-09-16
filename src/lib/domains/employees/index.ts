@@ -114,6 +114,9 @@ export function useEmployeeDirectory(filters: EmployeeDirectoryFilters = {}) {
         if (filters.nationality && filters.nationality !== "all") {
           filtered = filtered.filter((e) => e.nationality === filters.nationality);
         }
+        if (filters.gender && filters.gender !== "all") {
+          filtered = filtered.filter((e) => e.gender === filters.gender);
+        }
         if (filters.quickPreset) {
           if (filters.quickPreset === "saudi") {
             filtered = filtered.filter((e) => e.nationality === "Saudi" || e.nationality === "سعودي" || e.nationality === "سعودية");
@@ -159,6 +162,8 @@ export function useEmployeeDirectory(filters: EmployeeDirectoryFilters = {}) {
             return (a.hireDate || "").localeCompare(b.hireDate || "");
           } else if (sort === "employee_no_asc") {
             return (a.employeeNo || "").localeCompare(b.employeeNo || "");
+          } else if (sort === "employee_no_desc") {
+            return (b.employeeNo || "").localeCompare(a.employeeNo || "");
           }
           return 0;
         });
@@ -194,6 +199,7 @@ export function useEmployeeDirectory(filters: EmployeeDirectoryFilters = {}) {
             completionScore: e.completionScore,
             nationality: e.nationality,
             qiwaContractNo: e.qiwaContractNo,
+            gender: e.gender,
           }));
         return { items, totalCount, page, pageSize };
       }
@@ -221,24 +227,33 @@ export function useEmployeeDirectoryKpis() {
     queryFn: async (): Promise<EmployeeDirectoryKpis> => {
       if (!isLive) {
         const totalEmployees = demoEmployees.length;
+        const totalEmployed = demoEmployees.filter((e) => ["active", "probation", "on_leave"].includes(e.status)).length;
         const activeEmployees = demoEmployees.filter((e) => e.status === "active").length;
         const saudiEmployees = demoEmployees.filter(
           (e) => e.nationality === "Saudi" || e.nationality === "سعودي" || e.nationality === "سعودية",
         ).length;
-        const expatEmployees = totalEmployees - saudiEmployees;
-        const saudizationRate = totalEmployees > 0 ? Math.round((saudiEmployees / totalEmployees) * 100) : 0;
+        const expatEmployees = demoEmployees.filter(
+          (e) => e.nationality && e.nationality !== "Saudi" && e.nationality !== "سعودي" && e.nationality !== "سعودية",
+        ).length;
+        const unknownNationalityCount = totalEmployees - saudiEmployees - expatEmployees;
+        const denominator = saudiEmployees + expatEmployees;
+        const saudizationRate = denominator > 0 ? Math.round((saudiEmployees / denominator) * 100) : 0;
         const probationCount = demoEmployees.filter((e) => e.status === "probation").length;
         const onLeaveCount = demoEmployees.filter((e) => e.status === "on_leave").length;
         return {
           available: true,
           totalEmployees,
+          totalEmployed,
           activeEmployees,
           saudiEmployees,
           expatEmployees,
+          nonSaudiEmployees: expatEmployees,
+          unknownNationalityCount,
           saudizationRate,
           probationCount,
           onLeaveCount,
           expiringDocsCount: 0,
+          hrRestricted: false,
         };
       }
       return fetchEmployeeDirectoryKpisRecord();

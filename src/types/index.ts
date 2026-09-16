@@ -366,6 +366,7 @@ export interface EmployeeDirectoryItem {
   transportAllowance?: number | null;
   totalSalary?: number | null;
   jobGrade?: string | null;
+  gender?: Gender | null;
 }
 
 export interface EmployeeDirectoryFilters {
@@ -374,6 +375,7 @@ export interface EmployeeDirectoryFilters {
   departmentId?: string;
   subsidiaryId?: string;
   locationId?: string;
+  gender?: string;
   page?: number;
   pageSize?: number;
   sort?: string;
@@ -394,13 +396,17 @@ export interface EmployeeDirectoryResponse {
 export interface EmployeeDirectoryKpis {
   available: boolean;
   totalEmployees: number;
+  totalEmployed?: number;
   activeEmployees?: number;
   saudiEmployees: number;
   expatEmployees: number;
+  nonSaudiEmployees?: number;
+  unknownNationalityCount?: number;
   saudizationRate: number;
   probationCount: number;
   onLeaveCount: number;
   expiringDocsCount: number;
+  hrRestricted?: boolean;
   reason?: string;
 }
 

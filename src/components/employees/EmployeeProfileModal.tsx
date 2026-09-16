@@ -230,14 +230,20 @@ export const EmployeeProfileModal: React.FC = () => {
               {/* Profile Main Info */}
               <div className="flex items-center gap-4">
                 <div className="relative">
-                  <img
-                    src={
-                      employee.avatarUrl ||
-                      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
-                    }
-                    alt={employee.firstNameAr}
-                    className="h-16 w-16 rounded-full border-2 border-primary object-cover shadow-sm ring-4 ring-primary/10"
-                  />
+                  {employee.avatarUrl ? (
+                    <img
+                      src={employee.avatarUrl}
+                      alt={employee.firstNameAr}
+                      className="h-16 w-16 rounded-full border-2 border-primary object-cover shadow-sm ring-4 ring-primary/10"
+                    />
+                  ) : (
+                    <div
+                      className="h-16 w-16 rounded-full border-2 border-primary bg-primary/10 text-primary font-black text-lg flex items-center justify-center shadow-sm ring-4 ring-primary/10 select-none"
+                      aria-label={employee.firstNameAr}
+                    >
+                      {(employee.firstNameAr || "م").slice(0, 2)}
+                    </div>
+                  )}
                   <div
                     className={`absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-card ${
                       employee.status === "active"
@@ -268,14 +274,14 @@ export const EmployeeProfileModal: React.FC = () => {
                       {employee.status === "active"
                         ? "نشط على رأس العمل"
                         : employee.status === "probation"
-                          ? "فترة التجربة (90 يوم)"
+                          ? "فترة التجربة"
                           : "في إجازة رسمية"}
                     </Badge>
                     <Badge
                       variant="secondary"
                       className="text-[10px] rounded-full px-2.5 font-bold"
                     >
-                      {employee.jobGrade || "L4 - اختصاصي"}
+                      {employee.jobGrade || "غير محدد"}
                     </Badge>
                     <Badge
                       variant="outline"
@@ -382,7 +388,7 @@ export const EmployeeProfileModal: React.FC = () => {
             <div className="rounded-2xl border border-border/60 bg-muted/20 p-3 text-xs">
               <span className="text-muted-foreground font-bold">سنوات الخدمة</span>
               <p className="text-sm font-bold text-foreground mt-0.5 font-mono">
-                {employee.yearsOfService || 3} سنوات
+                {employee.hireDate ? Math.max(0, Math.floor((Date.now() - new Date(employee.hireDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25))) : 0} سنة
               </p>
             </div>
             <div className="rounded-2xl border border-border/60 bg-muted/20 p-3 text-xs col-span-2 sm:col-span-1">

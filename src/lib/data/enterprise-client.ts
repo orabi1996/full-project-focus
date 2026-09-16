@@ -624,6 +624,7 @@ type EnterpriseFunctions = Database["public"]["Functions"] & {
       p_department_id?: string | null;
       p_subsidiary_id?: string | null;
       p_location_id?: string | null;
+      p_gender?: string | null;
       p_page?: number | null;
       p_page_size?: number | null;
       p_sort?: string | null;
@@ -660,6 +661,12 @@ type EnterpriseFunctions = Database["public"]["Functions"] & {
       p_birth_date?: string | null;
       p_marital_status?: string | null;
       p_job_title?: string | null;
+      p_national_id_expiry?: string | null;
+      p_passport_no?: string | null;
+      p_passport_expiry?: string | null;
+      p_blood_type?: string | null;
+      p_dependents_count?: number | null;
+      p_job_grade?: string | null;
     };
     Returns: Json;
   };

@@ -14,6 +14,7 @@ import {
   uploadSecureFile,
   createSignedDownloadUrl,
   deleteStorageFile,
+  rollbackUploadedFile,
 } from "../../lib/storage/storage-service";
 import { useEmployee, useEmployeeAvatar } from "../../lib/domains/employees";
 import type { Employee, ContractType, Gender, MaritalStatus } from "../../types";
@@ -287,7 +288,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
         const objectPath = `${employee.companyId || "org"}/${employee.id}/avatar-${Date.now()}.${fileExt}`;
 
         // 1. Upload new file and register metadata in file_objects
-        await uploadSecureFile({
+        const uploadedFile = await uploadSecureFile({
           bucket: "employee-avatars",
           objectPath,
           file,
@@ -302,39 +303,62 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
 
         // 2. Persist avatar_storage_path to employee record (do not persist temporary signed URL)
         const oldStoragePath = employee.avatarStoragePath;
-        const saved = await updateEmployee(employee.id, {
-          avatarStoragePath: newStoragePath,
-        });
+        let saved = false;
+        try {
+          saved = await updateEmployee(employee.id, {
+            avatarStoragePath: newStoragePath,
+          });
+        } catch (updateErr) {
+          await rollbackUploadedFile({
+            fileId: uploadedFile?.id,
+            bucket: "employee-avatars",
+            objectPath: newStoragePath,
+            reason: "avatar_update_failed",
+          });
+          throw updateErr;
+        }
+
+        if (!saved) {
+          await rollbackUploadedFile({
+            fileId: uploadedFile?.id,
+            bucket: "employee-avatars",
+            objectPath: newStoragePath,
+            reason: "avatar_update_failed",
+          });
+          throw new Error("فشل حفظ مسار الصورة الرمزية في قاعدة البيانات");
+        }
 
         // 3. Confirm commit before deleting old file
-        if (saved) {
-          // Delete previous avatar file from storage ONLY after confirmed database commit
-          if (oldStoragePath && employee.avatarStoragePath) {
-            try {
-              await deleteStorageFile("employee-avatars", employee.avatarStoragePath);
-            } catch (delErr) {
-              console.warn("Failed to delete previous avatar file:", delErr);
-            }
-          }
-
-          // Generate short-lived signed URL for immediate local preview
+        if (employee.avatarStoragePath && employee.avatarStoragePath !== newStoragePath) {
           try {
-            const signed = await createSignedDownloadUrl("employee-avatars", newStoragePath, {
-              expiresInSeconds: 3600,
+            await deleteStorageFile("employee-avatars", employee.avatarStoragePath);
+          } catch (delErr) {
+            console.warn("Failed to delete previous avatar file:", delErr);
+            await rollbackUploadedFile({
+              bucket: "employee-avatars",
+              objectPath: employee.avatarStoragePath,
+              reason: "old_avatar_replaced",
             });
-            finalAvatarUrl = signed.signedUrl;
-          } catch {
-            finalAvatarUrl = "";
           }
-
-          setFormData((prev) => ({
-            ...prev,
-            avatarUrl: finalAvatarUrl || prev.avatarUrl,
-            avatarStoragePath: newStoragePath,
-          }));
-          setIsAvatarModalOpen(false);
-          toast.success("تم تحديث صورة البروفايل بنجاح!");
         }
+
+        // Generate short-lived signed URL for immediate local preview
+        try {
+          const signed = await createSignedDownloadUrl("employee-avatars", newStoragePath, {
+            expiresInSeconds: 3600,
+          });
+          finalAvatarUrl = signed.signedUrl;
+        } catch {
+          finalAvatarUrl = "";
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          avatarUrl: finalAvatarUrl || prev.avatarUrl,
+          avatarStoragePath: newStoragePath,
+        }));
+        setIsAvatarModalOpen(false);
+        toast.success("تم تحديث صورة البروفايل بنجاح!");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "فشل رفع الصورة";
@@ -502,16 +526,20 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
               className="relative group cursor-pointer"
               onClick={() => setIsAvatarModalOpen(true)}
             >
-              <img
-                src={
-                  resolvedAvatarUrl ||
-                  formData.avatarUrl ||
-                  employee.avatarUrl ||
-                  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200"
-                }
-                alt={employee.firstNameAr}
-                className="h-24 w-24 rounded-full border-4 border-card object-cover shadow-md ring-4 ring-primary/20 group-hover:opacity-80 transition-all"
-              />
+              {resolvedAvatarUrl || formData.avatarUrl || employee.avatarUrl ? (
+                <img
+                  src={resolvedAvatarUrl || formData.avatarUrl || employee.avatarUrl}
+                  alt={employee.firstNameAr}
+                  className="h-24 w-24 rounded-full border-4 border-card object-cover shadow-md ring-4 ring-primary/20 group-hover:opacity-80 transition-all"
+                />
+              ) : (
+                <div
+                  className="h-24 w-24 rounded-full border-4 border-card bg-primary/10 text-primary font-black text-2xl flex items-center justify-center shadow-md ring-4 ring-primary/20 group-hover:opacity-80 transition-all select-none"
+                  aria-label={employee.firstNameAr}
+                >
+                  {(employee.firstNameAr || "م").slice(0, 2)}
+                </div>
+              )}
               <div className="absolute inset-0 rounded-full bg-black/40 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
                 <Camera className="h-6 w-6" />
                 <span className="text-[9px] font-bold mt-1">تغيير الصورة</span>
@@ -547,7 +575,7 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   {employee.status === "active"
                     ? "نشط على رأس العمل"
                     : employee.status === "probation"
-                      ? "فترة التجربة (90 يوم)"
+                      ? "فترة التجربة"
                       : "في إجازة رسمية"}
                 </Badge>
                 <Badge

@@ -449,24 +449,47 @@ export async function updateEmployeeRecord(id: string, updates: Partial<Employee
     updates.gender !== undefined ||
     updates.birthDate !== undefined ||
     updates.maritalStatus !== undefined ||
-    updates.jobTitleAr !== undefined;
+    updates.jobTitleAr !== undefined ||
+    updates.nationalIdExpiry !== undefined ||
+    updates.passportNo !== undefined ||
+    updates.passportExpiry !== undefined ||
+    updates.bloodType !== undefined ||
+    updates.dependentsCount !== undefined ||
+    updates.jobGrade !== undefined;
 
-  if (hasHrUpdates && (updates.firstNameAr || updates.lastNameAr)) {
-    await updateEmployeeHrProfileRecord({
-      employeeId: id,
-      firstNameAr: updates.firstNameAr || "",
-      lastNameAr: updates.lastNameAr || "",
-      firstNameEn: updates.firstNameEn,
-      lastNameEn: updates.lastNameEn,
-      email: updates.email,
-      phone: updates.phone,
-      nationalId: updates.nationalIdOrIqama,
-      nationality: updates.nationality,
-      gender: updates.gender,
-      birthDate: updates.birthDate,
-      maritalStatus: updates.maritalStatus,
-      jobTitle: updates.jobTitleAr,
-    });
+  if (hasHrUpdates) {
+    let firstNameAr = updates.firstNameAr;
+    let lastNameAr = updates.lastNameAr;
+    if (!firstNameAr || !lastNameAr) {
+      const existing = await fetchSingleEmployee(id);
+      if (existing) {
+        firstNameAr = firstNameAr || existing.firstNameAr;
+        lastNameAr = lastNameAr || existing.lastNameAr;
+      }
+    }
+    if (firstNameAr && lastNameAr) {
+      await updateEmployeeHrProfileRecord({
+        employeeId: id,
+        firstNameAr,
+        lastNameAr,
+        firstNameEn: updates.firstNameEn,
+        lastNameEn: updates.lastNameEn,
+        email: updates.email,
+        phone: updates.phone,
+        nationalId: updates.nationalIdOrIqama,
+        nationality: updates.nationality,
+        gender: updates.gender,
+        birthDate: updates.birthDate,
+        maritalStatus: updates.maritalStatus,
+        jobTitle: updates.jobTitleAr,
+        nationalIdExpiry: updates.nationalIdExpiry,
+        passportNo: updates.passportNo,
+        passportExpiry: updates.passportExpiry,
+        bloodType: updates.bloodType,
+        dependentsCount: updates.dependentsCount,
+        jobGrade: updates.jobGrade,
+      });
+    }
   }
 
   // 2. Controlled Assignment mutation
@@ -524,19 +547,23 @@ export async function updateEmployeeRecord(id: string, updates: Partial<Employee
   if (updates.avatarStoragePath !== undefined) dbUpdates.avatar_storage_path = updates.avatarStoragePath || null;
   if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl || null;
   if (updates.customFields !== undefined) dbUpdates.metadata = updates.customFields;
-  if (updates.nationalIdExpiry !== undefined) dbUpdates.national_id_expiry = updates.nationalIdExpiry || null;
-  if (updates.passportNo !== undefined) dbUpdates.passport_no = updates.passportNo || null;
-  if (updates.passportExpiry !== undefined) dbUpdates.passport_expiry = updates.passportExpiry || null;
-  if (updates.bloodType !== undefined) dbUpdates.blood_type = updates.bloodType || null;
-  if (updates.dependentsCount !== undefined) dbUpdates.dependents_count = Number(updates.dependentsCount || 0);
-  if (updates.jobGrade !== undefined) dbUpdates.job_grade = updates.jobGrade || null;
 
-  // NOTE: Lifecycle status and sensitive financial fields are strictly excluded from generic direct update!
+  // Strictly delete sensitive, financial, and compliance keys from direct table update
   delete (dbUpdates as Record<string, unknown>).status;
   delete (dbUpdates as Record<string, unknown>).basic_salary;
   delete (dbUpdates as Record<string, unknown>).total_salary;
-  delete (dbUpdates as Record<string, unknown>).iban;
+  delete (dbUpdates as Record<string, unknown>).housing_allowance;
+  delete (dbUpdates as Record<string, unknown>).transport_allowance;
+  delete (dbUpdates as Record<string, unknown>).other_allowances;
   delete (dbUpdates as Record<string, unknown>).bank_name;
+  delete (dbUpdates as Record<string, unknown>).iban;
+  delete (dbUpdates as Record<string, unknown>).national_id_or_iqama;
+  delete (dbUpdates as Record<string, unknown>).national_id_expiry;
+  delete (dbUpdates as Record<string, unknown>).passport_no;
+  delete (dbUpdates as Record<string, unknown>).passport_expiry;
+  delete (dbUpdates as Record<string, unknown>).blood_type;
+  delete (dbUpdates as Record<string, unknown>).dependents_count;
+  delete (dbUpdates as Record<string, unknown>).job_grade;
 
   if (Object.keys(dbUpdates).length === 0) {
     return { id };
@@ -621,6 +648,7 @@ export async function fetchEmployeeDirectoryRecord(
     p_department_id: filters.departmentId || null,
     p_subsidiary_id: filters.subsidiaryId || null,
     p_location_id: filters.locationId || null,
+    p_gender: filters.gender || null,
     p_page: filters.page ?? 1,
     p_page_size: filters.pageSize ?? 25,
     p_sort: filters.sort || "name_asc",
@@ -662,6 +690,8 @@ export async function fetchEmployeeDirectoryRecord(
     completionScore: Number(item.completion_score ?? 0),
     nationality: item.nationality ? String(item.nationality) : null,
     qiwaContractNo: item.qiwa_contract_no ? String(item.qiwa_contract_no) : null,
+    gender: (item.gender as Gender) || null,
+    jobGrade: item.job_grade ? String(item.job_grade) : null,
   }));
 
   return {
@@ -679,13 +709,17 @@ export async function fetchEmployeeDirectoryKpisRecord(): Promise<EmployeeDirect
   return {
     available: Boolean(raw.available),
     totalEmployees: Number(raw.total_employees || 0),
+    totalEmployed: raw.total_employed !== undefined ? Number(raw.total_employed) : undefined,
     activeEmployees: Number(raw.active_employees || 0),
     saudiEmployees: Number(raw.saudi_employees || 0),
     expatEmployees: Number(raw.expat_employees || 0),
+    nonSaudiEmployees: raw.non_saudi_employees !== undefined ? Number(raw.non_saudi_employees) : undefined,
+    unknownNationalityCount: raw.unknown_nationality_count !== undefined ? Number(raw.unknown_nationality_count) : undefined,
     saudizationRate: Number(raw.saudization_rate || 0),
     probationCount: Number(raw.probation_count || 0),
     onLeaveCount: Number(raw.on_leave_count || 0),
     expiringDocsCount: Number(raw.expiring_docs_count || 0),
+    hrRestricted: Boolean(raw.hr_restricted),
     reason: raw.reason ? String(raw.reason) : undefined,
   };
 }
@@ -782,6 +816,12 @@ export async function updateEmployeeHrProfileRecord(payload: {
   birthDate?: string;
   maritalStatus?: string;
   jobTitle?: string;
+  nationalIdExpiry?: string;
+  passportNo?: string;
+  passportExpiry?: string;
+  bloodType?: string;
+  dependentsCount?: number;
+  jobGrade?: string;
 }) {
   const { data, error } = await enterpriseSupabase.rpc("update_employee_hr_profile", {
     p_employee_id: payload.employeeId,
@@ -797,6 +837,12 @@ export async function updateEmployeeHrProfileRecord(payload: {
     p_birth_date: payload.birthDate || null,
     p_marital_status: payload.maritalStatus || null,
     p_job_title: payload.jobTitle || null,
+    p_national_id_expiry: payload.nationalIdExpiry || null,
+    p_passport_no: payload.passportNo || null,
+    p_passport_expiry: payload.passportExpiry || null,
+    p_blood_type: payload.bloodType || null,
+    p_dependents_count: payload.dependentsCount !== undefined ? Number(payload.dependentsCount) : null,
+    p_job_grade: payload.jobGrade || null,
   });
   if (error) throw new Error(error.message);
   return data;

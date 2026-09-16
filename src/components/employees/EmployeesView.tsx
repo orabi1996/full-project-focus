@@ -96,14 +96,27 @@ const EmployeeAvatar: React.FC<{
   avatarStoragePath?: string | null;
   name: string;
   className?: string;
-}> = ({ avatarUrl, avatarStoragePath, name, className }) => {
+}> = ({ avatarUrl, avatarStoragePath, name, className = "w-10 h-10 rounded-full" }) => {
   const resolvedUrl = useEmployeeAvatar(avatarStoragePath, avatarUrl);
+  const initials = (name || "م").slice(0, 2).trim();
+
+  if (resolvedUrl) {
+    return (
+      <img
+        src={resolvedUrl}
+        alt={name}
+        className={className}
+      />
+    );
+  }
+
   return (
-    <img
-      src={resolvedUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"}
-      alt={name}
-      className={className}
-    />
+    <div
+      className={`flex items-center justify-center bg-primary/10 text-primary font-semibold text-xs border border-primary/20 select-none ${className}`}
+      aria-label={name}
+    >
+      {initials}
+    </div>
   );
 };
 
@@ -123,6 +136,7 @@ export const EmployeesView: React.FC = () => {
     isSaving,
   } = useApp();
   const canManage = canManageModule(currentRole, "employees");
+  const isHrUser = canEditHrProfile(currentRole) || currentRole === "auditor";
   const { bulkChangeStatus } = useBulkChangeStatus();
   const { createEmployee } = useCreateEmployee();
 
@@ -162,6 +176,7 @@ export const EmployeesView: React.FC = () => {
       departmentId: selectedDept !== "all" ? selectedDept : undefined,
       subsidiaryId: selectedSubsidiary !== "all" ? selectedSubsidiary : undefined,
       locationId: selectedLoc !== "all" ? selectedLoc : undefined,
+      gender: selectedGender !== "all" ? selectedGender : undefined,
       contractType: selectedContractType !== "all" ? selectedContractType : undefined,
       nationality: selectedNationality !== "all" ? selectedNationality : undefined,
       quickPreset: quickPreset !== "all" ? quickPreset : undefined,
@@ -177,6 +192,7 @@ export const EmployeesView: React.FC = () => {
       selectedDept,
       selectedSubsidiary,
       selectedLoc,
+      selectedGender,
       selectedContractType,
       selectedNationality,
       quickPreset,
@@ -206,6 +222,7 @@ export const EmployeesView: React.FC = () => {
     selectedDept,
     selectedSubsidiary,
     selectedLoc,
+    selectedGender,
     selectedContractType,
     selectedNationality,
     quickPreset,
@@ -227,22 +244,22 @@ export const EmployeesView: React.FC = () => {
     phone: "",
     nationalIdOrIqama: "",
     nationality: "",
-    gender: "male" as Gender,
+    gender: "" as unknown as Gender,
     birthDate: "",
-    maritalStatus: "single" as MaritalStatus,
-    subsidiaryId: subsidiaries[0]?.id || "",
-    subsidiaryName: subsidiaries[0]?.nameAr || "",
-    departmentId: orgUnits[0]?.id || "",
-    departmentName: orgUnits[0]?.nameAr || "",
+    maritalStatus: "" as unknown as MaritalStatus,
+    subsidiaryId: "",
+    subsidiaryName: "",
+    departmentId: "",
+    departmentName: "",
     jobTitleAr: "",
     jobTitleEn: "",
     jobGrade: "",
     costCenter: "",
-    workType: "on_site" as Employee["workType"],
-    workLocationId: workLocations[0]?.id || "",
-    workLocationName: workLocations[0]?.nameAr || "",
-    hireDate: new Date().toISOString().split("T")[0],
-    contractType: "full_time" as ContractType,
+    workType: "" as unknown as Employee["workType"],
+    workLocationId: "",
+    workLocationName: "",
+    hireDate: "",
+    contractType: "" as unknown as ContractType,
     status: "draft" as const,
     basicSalary: 0,
     housingAllowance: 0,
@@ -312,11 +329,8 @@ export const EmployeesView: React.FC = () => {
     setCurrentPage(1);
   };
 
-  // Filtered Projection for Active View
-  const filteredEmployees = useMemo(() => {
-    if (selectedGender === "all") return directoryEmployees;
-    return directoryEmployees.filter((emp) => (emp as unknown as Employee).gender === selectedGender);
-  }, [directoryEmployees, selectedGender]);
+  // Authoritative View Projection directly from server-side directory query
+  const filteredEmployees = directoryEmployees;
 
   // Bulk Selection Handlers
   const isAllSelected =
@@ -436,47 +450,42 @@ export const EmployeesView: React.FC = () => {
     const isSaudi = isSaudiNationality(newEmp.nationality);
 
     const empData: Omit<Employee, "id" | "completionScore"> = {
-      employeeNo: newEmp.employeeNo || `EMP-${Date.now().toString().slice(-4)}`,
-      firstNameAr: newEmp.firstNameAr,
-      lastNameAr: newEmp.lastNameAr,
-      firstNameEn: newEmp.firstNameEn || newEmp.firstNameAr,
-      lastNameEn: newEmp.lastNameEn || newEmp.lastNameAr,
-      email: newEmp.email,
-      phone: newEmp.phone || "",
-      nationalIdOrIqama: newEmp.nationalIdOrIqama,
-      nationality: newEmp.nationality,
-      gender: newEmp.gender,
+      employeeNo: newEmp.employeeNo ? newEmp.employeeNo.trim() : "",
+      firstNameAr: newEmp.firstNameAr.trim(),
+      lastNameAr: newEmp.lastNameAr.trim(),
+      firstNameEn: newEmp.firstNameEn ? newEmp.firstNameEn.trim() : "",
+      lastNameEn: newEmp.lastNameEn ? newEmp.lastNameEn.trim() : "",
+      email: newEmp.email.trim(),
+      phone: newEmp.phone ? newEmp.phone.trim() : "",
+      nationalIdOrIqama: newEmp.nationalIdOrIqama.trim(),
+      nationality: newEmp.nationality.trim(),
+      gender: newEmp.gender || ("male" as Gender),
       birthDate: newEmp.birthDate || "",
-      maritalStatus: newEmp.maritalStatus,
-      subsidiaryId: newEmp.subsidiaryId || (subsidiaries[0]?.id ?? ""),
+      maritalStatus: newEmp.maritalStatus || ("single" as MaritalStatus),
+      subsidiaryId: newEmp.subsidiaryId || "",
       subsidiaryName: sub?.nameAr || undefined,
-      departmentId: newEmp.departmentId || (orgUnits[0]?.id ?? ""),
+      departmentId: newEmp.departmentId || "",
       departmentName: dept?.nameAr || undefined,
-      jobTitleAr: newEmp.jobTitleAr,
-      jobTitleEn: newEmp.jobTitleEn || newEmp.jobTitleAr,
-      jobGrade: newEmp.jobGrade || undefined,
-      costCenter: newEmp.costCenter || undefined,
-      workType: newEmp.workType,
-      workLocationId: newEmp.workLocationId || (workLocations[0]?.id ?? ""),
+      jobTitleAr: newEmp.jobTitleAr.trim(),
+      jobTitleEn: newEmp.jobTitleEn ? newEmp.jobTitleEn.trim() : "",
+      jobGrade: newEmp.jobGrade ? newEmp.jobGrade.trim() : undefined,
+      costCenter: newEmp.costCenter ? newEmp.costCenter.trim() : undefined,
+      workType: newEmp.workType || ("on_site" as Employee["workType"]),
+      workLocationId: newEmp.workLocationId || "",
       workLocationName: loc?.nameAr || undefined,
-      hireDate: newEmp.hireDate,
-      contractStartDate: newEmp.hireDate,
-      contractType: newEmp.contractType,
-      status: newEmp.status,
+      hireDate: newEmp.hireDate || "",
+      contractType: newEmp.contractType || ("full_time" as ContractType),
+      status: newEmp.status || "draft",
       basicSalary: b,
       housingAllowance: h,
       transportAllowance: tr,
       otherAllowances: 0,
       totalSalary: total,
-      gosiDeductionPercentage: isSaudi ? 9.75 : 0,
-      isGosiEnrolled: isSaudi,
-      yearsOfService: 0,
     };
 
     const saved = await createEmployee(empData);
     if (!saved) return;
     refetchDirectory();
-    toast.success(`تم تسجيل وتعيين الموظف (${newEmp.firstNameAr} ${newEmp.lastNameAr}) بنجاح!`);
     setIsAddWizardOpen(false);
     setWizardStep(1);
     setNewEmp(createEmptyNewEmp());
@@ -527,7 +536,7 @@ export const EmployeesView: React.FC = () => {
             className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
           >
             <Download className="h-4 w-4 text-emerald-600" />
-            تصدير كشف الموظفين (CSV)
+            تصدير النتائج الحالية (CSV)
           </Button>
 
           {canManage && (
@@ -585,8 +594,10 @@ export const EmployeesView: React.FC = () => {
 
         <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-amber-700">تحت التجربة (90 يوم)</span>
-            <h4 className="text-xl font-black text-amber-700 mt-0.5 font-tabular-nums font-mono">{probationCount} موظفين</h4>
+            <span className="text-[11px] font-bold text-amber-700">تحت التجربة</span>
+            <h4 className="text-xl font-black text-amber-700 mt-0.5 font-tabular-nums font-mono">
+              {kpis?.hrRestricted ? "خاص بـ HR" : `${probationCount} موظفين`}
+            </h4>
             <span className="text-[10px] text-amber-700 font-bold">بانتظار تقييم التثبيت</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
@@ -597,7 +608,9 @@ export const EmployeesView: React.FC = () => {
         <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-primary">في إجازة رسمية</span>
-            <h4 className="text-xl font-black text-primary mt-0.5 font-tabular-nums font-mono">{onLeaveCount} موظف</h4>
+            <h4 className="text-xl font-black text-primary mt-0.5 font-tabular-nums font-mono">
+              {kpis?.hrRestricted ? "خاص بـ HR" : `${onLeaveCount} موظف`}
+            </h4>
             <span className="text-[10px] text-primary font-bold">إجازات سنوية معتمدة</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
@@ -609,7 +622,7 @@ export const EmployeesView: React.FC = () => {
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">وثائق وإقامات قريبة</span>
             <h4 className="text-xl font-black text-destructive mt-0.5 font-tabular-nums font-mono">
-              {expiringDocsCount} تنبيهات
+              {kpis?.hrRestricted ? "خاص بـ HR" : `${expiringDocsCount} تنبيهات`}
             </h4>
             <span className="text-[10px] text-destructive font-bold">أقل من 60 يوماً</span>
           </div>
@@ -722,7 +735,11 @@ export const EmployeesView: React.FC = () => {
           <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="بحث بالاسم، الرقم الوظيفي، الهوية، المسمى، أو البريد..."
+            placeholder={
+              isHrUser
+                ? "بحث بالاسم، الرقم الوظيفي، الهوية/الإقامة، المسمى، أو البريد..."
+                : "بحث بالاسم، الرقم الوظيفي، المسمى، أو البريد..."
+            }
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full h-10 rounded-full border border-border/80 bg-muted/40 pr-9 pl-4 text-xs font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
@@ -1054,7 +1071,7 @@ export const EmployeesView: React.FC = () => {
                           {emp.employeeNo}
                         </span>
                         <span className="text-[10px] text-primary font-bold">
-                          {emp.jobGrade || "L3 - اختصاصي"}
+                          {emp.jobGrade || "غير محدد"}
                         </span>
                       </td>
                       <td className="py-3 px-4">
@@ -1062,7 +1079,7 @@ export const EmployeesView: React.FC = () => {
                           {emp.departmentName}
                         </span>
                         <span className="text-[10px] text-muted-foreground">
-                          {emp.subsidiaryName || "كلاسيرا للتقنية"}
+                          {emp.subsidiaryName || "غير محدد"}
                         </span>
                       </td>
                       <td className="py-3 px-4">
@@ -1113,7 +1130,7 @@ export const EmployeesView: React.FC = () => {
                                 : "موقوف"}
                         </Badge>
                         <span className="text-[10px] text-muted-foreground font-mono">
-                          {(emp as unknown as Employee).yearsOfService || 3} سنوات خدمة
+                          {emp.hireDate ? Math.max(0, Math.floor((Date.now() - new Date(emp.hireDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25))) : 0} سنوات خدمة
                         </span>
                       </td>
                       <td className="py-3 px-4">
@@ -1324,7 +1341,7 @@ export const EmployeesView: React.FC = () => {
                         {emp.employeeNo}
                       </Badge>
                       <span className="text-primary font-bold">
-                        {emp.jobGrade || "L3 - اختصاصي"}
+                        {emp.jobGrade || "غير محدد"}
                       </span>
                     </div>
                   </div>

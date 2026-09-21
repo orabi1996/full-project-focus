@@ -209,6 +209,22 @@ export const actOnRequestServer = createServerFn({ method: "POST" })
         .eq("step_order", nextStep);
     }
 
+    if (request.type === "leave" && isFinal) {
+      try {
+        await supabase.rpc("decide_leave_request", {
+          p_request_id: request.id,
+          p_decision: isApproval ? "approved" : "rejected",
+          p_note: data.note ?? null,
+        });
+        return { status: isApproval ? "approved" : "rejected", step: currentStep };
+      } catch (leaveErr: unknown) {
+        console.warn(
+          "decide_leave_request RPC fallback:",
+          leaveErr instanceof Error ? leaveErr.message : String(leaveErr),
+        );
+      }
+    }
+
     const finalStatus = isApproval ? "approved" : data.decision;
     await supabase
       .from("requests")

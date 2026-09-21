@@ -62,6 +62,21 @@ export const queryKeys = {
     types: () => [...queryKeys.leaves.all, "types"] as const,
     balances: (employeeId?: string) =>
       [...queryKeys.leaves.all, "balances", employeeId ?? "all"] as const,
+    myBalances: (year?: number) => [...queryKeys.leaves.all, "myBalances", year ?? "current"] as const,
+    adminBalances: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.leaves.all, "adminBalances", filters] as const)
+        : ([...queryKeys.leaves.all, "adminBalances"] as const),
+    myRequests: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.leaves.all, "myRequests", filters] as const)
+        : ([...queryKeys.leaves.all, "myRequests"] as const),
+    teamCalendar: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.leaves.all, "teamCalendar", filters] as const)
+        : ([...queryKeys.leaves.all, "teamCalendar"] as const),
+    accrualRuns: (year?: number) => [...queryKeys.leaves.all, "accrualRuns", year ?? "all"] as const,
+    holidays: (companyId?: string) => [...queryKeys.leaves.all, "holidays", companyId ?? "current"] as const,
   },
   shifts: {
     all: ["shifts"] as const,

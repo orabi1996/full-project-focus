@@ -532,6 +532,7 @@ export type LeaveAccrualMethod = "yearly_frontloaded" | "monthly_accrual" | "con
 export interface LeaveTypePolicy {
   id: string;
   code: string;
+  companyId?: string;
   nameAr: string;
   nameEn: string;
   color: string;
@@ -543,11 +544,17 @@ export interface LeaveTypePolicy {
   requiresAttachment: boolean;
   accrualMethod: LeaveAccrualMethod;
   carryoverLimitDays: number;
+  carryoverExpiryMonths?: number | null;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+  jurisdiction?: string;
   status: "active" | "inactive";
 }
 
 export interface EmployeeLeaveBalance {
+  id?: string;
   employeeId?: string;
+  companyId?: string;
   leaveTypeId: string;
   leaveTypeNameAr: string;
   leaveTypeNameEn: string;
@@ -558,6 +565,76 @@ export interface EmployeeLeaveBalance {
   reservedDays: number; // In pending requests
   carriedOverDays: number;
   availableBalance: number;
+  allowNegativeBalance?: boolean;
+  requiresAttachment?: boolean;
+  allowHalfDay?: boolean;
+  year?: number;
+}
+
+export interface LeaveBalanceTransaction {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  leaveTypeId: string;
+  year: number;
+  transactionType:
+    | "opening"
+    | "entitlement"
+    | "accrual"
+    | "carryover"
+    | "reservation"
+    | "reservation_release"
+    | "usage"
+    | "adjustment"
+    | "expiry"
+    | "reversal";
+  days: number;
+  requestId?: string | null;
+  reason?: string | null;
+  metadata?: Record<string, unknown>;
+  createdBy?: string | null;
+  createdAt: string;
+}
+
+export interface LeaveAccrualRun {
+  id: string;
+  companyId: string;
+  leaveTypeId: string;
+  periodYear: number;
+  periodMonth: number;
+  employeesProcessed: number;
+  totalDaysAccrued: number;
+  executedBy?: string | null;
+  executedAt: string;
+}
+
+export interface CompanyHoliday {
+  id: string;
+  companyId: string;
+  nameAr: string;
+  nameEn?: string | null;
+  startDate: string;
+  endDate: string;
+  isPaid: boolean;
+  jurisdiction?: string;
+  createdAt: string;
+}
+
+export interface TeamLeaveCalendarItem {
+  id: string;
+  requestId?: string;
+  employeeId: string;
+  employeeName: string;
+  color?: string;
+  avatarUrl?: string | null;
+  avatarStoragePath?: string | null;
+  departmentName?: string | null;
+  leaveTypeId?: string;
+  leaveTypeName: string;
+  startDate: string;
+  endDate: string;
+  workingDays: number;
+  status: string;
 }
 
 export interface LeaveRequestPayload {
@@ -573,6 +650,7 @@ export interface LeaveRequestPayload {
   replacementEmployeeId?: string;
   replacementEmployeeName?: string;
   emergencyContactPhone?: string;
+  attachmentFileId?: string;
 }
 
 // ----------------------------------------------------------------------------

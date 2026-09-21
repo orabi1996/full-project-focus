@@ -1,13 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
 import { IconSymbol } from "../ui/IconSymbol";
 import {
   CalendarDays,
   Plus,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
   Calendar,
   Users,
   Info,
@@ -15,7 +12,6 @@ import {
   Settings,
   ShieldCheck,
   TrendingUp,
-  FileText,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -29,22 +25,25 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../ui/dialog";
+import {
+  useLeaves,
+  useLeaveMutations,
+  useLeaveTeamCalendar,
+} from "../../lib/domains/leaves";
+import { calculateWorkingDaysRecord } from "../../lib/data/operational-repository";
 
 export const LeavesView: React.FC = () => {
   const {
-    leaveBalances,
-    leaveTypes,
     employees,
-    applyLeave,
-    addLeaveType,
-    adjustLeaveBalance,
-    accrueLeaveBalances,
-    openEmployeeProfile,
     currentRole,
     language,
     t,
     isSaving,
   } = useApp();
+
+  const { leaveTypes, leaveBalances } = useLeaves();
+  const { applyLeave, addLeaveType, adjustLeaveBalance, accrueLeaveBalances } = useLeaveMutations();
+
   const canManage = canManageModule(currentRole, "leaves");
   const [activeTab, setActiveTab] = useState("balances");
 
@@ -53,43 +52,103 @@ export const LeavesView: React.FC = () => {
   const [isAddTypeModalOpen, setIsAddTypeModalOpen] = useState(false);
   const [isAdjustBalanceOpen, setIsAdjustBalanceOpen] = useState(false);
 
-  // Apply Form State
+  // Apply Form State - Truthful initial state (NO hardcoded fake dates)
   const [selectedTypeId, setSelectedTypeId] = useState(leaveTypes[0]?.id || "");
-  const [startDate, setStartDate] = useState("2026-09-01");
-  const [endDate, setEndDate] = useState("2026-09-05");
-  const [totalDays, setTotalDays] = useState(5);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [calculatedWorkingDays, setCalculatedWorkingDays] = useState<number | null>(null);
+  const [isCalculatingDays, setIsCalculatingDays] = useState(false);
+  const [isHalfDay, setIsHalfDay] = useState(false);
+  const [halfDayPeriod, setHalfDayPeriod] = useState<"first_half" | "second_half">("first_half");
   const [reason, setReason] = useState("");
 
   // Add Type State
   const [newTypeName, setNewTypeName] = useState("");
-  const [newTypeDays, setNewTypeDays] = useState(5);
+  const [newTypeDays, setNewTypeDays] = useState(21);
   const [newTypePaid, setNewTypePaid] = useState(true);
+  const [newTypeAllowHalfDay, setNewTypeAllowHalfDay] = useState(true);
+  const [newTypeAllowNegative, setNewTypeAllowNegative] = useState(false);
+  const [newTypeRequiresAttachment, setNewTypeRequiresAttachment] = useState(false);
+  const [newTypeCarryoverLimit, setNewTypeCarryoverLimit] = useState(5);
 
-  // Adjust Balance State
-  const [adjustEmpId, setAdjustEmpId] = useState(employees[0]?.id || "");
-  const [adjustDays, setAdjustDays] = useState(2);
+  // Adjust Balance State - Truthful initial state (NO auto-selecting employees[0])
+  const [adjustEmpId, setAdjustEmpId] = useState("");
+  const [adjustDays, setAdjustDays] = useState(1);
   const [adjustReason, setAdjustReason] = useState("");
+
+  // Calculate working days automatically when dates change
+  useEffect(() => {
+    let active = true;
+    if (!startDate || !endDate || endDate < startDate) {
+      setCalculatedWorkingDays(null);
+      return () => {
+        active = false;
+      };
+    }
+    setIsCalculatingDays(true);
+    calculateWorkingDaysRecord(startDate, endDate, selectedTypeId, isHalfDay)
+      .then((res) => {
+        if (active) {
+          setCalculatedWorkingDays(res.workingDays);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setCalculatedWorkingDays(null);
+        }
+      })
+      .finally(() => {
+        if (active) setIsCalculatingDays(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [startDate, endDate, selectedTypeId, isHalfDay]);
+
+  // Current month team calendar
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth();
+  const startOfMonth = new Date(currentYear, currentMonth, 1).toISOString().split("T")[0];
+  const endOfMonth = new Date(currentYear, currentMonth + 1, 0).toISOString().split("T")[0];
+  const { calendarItems, isLoading: isCalendarLoading } = useLeaveTeamCalendar(startOfMonth, endOfMonth);
 
   const selectedBalance = leaveBalances.find((b) => b.leaveTypeId === selectedTypeId);
 
   const handleApply = async () => {
     if (isSaving) return;
-    if (!reason) {
+    if (!startDate || !endDate) {
+      toast.error("يرجى اختيار تاريخ البداية وتاريخ النهاية");
+      return;
+    }
+    if (endDate < startDate) {
+      toast.error("تاريخ النهاية يجب أن يكون بعد تاريخ البداية أو يطابقه");
+      return;
+    }
+    if (calculatedWorkingDays === null || calculatedWorkingDays <= 0) {
+      toast.error("الفترة المحددة لا تحتوي على أي أيام عمل فعلية مستحقة للخصم");
+      return;
+    }
+    if (!reason.trim()) {
       toast.error("يرجى كتابة سبب الإجازة");
       return;
     }
+
     const success = await applyLeave({
-      leaveTypeId: selectedTypeId,
+      leaveTypeId: selectedTypeId || leaveTypes[0]?.id || "",
       startDate,
       endDate,
-      totalDays,
-      reason,
+      isHalfDay,
+      halfDayPeriod: isHalfDay ? halfDayPeriod : undefined,
+      totalDays: calculatedWorkingDays,
+      reason: reason.trim(),
     });
+
     if (success) {
       setIsApplyModalOpen(false);
+      setStartDate("");
+      setEndDate("");
       setReason("");
-    } else {
-      toast.error("عذراً، رصيدك المتاح لا يكفي لتغطية عدد الأيام المطلوبة");
+      setIsHalfDay(false);
     }
   };
 
@@ -97,16 +156,25 @@ export const LeavesView: React.FC = () => {
   const [isAdjustingBalance, setIsAdjustingBalance] = useState(false);
 
   const handleCreateLeaveType = async () => {
-    if (!newTypeName) {
+    if (!newTypeName.trim()) {
       toast.error("يرجى كتابة اسم نوع الإجازة");
       return;
     }
     setIsCreatingType(true);
     try {
-      const ok = await addLeaveType({ nameAr: newTypeName, maxDaysPerYear: newTypeDays, isPaid: newTypePaid });
+      const ok = await addLeaveType({
+        nameAr: newTypeName.trim(),
+        maxDaysPerYear: newTypeDays,
+        isPaid: newTypePaid,
+        allowHalfDay: newTypeAllowHalfDay,
+        allowNegativeBalance: newTypeAllowNegative,
+        requiresAttachment: newTypeRequiresAttachment,
+        carryoverLimitDays: newTypeCarryoverLimit,
+      });
       if (ok) {
         setIsAddTypeModalOpen(false);
         setNewTypeName("");
+        setNewTypeDays(21);
       }
     } finally {
       setIsCreatingType(false);
@@ -114,16 +182,22 @@ export const LeavesView: React.FC = () => {
   };
 
   const handleAdjustBalance = async () => {
-    if (!adjustReason) {
+    if (!adjustEmpId) {
+      toast.error("يرجى اختيار الموظف أولاً");
+      return;
+    }
+    if (!adjustReason.trim()) {
       toast.error("يرجى كتابة سبب تعديل الرصيد");
       return;
     }
     setIsAdjustingBalance(true);
     try {
-      const ok = await adjustLeaveBalance(adjustEmpId, selectedTypeId, adjustDays, adjustReason);
+      const targetType = selectedTypeId || leaveTypes[0]?.id || "";
+      const ok = await adjustLeaveBalance(adjustEmpId, targetType, adjustDays, adjustReason.trim());
       if (ok) {
         setIsAdjustBalanceOpen(false);
         setAdjustReason("");
+        setAdjustEmpId("");
       }
     } finally {
       setIsAdjustingBalance(false);
@@ -145,11 +219,11 @@ export const LeavesView: React.FC = () => {
                   {t.leaves.balance} وإدارة العطلات والغياب
                 </h1>
                 <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
-                  متوافق مع قوى ونظام العمل
+                  سياسة الإجازات المعتمدة
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                إدارة أرصدة الإجازات السنوية والمرضية، التقديم، وحجز الرصيد وفق معايير نظام العمل السعودي
+                إدارة أرصدة الإجازات السنوية والمرضية، التقديم، وحجز الرصيد وفق لائحة وسياسة العمل المعتمدة
               </p>
             </div>
           </div>
@@ -173,7 +247,7 @@ export const LeavesView: React.FC = () => {
                 className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs cursor-pointer"
               >
                 <TrendingUp className="h-4 w-4 text-primary" />
-                ترحيل الاستحقاق الشهري
+                ترحيل الاستحقاق السنوي
               </Button>
               <Button
                 onClick={() => setIsAddTypeModalOpen(true)}
@@ -257,7 +331,7 @@ export const LeavesView: React.FC = () => {
             value="law"
             className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
           >
-            نظام العمل السعودي (قوى)
+            سياسة الإجازات واللوائح
           </TabsTrigger>
         </TabsList>
 
@@ -269,54 +343,60 @@ export const LeavesView: React.FC = () => {
               <div className="flex items-center justify-between border-b border-border/60 pb-3">
                 <h2 className="text-sm font-black text-foreground flex items-center gap-2">
                   <Users className="h-4 w-4 text-primary" />
-                  {t.leaves.teamCalendar} (سبتمبر 2026)
+                  {t.leaves.teamCalendar}
                 </h2>
                 <Badge variant="outline" className="text-[10px] rounded-full px-2.5 font-bold">
-                  مخطط زمني نشط
+                  {calendarItems.length} {calendarItems.length === 1 ? "إجازة مسجلة" : "إجازات مسجلة"}
                 </Badge>
               </div>
 
-              <div className="space-y-3 text-xs">
-                <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3.5">
-                    <img
-                      src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150"
-                      alt="محمد"
-                      className="h-10 w-10 rounded-full border-2 border-primary/20 object-cover shadow-xs"
-                    />
-                    <div>
-                      <span className="font-bold text-foreground block">محمد الشمري</span>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">إجازة سنوية مجدولة</p>
-                    </div>
-                  </div>
-                  <Badge
-                    className="bg-sky-500/10 text-sky-700 border-sky-200 text-[10px] rounded-full px-3 py-1 font-bold"
-                    variant="outline"
-                  >
-                    5 سبتمبر - 12 سبتمبر (6 أيام عمل)
-                  </Badge>
+              {isCalendarLoading ? (
+                <div className="py-8 text-center text-xs text-muted-foreground animate-pulse">
+                  جاري تحميل جدول إجازات الفريق...
                 </div>
-
-                <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3.5">
-                    <img
-                      src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150"
-                      alt="نورة"
-                      className="h-10 w-10 rounded-full border-2 border-primary/20 object-cover shadow-xs"
-                    />
-                    <div>
-                      <span className="font-bold text-foreground block">نورة القحطاني</span>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">إجازة سنوية معتمدة</p>
-                    </div>
-                  </div>
-                  <Badge
-                    className="bg-emerald-500/10 text-emerald-700 border-emerald-200 text-[10px] rounded-full px-3 py-1 font-bold"
-                    variant="outline"
-                  >
-                    15 سبتمبر - 20 سبتمبر (5 أيام عمل)
-                  </Badge>
+              ) : calendarItems.length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground border border-dashed border-border/60 rounded-2xl p-6 space-y-2">
+                  <Calendar className="h-8 w-8 text-muted-foreground/40 mx-auto" />
+                  <p className="font-bold text-foreground">لا توجد إجازات مجدولة لفريق العمل في هذه الفترة</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    تظهر هنا الإجازات المعتمدة وقيد الاعتماد لأعضاء الفريق بصورة آنية
+                  </p>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-3 text-xs">
+                  {calendarItems.map((item) => (
+                    <div
+                      key={item.requestId}
+                      className="rounded-2xl border border-border/60 bg-muted/20 p-4 flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <div
+                          className="h-10 w-10 rounded-full border border-primary/20 flex items-center justify-center font-bold text-xs shadow-xs text-white"
+                          style={{ backgroundColor: item.color || "#004BCE" }}
+                        >
+                          {item.employeeName?.slice(0, 2) || "مو"}
+                        </div>
+                        <div>
+                          <span className="font-bold text-foreground block">{item.employeeName}</span>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {item.leaveTypeName} {item.departmentName ? `• ${item.departmentName}` : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge
+                        className={`text-[10px] rounded-full px-3 py-1 font-bold ${
+                          item.status === "approved"
+                            ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
+                            : "bg-amber-500/10 text-amber-700 border-amber-200"
+                        }`}
+                        variant="outline"
+                      >
+                        {item.startDate} إلى {item.endDate} ({item.workingDays} {item.workingDays === 1 ? "يوم عمل" : "أيام عمل"})
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Leave Quick Rules */}
@@ -327,17 +407,14 @@ export const LeavesView: React.FC = () => {
               </h2>
               <div className="space-y-3 text-xs text-muted-foreground font-medium leading-relaxed">
                 <p>
-                  • الإجازة السنوية تخصم من أيام العمل الفعلية فقط مع استبعاد عطلات نهاية الأسبوع
-                  والأعياد الرسمية.
+                  • تخصم الإجازة من أيام العمل الفعلية فقط مع استبعاد عطلات نهاية الأسبوع والأعياد الرسمية للشركة.
                 </p>
-                <p>• يتم حجز الرصيد فور تقديم الطلب لمنع تكرار التقديم أو تجاوزه.</p>
+                <p>• يتم حجز الرصيد فور تقديم الطلب لمنع تكرار التقديم أو تجاوز الاستحقاق.</p>
                 <p>
-                  • الإجازات المرضية تخضع لشرائح نظام العمل السعودي (أول 30 يوم بأجر كامل، 60 يوم
-                  بثلاثة أرباع الأجر).
+                  • عند اعتماد الطلب نهائياً، يتحول الرصيد المحجوز إلى مستخدم، وفي حال الرفض يُعاد فوراً إلى الرصيد المتاح.
                 </p>
                 <p>
-                  • الحد الأقصى لترحيل الإجازة السنوية للعام القادم هو 10 أيام عمل بموافقة صاحب
-                  العمل.
+                  • تخضع شرائح الاستحقاق والترحيل لسياسة الشركة ولائحة العمل المعتمدة لكل جهة اختصاص.
                 </p>
               </div>
             </div>
@@ -367,19 +444,19 @@ export const LeavesView: React.FC = () => {
                 </div>
                 <div className="border-t border-border/60 pt-2.5 flex justify-between text-xs text-muted-foreground">
                   <span>الحد الأقصى السنوي:</span>
-                  <span className="font-bold text-foreground">{type.maxDaysPerYear} يوماً</span>
+                  <span className="font-bold text-foreground font-mono">{type.maxDaysPerYear} يوماً</span>
                 </div>
               </div>
             ))}
           </div>
         </TabsContent>
 
-        {/* Tab 3: Saudi Labor Law Leave Policies */}
+        {/* Tab 3: Statutory & Company Leave Policies */}
         <TabsContent value="law" className="space-y-4 pt-4">
           <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
             <h2 className="text-sm font-black text-foreground flex items-center gap-2 border-b border-border/60 pb-3">
               <ShieldCheck className="h-5 w-5 text-emerald-600" />
-              لائحة الإجازات الرسمية المعتمدة وفق نظام العمل السعودي (منصة قوى)
+              لائحة وسياسات الإجازات المعتمدة
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
@@ -459,7 +536,7 @@ export const LeavesView: React.FC = () => {
             {selectedBalance && (
               <div className="rounded-2xl border border-border/60 bg-muted/20 p-3 flex justify-between text-xs font-semibold">
                 <span>رصيدك المتاح حالياً:</span>
-                <span className="text-emerald-600 font-black">
+                <span className="text-emerald-600 font-black font-mono">
                   {selectedBalance.availableBalance} يوم
                 </span>
               </div>
@@ -486,16 +563,64 @@ export const LeavesView: React.FC = () => {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="font-bold">عدد أيام الإجازة *</label>
+            <div className="flex items-center gap-2 pt-0.5">
               <input
-                type="number"
-                min="1"
-                max="30"
-                value={totalDays}
-                onChange={(e) => setTotalDays(Number(e.target.value))}
-                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                type="checkbox"
+                id="halfDayCheck"
+                checked={isHalfDay}
+                onChange={(e) => setIsHalfDay(e.target.checked)}
+                className="rounded text-primary h-4 w-4"
               />
+              <label htmlFor="halfDayCheck" className="text-xs font-bold text-foreground cursor-pointer">
+                إجازة نصف يوم (0.5 يوم عمل)
+              </label>
+            </div>
+
+            {isHalfDay && (
+              <div className="space-y-1.5 pl-4 border-r-2 border-primary/40">
+                <label className="font-bold">الفترة الزمنية لنصف اليوم</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="halfDayPeriod"
+                      value="first_half"
+                      checked={halfDayPeriod === "first_half"}
+                      onChange={() => setHalfDayPeriod("first_half")}
+                    />
+                    النصف الأول (صباحي)
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="halfDayPeriod"
+                      value="second_half"
+                      checked={halfDayPeriod === "second_half"}
+                      onChange={() => setHalfDayPeriod("second_half")}
+                    />
+                    النصف الثاني (مسائي)
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* Computed Working Days Preview */}
+            <div className="rounded-2xl border border-border/60 bg-muted/20 p-3.5 space-y-1">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-foreground">أيام العمل الفعلية المستحقة للخصم:</span>
+                {isCalculatingDays ? (
+                  <span className="text-muted-foreground animate-pulse">جاري الحساب...</span>
+                ) : calculatedWorkingDays !== null ? (
+                  <span className="font-black text-primary font-mono text-sm font-tabular-nums">
+                    {calculatedWorkingDays} {calculatedWorkingDays === 1 ? "يوم" : "أيام"}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground font-medium">حدد التواريخ لاحتساب الأيام</span>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                يتم احتساب أيام العمل تلقائياً مع استبعاد العطلات الرسمية وأيام الراحة الأسبوعية.
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -514,9 +639,10 @@ export const LeavesView: React.FC = () => {
             <Button
               size="sm"
               onClick={handleApply}
+              disabled={isSaving || isCalculatingDays || calculatedWorkingDays === null || calculatedWorkingDays <= 0}
               className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
             >
-              تأكيد وإرسال الطلب
+              تأكيد وحجز الرصيد
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -531,7 +657,7 @@ export const LeavesView: React.FC = () => {
               إضافة نوع إجازة وسياسة جديدة
             </DialogTitle>
             <DialogDescription className="text-xs font-medium">
-              تحديد الاستحقاق السنوي وطريقة الاحتساب
+              تحديد الاستحقاق السنوي وطريقة الاحتساب والقيود
             </DialogDescription>
           </DialogHeader>
 
@@ -547,7 +673,7 @@ export const LeavesView: React.FC = () => {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="font-bold">الحد الأقصى للأيام سنوياً *</label>
+              <label className="font-bold">الاستحقاق السنوي (أيام) *</label>
               <input
                 type="number"
                 value={newTypeDays}
@@ -555,17 +681,64 @@ export const LeavesView: React.FC = () => {
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
-            <div className="flex items-center gap-2 pt-1">
+            <div className="space-y-1.5">
+              <label className="font-bold">الحد الأقصى لترحيل الأيام سنوياً</label>
               <input
-                type="checkbox"
-                id="paidCheck"
-                checked={newTypePaid}
-                onChange={(e) => setNewTypePaid(e.target.checked)}
-                className="rounded text-primary h-4 w-4"
+                type="number"
+                value={newTypeCarryoverLimit}
+                onChange={(e) => setNewTypeCarryoverLimit(Number(e.target.value))}
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
-              <label htmlFor="paidCheck" className="text-xs font-bold text-foreground">
-                إجازة مدفوعة الأجر بالكامل (Paid Leave)
-              </label>
+            </div>
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="paidCheck"
+                  checked={newTypePaid}
+                  onChange={(e) => setNewTypePaid(e.target.checked)}
+                  className="rounded text-primary h-4 w-4"
+                />
+                <label htmlFor="paidCheck" className="text-xs font-bold text-foreground">
+                  إجازة مدفوعة الأجر (Paid Leave)
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="halfDayAllowedCheck"
+                  checked={newTypeAllowHalfDay}
+                  onChange={(e) => setNewTypeAllowHalfDay(e.target.checked)}
+                  className="rounded text-primary h-4 w-4"
+                />
+                <label htmlFor="halfDayAllowedCheck" className="text-xs font-bold text-foreground">
+                  السماح بتقديم نصف يوم
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="negativeAllowedCheck"
+                  checked={newTypeAllowNegative}
+                  onChange={(e) => setNewTypeAllowNegative(e.target.checked)}
+                  className="rounded text-primary h-4 w-4"
+                />
+                <label htmlFor="negativeAllowedCheck" className="text-xs font-bold text-foreground">
+                  السماح برصيد سالب (سلفة إجازات)
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="attachCheck"
+                  checked={newTypeRequiresAttachment}
+                  onChange={(e) => setNewTypeRequiresAttachment(e.target.checked)}
+                  className="rounded text-primary h-4 w-4"
+                />
+                <label htmlFor="attachCheck" className="text-xs font-bold text-foreground">
+                  إلزامية إرفاق مستند (تقرير طبي / إثبات)
+                </label>
+              </div>
             </div>
           </div>
 
@@ -591,7 +764,7 @@ export const LeavesView: React.FC = () => {
               تعديل رصيد إجازة استثنائي (Balance Adjustment)
             </DialogTitle>
             <DialogDescription className="text-xs font-medium">
-              إضافة أو خصم أيام رصيد مع توثيق الأسباب في سجل التدقيق
+              إضافة أو خصم أيام رصيد مع توثيق الأسباب في سجل التدقيق المالي والإداري
             </DialogDescription>
           </DialogHeader>
 
@@ -603,9 +776,10 @@ export const LeavesView: React.FC = () => {
                 onChange={(e) => setAdjustEmpId(e.target.value)}
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
               >
+                <option value="">-- اختر الموظف --</option>
                 {employees.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.firstNameAr} {emp.lastNameAr}
+                    {emp.firstNameAr} {emp.lastNameAr} {emp.employeeNo ? `(${emp.employeeNo})` : ""}
                   </option>
                 ))}
               </select>

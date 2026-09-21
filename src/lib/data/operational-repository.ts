@@ -33,6 +33,7 @@ import type {
   RoleDefinition,
   WorkLocation,
   WorkforcePlan,
+  TeamLeaveCalendarItem,
 } from "../../types";
 import { enterpriseSupabase } from "./enterprise-client";
 import { supabase } from "../../integrations/supabase/client";
@@ -836,24 +837,292 @@ export async function fetchOperationalSnapshot(
   };
 }
 
+async function callEnterpriseRpc<T = unknown>(
+  fnName: string,
+  args: Record<string, unknown>,
+): Promise<{ data: T | null; error: { message: string } | null }> {
+  const rpc = enterpriseSupabase.rpc as unknown as (
+    fn: string,
+    params: Record<string, unknown>,
+  ) => Promise<{ data: T | null; error: { message: string } | null }>;
+  return rpc(fnName, args);
+}
+
+export async function calculateWorkingDaysRecord(
+  startDate: string,
+  endDate: string,
+  leaveTypeId?: string,
+  isHalfDay?: boolean,
+): Promise<{ workingDays: number; calendarDays: number }> {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = Math.abs(end.getTime() - start.getTime());
+  const calendarDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+  try {
+    const { data, error } = await callEnterpriseRpc<number>("calculate_working_days", {
+      p_start_date: startDate,
+      p_end_date: endDate,
+      p_leave_type_id: leaveTypeId || null,
+      p_is_half_day: Boolean(isHalfDay),
+    });
+
+    if (error) {
+      let count = 0;
+      const cur = new Date(start);
+      while (cur <= end) {
+        const day = cur.getDay();
+        if (day !== 5 && day !== 6) count++;
+        cur.setDate(cur.getDate() + 1);
+      }
+      return { workingDays: isHalfDay ? 0.5 : count, calendarDays };
+    }
+
+    return { workingDays: Number(data ?? (isHalfDay ? 0.5 : calendarDays)), calendarDays };
+  } catch (_err: unknown) {
+    let count = 0;
+    const cur = new Date(start);
+    while (cur <= end) {
+      const day = cur.getDay();
+      if (day !== 5 && day !== 6) count++;
+      cur.setDate(cur.getDate() + 1);
+    }
+    return { workingDays: isHalfDay ? 0.5 : count, calendarDays };
+  }
+}
+
+export async function submitLeaveRequestRecord(payload: {
+  leaveTypeId: string;
+  startDate: string;
+  endDate: string;
+  isHalfDay?: boolean;
+  halfDayPeriod?: "first_half" | "second_half";
+  reason: string;
+  replacementEmployeeId?: string;
+  emergencyPhone?: string;
+  attachmentFileId?: string;
+  targetEmployeeId?: string;
+}): Promise<{
+  success: boolean;
+  requestId: string;
+  reference: string;
+  chargeableDays: number;
+  availableRemaining: number;
+  message: string;
+}> {
+  const { data, error } = await callEnterpriseRpc<Record<string, unknown>>("submit_leave_request", {
+    p_leave_type_id: payload.leaveTypeId,
+    p_start_date: payload.startDate,
+    p_end_date: payload.endDate,
+    p_is_half_day: Boolean(payload.isHalfDay),
+    p_half_day_period: payload.halfDayPeriod || null,
+    p_reason: payload.reason || null,
+    p_replacement_employee_id: payload.replacementEmployeeId || null,
+    p_emergency_phone: payload.emergencyPhone || null,
+    p_attachment_file_id: payload.attachmentFileId || null,
+    p_target_employee_id: payload.targetEmployeeId || null,
+  });
+
+  if (error) throw new Error(error.message);
+  return {
+    success: (data?.success as boolean) ?? true,
+    requestId: (data?.request_id as string) ?? "",
+    reference: (data?.reference as string) ?? "",
+    chargeableDays: Number(data?.chargeable_days ?? 0),
+    availableRemaining: Number(data?.available_remaining ?? 0),
+    message: (data?.message as string) ?? "تم تقديم الطلب بنجاح",
+  };
+}
+
+export async function decideLeaveRequestRecord(
+  requestId: string,
+  decision: "approved" | "rejected" | "returned" | "withdrawn",
+  note?: string,
+): Promise<{
+  success: boolean;
+  status: string;
+  chargeableDays: number;
+  message: string;
+}> {
+  const { data, error } = await callEnterpriseRpc<Record<string, unknown>>("decide_leave_request", {
+    p_request_id: requestId,
+    p_decision: decision,
+    p_note: note || null,
+  });
+
+  if (error) throw new Error(error.message);
+  return {
+    success: (data?.success as boolean) ?? true,
+    status: (data?.status as string) ?? "",
+    chargeableDays: Number(data?.chargeable_days ?? 0),
+    message: (data?.message as string) ?? "تمت معالجة الطلب بنجاح",
+  };
+}
+
+export async function fetchMyLeaveBalancesRecord(
+  year?: number,
+  employeeId?: string,
+): Promise<EmployeeLeaveBalance[]> {
+  const { data, error } = await callEnterpriseRpc<Record<string, unknown>[]>("get_my_leave_balances", {
+    p_year: year || new Date().getFullYear(),
+    p_employee_id: employeeId || null,
+  });
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    employeeId: row.employee_id as string,
+    leaveTypeId: row.leave_type_id as string,
+    leaveTypeCode: row.leave_type_code as string,
+    leaveTypeNameAr: row.leave_type_name_ar as string,
+    leaveTypeNameEn: row.leave_type_name_en as string,
+    color: row.color as string,
+    annualEntitlement: Number(row.annual_entitlement ?? 0),
+    accruedDays: Number(row.accrued_days ?? 0),
+    usedDays: Number(row.used_days ?? 0),
+    reservedDays: Number(row.reserved_days ?? 0),
+    carriedOverDays: Number(row.carried_over_days ?? 0),
+    availableBalance: Number(row.available_balance ?? 0),
+    year: row.year as number,
+    allowNegativeBalance: row.allow_negative_balance as boolean,
+    requiresAttachment: row.requires_attachment as boolean,
+    deductFromWorkingDaysOnly: row.deduct_working_days_only as boolean,
+  }));
+}
+
+export async function fetchCompanyLeaveBalancesRecord(
+  year?: number,
+  departmentId?: string,
+): Promise<EmployeeLeaveBalance[]> {
+  const { data, error } = await callEnterpriseRpc<Record<string, unknown>[]>("get_company_leave_balances", {
+    p_year: year || new Date().getFullYear(),
+    p_department_id: departmentId || null,
+  });
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    employeeId: row.employee_id as string,
+    employeeNo: row.employee_no as string,
+    employeeNameAr: row.employee_name_ar as string,
+    employeeNameEn: row.employee_name_en as string,
+    departmentNameAr: row.department_name_ar as string,
+    leaveTypeId: row.leave_type_id as string,
+    leaveTypeCode: row.leave_type_code as string,
+    leaveTypeNameAr: row.leave_type_name_ar as string,
+    color: row.color as string,
+    annualEntitlement: Number(row.annual_entitlement ?? 0),
+    accruedDays: Number(row.accrued_days ?? 0),
+    usedDays: Number(row.used_days ?? 0),
+    reservedDays: Number(row.reserved_days ?? 0),
+    carriedOverDays: Number(row.carried_over_days ?? 0),
+    availableBalance: Number(row.available_balance ?? 0),
+    year: row.year as number,
+  }));
+}
+
+export async function fetchTeamLeaveCalendarRecord(
+  startDate: string,
+  endDate: string,
+  departmentId?: string,
+): Promise<TeamLeaveCalendarItem[]> {
+  const { data, error } = await callEnterpriseRpc<Record<string, unknown>[]>("get_team_leave_calendar", {
+    p_start_date: startDate,
+    p_end_date: endDate,
+    p_department_id: departmentId || null,
+  });
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => ({
+    id: (row.request_id as string) || (row.id as string) || `cal-${Math.random()}`,
+    requestId: (row.request_id as string) || (row.id as string),
+    employeeId: row.employee_id as string,
+    employeeName: row.employee_name as string,
+    departmentName: row.department_name as string,
+    leaveTypeId: row.leave_type_id as string,
+    leaveTypeName: row.leave_type_name as string,
+    color: row.color as string,
+    startDate: row.start_date as string,
+    endDate: row.end_date as string,
+    workingDays: Number(row.working_days ?? 0),
+    status: row.status as string,
+  }));
+}
+
 export async function createLeaveTypeRecord(input: {
   nameAr: string;
+  nameEn?: string;
+  code?: string;
+  color?: string;
+  isPaid?: boolean;
+  deductFromWorkingDaysOnly?: boolean;
   maxDaysPerYear: number;
-  isPaid: boolean;
+  allowHalfDay?: boolean;
+  allowNegativeBalance?: boolean;
+  requiresAttachment?: boolean;
+  accrualMethod?: "yearly_frontloaded" | "monthly_accrual" | "contract_anniversary";
+  carryoverLimitDays?: number;
+  carryoverExpiryMonths?: number;
+  jurisdiction?: string;
+  companyId?: string;
 }) {
-  const { error } = await enterpriseSupabase.from("leave_types").insert({
-    code: `LT-${Date.now().toString().slice(-6)}`,
-    name_ar: input.nameAr,
-    name_en: input.nameAr,
-    color: "#365F91",
-    is_paid: input.isPaid,
-    deduct_working_days_only: true,
-    max_days_per_year: input.maxDaysPerYear,
-    allow_half_day: true,
-    accrual_method: "yearly_frontloaded",
-    status: "active",
+  const { data, error } = await callEnterpriseRpc("create_leave_type", {
+    p_name_ar: input.nameAr,
+    p_name_en: input.nameEn || input.nameAr,
+    p_code: input.code || null,
+    p_color: input.color || "#365F91",
+    p_is_paid: input.isPaid ?? true,
+    p_deduct_working_days_only: input.deductFromWorkingDaysOnly ?? true,
+    p_max_days_per_year: input.maxDaysPerYear,
+    p_allow_half_day: input.allowHalfDay ?? true,
+    p_allow_negative_balance: input.allowNegativeBalance ?? false,
+    p_requires_attachment: input.requiresAttachment ?? false,
+    p_accrual_method: input.accrualMethod || "yearly_frontloaded",
+    p_carryover_limit_days: input.carryoverLimitDays ?? 0,
+    p_carryover_expiry_months: input.carryoverExpiryMonths ?? 3,
+    p_jurisdiction: input.jurisdiction || "saudi_labor_law",
+    p_company_id: input.companyId || null,
   });
+
   if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function adjustLeaveBalanceRecord(
+  employeeId: string,
+  leaveTypeId: string,
+  days: number,
+  reason?: string,
+  year?: number,
+) {
+  const { data, error } = await callEnterpriseRpc("adjust_leave_balance", {
+    p_employee_id: employeeId,
+    p_leave_type_id: leaveTypeId,
+    p_amount: days,
+    p_reason: reason || "تسوية يدوية للرصيد",
+    p_year: year || new Date().getFullYear(),
+  });
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function runLeaveAccrualRecord(
+  year: number,
+  leaveTypeId?: string,
+  companyId?: string,
+) {
+  const { data, error } = await callEnterpriseRpc("run_leave_accrual", {
+    p_year: year,
+    p_leave_type_id: leaveTypeId || null,
+    p_company_id: companyId || null,
+  });
+
+  if (error) throw new Error(error.message);
+  return data;
 }
 
 export async function createExpenseCategoryRecord(input: {
@@ -867,44 +1136,6 @@ export async function createExpenseCategoryRecord(input: {
     max_limit_warning: input.warningLimit,
     max_limit_block: input.blockLimit,
     requires_receipt: true,
-  });
-  if (error) throw new Error(error.message);
-}
-
-export async function adjustLeaveBalanceRecord(
-  employeeId: string,
-  leaveTypeId: string,
-  days: number,
-) {
-  const { data: existing, error: readError } = await enterpriseSupabase
-    .from("leave_balances")
-    .select("id, accrued_days")
-    .eq("employee_id", employeeId)
-    .eq("leave_type_id", leaveTypeId)
-    .maybeSingle();
-  if (readError) throw new Error(readError.message);
-
-  if (existing) {
-    const { error } = await enterpriseSupabase
-      .from("leave_balances")
-      .update({
-        accrued_days: numberValue(existing.accrued_days) + days,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", existing.id);
-    if (error) throw new Error(error.message);
-    return;
-  }
-
-  const { error } = await enterpriseSupabase.from("leave_balances").insert({
-    employee_id: employeeId,
-    leave_type_id: leaveTypeId,
-    annual_entitlement: 0,
-    accrued_days: days,
-    used_days: 0,
-    reserved_days: 0,
-    carried_over_days: 0,
-    updated_at: new Date().toISOString(),
   });
   if (error) throw new Error(error.message);
 }

@@ -1,18 +1,147 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
-import type { EmployeeLeaveBalance, LeaveTypePolicy } from "../../../types";
+import type { EmployeeLeaveBalance, LeaveTypePolicy, TeamLeaveCalendarItem } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
 import {
-  adjustLeaveBalanceRecord,
+  submitLeaveRequestRecord,
+  decideLeaveRequestRecord,
+  fetchMyLeaveBalancesRecord,
+  fetchCompanyLeaveBalancesRecord,
+  fetchTeamLeaveCalendarRecord,
   createLeaveTypeRecord,
+  adjustLeaveBalanceRecord,
+  runLeaveAccrualRecord,
 } from "../../data/operational-repository";
-import { createRequestRecord } from "../../data/hrms-repository";
-import { accrueLeaveBalancesServer } from "../../business/leave.functions";
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
+
+export function useMyLeaveBalances(year?: number, employeeId?: string) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+  const targetYear = year || new Date().getFullYear();
+
+  const demoBalances = useDemoStore((s) => s.leaveBalances);
+
+  const query = useQuery({
+    queryKey: queryKeys.leaves.myBalances(targetYear),
+    queryFn: () => fetchMyLeaveBalancesRecord(targetYear, employeeId),
+    enabled: isLive,
+    staleTime: 60 * 1000,
+  });
+
+  if (!isLive) {
+    const filtered = employeeId
+      ? demoBalances.filter((b) => b.employeeId === employeeId)
+      : demoBalances;
+    return {
+      balances: filtered,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: async () => ({ data: filtered }),
+    };
+  }
+
+  return {
+    balances: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+export function useCompanyLeaveBalances(year?: number, departmentId?: string) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+  const targetYear = year || new Date().getFullYear();
+
+  const demoBalances = useDemoStore((s) => s.leaveBalances);
+
+  const query = useQuery({
+    queryKey: queryKeys.leaves.adminBalances({ year: targetYear, departmentId }),
+    queryFn: () => fetchCompanyLeaveBalancesRecord(targetYear, departmentId),
+    enabled: isLive,
+    staleTime: 60 * 1000,
+  });
+
+  if (!isLive) {
+    return {
+      balances: demoBalances,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: async () => ({ data: demoBalances }),
+    };
+  }
+
+  return {
+    balances: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+export function useLeaveTypes() {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+  const bootstrap = useBootstrapData();
+  const demoTypes = useDemoStore((s) => s.leaveTypes);
+
+  const leaveTypes = isLive ? (bootstrap.leaveTypes as LeaveTypePolicy[]) : demoTypes;
+
+  return {
+    leaveTypes,
+    isLoading: isLive ? bootstrap.isLoading : false,
+    isError: isLive ? bootstrap.isError : false,
+    error: queryError(bootstrap),
+    refetch: bootstrap.refreshCoreData,
+  };
+}
+
+function queryError(bootstrap: { isError: boolean; error: unknown }) {
+  return bootstrap.isError ? bootstrap.error : null;
+}
+
+export function useLeaveTeamCalendar(
+  startDate: string,
+  endDate: string,
+  departmentId?: string,
+) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  const query = useQuery({
+    queryKey: queryKeys.leaves.teamCalendar({ startDate, endDate, departmentId }),
+    queryFn: () => fetchTeamLeaveCalendarRecord(startDate, endDate, departmentId),
+    enabled: isLive && Boolean(startDate && endDate),
+    staleTime: 60 * 1000,
+  });
+
+  if (!isLive) {
+    const demoItems: TeamLeaveCalendarItem[] = [];
+    return {
+      calendarItems: demoItems,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: async () => ({ data: demoItems }),
+    };
+  }
+
+  return {
+    calendarItems: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
 
 export function useLeaves() {
   const { session, isDemo } = useAuth();
@@ -23,7 +152,7 @@ export function useLeaves() {
     leaveBalances: s.leaveBalances,
   }));
 
-  const leaveTypes = isLive ? bootstrap.leaveTypes : demoData.leaveTypes;
+  const leaveTypes = isLive ? (bootstrap.leaveTypes as LeaveTypePolicy[]) : demoData.leaveTypes;
   const leaveBalances = isLive ? bootstrap.leaveBalances : demoData.leaveBalances;
 
   return {
@@ -47,8 +176,13 @@ export function useLeaveMutations() {
         leaveTypeId: string;
         startDate: string;
         endDate: string;
-        totalDays: number;
+        isHalfDay?: boolean;
+        halfDayPeriod?: "first_half" | "second_half";
         reason: string;
+        replacementEmployeeId?: string;
+        emergencyPhone?: string;
+        attachmentFileId?: string;
+        totalDays?: number;
       },
       employeeId?: string,
     ): Promise<boolean> => {
@@ -61,12 +195,17 @@ export function useLeaveMutations() {
         mode,
         mutationKey: `apply-leave-${empId}-${payload.startDate}-${payload.leaveTypeId}`,
         operation: async () => {
-          await createRequestRecord(empId, "leave", {
+          await submitLeaveRequestRecord({
             leaveTypeId: payload.leaveTypeId,
             startDate: payload.startDate,
             endDate: payload.endDate,
-            totalDays: payload.totalDays,
+            isHalfDay: payload.isHalfDay,
+            halfDayPeriod: payload.halfDayPeriod,
             reason: payload.reason,
+            replacementEmployeeId: payload.replacementEmployeeId,
+            emergencyPhone: payload.emergencyPhone,
+            attachmentFileId: payload.attachmentFileId,
+            targetEmployeeId: employeeId,
           });
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
@@ -74,15 +213,16 @@ export function useLeaveMutations() {
           return true;
         },
         demoOperation: () => {
+          const days = payload.totalDays || 1;
           if (targetBalanceIndex >= 0) {
-            demoStore.leaveBalances[targetBalanceIndex].usedDays += payload.totalDays;
-            demoStore.leaveBalances[targetBalanceIndex].availableBalance -= payload.totalDays;
+            demoStore.leaveBalances[targetBalanceIndex].reservedDays += days;
+            demoStore.leaveBalances[targetBalanceIndex].availableBalance -= days;
           }
           demoStore.notify();
           return true;
         },
         onCommitted: () => {
-          toast.success(`تم تقديم طلب الإجازة بنجاح ومدتها (${payload.totalDays}) أيام`);
+          toast.success("تم تقديم طلب الإجازة وحجز الرصيد بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تقديم طلب الإجازة");
@@ -94,22 +234,77 @@ export function useLeaveMutations() {
     [mode, queryClient],
   );
 
+  const decideLeave = useCallback(
+    async (
+      requestId: string,
+      decision: "approved" | "rejected" | "returned" | "withdrawn",
+      note?: string,
+    ): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `decide-leave-${requestId}-${decision}`,
+        operation: async () => {
+          await decideLeaveRequestRecord(requestId, decision, note);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          return true;
+        },
+        demoOperation: () => {
+          return true;
+        },
+        onCommitted: () => {
+          const label =
+            decision === "approved"
+              ? "تمت الموافقة على الإجازة وتسوية الرصيد بنجاح"
+              : decision === "rejected"
+              ? "تم رفض الإجازة وإلغاء حجز الرصيد"
+              : "تم تحديث حالة طلب الإجازة بنجاح";
+          toast.success(label);
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر معالجة قرار الإجازة");
+        },
+      });
+
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
   const addLeaveType = useCallback(
-    async (input: { nameAr: string; maxDaysPerYear: number; isPaid: boolean }): Promise<boolean> => {
+    async (input: {
+      nameAr: string;
+      nameEn?: string;
+      code?: string;
+      maxDaysPerYear: number;
+      isPaid: boolean;
+      deductFromWorkingDaysOnly?: boolean;
+      allowHalfDay?: boolean;
+      allowNegativeBalance?: boolean;
+      requiresAttachment?: boolean;
+      accrualMethod?: "yearly_frontloaded" | "monthly_accrual" | "contract_anniversary";
+      carryoverLimitDays?: number;
+      carryoverExpiryMonths?: number;
+      jurisdiction?: string;
+      companyId?: string;
+    }): Promise<boolean> => {
       const newType: LeaveTypePolicy = {
         id: `lt-${Date.now()}`,
-        code: `LT-${Math.floor(10 + Math.random() * 90)}`,
+        code: input.code || `LT-${Math.floor(10 + Math.random() * 90)}`,
         nameAr: input.nameAr,
-        nameEn: input.nameAr,
+        nameEn: input.nameEn || input.nameAr,
         color: "#059669",
         isPaid: input.isPaid,
-        deductFromWorkingDaysOnly: true,
+        deductFromWorkingDaysOnly: input.deductFromWorkingDaysOnly ?? true,
         maxDaysPerYear: input.maxDaysPerYear,
-        allowHalfDay: false,
-        allowNegativeBalance: false,
-        requiresAttachment: false,
-        accrualMethod: "yearly_frontloaded",
-        carryoverLimitDays: 5,
+        allowHalfDay: input.allowHalfDay ?? true,
+        allowNegativeBalance: input.allowNegativeBalance ?? false,
+        requiresAttachment: input.requiresAttachment ?? false,
+        accrualMethod: input.accrualMethod || "yearly_frontloaded",
+        carryoverLimitDays: input.carryoverLimitDays ?? 0,
+        carryoverExpiryMonths: input.carryoverExpiryMonths ?? 3,
+        jurisdiction: input.jurisdiction || "saudi_labor_law",
         status: "active",
       };
 
@@ -117,7 +312,7 @@ export function useLeaveMutations() {
         mode,
         mutationKey: `add-leave-type-${input.nameAr}`,
         operation: async () => {
-          await createLeaveTypeRecord(newType);
+          await createLeaveTypeRecord(input);
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.types() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
@@ -128,7 +323,7 @@ export function useLeaveMutations() {
           return true;
         },
         onCommitted: () => {
-          toast.success("تم إضافة نوع الإجازة بنجاح");
+          toast.success("تم إضافة نوع وسياسة الإجازة بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إضافة نوع الإجازة");
@@ -146,12 +341,13 @@ export function useLeaveMutations() {
       leaveTypeId: string,
       days: number,
       reason: string,
+      year?: number,
     ): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
         mutationKey: `adjust-leave-${employeeId}-${leaveTypeId}`,
         operation: async () => {
-          await adjustLeaveBalanceRecord(employeeId, leaveTypeId, days);
+          await adjustLeaveBalanceRecord(employeeId, leaveTypeId, days, reason, year);
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
@@ -171,7 +367,7 @@ export function useLeaveMutations() {
           return true;
         },
         onCommitted: () => {
-          toast.success("تم تسوية وتعديل رصيد الإجازة بنجاح");
+          toast.success("تم تعديل وتسوية رصيد الإجازة وتوثيق الحركة بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تسوية رصيد الإجازة");
@@ -184,12 +380,12 @@ export function useLeaveMutations() {
   );
 
   const accrueLeaveBalances = useCallback(
-    async (year: number): Promise<boolean> => {
+    async (year: number, leaveTypeId?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
         mutationKey: `accrue-leaves-${year}`,
         operation: async () => {
-          await accrueLeaveBalancesServer({ data: { year } });
+          await runLeaveAccrualRecord(year, leaveTypeId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
@@ -212,6 +408,7 @@ export function useLeaveMutations() {
 
   return {
     applyLeave,
+    decideLeave,
     addLeaveType,
     adjustLeaveBalance,
     accrueLeaveBalances,

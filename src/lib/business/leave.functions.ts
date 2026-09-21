@@ -16,6 +16,20 @@ export const accrueLeaveBalancesServer = createServerFn({ method: "POST" })
     const supabase = context.supabase as any;
     await assertRole(supabase, context.userId, ["super_admin", "org_admin", "hr_manager"]);
 
+    try {
+      const { data: runData, error: rpcError } = await supabase.rpc("run_leave_accrual", {
+        p_year: data.year,
+      });
+      if (!rpcError && runData) {
+        return { updated: runData.processed_count ?? 1 };
+      }
+    } catch (err: unknown) {
+      console.warn(
+        "run_leave_accrual RPC fallback:",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+
     const months = data.months ?? 1;
     const { data: balances, error } = await supabase
       .from("leave_balances")

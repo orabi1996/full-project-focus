@@ -4,6 +4,7 @@ import type { EmployeeLeaveBalance, LeaveTypePolicy, TeamLeaveCalendarItem } fro
 import { useAuth } from "../../auth/AuthContext";
 import {
   submitLeaveRequestRecord,
+  resubmitLeaveRequestRecord,
   decideLeaveRequestRecord,
   fetchMyLeaveBalancesRecord,
   fetchCompanyLeaveBalancesRecord,
@@ -12,6 +13,9 @@ import {
   adjustLeaveBalanceRecord,
   runLeaveAccrualRecord,
   runLeaveCarryoverRecord,
+  runLeaveCarryoverExpiryRecord,
+  uploadLeaveAttachmentRecord,
+  cleanupStagedLeaveAttachmentRecord,
 } from "../../data/operational-repository";
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
@@ -210,7 +214,6 @@ export function useLeaveMutations() {
           });
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {
@@ -235,6 +238,43 @@ export function useLeaveMutations() {
     [mode, queryClient],
   );
 
+  const resubmitLeave = useCallback(
+    async (payload: {
+      requestId: string;
+      startDate: string;
+      endDate: string;
+      isHalfDay?: boolean;
+      halfDayPeriod?: "first_half" | "second_half";
+      reason: string;
+      replacementEmployeeId?: string;
+      emergencyPhone?: string;
+      attachmentFileId?: string;
+    }): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `resubmit-leave-${payload.requestId}`,
+        operation: async () => {
+          await resubmitLeaveRequestRecord(payload);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
+          return true;
+        },
+        demoOperation: () => {
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إعادة تقديم طلب الإجازة بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إعادة تقديم طلب الإجازة");
+        },
+      });
+
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
   const decideLeave = useCallback(
     async (
       requestId: string,
@@ -248,7 +288,6 @@ export function useLeaveMutations() {
           await decideLeaveRequestRecord(requestId, decision, note);
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {
@@ -315,7 +354,7 @@ export function useLeaveMutations() {
         operation: async () => {
           await createLeaveTypeRecord(input);
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.types() });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
           return true;
         },
         demoOperation: () => {
@@ -350,7 +389,7 @@ export function useLeaveMutations() {
         operation: async () => {
           await adjustLeaveBalanceRecord(employeeId, leaveTypeId, days, reason, year);
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
           return true;
         },
         demoOperation: () => {
@@ -393,7 +432,7 @@ export function useLeaveMutations() {
         operation: async () => {
           await runLeaveAccrualRecord(year, month, leaveTypeId, companyId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
           return true;
         },
         demoOperation: () => {
@@ -425,7 +464,7 @@ export function useLeaveMutations() {
         operation: async () => {
           await runLeaveCarryoverRecord(sourceYear, targetYear, leaveTypeId, companyId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
           return true;
         },
         demoOperation: () => {
@@ -444,12 +483,41 @@ export function useLeaveMutations() {
     [mode, queryClient],
   );
 
+  const expireCarryoverBalances = useCallback(
+    async (companyId?: string, referenceDate?: string): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `expire-carryover-${companyId || "all"}`,
+        operation: async () => {
+          await runLeaveCarryoverExpiryRecord(companyId, referenceDate);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
+          return true;
+        },
+        demoOperation: () => {
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إنهاء صلاحية الأرصدة المرحلة بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إنهاء صلاحية الأرصدة المرحلة");
+        },
+      });
+
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
   return {
     applyLeave,
+    resubmitLeave,
     decideLeave,
     addLeaveType,
     adjustLeaveBalance,
     accrueLeaveBalances,
     carryoverLeaveBalances,
+    expireCarryoverBalances,
   };
 }

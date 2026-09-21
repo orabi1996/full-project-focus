@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
 import { IconSymbol } from "../ui/IconSymbol";
@@ -12,6 +12,9 @@ import {
   Settings,
   ShieldCheck,
   TrendingUp,
+  Paperclip,
+  RotateCcw,
+  Search,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -26,25 +29,64 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import {
-  useLeaves,
+  useMyLeaveBalances,
+  useCompanyLeaveBalances,
+  useLeaveTypes,
   useLeaveMutations,
   useLeaveTeamCalendar,
 } from "../../lib/domains/leaves";
 import { useBootstrapData } from "../../lib/domains/bootstrap/use-bootstrap";
-import { calculateWorkingDaysRecord } from "../../lib/data/operational-repository";
+import {
+  calculateWorkingDaysRecord,
+  uploadLeaveAttachmentRecord,
+  cleanupStagedLeaveAttachmentRecord,
+} from "../../lib/data/operational-repository";
+import {
+  getCompanyYear,
+  getCompanyMonth,
+  getCompanyMonthBoundaries,
+} from "../../lib/utils/timezone-dates";
+import type { ServiceRequest } from "../../types";
 
 export const LeavesView: React.FC = () => {
   const {
     employees,
     currentRole,
+    currentUser,
     language,
     t,
     isSaving,
+    requests,
   } = useApp();
 
   const { company } = useBootstrapData();
-  const { leaveTypes, leaveBalances } = useLeaves();
-  const { applyLeave, addLeaveType, adjustLeaveBalance, accrueLeaveBalances, carryoverLeaveBalances } = useLeaveMutations();
+
+  // Timezone-safe company date boundaries
+  const companyTz = company?.timezone;
+  const currentYear = getCompanyYear(companyTz);
+  const currentMonth = getCompanyMonth(companyTz);
+  const { startDate: startOfMonth, endDate: endOfMonth } = getCompanyMonthBoundaries(
+    currentYear,
+    currentMonth,
+    companyTz,
+  );
+
+  // Dedicated queries (no bootstrap whole-app reload)
+  const { leaveTypes } = useLeaveTypes();
+  const { balances: myBalances } = useMyLeaveBalances(currentYear);
+  const { balances: companyBalances } = useCompanyLeaveBalances(currentYear);
+  const { calendarItems, isLoading: isCalendarLoading } = useLeaveTeamCalendar(startOfMonth, endOfMonth);
+
+  // Dedicated mutations
+  const {
+    applyLeave,
+    resubmitLeave,
+    addLeaveType,
+    adjustLeaveBalance,
+    accrueLeaveBalances,
+    carryoverLeaveBalances,
+    expireCarryoverBalances,
+  } = useLeaveMutations();
 
   const canManage = canManageModule(currentRole, "leaves");
   const [activeTab, setActiveTab] = useState("balances");
@@ -54,7 +96,7 @@ export const LeavesView: React.FC = () => {
   const [isAddTypeModalOpen, setIsAddTypeModalOpen] = useState(false);
   const [isAdjustBalanceOpen, setIsAdjustBalanceOpen] = useState(false);
 
-  // Apply Form State - Truthful initial state (NO hardcoded fake dates)
+  // Apply Form State - Truthful initial state
   const [selectedTypeId, setSelectedTypeId] = useState(leaveTypes[0]?.id || "");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -63,6 +105,12 @@ export const LeavesView: React.FC = () => {
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [halfDayPeriod, setHalfDayPeriod] = useState<"first_half" | "second_half">("first_half");
   const [reason, setReason] = useState("");
+
+  // Attachment state for apply modal
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [stagedFileId, setStagedFileId] = useState<string | null>(null);
+  const [stagedFileName, setStagedFileName] = useState<string | null>(null);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
 
   // Add Type State
   const [newTypeName, setNewTypeName] = useState("");
@@ -73,10 +121,58 @@ export const LeavesView: React.FC = () => {
   const [newTypeRequiresAttachment, setNewTypeRequiresAttachment] = useState(false);
   const [newTypeCarryoverLimit, setNewTypeCarryoverLimit] = useState(5);
 
-  // Adjust Balance State - Truthful initial state (NO auto-selecting employees[0])
+  // Adjust Balance State - Searchable employee picker
   const [adjustEmpId, setAdjustEmpId] = useState("");
+  const [adjustEmpSearch, setAdjustEmpSearch] = useState("");
   const [adjustDays, setAdjustDays] = useState(1);
   const [adjustReason, setAdjustReason] = useState("");
+
+  const filteredAdjustEmployees = useMemo(() => {
+    if (!adjustEmpSearch.trim()) return employees.slice(0, 50);
+    const s = adjustEmpSearch.toLowerCase();
+    return employees
+      .filter(
+        (e) =>
+          (e.firstNameAr && e.firstNameAr.toLowerCase().includes(s)) ||
+          (e.lastNameAr && e.lastNameAr.toLowerCase().includes(s)) ||
+          (e.employeeNo && e.employeeNo.toLowerCase().includes(s)),
+      )
+      .slice(0, 50);
+  }, [employees, adjustEmpSearch]);
+
+  // Returned Requests for resubmission
+  const returnedLeaveRequests = useMemo(() => {
+    return requests.filter(
+      (r) =>
+        r.type === "leave" &&
+        r.status === "returned" &&
+        r.requesterId === currentUser?.id,
+    );
+  }, [requests, currentUser]);
+
+  const [resubmitTargetRequest, setResubmitTargetRequest] = useState<ServiceRequest | null>(null);
+  const [resubmitStartDate, setResubmitStartDate] = useState("");
+  const [resubmitEndDate, setResubmitEndDate] = useState("");
+  const [resubmitReason, setResubmitReason] = useState("");
+  const [resubmitIsHalfDay, setResubmitIsHalfDay] = useState(false);
+  const [resubmitHalfDayPeriod, setResubmitHalfDayPeriod] = useState<"first_half" | "second_half">("first_half");
+  const [resubmitWorkingDays, setResubmitWorkingDays] = useState<number | null>(null);
+  const [isResubmittingDays, setIsResubmittingDays] = useState(false);
+  const [isResubmitting, setIsResubmitting] = useState(false);
+
+  const handleOpenResubmit = (req: ServiceRequest) => {
+    setResubmitTargetRequest(req);
+    setResubmitStartDate(String(req.payload?.startDate || ""));
+    setResubmitEndDate(String(req.payload?.endDate || ""));
+    setResubmitReason(String(req.payload?.reason || ""));
+    setResubmitIsHalfDay(Boolean(req.payload?.isHalfDay));
+    const period = req.payload?.halfDayPeriod;
+    if (period === "first_half" || period === "second_half") {
+      setResubmitHalfDayPeriod(period);
+    } else {
+      setResubmitHalfDayPeriod("first_half");
+    }
+  };
 
   // Calculate working days automatically when dates change
   useEffect(() => {
@@ -107,16 +203,63 @@ export const LeavesView: React.FC = () => {
     };
   }, [startDate, endDate, selectedTypeId, isHalfDay]);
 
-  // Current month team calendar - timezone-safe ISO boundaries
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-  const startOfMonth = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-01`;
-  const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const endOfMonth = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(lastDayOfMonth).padStart(2, "0")}`;
-  const { calendarItems, isLoading: isCalendarLoading } = useLeaveTeamCalendar(startOfMonth, endOfMonth);
+  // Resubmit working days calculation
+  useEffect(() => {
+    let active = true;
+    if (!resubmitStartDate || !resubmitEndDate || resubmitEndDate < resubmitStartDate || !resubmitTargetRequest) {
+      setResubmitWorkingDays(null);
+      return () => {
+        active = false;
+      };
+    }
+    setIsResubmittingDays(true);
+    const leaveTypeId = String(resubmitTargetRequest.payload?.leaveTypeId || "");
+    calculateWorkingDaysRecord(resubmitStartDate, resubmitEndDate, leaveTypeId, resubmitIsHalfDay)
+      .then((res) => {
+        if (active) setResubmitWorkingDays(res.workingDays);
+      })
+      .catch(() => {
+        if (active) setResubmitWorkingDays(null);
+      })
+      .finally(() => {
+        if (active) setIsResubmittingDays(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [resubmitStartDate, resubmitEndDate, resubmitIsHalfDay, resubmitTargetRequest]);
 
-  const selectedBalance = leaveBalances.find((b) => b.leaveTypeId === selectedTypeId);
+  const displayBalances = myBalances.length > 0 ? myBalances : companyBalances;
+  const selectedBalance = displayBalances.find((b) => b.leaveTypeId === selectedTypeId);
+  const selectedLeaveType = leaveTypes.find((lt) => lt.id === selectedTypeId);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (stagedFileId) {
+      await cleanupStagedLeaveAttachmentRecord(stagedFileId).catch(() => {});
+      setStagedFileId(null);
+      setStagedFileName(null);
+    }
+    setSelectedFile(file);
+    setIsUploadingAttachment(true);
+    try {
+      const res = await uploadLeaveAttachmentRecord(
+        file,
+        company?.id || "",
+        currentUser?.id || "",
+      );
+      setStagedFileId(res.fileId);
+      setStagedFileName(res.fileName);
+      toast.success("تم رفع المرفق وتجهيزه بنجاح");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "فشل رفع المرفق";
+      toast.error(msg);
+      setSelectedFile(null);
+    } finally {
+      setIsUploadingAttachment(false);
+    }
+  };
 
   const handleApply = async () => {
     if (isSaving) return;
@@ -140,6 +283,10 @@ export const LeavesView: React.FC = () => {
       toast.error("الفترة المحددة لا تحتوي على أي أيام عمل فعلية مستحقة للخصم");
       return;
     }
+    if (selectedLeaveType?.requiresAttachment && !stagedFileId) {
+      toast.error("هذا النوع من الإجازة يتطلب إرفاق مستند أو تقرير رسمي");
+      return;
+    }
     if (!reason.trim()) {
       toast.error("يرجى كتابة سبب الإجازة");
       return;
@@ -153,6 +300,7 @@ export const LeavesView: React.FC = () => {
       halfDayPeriod: isHalfDay ? halfDayPeriod : undefined,
       totalDays: calculatedWorkingDays,
       reason: reason.trim(),
+      attachmentFileId: stagedFileId || undefined,
     });
 
     if (success) {
@@ -161,6 +309,45 @@ export const LeavesView: React.FC = () => {
       setEndDate("");
       setReason("");
       setIsHalfDay(false);
+      setSelectedFile(null);
+      setStagedFileId(null);
+      setStagedFileName(null);
+    }
+  };
+
+  const handleResubmit = async () => {
+    if (!resubmitTargetRequest) return;
+    if (!resubmitStartDate || !resubmitEndDate) {
+      toast.error("يرجى اختيار تاريخ البداية وتاريخ النهاية");
+      return;
+    }
+    if (resubmitEndDate < resubmitStartDate) {
+      toast.error("تاريخ النهاية يجب أن يكون بعد تاريخ البداية أو يطابقه");
+      return;
+    }
+    if (resubmitStartDate.slice(0, 4) !== resubmitEndDate.slice(0, 4)) {
+      toast.error("لا يمكن تقديم إجازة تمتد عبر سنتين ماليتين في طلب واحد. يرجى تقديم طلب منفصل لكل سنة.");
+      return;
+    }
+    if (!resubmitReason.trim()) {
+      toast.error("يرجى كتابة سبب الإجازة أو الملاحظات المصححة");
+      return;
+    }
+    setIsResubmitting(true);
+    try {
+      const ok = await resubmitLeave({
+        requestId: resubmitTargetRequest.id,
+        startDate: resubmitStartDate,
+        endDate: resubmitEndDate,
+        isHalfDay: resubmitIsHalfDay,
+        halfDayPeriod: resubmitIsHalfDay ? resubmitHalfDayPeriod : undefined,
+        reason: resubmitReason.trim(),
+      });
+      if (ok) {
+        setResubmitTargetRequest(null);
+      }
+    } finally {
+      setIsResubmitting(false);
     }
   };
 
@@ -273,6 +460,15 @@ export const LeavesView: React.FC = () => {
                 ترحيل الأرصدة ({currentYear - 1} → {currentYear})
               </Button>
               <Button
+                onClick={() => expireCarryoverBalances(company?.id)}
+                size="sm"
+                variant="outline"
+                className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
+              >
+                <RotateCcw className="h-4 w-4 text-primary" />
+                إنهاء صلاحية الأرصدة المرحّلة
+              </Button>
+              <Button
                 onClick={() => setIsAddTypeModalOpen(true)}
                 variant="outline"
                 size="sm"
@@ -295,9 +491,35 @@ export const LeavesView: React.FC = () => {
         </div>
       </div>
 
+      {/* Returned Requests Alert Banner */}
+      {returnedLeaveRequests.length > 0 && (
+        <div className="rounded-2xl border border-amber-300/80 bg-amber-500/10 p-4 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-700">
+              <RotateCcw className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-bold text-xs text-foreground">
+                لديك {returnedLeaveRequests.length} طلب إجازة معاد للتعديل
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                قام المعتمد بإعادة الطلب مع ملاحظات تتطلب تصحيح التواريخ أو الأسباب وإعادة التقديم
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => handleOpenResubmit(returnedLeaveRequests[0])}
+            className="rounded-full text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold h-8 px-4 gap-1"
+          >
+            تعديل وإعادة التقديم
+          </Button>
+        </div>
+      )}
+
       {/* Primary KPI Balance Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {leaveBalances.map((bal) => (
+        {displayBalances.map((bal) => (
           <div
             key={bal.leaveTypeId}
             className="classera-kpi-card p-5 shadow-xs space-y-3.5 relative overflow-hidden"
@@ -646,6 +868,35 @@ export const LeavesView: React.FC = () => {
               </p>
             </div>
 
+            {/* Attachment upload when required */}
+            {selectedLeaveType?.requiresAttachment && (
+              <div className="space-y-1.5 rounded-2xl border border-border/60 bg-muted/20 p-3.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-foreground flex items-center gap-1.5">
+                    <Paperclip className="h-4 w-4 text-primary" />
+                    المرفق / التقرير المطلوب *
+                  </label>
+                  {isUploadingAttachment && (
+                    <span className="text-[10px] text-muted-foreground animate-pulse">جاري الرفع والتجهيز...</span>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  onChange={handleFileChange}
+                  accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                  className="w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+                />
+                {stagedFileName && (
+                  <p className="text-[11px] text-emerald-600 font-bold mt-1">
+                    ✓ تم تجهيز الملف: {stagedFileName}
+                  </p>
+                )}
+                <p className="text-[10px] text-muted-foreground">
+                  يتطلب هذا النوع إرفاق تقرير طبي أو إثبات رسمي معتمد.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <label className="font-bold">سبب الإجازة *</label>
               <textarea
@@ -794,13 +1045,23 @@ export const LeavesView: React.FC = () => {
           <div className="space-y-3.5 text-xs py-2">
             <div className="space-y-1.5">
               <label className="font-bold">الموظف المعني *</label>
+              <div className="relative mb-2">
+                <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="ابحث بالاسم أو الرقم الوظيفي..."
+                  value={adjustEmpSearch}
+                  onChange={(e) => setAdjustEmpSearch(e.target.value)}
+                  className="w-full h-9 rounded-xl border border-border/80 bg-muted/40 pr-9 pl-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
               <select
                 value={adjustEmpId}
                 onChange={(e) => setAdjustEmpId(e.target.value)}
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
               >
                 <option value="">-- اختر الموظف --</option>
-                {employees.map((emp) => (
+                {filteredAdjustEmployees.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.firstNameAr} {emp.lastNameAr} {emp.employeeNo ? `(${emp.employeeNo})` : ""}
                   </option>
@@ -850,6 +1111,95 @@ export const LeavesView: React.FC = () => {
               className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 h-9"
             >
               {isAdjustingBalance ? "جاري التوثيق..." : "تأكيد وتوثيق تعديل الرصيد"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Resubmit Leave Modal */}
+      <Dialog open={Boolean(resubmitTargetRequest)} onOpenChange={(open) => !open && setResubmitTargetRequest(null)}>
+        <DialogContent className="max-w-md rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-amber-600" />
+              تعديل وإعادة تقديم طلب الإجازة
+            </DialogTitle>
+            <DialogDescription className="text-xs font-medium">
+              الطلب رقم: {resubmitTargetRequest?.referenceNo} - يرجى تصحيح التواريخ أو الأسباب وإعادة الإرسال للمعتمد
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3.5 text-xs py-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <label className="font-bold">من تاريخ *</label>
+                <input
+                  type="date"
+                  value={resubmitStartDate}
+                  onChange={(e) => setResubmitStartDate(e.target.value)}
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="font-bold">إلى تاريخ *</label>
+                <input
+                  type="date"
+                  value={resubmitEndDate}
+                  onChange={(e) => setResubmitEndDate(e.target.value)}
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-0.5">
+              <input
+                type="checkbox"
+                id="resubmitHalfDayCheck"
+                checked={resubmitIsHalfDay}
+                onChange={(e) => setResubmitIsHalfDay(e.target.checked)}
+                className="rounded text-primary h-4 w-4"
+              />
+              <label htmlFor="resubmitHalfDayCheck" className="text-xs font-bold text-foreground cursor-pointer">
+                إجازة نصف يوم (0.5 يوم عمل)
+              </label>
+            </div>
+
+            {/* Computed Working Days Preview */}
+            <div className="rounded-2xl border border-border/60 bg-muted/20 p-3.5 space-y-1">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-foreground">أيام العمل الفعلية بعد التعديل:</span>
+                {isResubmittingDays ? (
+                  <span className="text-muted-foreground animate-pulse">جاري الحساب...</span>
+                ) : resubmitWorkingDays !== null ? (
+                  <span className="font-black text-primary font-mono text-sm font-tabular-nums">
+                    {resubmitWorkingDays} {resubmitWorkingDays === 1 ? "يوم" : "أيام"}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground font-medium">حدد التواريخ لاحتساب الأيام</span>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold">السبب وتوضيح التعديلات *</label>
+              <textarea
+                rows={2}
+                value={resubmitReason}
+                onChange={(e) => setResubmitReason(e.target.value)}
+                placeholder="وضح التعديلات المطلوبة لإعادة المراجعة..."
+                className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-3">
+            <Button
+              size="sm"
+              onClick={handleResubmit}
+              disabled={isResubmitting || isResubmittingDays || resubmitWorkingDays === null || resubmitWorkingDays <= 0}
+              className="rounded-full text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold px-5 h-9"
+            >
+              {isResubmitting ? "جاري التقديم..." : "إعادة تقديم الطلب"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -37,6 +37,7 @@ import type {
 } from "../../types";
 import { enterpriseSupabase } from "./enterprise-client";
 import { supabase } from "../../integrations/supabase/client";
+import { uploadSecureFile } from "../storage/storage-service";
 import { AppMutationError } from "./reliable-mutation";
 
 export interface OperationalSnapshot {
@@ -961,6 +962,47 @@ export async function decideLeaveRequestRecord(
   };
 }
 
+export async function resubmitLeaveRequestRecord(payload: {
+  requestId: string;
+  startDate: string;
+  endDate: string;
+  isHalfDay?: boolean;
+  halfDayPeriod?: "first_half" | "second_half";
+  reason: string;
+  replacementEmployeeId?: string;
+  emergencyPhone?: string;
+  attachmentFileId?: string;
+}): Promise<{
+  success: boolean;
+  requestId: string;
+  reference: string;
+  chargeableDays: number;
+  availableRemaining: number;
+  message: string;
+}> {
+  const { data, error } = await callEnterpriseRpc<Record<string, unknown>>("resubmit_leave_request", {
+    p_request_id: payload.requestId,
+    p_start_date: payload.startDate,
+    p_end_date: payload.endDate,
+    p_is_half_day: Boolean(payload.isHalfDay),
+    p_half_day_period: payload.halfDayPeriod || null,
+    p_reason: payload.reason || null,
+    p_replacement_employee_id: payload.replacementEmployeeId || null,
+    p_emergency_phone: payload.emergencyPhone || null,
+    p_attachment_file_id: payload.attachmentFileId || null,
+  });
+
+  if (error) throw new Error(error.message);
+  return {
+    success: (data?.success as boolean) ?? true,
+    requestId: (data?.request_id as string) ?? payload.requestId,
+    reference: (data?.reference as string) ?? "",
+    chargeableDays: Number(data?.chargeable_days ?? 0),
+    availableRemaining: Number(data?.available_remaining ?? 0),
+    message: (data?.message as string) ?? "تمت إعادة تقديم الطلب بنجاح",
+  };
+}
+
 export async function fetchMyLeaveBalancesRecord(
   year?: number,
   employeeId?: string,
@@ -1145,6 +1187,105 @@ export async function runLeaveCarryoverRecord(
 
   if (error) throw new Error(error.message);
   return data;
+}
+
+export async function runLeaveCarryoverExpiryRecord(
+  companyId?: string,
+  referenceDate?: string,
+): Promise<{
+  success: boolean;
+  processedCount: number;
+  expiredDaysTotal: number;
+  message: string;
+}> {
+  const { data, error } = await callEnterpriseRpc<Record<string, unknown>>("run_leave_carryover_expiry", {
+    p_company_id: companyId || null,
+    p_reference_date: referenceDate || null,
+  });
+
+  if (error) throw new Error(error.message);
+  return {
+    success: (data?.success as boolean) ?? true,
+    processedCount: Number(data?.processed_count ?? 0),
+    expiredDaysTotal: Number(data?.expired_days_total ?? 0),
+    message: (data?.message as string) ?? "تم تشغيل إنهاء صلاحية الأرصدة المرحلة بنجاح",
+  };
+}
+
+export async function uploadLeaveAttachmentRecord(
+  file: File,
+  companyId: string,
+  employeeId: string,
+): Promise<{ fileId: string; fileName: string; fileSize: number }> {
+  const fileObj = await uploadSecureFile({
+    bucket: "leave-attachments",
+    objectPath: `companies/${companyId}/employees/${employeeId}/leaves/${Date.now()}_${file.name}`,
+    file,
+    originalFilename: file.name,
+    contentType: file.type,
+    entityType: "leave_request",
+    companyId,
+    employeeId,
+  });
+
+  const { data: userAuth } = await supabase.auth.getUser();
+  const userId = userAuth?.user?.id;
+
+  type StagingDbClient = {
+    from(table: string): {
+      insert(row: Record<string, unknown>): Promise<{ error: { message: string } | null }>;
+      delete(): {
+        eq(col1: string, val1: unknown): {
+          eq(col2: string, val2: unknown): Promise<{ error: { message: string } | null }>;
+        };
+      };
+    };
+  };
+
+  const stagingDb = enterpriseSupabase as unknown as StagingDbClient;
+
+  const { error: stageError } = await stagingDb
+    .from("leave_attachment_staging")
+    .insert({
+      company_id: companyId,
+      employee_id: employeeId,
+      file_id: fileObj.id,
+      storage_bucket: fileObj.bucket_id || "leave-attachments",
+      storage_path: fileObj.object_path,
+      file_name: fileObj.original_filename,
+      file_size_bytes: fileObj.size_bytes,
+      mime_type: fileObj.content_type,
+      uploaded_by: userId,
+    });
+
+  if (stageError) {
+    throw new Error(`فشل تسجيل المرفق المؤقت: ${stageError.message}`);
+  }
+
+  return {
+    fileId: fileObj.id,
+    fileName: fileObj.original_filename,
+    fileSize: fileObj.size_bytes,
+  };
+}
+
+export async function cleanupStagedLeaveAttachmentRecord(fileId: string): Promise<void> {
+  type StagingDbClient = {
+    from(table: string): {
+      delete(): {
+        eq(col1: string, val1: unknown): {
+          eq(col2: string, val2: unknown): Promise<{ error: { message: string } | null }>;
+        };
+      };
+    };
+  };
+
+  const stagingDb = enterpriseSupabase as unknown as StagingDbClient;
+  await stagingDb
+    .from("leave_attachment_staging")
+    .delete()
+    .eq("file_id", fileId)
+    .eq("is_finalized", false);
 }
 
 export async function createExpenseCategoryRecord(input: {

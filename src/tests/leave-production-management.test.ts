@@ -11,6 +11,7 @@ import * as path from "path";
 import {
   calculateWorkingDaysRecord,
   submitLeaveRequestRecord,
+  resubmitLeaveRequestRecord,
   decideLeaveRequestRecord,
   fetchMyLeaveBalancesRecord,
   fetchCompanyLeaveBalancesRecord,
@@ -19,6 +20,9 @@ import {
   adjustLeaveBalanceRecord,
   runLeaveAccrualRecord,
   runLeaveCarryoverRecord,
+  runLeaveCarryoverExpiryRecord,
+  uploadLeaveAttachmentRecord,
+  cleanupStagedLeaveAttachmentRecord,
 } from "../lib/data/operational-repository";
 import {
   useMyLeaveBalances,
@@ -28,8 +32,18 @@ import {
   useLeaves,
   useLeaveMutations,
 } from "../lib/domains/leaves";
+import {
+  getCompanyToday,
+  getCompanyYear,
+  getCompanyMonth,
+  getCompanyMonthBoundaries,
+} from "../lib/utils/timezone-dates";
 
 describe("Production Leave Management, Entitlements & Absence Engine (Prompt 10 Hotfix)", () => {
+  const microHotfixMigrationPath = path.resolve(
+    __dirname,
+    "../../supabase/migrations/20260921020000_close_leave_production_integrity_gaps.sql",
+  );
   const hotfixMigrationPath = path.resolve(
     __dirname,
     "../../supabase/migrations/20260921010000_finalize_leave_workflow_jurisdiction_and_integrity.sql",
@@ -38,6 +52,7 @@ describe("Production Leave Management, Entitlements & Absence Engine (Prompt 10 
     __dirname,
     "../../supabase/migrations/20260921000000_production_leave_entitlements_and_reservations.sql",
   );
+  const microHotfixSql = fs.readFileSync(microHotfixMigrationPath, "utf-8");
   const hotfixSql = fs.readFileSync(hotfixMigrationPath, "utf-8");
   const baseSql = fs.readFileSync(baseMigrationPath, "utf-8");
 
@@ -584,4 +599,140 @@ describe("Production Leave Management, Entitlements & Absence Engine (Prompt 10 
       expect(leavesViewContent).toContain("أيام العمل الفعلية المستحقة");
     });
   });
+
+  describe("8. Prompt 10 Final Micro Hotfix Specifications (Items 30 - 38)", () => {
+    // 30. calculate_working_days rejects unconfigured companies when no shift or schedule exists
+    it("30. calculate_working_days rejects unconfigured companies when no shift or schedule exists (no Friday/Saturday fallback)", () => {
+      expect(microHotfixSql).toContain("FUNCTION public.calculate_working_days(");
+      expect(microHotfixSql).toContain("لم يتم إعداد أيام العمل والراحة للمنشأة.");
+      expect(microHotfixSql).not.toContain("ELSE ARRAY[5,6]");
+    });
+
+    // 31. submit_leave_request selects departmental chains before company-wide chains before default chains before system templates
+    it("31. submit_leave_request selects departmental chains before company-wide chains before default chains before system templates", () => {
+      expect(microHotfixSql).toContain("Priority 1: Same-company department-specific");
+      expect(microHotfixSql).toContain("scope_type = 'department'");
+      expect(microHotfixSql).toContain("scope_type = 'all_employees'");
+      expect(microHotfixSql).toContain("is_default = true");
+      expect(microHotfixSql).toContain("is_system_template = true");
+    });
+
+    // 32. submit_leave_request raises error when no approval chain is configured (no silent line_manager fallback)
+    it("32. submit_leave_request raises error when no approval chain is configured (no silent line_manager fallback)", () => {
+      expect(microHotfixSql).toContain("لم يتم إعداد مسار اعتماد لطلبات الإجازات لهذه المنشأة.");
+      expect(microHotfixSql).not.toContain("INSERT INTO public.approval_steps (request_id, step_order, approver_role)");
+    });
+
+    // 33. decide_leave_request does not allow HR to bypass non-HR steps
+    it("33. decide_leave_request does not allow HR to bypass non-HR steps", () => {
+      expect(microHotfixSql).toContain("FUNCTION public.decide_leave_request(");
+      expect(microHotfixSql).toContain("غير مصرح لك باعتماد أو رفض هذه الخطوة في مسار الموافقات");
+      expect(microHotfixSql).toContain("super_admin_emergency_override");
+      // Must not contain universal v_is_hr bypass
+      expect(microHotfixSql).not.toContain("IF v_is_hr THEN");
+    });
+
+    // 34. resubmit_leave_request adjusts balance differences atomically and resets steps to pending
+    it("34. resubmit_leave_request adjusts balance differences atomically and resets steps to pending", () => {
+      expect(microHotfixSql).toContain("FUNCTION public.resubmit_leave_request(");
+      expect(microHotfixSql).toContain("v_days_diff := v_new_chargeable_days - v_old_chargeable_days;");
+      expect(microHotfixSql).toContain("UPDATE public.leave_balances");
+      expect(microHotfixSql).toContain("UPDATE public.approval_steps");
+      expect(microHotfixSql).toContain("status = 'pending'");
+    });
+
+    // 35. run_leave_carryover reduces source year balance (transferred_out_days / expired_days) preventing double-counting
+    it("35. run_leave_carryover reduces source year balance (transferred_out_days / expired_days) preventing double-counting", () => {
+      expect(microHotfixSql).toContain("transferred_out_days = transferred_out_days + v_carried");
+      expect(microHotfixSql).toContain("expired_days = expired_days + v_expired");
+      expect(microHotfixSql).toContain("get_my_leave_balances");
+      expect(microHotfixSql).toContain("b.transferred_out_days + b.expired_days");
+    });
+
+    // 36. run_leave_carryover_expiry marks expired days and creates 'expiry' transactions
+    it("36. run_leave_carryover_expiry marks expired days and creates 'expiry' transactions", () => {
+      expect(microHotfixSql).toContain("FUNCTION public.run_leave_carryover_expiry(");
+      expect(microHotfixSql).toContain("leave_carryover_expiry_runs");
+      expect(microHotfixSql).toContain("'expiry'");
+      expect(microHotfixSql).toContain("carried_over_expired_days");
+    });
+
+    // 37. run_leave_accrual skips contract_anniversary if hire_date is null
+    it("37. run_leave_accrual skips contract_anniversary if hire_date is null (no fake CURRENT_DATE fallback)", () => {
+      expect(microHotfixSql).toContain("v_emp.hire_date IS NULL");
+      expect(microHotfixSql).toContain("CONTINUE;");
+      expect(microHotfixSql).not.toContain("COALESCE(v_emp.hire_date, CURRENT_DATE)");
+    });
+
+    // 38. create_leave_type produces deterministic codes like LT-XXXX and requires explicit non-null parameters
+    it("38. create_leave_type produces deterministic codes like LT-XXXX and requires explicit non-null parameters", () => {
+      expect(microHotfixSql).toContain("FUNCTION public.create_leave_type(");
+      expect(microHotfixSql).toContain("'LT-' || lpad(v_seq_num::text, 4, '0')");
+      expect(microHotfixSql).toContain("حالة الأجر (مدفوعة الأجر أو بدون أجر) مطلوبة صراحة.");
+      expect(microHotfixSql).toContain("الحد الأقصى لأيام الإجازة سنوياً مطلوب ويجب ألا يقل عن صفر.");
+    });
+
+    // Timezone utilities contract tests
+    it("timezone-dates utilities provide correct date and month boundaries without browser drift", () => {
+      const today = getCompanyToday("Asia/Riyadh");
+      expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+      const year = getCompanyYear("Asia/Riyadh");
+      expect(typeof year).toBe("number");
+      expect(year).toBeGreaterThanOrEqual(2026);
+
+      const month = getCompanyMonth("Asia/Riyadh");
+      expect(typeof month).toBe("number");
+      expect(month).toBeGreaterThanOrEqual(1);
+      expect(month).toBeLessThanOrEqual(12);
+
+      const boundaries = getCompanyMonthBoundaries(2026, 9, "Asia/Riyadh");
+      expect(boundaries.startDate).toBe("2026-09-01");
+      expect(boundaries.endDate).toBe("2026-09-30");
+
+      const febBoundaries = getCompanyMonthBoundaries(2026, 2, "Asia/Riyadh");
+      expect(febBoundaries.startDate).toBe("2026-02-01");
+      expect(febBoundaries.endDate).toBe("2026-02-28");
+    });
+
+    // Operational repository exports test
+    it("operational-repository exports all required micro-hotfix methods", () => {
+      expect(typeof resubmitLeaveRequestRecord).toBe("function");
+      expect(typeof runLeaveCarryoverExpiryRecord).toBe("function");
+      expect(typeof uploadLeaveAttachmentRecord).toBe("function");
+      expect(typeof cleanupStagedLeaveAttachmentRecord).toBe("function");
+    });
+
+    // LeavesView integration and truthfulness tests
+    it("LeavesView uses dedicated queries, timezone boundaries, attachments, employee picker, and resubmission", () => {
+      // Uses dedicated queries instead of useLeaves()
+      expect(leavesViewContent).toContain("useMyLeaveBalances(currentYear)");
+      expect(leavesViewContent).toContain("useCompanyLeaveBalances(currentYear)");
+      expect(leavesViewContent).toContain("useLeaveTypes()");
+      expect(leavesViewContent).not.toMatch(/\buseLeaves\(\)/);
+
+      // Uses timezone utilities
+      expect(leavesViewContent).toContain("getCompanyYear(companyTz)");
+      expect(leavesViewContent).toContain("getCompanyMonthBoundaries");
+
+      // Has real attachment handling
+      expect(leavesViewContent).toContain("uploadLeaveAttachmentRecord");
+      expect(leavesViewContent).toContain("cleanupStagedLeaveAttachmentRecord");
+      expect(leavesViewContent).toContain("selectedLeaveType?.requiresAttachment");
+
+      // Has searchable employee picker for balance adjustments
+      expect(leavesViewContent).toContain("adjustEmpSearch");
+      expect(leavesViewContent).toContain("filteredAdjustEmployees");
+
+      // Has returned leave request alert and resubmission modal
+      expect(leavesViewContent).toContain("returnedLeaveRequests");
+      expect(leavesViewContent).toContain("resubmitTargetRequest");
+      expect(leavesViewContent).toContain("handleResubmit");
+      expect(leavesViewContent).toContain("resubmitLeave");
+
+      // Has carryover expiry button
+      expect(leavesViewContent).toContain("expireCarryoverBalances");
+    });
+  });
 });
+

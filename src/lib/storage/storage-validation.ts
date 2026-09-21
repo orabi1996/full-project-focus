@@ -59,6 +59,18 @@ export const BUCKET_VALIDATION_RULES: Record<StorageBucket, StorageValidationRul
     ],
     allowedExtensions: ['.png', '.jpg', '.jpeg', '.webp'],
   },
+  'leave-attachments': {
+    maxSizeBytes: 15 * 1024 * 1024, // 15 MB
+    allowedMimeTypes: [
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ],
+    allowedExtensions: ['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.doc', '.docx'],
+  },
 };
 
 export const FORBIDDEN_EXTENSIONS = new Set([

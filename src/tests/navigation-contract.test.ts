@@ -96,7 +96,8 @@ describe("TanStack Router route architecture contracts", () => {
 
   it("ensures root index route redirects authenticated users to /dashboard", () => {
     const indexRouteCode = source("../routes/index.tsx");
-    expect(indexRouteCode).toContain('to="/dashboard"');
+    expect(indexRouteCode).toContain('legacyTarget || "/dashboard"');
+    expect(indexRouteCode).toContain("getLegacyHashRedirect(window.location.hash)");
     expect(indexRouteCode).toContain("<AuthGate>");
   });
 });

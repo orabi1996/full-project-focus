@@ -128,7 +128,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    setIsDemo(hasPersistedDemoSession());
+    const persistedDemoSession = hasPersistedDemoSession();
+    setIsDemo(persistedDemoSession);
+    if (persistedDemoSession) setIsLoading(false);
 
     // Detect recovery tokens in URL on initial mount
     if (typeof window !== "undefined") {

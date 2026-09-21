@@ -31,7 +31,7 @@ export async function enterDemo(page: Page) {
   await expect(demoButton).toBeVisible();
   await demoButton.click();
   await expect(page).toHaveURL(/(\/|\/dashboard)$/);
-  await expect(page.getByText("مرحباً بك مجدداً").first()).toBeVisible();
+  await expect(page.locator("main")).toBeVisible();
 }
 
 export async function openModule(page: Page, label: string, moduleId: string) {

@@ -11,6 +11,7 @@ import {
   fetchTeamLeaveCalendarRecord,
   fetchMyLeaveRequestsRecord,
   createLeaveTypeRecord,
+  type CreateLeaveTypeInput,
   adjustLeaveBalanceRecord,
   runLeaveAccrualRecord,
   runLeaveCarryoverRecord,
@@ -358,37 +359,22 @@ export function useLeaveMutations() {
   );
 
   const addLeaveType = useCallback(
-    async (input: {
-      nameAr: string;
-      nameEn?: string;
-      code?: string;
-      maxDaysPerYear: number;
-      isPaid: boolean;
-      deductFromWorkingDaysOnly?: boolean;
-      allowHalfDay?: boolean;
-      allowNegativeBalance?: boolean;
-      requiresAttachment?: boolean;
-      accrualMethod?: "yearly_frontloaded" | "monthly_accrual" | "contract_anniversary";
-      carryoverLimitDays?: number;
-      carryoverExpiryMonths?: number;
-      jurisdiction?: string;
-      companyId?: string;
-    }): Promise<boolean> => {
+    async (input: CreateLeaveTypeInput): Promise<boolean> => {
       const newType: LeaveTypePolicy = {
         id: `lt-${Date.now()}`,
         code: input.code || `LT-${Math.floor(10 + Math.random() * 90)}`,
         nameAr: input.nameAr,
-        nameEn: input.nameEn || input.nameAr,
-        color: "#059669",
+        nameEn: input.nameEn || "",
+        color: input.color || "#059669",
         isPaid: input.isPaid,
-        deductFromWorkingDaysOnly: input.deductFromWorkingDaysOnly ?? true,
+        deductFromWorkingDaysOnly: input.deductFromWorkingDaysOnly,
         maxDaysPerYear: input.maxDaysPerYear,
-        allowHalfDay: input.allowHalfDay ?? true,
-        allowNegativeBalance: input.allowNegativeBalance ?? false,
-        requiresAttachment: input.requiresAttachment ?? false,
-        accrualMethod: input.accrualMethod || "yearly_frontloaded",
-        carryoverLimitDays: input.carryoverLimitDays ?? 0,
-        carryoverExpiryMonths: input.carryoverExpiryMonths ?? 3,
+        allowHalfDay: input.allowHalfDay,
+        allowNegativeBalance: input.allowNegativeBalance,
+        requiresAttachment: input.requiresAttachment,
+        accrualMethod: input.accrualMethod,
+        carryoverLimitDays: input.carryoverLimitDays,
+        carryoverExpiryMonths: input.carryoverExpiryMonths,
         jurisdiction: input.jurisdiction || "",
         status: "active",
       };
@@ -467,15 +453,15 @@ export function useLeaveMutations() {
   const accrueLeaveBalances = useCallback(
     async (
       year: number,
-      month?: number,
+      periodMonth?: number,
       leaveTypeId?: string,
       companyId?: string,
     ): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `accrue-leaves-${year}-${month || "all"}`,
+        mutationKey: `accrue-leaves-${year}-${periodMonth || "all"}`,
         operation: async () => {
-          await runLeaveAccrualRecord(year, month, leaveTypeId, companyId);
+          await runLeaveAccrualRecord(year, periodMonth, leaveTypeId, companyId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
           return true;
@@ -529,12 +515,12 @@ export function useLeaveMutations() {
   );
 
   const expireCarryoverBalances = useCallback(
-    async (companyId?: string, referenceDate?: string): Promise<boolean> => {
+    async (year: number, companyId?: string, asOfDate?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `expire-carryover-${companyId || "all"}`,
+        mutationKey: `expire-carryover-${year}-${companyId || "all"}`,
         operation: async () => {
-          await runLeaveCarryoverExpiryRecord(companyId, referenceDate);
+          await runLeaveCarryoverExpiryRecord(year, asOfDate, companyId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
           return true;

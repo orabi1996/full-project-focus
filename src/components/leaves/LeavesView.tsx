@@ -47,6 +47,7 @@ import {
   getCompanyYear,
   getCompanyMonth,
   getCompanyMonthBoundaries,
+  isValidTimezone,
 } from "../../lib/utils/timezone-dates";
 import type { ServiceRequest, EmployeeDirectoryItem } from "../../types";
 
@@ -63,6 +64,7 @@ export const LeavesView: React.FC = () => {
 
   // Timezone-safe company date boundaries
   const companyTz = company?.timezone;
+  const hasValidTimezone = isValidTimezone(companyTz);
   const currentYear = getCompanyYear(companyTz);
   const currentMonth = getCompanyMonth(companyTz);
   const { startDate: startOfMonth, endDate: endOfMonth } = getCompanyMonthBoundaries(
@@ -118,22 +120,30 @@ export const LeavesView: React.FC = () => {
   const [newTypeName, setNewTypeName] = useState("");
   const [newTypeDays, setNewTypeDays] = useState<number | "">("");
   const [newTypePaid, setNewTypePaid] = useState<boolean | null>(null);
+  const [newTypeDeductWorkingDaysOnly, setNewTypeDeductWorkingDaysOnly] = useState<boolean | null>(null);
   const [newTypeAllowHalfDay, setNewTypeAllowHalfDay] = useState<boolean | null>(null);
   const [newTypeAllowNegative, setNewTypeAllowNegative] = useState<boolean | null>(null);
   const [newTypeRequiresAttachment, setNewTypeRequiresAttachment] = useState<boolean | null>(null);
+  const [newTypeAccrualMethod, setNewTypeAccrualMethod] = useState<
+    "yearly_frontloaded" | "monthly_accrual" | "contract_anniversary" | ""
+  >("");
   const [newTypeCarryoverLimit, setNewTypeCarryoverLimit] = useState<number | "">("");
+  const [newTypeCarryoverExpiryMonths, setNewTypeCarryoverExpiryMonths] = useState<number | "">("");
 
-  // Adjust Balance State - Searchable employee directory query
+  // Adjust Balance State - Searchable employee directory query (admin only)
   const [adjustEmpId, setAdjustEmpId] = useState("");
   const [adjustEmpSearch, setAdjustEmpSearch] = useState("");
   const [adjustDays, setAdjustDays] = useState(1);
   const [adjustReason, setAdjustReason] = useState("");
 
-  const { data: directoryData } = useEmployeeDirectory({
-    search: adjustEmpSearch.trim() || undefined,
-    status: "active",
-    pageSize: 50,
-  });
+  const { data: directoryData } = useEmployeeDirectory(
+    {
+      search: adjustEmpSearch.trim() || undefined,
+      status: "active",
+      pageSize: 50,
+    },
+    { enabled: canManage },
+  );
   const filteredAdjustEmployees = directoryData?.items ?? [];
 
   // Returned Requests for resubmission (derived from dedicated myLeaveRequests)
@@ -382,16 +392,31 @@ export const LeavesView: React.FC = () => {
       toast.error("يرجى تحديد الحد الأقصى للترحيل بالأيام");
       return;
     }
+    if (!newTypeAccrualMethod) {
+      toast.error("يرجى اختيار طريقة الاستحقاق (سنوي مقدماً أو شهري أو ذكرى العقد)");
+      return;
+    }
+    if (newTypeDeductWorkingDaysOnly === null) {
+      toast.error("يرجى تحديد طريقة خصم الأيام (أيام العمل الفعلية فقط أم الأيام التقويمية)");
+      return;
+    }
+    if (newTypeCarryoverExpiryMonths === "" || Number(newTypeCarryoverExpiryMonths) < 0) {
+      toast.error("يرجى تحديد مدة صلاحية الرصيد المرحل بالأشهر (0 لعدم إنهاء الصلاحية)");
+      return;
+    }
     setIsCreatingType(true);
     try {
       const ok = await addLeaveType({
         nameAr: newTypeName.trim(),
         maxDaysPerYear: Number(newTypeDays),
         isPaid: Boolean(newTypePaid),
+        deductFromWorkingDaysOnly: Boolean(newTypeDeductWorkingDaysOnly),
         allowHalfDay: Boolean(newTypeAllowHalfDay),
         allowNegativeBalance: Boolean(newTypeAllowNegative),
         requiresAttachment: Boolean(newTypeRequiresAttachment),
+        accrualMethod: newTypeAccrualMethod,
         carryoverLimitDays: Number(newTypeCarryoverLimit),
+        carryoverExpiryMonths: Number(newTypeCarryoverExpiryMonths),
         companyId: company?.id,
         jurisdiction: company?.country || undefined,
       });
@@ -400,10 +425,13 @@ export const LeavesView: React.FC = () => {
         setNewTypeName("");
         setNewTypeDays("");
         setNewTypePaid(null);
+        setNewTypeDeductWorkingDaysOnly(null);
         setNewTypeAllowHalfDay(null);
         setNewTypeAllowNegative(null);
         setNewTypeRequiresAttachment(null);
+        setNewTypeAccrualMethod("");
         setNewTypeCarryoverLimit("");
+        setNewTypeCarryoverExpiryMonths("");
       }
     } finally {
       setIsCreatingType(false);
@@ -470,28 +498,49 @@ export const LeavesView: React.FC = () => {
           {canManage && (
             <>
               <Button
-                onClick={() => accrueLeaveBalances(currentYear, undefined, undefined, company?.id)}
+                onClick={() => {
+                  if (!hasValidTimezone) {
+                    toast.error("لا يمكن ترحيل الاستحقاق: المنطقة الزمنية للشركة غير مهيأة");
+                    return;
+                  }
+                  accrueLeaveBalances(currentYear, undefined, undefined, company?.id);
+                }}
+                disabled={!hasValidTimezone}
                 size="sm"
                 variant="secondary"
-                className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs cursor-pointer"
+                className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs cursor-pointer disabled:opacity-50"
               >
                 <TrendingUp className="h-4 w-4 text-primary" />
                 ترحيل الاستحقاق السنوي
               </Button>
               <Button
-                onClick={() => carryoverLeaveBalances(currentYear - 1, currentYear, undefined, company?.id)}
+                onClick={() => {
+                  if (!hasValidTimezone) {
+                    toast.error("لا يمكن ترحيل الأرصدة: المنطقة الزمنية للشركة غير مهيأة");
+                    return;
+                  }
+                  carryoverLeaveBalances(currentYear - 1, currentYear, undefined, company?.id);
+                }}
+                disabled={!hasValidTimezone}
                 size="sm"
                 variant="secondary"
-                className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs cursor-pointer"
+                className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs cursor-pointer disabled:opacity-50"
               >
                 <Sliders className="h-4 w-4 text-primary" />
                 ترحيل الأرصدة ({currentYear - 1} → {currentYear})
               </Button>
               <Button
-                onClick={() => expireCarryoverBalances(company?.id)}
+                onClick={() => {
+                  if (!hasValidTimezone) {
+                    toast.error("لا يمكن إنهاء الصلاحية: المنطقة الزمنية للشركة غير مهيأة");
+                    return;
+                  }
+                  expireCarryoverBalances(currentYear, company?.id);
+                }}
+                disabled={!hasValidTimezone}
                 size="sm"
                 variant="outline"
-                className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
+                className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer disabled:opacity-50"
               >
                 <RotateCcw className="h-4 w-4 text-primary" />
                 إنهاء صلاحية الأرصدة المرحّلة
@@ -546,13 +595,26 @@ export const LeavesView: React.FC = () => {
       )}
 
       {/* Timezone Setup Warning Banner for Admins */}
-      {!companyTz && canManage && (
+      {!hasValidTimezone && canManage && (
         <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 flex items-center gap-3 text-destructive shadow-xs">
           <Info className="h-5 w-5 shrink-0" />
           <div className="text-xs">
             <p className="font-bold">تنبيه إداري: لم يتم ضبط المنطقة الزمنية للمنشأة</p>
             <p className="text-[11px] opacity-90 mt-0.5">
-              يرجى إعداد المنطقة الزمنية من إعدادات المنشأة لضمان صحة مواعيد الاستحقاق وسجلات الإجازات دون افتراضات ضمنية.
+              يرجى إعداد المنطقة الزمنية من إعدادات المنشأة لتمكين عمليات الاستحقاق السنوي، الترحيل، وإنهاء الصلاحية دون افتراضات زمنية ضمنية.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Timezone Setup Message for Normal Employees */}
+      {!hasValidTimezone && !canManage && (
+        <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 flex items-center gap-3 text-amber-700 dark:text-amber-300 shadow-xs">
+          <Info className="h-5 w-5 shrink-0" />
+          <div className="text-xs">
+            <p className="font-bold">المنطقة الزمنية للمنشأة غير مهيأة حالياً</p>
+            <p className="text-[11px] opacity-90 mt-0.5">
+              يرجى التواصل مع مسؤول الموارد البشرية لضبط المنطقة الزمنية لضمان دقة استحقاق وتتبع الإجازات وفق أوقات العمل المعتمدة.
             </p>
           </div>
         </div>
@@ -1013,7 +1075,60 @@ export const LeavesView: React.FC = () => {
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
+            <div className="space-y-1.5">
+              <label className="font-bold">مدة صلاحية الرصيد المرحل (بالأشهر) *</label>
+              <input
+                type="number"
+                value={newTypeCarryoverExpiryMonths}
+                placeholder="مثال: 3 (أو 0 لعدم إنهاء الصلاحية)"
+                onChange={(e) =>
+                  setNewTypeCarryoverExpiryMonths(e.target.value === "" ? "" : Number(e.target.value))
+                }
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="font-bold">طريقة الاستحقاق (Accrual Method) *</label>
+              <select
+                value={newTypeAccrualMethod}
+                onChange={(e) =>
+                  setNewTypeAccrualMethod(
+                    e.target.value as "yearly_frontloaded" | "monthly_accrual" | "contract_anniversary" | "",
+                  )
+                }
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
+              >
+                <option value="">-- اختر طريقة الاستحقاق --</option>
+                <option value="yearly_frontloaded">سنوي مقدماً (Yearly Frontloaded)</option>
+                <option value="monthly_accrual">استحقاق شهري دوري (Monthly Accrual)</option>
+                <option value="contract_anniversary">تاريخ ذكرى العقد (Contract Anniversary)</option>
+              </select>
+            </div>
             <div className="space-y-2 pt-1 border-t border-border/60">
+              <div className="space-y-1">
+                <label className="font-bold">طريقة احتساب الخصم *</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="newTypeDeductWorkingDaysOnly"
+                      checked={newTypeDeductWorkingDaysOnly === true}
+                      onChange={() => setNewTypeDeductWorkingDaysOnly(true)}
+                    />
+                    أيام العمل الفعلية فقط (نعم)
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="newTypeDeductWorkingDaysOnly"
+                      checked={newTypeDeductWorkingDaysOnly === false}
+                      onChange={() => setNewTypeDeductWorkingDaysOnly(false)}
+                    />
+                    الأيام التقويمية كاملة (لا)
+                  </label>
+                </div>
+              </div>
+
               <div className="space-y-1">
                 <label className="font-bold">حالة الأجر *</label>
                 <div className="flex gap-4">

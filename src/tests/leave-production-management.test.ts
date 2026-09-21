@@ -877,7 +877,7 @@ describe("Production Leave Management, Entitlements & Absence Engine (Prompt 10 
       expect(leavesViewContent).not.toMatch(/const\s*\{[^}]*\brequests\b[^}]*\}\s*=\s*useApp\(\)/);
 
       // Uses useEmployeeDirectory search for admin balance adjustment
-      expect(leavesViewContent).toContain("useEmployeeDirectory({");
+      expect(leavesViewContent).toMatch(/useEmployeeDirectory\s*\(\s*\{/);
 
       // Uses useMyLeaveRequests for employee leave lifecycle
       expect(leavesViewContent).toContain("useMyLeaveRequests(currentYear)");
@@ -887,8 +887,133 @@ describe("Production Leave Management, Entitlements & Absence Engine (Prompt 10 
       expect(leavesViewContent).not.toContain(".doc,.docx");
 
       // Displays timezone warning banner for admins when company timezone is unconfigured
-      expect(leavesViewContent).toContain("!companyTz && canManage");
+      expect(leavesViewContent).toContain("!hasValidTimezone && canManage");
       expect(leavesViewContent).toContain("لم يتم ضبط المنطقة الزمنية للمنشأة");
+    });
+  });
+
+  // ===========================================================================
+  // SECTION 36: PROMPT 10.4 FINAL RPC SIGNATURE + VERIFICATION CLOSURE
+  // ===========================================================================
+  describe("Prompt 10.4 Final RPC Signature & Verification Closure", () => {
+    it("verifies run_leave_accrual client signature uses p_period_month matching SQL", () => {
+      expect(operationalRepoContent).toContain("p_period_month: periodMonth || null");
+      expect(operationalRepoContent).not.toMatch(/run_leave_accrual[^}]+p_month:/);
+      expect(runtimeClosureSql).toContain("p_period_month integer DEFAULT NULL");
+    });
+
+    it("verifies run_leave_carryover_expiry client signature passes p_year, p_as_of_date, p_company_id", () => {
+      expect(operationalRepoContent).toContain("p_year: year");
+      expect(operationalRepoContent).toContain("p_as_of_date: asOfDate || null");
+      expect(operationalRepoContent).toContain("p_company_id: companyId || null");
+      expect(operationalRepoContent).not.toContain("p_reference_date");
+      expect(runtimeClosureSql).toMatch(/FUNCTION\s+public\.run_leave_carryover_expiry\s*\(\s*p_year\s+integer,\s*p_as_of_date\s+date/);
+    });
+
+    it("verifies carryover expiry response mapping accurately maps employees_processed and total_days_expired", () => {
+      expect(operationalRepoContent).toContain("processedCount: Number(data?.employees_processed ?? 0)");
+      expect(operationalRepoContent).toContain("expiredDaysTotal: Number(data?.total_days_expired ?? 0)");
+      expect(operationalRepoContent).not.toContain("data?.processed_count");
+      expect(operationalRepoContent).not.toContain("data?.expired_days_total");
+    });
+
+    it("verifies expireCarryoverBalances domain mutation signature requires explicit year", () => {
+      expect(leavesDomainContent).toMatch(/expireCarryoverBalances\s*=\s*useCallback\(\s*async\s*\(\s*year:\s*number/);
+      expect(leavesViewContent).toContain("expireCarryoverBalances(currentYear, company?.id)");
+    });
+
+    it("verifies createLeaveTypeRecord has NO implicit policy defaults in repository or domain", () => {
+      // Repository must not contain silent business defaults
+      expect(operationalRepoContent).not.toContain("p_is_paid: input.isPaid ?? true");
+      expect(operationalRepoContent).not.toContain("p_deduct_working_days_only: input.deductFromWorkingDaysOnly ?? true");
+      expect(operationalRepoContent).not.toContain("p_allow_half_day: input.allowHalfDay ?? true");
+      expect(operationalRepoContent).not.toContain("p_allow_negative_balance: input.allowNegativeBalance ?? false");
+      expect(operationalRepoContent).not.toContain("p_requires_attachment: input.requiresAttachment ?? false");
+      expect(operationalRepoContent).not.toContain('p_accrual_method: input.accrualMethod || "yearly_frontloaded"');
+      expect(operationalRepoContent).not.toContain("p_carryover_expiry_months: input.carryoverExpiryMonths ?? 3");
+
+      // CreateLeaveTypeInput must export required policy fields non-optional
+      expect(operationalRepoContent).toContain("export interface CreateLeaveTypeInput {");
+      expect(operationalRepoContent).toContain("isPaid: boolean;");
+      expect(operationalRepoContent).toContain("deductFromWorkingDaysOnly: boolean;");
+      expect(operationalRepoContent).toContain("allowHalfDay: boolean;");
+      expect(operationalRepoContent).toContain("allowNegativeBalance: boolean;");
+      expect(operationalRepoContent).toContain("requiresAttachment: boolean;");
+      expect(operationalRepoContent).toContain('accrualMethod: "yearly_frontloaded" | "monthly_accrual" | "contract_anniversary";');
+      expect(operationalRepoContent).toContain("carryoverLimitDays: number;");
+      expect(operationalRepoContent).toContain("carryoverExpiryMonths: number;");
+    });
+
+    it("verifies LeavesView provides explicit form controls for all leave policy fields", () => {
+      // Accrual method control
+      expect(leavesViewContent).toContain("newTypeAccrualMethod");
+      expect(leavesViewContent).toContain("yearly_frontloaded");
+      expect(leavesViewContent).toContain("monthly_accrual");
+      expect(leavesViewContent).toContain("contract_anniversary");
+
+      // Deduct working days only control
+      expect(leavesViewContent).toContain("newTypeDeductWorkingDaysOnly");
+      expect(leavesViewContent).toContain("أيام العمل الفعلية فقط (نعم)");
+      expect(leavesViewContent).toContain("الأيام التقويمية كاملة (لا)");
+
+      // Carryover expiry months control
+      expect(leavesViewContent).toContain("newTypeCarryoverExpiryMonths");
+
+      // Form validation before submit
+      expect(leavesViewContent).toContain("if (!newTypeAccrualMethod)");
+      expect(leavesViewContent).toContain("if (newTypeDeductWorkingDaysOnly === null)");
+      expect(leavesViewContent).toContain('if (newTypeCarryoverExpiryMonths === "" || Number(newTypeCarryoverExpiryMonths) < 0)');
+    });
+
+    it("verifies useEmployeeDirectory query in LeavesView is enabled ONLY when canManage is true", () => {
+      expect(leavesViewContent).toContain("useEmployeeDirectory(");
+      expect(leavesViewContent).toContain("{ enabled: canManage }");
+    });
+
+    it("verifies timezone configuration block prevents operations and shows truthful notices", () => {
+      // Accrual, carryover, and expiry buttons are disabled when !hasValidTimezone
+      expect(leavesViewContent).toContain("disabled={!hasValidTimezone}");
+
+      // Admin setup warning when !hasValidTimezone && canManage
+      expect(leavesViewContent).toContain("!hasValidTimezone && canManage");
+
+      // Employee configuration message when !hasValidTimezone && !canManage
+      expect(leavesViewContent).toContain("!hasValidTimezone && !canManage");
+      expect(leavesViewContent).toContain("المنطقة الزمنية للمنشأة غير مهيأة حالياً");
+    });
+
+    it("verifies fetchMyLeaveRequestsRecord maps timeline history truthfully from RPC", () => {
+      expect(operationalRepoContent).toContain("timeline: Array.isArray(row.timeline)");
+      expect(operationalRepoContent).toContain("stepNumber: Number(t.step_number || 1)");
+      expect(operationalRepoContent).toContain('actorName: String(t.actor_name || "النظام")');
+      expect(operationalRepoContent).toContain('actorRole: String(t.actor_role || "النظام")');
+      expect(operationalRepoContent).toContain('action: (t.action as ServiceRequest["timeline"][number]["action"]) || "submitted"');
+      expect(operationalRepoContent).not.toMatch(/fetchMyLeaveRequestsRecord[^}]*timeline:\s*\[\]/);
+    });
+
+    it("verifies authoritative SQL RPC argument names match client repository contracts", () => {
+      // calculate_working_days
+      expect(runtimeClosureSql).toContain("p_start_date date");
+      expect(runtimeClosureSql).toContain("p_end_date date");
+      expect(runtimeClosureSql).toContain("p_leave_type_id uuid");
+      expect(runtimeClosureSql).toContain("p_is_half_day boolean");
+
+      // submit_leave_request
+      expect(runtimeClosureSql).toContain("p_leave_type_id uuid");
+      expect(runtimeClosureSql).toContain("p_start_date date");
+      expect(runtimeClosureSql).toContain("p_end_date date");
+      expect(runtimeClosureSql).toContain("p_attachment_file_id uuid");
+
+      // decide_leave_request
+      expect(runtimeClosureSql).toContain("p_request_id uuid");
+      expect(runtimeClosureSql).toContain("p_decision text");
+      expect(runtimeClosureSql).toContain("p_note text");
+
+      // stage_leave_attachment
+      expect(runtimeClosureSql).toContain("p_file_id uuid");
+
+      // get_my_leave_requests
+      expect(runtimeClosureSql).toContain("p_year integer DEFAULT NULL");
     });
   });
 

@@ -1111,37 +1111,39 @@ export async function fetchTeamLeaveCalendarRecord(
   }));
 }
 
-export async function createLeaveTypeRecord(input: {
+export interface CreateLeaveTypeInput {
   nameAr: string;
-  nameEn?: string;
-  code?: string;
+  nameEn?: string | null;
+  code?: string | null;
   color?: string;
-  isPaid?: boolean;
-  deductFromWorkingDaysOnly?: boolean;
   maxDaysPerYear: number;
-  allowHalfDay?: boolean;
-  allowNegativeBalance?: boolean;
-  requiresAttachment?: boolean;
-  accrualMethod?: "yearly_frontloaded" | "monthly_accrual" | "contract_anniversary";
-  carryoverLimitDays?: number;
-  carryoverExpiryMonths?: number;
+  isPaid: boolean;
+  deductFromWorkingDaysOnly: boolean;
+  allowHalfDay: boolean;
+  allowNegativeBalance: boolean;
+  requiresAttachment: boolean;
+  accrualMethod: "yearly_frontloaded" | "monthly_accrual" | "contract_anniversary";
+  carryoverLimitDays: number;
+  carryoverExpiryMonths: number;
   jurisdiction?: string;
   companyId?: string;
-}) {
+}
+
+export async function createLeaveTypeRecord(input: CreateLeaveTypeInput) {
   const { data, error } = await callEnterpriseRpc("create_leave_type", {
     p_name_ar: input.nameAr,
     p_name_en: input.nameEn || null,
     p_code: input.code || null,
     p_color: input.color || "#365F91",
-    p_is_paid: input.isPaid ?? true,
-    p_deduct_working_days_only: input.deductFromWorkingDaysOnly ?? true,
+    p_is_paid: input.isPaid,
+    p_deduct_working_days_only: input.deductFromWorkingDaysOnly,
     p_max_days_per_year: input.maxDaysPerYear,
-    p_allow_half_day: input.allowHalfDay ?? true,
-    p_allow_negative_balance: input.allowNegativeBalance ?? false,
-    p_requires_attachment: input.requiresAttachment ?? false,
-    p_accrual_method: input.accrualMethod || "yearly_frontloaded",
-    p_carryover_limit_days: input.carryoverLimitDays ?? 0,
-    p_carryover_expiry_months: input.carryoverExpiryMonths ?? 3,
+    p_allow_half_day: input.allowHalfDay,
+    p_allow_negative_balance: input.allowNegativeBalance,
+    p_requires_attachment: input.requiresAttachment,
+    p_accrual_method: input.accrualMethod,
+    p_carryover_limit_days: input.carryoverLimitDays,
+    p_carryover_expiry_months: input.carryoverExpiryMonths,
     p_jurisdiction: input.jurisdiction || null,
     p_company_id: input.companyId || null,
   });
@@ -1171,13 +1173,13 @@ export async function adjustLeaveBalanceRecord(
 
 export async function runLeaveAccrualRecord(
   year: number,
-  month?: number,
+  periodMonth?: number,
   leaveTypeId?: string,
   companyId?: string,
 ) {
   const { data, error } = await callEnterpriseRpc("run_leave_accrual", {
     p_year: year,
-    p_month: month || null,
+    p_period_month: periodMonth || null,
     p_leave_type_id: leaveTypeId || null,
     p_company_id: companyId || null,
   });
@@ -1204,8 +1206,9 @@ export async function runLeaveCarryoverRecord(
 }
 
 export async function runLeaveCarryoverExpiryRecord(
+  year: number,
+  asOfDate?: string,
   companyId?: string,
-  referenceDate?: string,
 ): Promise<{
   success: boolean;
   processedCount: number;
@@ -1213,15 +1216,16 @@ export async function runLeaveCarryoverExpiryRecord(
   message: string;
 }> {
   const { data, error } = await callEnterpriseRpc<Record<string, unknown>>("run_leave_carryover_expiry", {
+    p_year: year,
+    p_as_of_date: asOfDate || null,
     p_company_id: companyId || null,
-    p_reference_date: referenceDate || null,
   });
 
   if (error) throw new Error(error.message);
   return {
     success: (data?.success as boolean) ?? true,
-    processedCount: Number(data?.processed_count ?? 0),
-    expiredDaysTotal: Number(data?.expired_days_total ?? 0),
+    processedCount: Number(data?.employees_processed ?? 0),
+    expiredDaysTotal: Number(data?.total_days_expired ?? 0),
     message: (data?.message as string) ?? "تم تشغيل إنهاء صلاحية الأرصدة المرحلة بنجاح",
   };
 }
@@ -1330,7 +1334,18 @@ export async function fetchMyLeaveRequestsRecord(
       decidedAt: (row.decided_at as string) || "",
       ...((row.payload as Record<string, string | number | boolean | null | undefined>) || {}),
     },
-    timeline: [],
+    timeline: Array.isArray(row.timeline)
+      ? (row.timeline as Record<string, unknown>[]).map((t) => ({
+          id: String(t.id || ""),
+          stepNumber: Number(t.step_number || 1),
+          actorId: String(t.actor_id || ""),
+          actorName: String(t.actor_name || "النظام"),
+          actorRole: String(t.actor_role || "النظام"),
+          action: (t.action as ServiceRequest["timeline"][number]["action"]) || "submitted",
+          note: t.note ? String(t.note) : undefined,
+          timestamp: String(t.created_at || new Date().toISOString()),
+        }))
+      : [],
   }));
 }
 

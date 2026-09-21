@@ -51,6 +51,7 @@ import { getTranslation } from "../translations";
 import { useAuth } from "../auth/AuthContext";
 import { toast } from "sonner";
 import { executeReliableMutation } from "../data/reliable-mutation";
+import type { CreateLeaveTypeInput } from "../data/operational-repository";
 
 // Domain Hooks
 import { useBootstrapData } from "../domains/bootstrap/use-bootstrap";
@@ -187,7 +188,7 @@ export interface AppContextType {
     totalDays: number;
     reason: string;
   }) => Promise<boolean>;
-  addLeaveType: (input: { nameAr: string; maxDaysPerYear: number; isPaid: boolean }) => Promise<boolean>;
+  addLeaveType: (input: CreateLeaveTypeInput) => Promise<boolean>;
   adjustLeaveBalance: (
     employeeId: string,
     leaveTypeId: string,

@@ -86,7 +86,10 @@ export function useEmployee(id?: string | null) {
   };
 }
 
-export function useEmployeeDirectory(filters: EmployeeDirectoryFilters = {}) {
+export function useEmployeeDirectory(
+  filters: EmployeeDirectoryFilters = {},
+  options?: { enabled?: boolean },
+) {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
   const demoEmployees = useDemoStore((s) => s.employees);
@@ -206,6 +209,7 @@ export function useEmployeeDirectory(filters: EmployeeDirectoryFilters = {}) {
       return fetchEmployeeDirectoryRecord(filters);
     },
     staleTime: 30_000,
+    enabled: options?.enabled ?? true,
   });
 
   return {

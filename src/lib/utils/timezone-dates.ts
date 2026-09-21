@@ -59,9 +59,10 @@ export function getCompanyMonthBoundaries(
 /**
  * Validates whether an IANA timezone string is supported by the runtime.
  */
-function isValidTimezone(tz: string): boolean {
+export function isValidTimezone(tz?: string | null): boolean {
+  if (!tz || typeof tz !== 'string' || !tz.trim()) return false;
   try {
-    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    Intl.DateTimeFormat(undefined, { timeZone: tz.trim() });
     return true;
   } catch {
     return false;

@@ -55,20 +55,23 @@ export const PerformanceView: React.FC = () => {
   const [scoreLeadership, setScoreLeadership] = useState(4);
   const [scoreTeamwork, setScoreTeamwork] = useState(5);
   const [feedbackNote, setFeedbackNote] = useState("");
+  const [isSavingEvaluation, setIsSavingEvaluation] = useState(false);
+  const [isCreatingCycle, setIsCreatingCycle] = useState(false);
 
   // Cycle Form State
   const [cycleTitle, setCycleTitle] = useState("");
   const [cycleStartDate, setCycleStartDate] = useState("2026-09-01");
   const [cycleEndDate, setCycleEndDate] = useState("2026-12-31");
 
-  const handleSubmitEvaluation = () => {
+  const handleSubmitEvaluation = async () => {
     const emp = employees.find((e) => e.id === targetEmpId);
     const avgScore = Number(((scorePerformance + scoreLeadership + scoreTeamwork) / 3).toFixed(1));
     const finalFeedback =
       feedbackNote.trim() ||
       "أداء متميز ومطابق للتوقعات مع التوصية بمواصلة التميز والتطوير المهني المستمر.";
 
-    addEvaluation({
+    setIsSavingEvaluation(true);
+    const saved = await addEvaluation({
       cycleId: performanceCycles[0]?.id || "cyc-1",
       employeeId: targetEmpId,
       employeeName: `${emp?.firstNameAr || "الموظف"} ${emp?.lastNameAr || ""}`,
@@ -77,22 +80,27 @@ export const PerformanceView: React.FC = () => {
       evaluationType: evalType,
       status: "submitted",
       overallScore: avgScore,
+      competencyScores: {
+        performance: scorePerformance,
+        leadership: scoreLeadership,
+        teamwork: scoreTeamwork,
+      },
+      notes: finalFeedback,
       submittedAt: new Date().toISOString(),
     });
-
-    toast.success(
-      `تم توثيق تقييم الأداء لـ (${emp?.firstNameAr || ""} ${emp?.lastNameAr || ""}) بنتيجة ${avgScore} / 5.0 بنجاح!`,
-    );
+    setIsSavingEvaluation(false);
+    if (!saved) return;
     setIsSubmitEvaluationOpen(false);
     setFeedbackNote("");
   };
 
-  const handleCreateCycle = () => {
+  const handleCreateCycle = async () => {
     if (!cycleTitle.trim()) {
       toast.error("يرجى كتابة عنوان دورة التقييم");
       return;
     }
-    addPerformanceCycle({
+    setIsCreatingCycle(true);
+    const created = await addPerformanceCycle({
       titleAr: cycleTitle,
       titleEn: cycleTitle,
       startDate: cycleStartDate,
@@ -102,22 +110,59 @@ export const PerformanceView: React.FC = () => {
       participantsCount: employees.length,
       completionRate: 0,
     });
-    toast.success(`تم إطلاق دورة التقييم (${cycleTitle}) بنجاح وإشعار جميع الموظفين!`);
+    setIsCreatingCycle(false);
+    if (!created) return;
     setIsAddCycleOpen(false);
     setCycleTitle("");
   };
 
   // 9-Box Grid Categories
   const nineBoxes = [
-    { title: "قادة المستقبل (High Potential / High Perf)", color: "bg-emerald-500/10 border-emerald-300 text-emerald-800", count: 4 },
-    { title: "نجوم الأداء العالي (High Perf / Medium Pot)", color: "bg-teal-500/10 border-teal-300 text-teal-800", count: 7 },
-    { title: "خبراء التخصص (High Perf / Low Pot)", color: "bg-blue-500/10 border-blue-300 text-blue-800", count: 12 },
-    { title: "كفاءات واعدة (Medium Perf / High Pot)", color: "bg-indigo-500/10 border-indigo-300 text-indigo-800", count: 5 },
-    { title: "العمود الفقري الأساسي (Solid Core)", color: "bg-primary/10 border-primary/30 text-primary", count: 28 },
-    { title: "أداء مستقر (Effective Professional)", color: "bg-amber-500/10 border-amber-300 text-amber-800", count: 14 },
-    { title: "محتمل عالي يحتاج توجيه (Enigma)", color: "bg-purple-500/10 border-purple-300 text-purple-800", count: 3 },
-    { title: "يحتاج تدريب وتطوير (Dilemma)", color: "bg-orange-500/10 border-orange-300 text-orange-800", count: 4 },
-    { title: "خطة تصحيح الأداء (Action Plan)", color: "bg-destructive/10 border-destructive/30 text-destructive", count: 1 },
+    {
+      title: "قادة المستقبل (High Potential / High Perf)",
+      color: "bg-emerald-500/10 border-emerald-300 text-emerald-800",
+      count: 4,
+    },
+    {
+      title: "نجوم الأداء العالي (High Perf / Medium Pot)",
+      color: "bg-teal-500/10 border-teal-300 text-teal-800",
+      count: 7,
+    },
+    {
+      title: "خبراء التخصص (High Perf / Low Pot)",
+      color: "bg-blue-500/10 border-blue-300 text-blue-800",
+      count: 12,
+    },
+    {
+      title: "كفاءات واعدة (Medium Perf / High Pot)",
+      color: "bg-indigo-500/10 border-indigo-300 text-indigo-800",
+      count: 5,
+    },
+    {
+      title: "العمود الفقري الأساسي (Solid Core)",
+      color: "bg-primary/10 border-primary/30 text-primary",
+      count: 28,
+    },
+    {
+      title: "أداء مستقر (Effective Professional)",
+      color: "bg-amber-500/10 border-amber-300 text-amber-800",
+      count: 14,
+    },
+    {
+      title: "محتمل عالي يحتاج توجيه (Enigma)",
+      color: "bg-purple-500/10 border-purple-300 text-purple-800",
+      count: 3,
+    },
+    {
+      title: "يحتاج تدريب وتطوير (Dilemma)",
+      color: "bg-orange-500/10 border-orange-300 text-orange-800",
+      count: 4,
+    },
+    {
+      title: "خطة تصحيح الأداء (Action Plan)",
+      color: "bg-destructive/10 border-destructive/30 text-destructive",
+      count: 1,
+    },
   ];
 
   return (
@@ -127,19 +172,29 @@ export const PerformanceView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2.5">
             <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
-              <IconSymbol name="trending_up" source="material" filled size={24} className="text-primary" />
+              <IconSymbol
+                name="trending_up"
+                source="material"
+                filled
+                size={24}
+                className="text-primary"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-black text-foreground">
                   {t.performance.cycles} وإدارة الأداء المؤسسي
                 </h1>
-                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                <Badge
+                  variant="outline"
+                  className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5"
+                >
                   تقييم شامل 360°
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                تقييمات الأداء متعددة الأطراف (الذاتي، المدير المباشر، الزملاء) ومصفوفة المواهب 9-Box Grid
+                تقييمات الأداء متعددة الأطراف (الذاتي، المدير المباشر، الزملاء) ومصفوفة المواهب
+                9-Box Grid
               </p>
             </div>
           </div>
@@ -170,13 +225,22 @@ export const PerformanceView: React.FC = () => {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="classera-tabs-strip max-w-md">
-          <TabsTrigger value="cycles" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
+          <TabsTrigger
+            value="cycles"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
+          >
             دورات التقييم ({performanceCycles.length})
           </TabsTrigger>
-          <TabsTrigger value="ninebox" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
+          <TabsTrigger
+            value="ninebox"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
+          >
             مصفوفة 9-Box Grid
           </TabsTrigger>
-          <TabsTrigger value="evaluations" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
+          <TabsTrigger
+            value="evaluations"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
+          >
             سجل التقييمات ({evaluations.length})
           </TabsTrigger>
         </TabsList>
@@ -184,12 +248,18 @@ export const PerformanceView: React.FC = () => {
         {/* Tab 1: Performance Cycles */}
         <TabsContent value="cycles" className="space-y-4 pt-4">
           {performanceCycles.map((cyc) => (
-            <div key={cyc.id} className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
+            <div
+              key={cyc.id}
+              className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4"
+            >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
                 <div>
                   <div className="flex items-center gap-2.5">
                     <h2 className="text-base font-black text-foreground">{cyc.titleAr}</h2>
-                    <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px] rounded-full px-2.5 font-bold border-emerald-200">
+                    <Badge
+                      variant="outline"
+                      className="text-emerald-700 bg-emerald-50 text-[10px] rounded-full px-2.5 font-bold border-emerald-200"
+                    >
                       دورة نشطة
                     </Badge>
                   </div>
@@ -316,7 +386,9 @@ export const PerformanceView: React.FC = () => {
                         ? "تقييم المدير المباشر"
                         : "تقييم الزملاء (Peer)"}
                     </td>
-                    <td className="py-3 px-4 text-muted-foreground font-semibold">{ev.evaluatorName}</td>
+                    <td className="py-3 px-4 text-muted-foreground font-semibold">
+                      {ev.evaluatorName}
+                    </td>
                     <td className="py-3 px-4 font-black text-amber-600 font-mono">
                       ★ {ev.overallScore} / 5.0
                     </td>
@@ -441,7 +513,9 @@ export const PerformanceView: React.FC = () => {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="font-bold text-xs">الملاحظات والتوصيات التطويرية</label>
-                <span className="text-[10px] text-muted-foreground font-semibold">(اختياري - توصية ذكية تلقائية)</span>
+                <span className="text-[10px] text-muted-foreground font-semibold">
+                  (اختياري - توصية ذكية تلقائية)
+                </span>
               </div>
               <textarea
                 rows={2}
@@ -457,9 +531,10 @@ export const PerformanceView: React.FC = () => {
             <Button
               size="sm"
               onClick={handleSubmitEvaluation}
+              disabled={isSavingEvaluation}
               className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 h-9"
             >
-              تأكيد وتوثيق التقييم
+              {isSavingEvaluation ? "جاري الحفظ..." : "تأكيد وتوثيق التقييم"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -512,8 +587,13 @@ export const PerformanceView: React.FC = () => {
           </div>
 
           <DialogFooter className="mt-3">
-            <Button size="sm" onClick={handleCreateCycle} className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9">
-              إطلاق الدورة
+            <Button
+              size="sm"
+              onClick={handleCreateCycle}
+              disabled={isCreatingCycle}
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
+            >
+              {isCreatingCycle ? "جاري الحفظ..." : "إطلاق الدورة"}
             </Button>
           </DialogFooter>
         </DialogContent>

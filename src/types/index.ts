@@ -161,7 +161,7 @@ export interface EmployeeDocument {
   id: string;
   employeeId: string;
   type:
-    | "national_id" | "iqama" | "passport" | "contract" | "degree" | "medical_insurance" | "other";
+    "national_id" | "iqama" | "passport" | "contract" | "degree" | "medical_insurance" | "other";
   titleAr: string;
   titleEn: string;
   documentNumber: string;
@@ -170,7 +170,14 @@ export interface EmployeeDocument {
   fileUrl: string;
   fileId?: string;
   fileSize?: string;
-  status: "valid" | "expiring_soon" | "expired" | "pending_verification" | "pending_review" | "rejected" | "archived";
+  status:
+    | "valid"
+    | "expiring_soon"
+    | "expired"
+    | "pending_verification"
+    | "pending_review"
+    | "rejected"
+    | "archived";
   confidentiality?: "public" | "internal" | "confidential" | "strictly_confidential";
   visibility?: "employee_visible" | "hr_only" | "restricted";
   verifiedBy?: string;
@@ -958,6 +965,8 @@ export interface EvaluationRecord {
   evaluatorName: string;
   evaluationType: "self" | "manager" | "peer" | "subordinate";
   overallScore: number; // e.g. 4.2 / 5.0
+  competencyScores?: Record<string, number>;
+  notes?: string;
   status: "pending" | "submitted" | "acknowledged";
   submittedAt?: string;
 }

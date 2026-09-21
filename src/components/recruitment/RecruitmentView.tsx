@@ -114,13 +114,19 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
   const offerFileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Onboarding (Convert to Employee) State
-  const [onboardEmpNo, setOnboardEmpNo] = useState("");
   const [onboardDeptId, setOnboardDeptId] = useState(orgUnits[0]?.id || "");
   const [onboardLocationId, setOnboardLocationId] = useState(workLocations[0]?.id || "");
+  const [onboardContractType, setOnboardContractType] = useState<
+    "full_time" | "part_time" | "contractor" | "seasonal" | "internship"
+  >("full_time");
+  const [onboardWorkType, setOnboardWorkType] = useState<"on_site" | "hybrid" | "remote">(
+    "on_site",
+  );
   const [onboardBasic, setOnboardBasic] = useState(15000);
   const [onboardHousing, setOnboardHousing] = useState(3750);
   const [onboardTransport, setOnboardTransport] = useState(1000);
   const [onboardStartDate, setOnboardStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [isConvertingCandidate, setIsConvertingCandidate] = useState(false);
 
   // Scorecard State
   const [techRating, setTechRating] = useState(5);
@@ -236,7 +242,9 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
       },
       cvFile || undefined,
     );
-    toast.success(`تم استلام طلب التقديم لـ (${applicantName}) ونقله فورياً لمرحلة الفرز في الـ ATS!`);
+    toast.success(
+      `تم استلام طلب التقديم لـ (${applicantName}) ونقله فورياً لمرحلة الفرز في الـ ATS!`,
+    );
     setIsApplyModalOpen(false);
     setApplicantName("");
     setApplicantEmail("");
@@ -274,7 +282,6 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
   const handleOpenOnboarding = (cand: Candidate) => {
     setCandidateToHire(cand);
-    setOnboardEmpNo(`EMP-${Math.floor(1000 + Math.random() * 9000)}`);
     setOnboardBasic(offerBasic || 15000);
     setOnboardHousing(offerHousing || 3750);
     setOnboardTransport(offerTransport || 1000);
@@ -282,8 +289,12 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
     setIsOnboardingModalOpen(true);
   };
 
-  const handleCompleteOnboarding = () => {
+  const handleCompleteOnboarding = async () => {
     if (!candidateToHire) return;
+    if (!onboardDeptId || !onboardLocationId || !onboardStartDate) {
+      toast.error("يرجى استكمال القسم ومقر العمل وتاريخ المباشرة");
+      return;
+    }
     const nameParts = candidateToHire.fullName.trim().split(" ");
     const firstName = nameParts[0] || "موظف";
     const lastName = nameParts.slice(1).join(" ") || "جديد";
@@ -294,8 +305,14 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
     const total = onboardBasic + onboardHousing + onboardTransport;
 
-    addEmployee({
-      employeeNo: onboardEmpNo,
+    const canSetFinancialData = ["super_admin", "payroll_officer", "finance_officer"].includes(
+      currentRole,
+    );
+    setIsConvertingCandidate(true);
+
+    const employeeCreated = await addEmployee({
+      // The database allocates the authoritative employee number transactionally.
+      employeeNo: "",
       firstNameAr: firstName,
       lastNameAr: lastName,
       firstNameEn: firstName,
@@ -310,34 +327,39 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
       workLocationName: loc?.nameAr || "المقر الرئيسي",
       jobTitleAr: candidateToHire.jobTitle,
       jobTitleEn: candidateToHire.jobTitle,
-      nationalIdOrIqama: "غير مسجل",
-      nationality: "غير محدد",
-      gender: "male",
-      birthDate: "1990-01-01",
-      maritalStatus: "single",
-      contractType: "full_time",
-      status: "active",
+      nationalIdOrIqama: "",
+      nationality: "",
+      birthDate: "",
+      contractType: onboardContractType,
+      workType: onboardWorkType,
+      status: "draft",
       hireDate: onboardStartDate,
-      basicSalary: onboardBasic,
-      housingAllowance: onboardHousing,
-      transportAllowance: onboardTransport,
+      basicSalary: canSetFinancialData ? onboardBasic : 0,
+      housingAllowance: canSetFinancialData ? onboardHousing : 0,
+      transportAllowance: canSetFinancialData ? onboardTransport : 0,
       otherAllowances: 0,
-      totalSalary: total,
-      bankName: "مصرف الراجحي",
-      iban: "SA0000000000000000000000",
-      avatarUrl: `https://images.unsplash.com/photo-${1534528741775 + Math.floor(Math.random() * 500)}?w=150`,
+      totalSalary: canSetFinancialData ? total : 0,
       customFields: {
         joiningDate: onboardStartDate,
-        gosiDeductionPercentage: 9.75,
-        isGosiEnrolled: true,
-        shiftId: "shift-general",
+        sourceCandidateId: candidateToHire.id,
+        offeredCompensationPendingFinancialApproval: !canSetFinancialData,
       },
     });
 
-    moveCandidateStage(candidateToHire.id, "hired");
-    toast.success(
-      `تهانينا! تم تعيين (${candidateToHire.fullName}) وإدراجه رسمياً كموظف نشط في النظام!`,
-    );
+    if (!employeeCreated) {
+      setIsConvertingCandidate(false);
+      return;
+    }
+
+    const candidateUpdated = await moveCandidateStage(candidateToHire.id, "hired");
+    setIsConvertingCandidate(false);
+    if (!candidateUpdated) {
+      toast.warning("تم إنشاء مسودة الموظف، لكن تعذر تحديث مرحلة المرشح. يلزم مراجعة سجل التوظيف.");
+      setIsOnboardingModalOpen(false);
+      return;
+    }
+
+    toast.success(`تم إنشاء مسودة الموظف (${candidateToHire.fullName}) وتحديث مرحلة المرشح بنجاح`);
     setIsOnboardingModalOpen(false);
   };
 
@@ -348,7 +370,13 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
         <div>
           <div className="flex items-center gap-2.5">
             <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
-              <IconSymbol name="person_search" source="material" filled size={24} className="text-primary" />
+              <IconSymbol
+                name="person_search"
+                source="material"
+                filled
+                size={24}
+                className="text-primary"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -357,7 +385,10 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                     ? "بوابة استقطاب وتتبع المترشحين (ATS)"
                     : "تخطيط القوى العاملة والميزانيات"}
                 </h1>
-                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                <Badge
+                  variant="outline"
+                  className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5"
+                >
                   {section === "ats" ? "نظام استقطاب ذكي ATS" : "تخطيط استراتيجي وإحلال"}
                 </Badge>
               </div>
@@ -401,15 +432,24 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
         <TabsList className="classera-tabs-strip max-w-md">
           {section === "ats" ? (
             <>
-              <TabsTrigger value="pipeline" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
+              <TabsTrigger
+                value="pipeline"
+                className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
+              >
                 لوحة المرشحين (Kanban) ({candidates.length})
               </TabsTrigger>
-              <TabsTrigger value="jobs" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
+              <TabsTrigger
+                value="jobs"
+                className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
+              >
                 الوظائف الشاغرة ({jobOpenings.length})
               </TabsTrigger>
             </>
           ) : (
-            <TabsTrigger value="workforce" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
+            <TabsTrigger
+              value="workforce"
+              className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
+            >
               تخطيط الميزانيات ({workforcePlans.length})
             </TabsTrigger>
           )}
@@ -472,8 +512,12 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                       >
                         <div className="flex items-start justify-between">
                           <div>
-                            <h4 className="font-bold text-xs text-foreground block">{cand.fullName}</h4>
-                            <span className="text-[10px] text-muted-foreground block">{cand.jobTitle}</span>
+                            <h4 className="font-bold text-xs text-foreground block">
+                              {cand.fullName}
+                            </h4>
+                            <span className="text-[10px] text-muted-foreground block">
+                              {cand.jobTitle}
+                            </span>
                           </div>
                           <div className="flex items-center gap-0.5 text-amber-500 font-mono text-[10px] font-bold">
                             <Star className="h-3 w-3 fill-amber-500" />
@@ -618,10 +662,12 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                 </p>
                 <div className="border-t border-border/60 pt-3 flex justify-between text-xs font-semibold text-muted-foreground">
                   <span>
-                    الشواغر المطلوبة: <strong className="text-foreground">{job.openingsCount}</strong>
+                    الشواغر المطلوبة:{" "}
+                    <strong className="text-foreground">{job.openingsCount}</strong>
                   </span>
                   <span className="text-primary font-mono font-bold">
-                    الراتب: {job.salaryMin?.toLocaleString()} - {job.salaryMax?.toLocaleString()} ر.س
+                    الراتب: {job.salaryMin?.toLocaleString()} - {job.salaryMax?.toLocaleString()}{" "}
+                    ر.س
                   </span>
                 </div>
               </div>
@@ -632,7 +678,10 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
         {/* Tab 3: Workforce Planning */}
         <TabsContent value="workforce" className="space-y-4 pt-4">
           {workforcePlans.map((wp) => (
-            <div key={wp.id} className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
+            <div
+              key={wp.id}
+              className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4"
+            >
               <div className="flex items-center justify-between border-b border-border/60 pb-3">
                 <div>
                   <h3 className="font-black text-sm text-foreground">{wp.titleAr}</h3>
@@ -687,21 +736,13 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                 تعيين المرشح وإدراجه في سجل الموظفين
               </DialogTitle>
               <DialogDescription className="text-xs font-medium">
-                تحويل المرشح ({candidateToHire.fullName}) إلى موظف رسمي نشط بنظام FOCUS HRMS
+                إنشاء مسودة موظف للمرشح ({candidateToHire.fullName}) لاستكمال بياناته ومراجعتها قبل
+                التفعيل
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-3.5 text-xs py-2">
               <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <label className="font-bold">الرقم الوظيفي الجديد *</label>
-                  <input
-                    type="text"
-                    value={onboardEmpNo}
-                    onChange={(e) => setOnboardEmpNo(e.target.value)}
-                    className="w-full h-9 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                </div>
                 <div className="space-y-1.5">
                   <label className="font-bold">تاريخ المباشرة الرسمي *</label>
                   <input
@@ -710,6 +751,9 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                     onChange={(e) => setOnboardStartDate(e.target.value)}
                     className="w-full h-9 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+                  الرقم الوظيفي يُولّد تلقائياً وبشكل متسلسل من قاعدة البيانات بعد نجاح الحفظ.
                 </div>
               </div>
 
@@ -744,12 +788,45 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <label className="font-bold">نوع العقد *</label>
+                  <select
+                    value={onboardContractType}
+                    onChange={(e) =>
+                      setOnboardContractType(e.target.value as typeof onboardContractType)
+                    }
+                    className="w-full h-9 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs"
+                  >
+                    <option value="full_time">دوام كامل</option>
+                    <option value="part_time">دوام جزئي</option>
+                    <option value="contractor">متعاقد</option>
+                    <option value="seasonal">موسمي</option>
+                    <option value="internship">متدرب</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="font-bold">نمط العمل *</label>
+                  <select
+                    value={onboardWorkType}
+                    onChange={(e) => setOnboardWorkType(e.target.value as typeof onboardWorkType)}
+                    className="w-full h-9 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs"
+                  >
+                    <option value="on_site">من مقر العمل</option>
+                    <option value="hybrid">هجين</option>
+                    <option value="remote">عن بُعد</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Salary Package */}
               <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/60 space-y-2">
                 <span className="font-bold text-foreground block">الحزمة المالية المعتمدة:</span>
                 <div className="grid grid-cols-3 gap-2 font-mono">
                   <div>
-                    <label className="text-[10px] text-muted-foreground block font-sans">الأساسي</label>
+                    <label className="text-[10px] text-muted-foreground block font-sans">
+                      الأساسي
+                    </label>
                     <input
                       type="number"
                       value={onboardBasic}
@@ -758,7 +835,9 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-muted-foreground block font-sans">السكن</label>
+                    <label className="text-[10px] text-muted-foreground block font-sans">
+                      السكن
+                    </label>
                     <input
                       type="number"
                       value={onboardHousing}
@@ -767,7 +846,9 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-muted-foreground block font-sans">النقل</label>
+                    <label className="text-[10px] text-muted-foreground block font-sans">
+                      النقل
+                    </label>
                     <input
                       type="number"
                       value={onboardTransport}
@@ -789,9 +870,10 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
               <Button
                 size="sm"
                 onClick={handleCompleteOnboarding}
+                disabled={isConvertingCandidate}
                 className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-9"
               >
-                تأكيد التعيين وإنشاء الملف الوظيفي
+                {isConvertingCandidate ? "جاري إنشاء المسودة..." : "إنشاء مسودة الموظف"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -800,10 +882,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
       {/* MODAL 2: Printable Job Offer Document */}
       {offerCandidateToPrint && (
-        <Dialog
-          open={!!offerCandidateToPrint}
-          onOpenChange={() => setOfferCandidateToPrint(null)}
-        >
+        <Dialog open={!!offerCandidateToPrint} onOpenChange={() => setOfferCandidateToPrint(null)}>
           <DialogContent className="max-w-xl rounded-3xl p-6">
             <div className="border-b border-border/60 pb-3 text-center space-y-1">
               <h2 className="text-base font-black text-foreground">
@@ -816,7 +895,8 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
             <div className="space-y-3.5 text-xs py-2 leading-relaxed">
               <p className="font-bold text-foreground">
-                عناية الفاضل/ة: <strong className="text-primary">{offerCandidateToPrint.fullName}</strong> المحترم/ة
+                عناية الفاضل/ة:{" "}
+                <strong className="text-primary">{offerCandidateToPrint.fullName}</strong> المحترم/ة
               </p>
               <p className="text-muted-foreground">
                 يسر إدارة المنشأة تقديم هذا العرض الوظيفي للانضمام لفريق عملنا على النحو التالي:
@@ -825,7 +905,9 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
               <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-2 font-mono">
                 <div className="flex justify-between">
                   <span className="font-sans">المسمى الوظيفي:</span>
-                  <span className="font-bold text-foreground font-sans">{offerCandidateToPrint.jobTitle}</span>
+                  <span className="font-bold text-foreground font-sans">
+                    {offerCandidateToPrint.jobTitle}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-sans">الراتب الأساسي الشهري:</span>
@@ -837,7 +919,9 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                 </div>
                 <div className="border-t border-border/60 pt-2 flex justify-between font-black text-sm text-primary font-sans">
                   <span>إجمالي الراتب الشهري:</span>
-                  <span className="font-mono">{(offerBasic + offerHousing + offerTransport).toLocaleString()} ر.س</span>
+                  <span className="font-mono">
+                    {(offerBasic + offerHousing + offerTransport).toLocaleString()} ر.س
+                  </span>
                 </div>
               </div>
 
@@ -849,11 +933,17 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
               <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border/60 text-center text-xs">
                 <div>
-                  <span className="text-muted-foreground block text-[10px]">قبول وتوقيع المرشح:</span>
-                  <span className="font-bold block mt-3 text-foreground">{offerCandidateToPrint.fullName}</span>
+                  <span className="text-muted-foreground block text-[10px]">
+                    قبول وتوقيع المرشح:
+                  </span>
+                  <span className="font-bold block mt-3 text-foreground">
+                    {offerCandidateToPrint.fullName}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[10px]">إدارة الموارد البشرية:</span>
+                  <span className="text-muted-foreground block text-[10px]">
+                    إدارة الموارد البشرية:
+                  </span>
                   <div className="flex items-center justify-center gap-1 mt-2 text-emerald-600 font-bold">
                     <ShieldCheck className="h-4 w-4" />
                     <span>معتمد رسمياً</span>
@@ -1099,7 +1189,9 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                 <div className="flex items-center justify-between p-3 rounded-2xl border border-emerald-500/40 bg-emerald-500/5">
                   <div className="flex items-center gap-2 truncate">
                     <FileText className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span className="text-xs font-bold truncate text-foreground">{cvFile.name}</span>
+                    <span className="text-xs font-bold truncate text-foreground">
+                      {cvFile.name}
+                    </span>
                     <span className="text-[10px] text-muted-foreground font-mono shrink-0">
                       ({(cvFile.size / 1024).toFixed(0)} KB)
                     </span>
@@ -1123,8 +1215,12 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                   className="border-2 border-dashed border-emerald-500/30 rounded-2xl p-4 text-center text-muted-foreground hover:bg-secondary/30 cursor-pointer transition-colors"
                 >
                   <Upload className="mx-auto h-6 w-6 mb-1 text-emerald-600" />
-                  <span className="text-[11px] font-bold text-foreground block">اضغط هنا لإرفاق السيرة الذاتية</span>
-                  <span className="text-[10px] text-muted-foreground font-mono">يدعم PDF, DOC, DOCX بحد أقصى 15MB</span>
+                  <span className="text-[11px] font-bold text-foreground block">
+                    اضغط هنا لإرفاق السيرة الذاتية
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    يدعم PDF, DOC, DOCX بحد أقصى 15MB
+                  </span>
                 </div>
               )}
             </div>

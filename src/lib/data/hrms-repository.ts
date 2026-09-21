@@ -97,14 +97,11 @@ function mapEmployee(
     phone: row.phone || "",
     nationalIdOrIqama: row.national_id_or_iqama && row.national_id_or_iqama !== "غير مسجل" ? row.national_id_or_iqama : "",
     nationality: row.nationality && row.nationality !== "غير محدد" ? row.nationality : "",
-    gender: (row.gender as Gender) || "male",
+    // Truthfulness: return null when gender is not recorded — do NOT fabricate 'male'
+    gender: (row.gender as Gender | null) ?? null,
     birthDate: row.birth_date ?? "",
-    maritalStatus:
-      row.marital_status === "married" ||
-      row.marital_status === "divorced" ||
-      row.marital_status === "widowed"
-        ? (row.marital_status as MaritalStatus)
-        : "single",
+    // Truthfulness: return null when marital_status is not recorded — do NOT fabricate 'single'
+    maritalStatus: (row.marital_status as MaritalStatus | null) ?? null,
     avatarUrl: row.avatar_url || undefined,
     subsidiaryId: row.subsidiary_id ?? "",
     subsidiaryName: subsidiary?.name_ar || undefined,
@@ -120,15 +117,11 @@ function mapEmployee(
     workLocationId: row.work_location_id ?? "",
     workLocationName: location?.name_ar || undefined,
     hireDate: row.hire_date || "",
-    contractType:
-      row.contract_type === "part_time" ||
-      row.contract_type === "contractor" ||
-      row.contract_type === "seasonal" ||
-      row.contract_type === "internship"
-        ? (row.contract_type as ContractType)
-        : "full_time",
+    // Truthfulness: return null when contract_type is not recorded — do NOT fabricate 'full_time'
+    contractType: (row.contract_type as ContractType | null) ?? null,
     probationEndDate: row.probation_end_date ?? undefined,
-    status: (row.status as Employee["status"]) || "active",
+    // Truthfulness: 'draft' is the authoritative DB-default initial state, not 'active'
+    status: (row.status as Employee["status"]) ?? "draft",
     completionScore: 0, // Computed below
     terminationDate: row.termination_date || undefined,
     lastWorkingDate: row.last_working_date || undefined,
@@ -141,8 +134,10 @@ function mapEmployee(
     bloodType: row.blood_type || undefined,
     dependentsCount: row.dependents_count || 0,
     jobGrade: row.job_grade || undefined,
-    workType: (row.work_type as "on_site" | "hybrid" | "remote") || "on_site",
-    contractStartDate: row.contract_start_date || row.hire_date || undefined,
+    // Truthfulness: return null when work_type is not recorded — do NOT fabricate 'on_site'
+    workType: (row.work_type as "on_site" | "hybrid" | "remote" | null) ?? null,
+    // Truthfulness: contract_start_date is NOT the same as hire_date — do NOT fall back to hire_date
+    contractStartDate: row.contract_start_date ?? undefined,
     contractEndDate: row.contract_end_date || undefined,
     qiwaContractNo: row.qiwa_contract_no || undefined,
     basicSalary,
@@ -389,11 +384,15 @@ export async function createEmployeeRecord(employee: Employee): Promise<Employee
     p_phone: employee.phone || null,
     p_national_id_or_iqama: employee.nationalIdOrIqama || null,
     p_nationality: employee.nationality || null,
-    p_gender: employee.gender || "male",
+    // Truthfulness: pass null when gender is not selected — do NOT fabricate 'male'
+    p_gender: employee.gender || null,
     p_birth_date: employee.birthDate || null,
-    p_marital_status: employee.maritalStatus || "single",
-    p_hire_date: employee.hireDate || new Date().toISOString().split("T")[0],
-    p_contract_type: employee.contractType || "full_time",
+    // Truthfulness: pass null when maritalStatus is not selected — do NOT fabricate 'single'
+    p_marital_status: employee.maritalStatus || null,
+    // Truthfulness: pass null when hireDate is empty — server will reject (required field)
+    p_hire_date: employee.hireDate || null,
+    // Truthfulness: pass null when contractType is empty — server will reject (required field)
+    p_contract_type: employee.contractType || null,
     p_job_title: employee.jobTitleAr || employee.jobTitleEn || null,
     p_department_id: employee.departmentId === "unassigned" || !employee.departmentId ? null : employee.departmentId,
     p_subsidiary_id: employee.subsidiaryId || null,
@@ -401,7 +400,8 @@ export async function createEmployeeRecord(employee: Employee): Promise<Employee
     p_job_position_id: employee.jobPositionId ?? null,
     p_cost_center_id: employee.costCenterId ?? null,
     p_manager_id: employee.managerId ?? null,
-    p_work_type: employee.workType || "on_site",
+    // Truthfulness: pass null when workType is empty — server will reject (required field)
+    p_work_type: employee.workType || null,
     p_basic_salary: Number(employee.basicSalary || 0),
     p_housing_allowance: Number(employee.housingAllowance || 0),
     p_transport_allowance: Number(employee.transportAllowance || 0),
@@ -677,8 +677,8 @@ export async function fetchEmployeeDirectoryRecord(
     jobTitle: String(item.job_title || ""),
     status: (item.status as EmployeeStatus) || "draft",
     hireDate: String(item.hire_date || ""),
-    contractType: (item.contract_type as ContractType) || "full_time",
-    workType: String(item.work_type || "on_site"),
+    contractType: (item.contract_type as ContractType | null) ?? null,
+    workType: item.work_type ? String(item.work_type) : null,
     departmentId: item.department_id ? String(item.department_id) : null,
     departmentName: item.department_name ? String(item.department_name) : null,
     subsidiaryId: item.subsidiary_id ? String(item.subsidiary_id) : null,
@@ -738,9 +738,9 @@ function mapEmployeeDetail(data: Record<string, unknown>): Employee {
     phone: String(data.phone || ""),
     nationalIdOrIqama: String(data.national_id_or_iqama || ""),
     nationality: String(data.nationality || ""),
-    gender: (data.gender as Gender) || "male",
+    gender: (data.gender as Gender | null) ?? null,
     birthDate: String(data.birth_date || ""),
-    maritalStatus: (data.marital_status as MaritalStatus) || "single",
+    maritalStatus: (data.marital_status as MaritalStatus | null) ?? null,
     avatarUrl: data.avatar_url ? String(data.avatar_url) : undefined,
     avatarStoragePath: data.avatar_storage_path ? String(data.avatar_storage_path) : null,
     subsidiaryId: String(data.subsidiary_id || ""),
@@ -755,7 +755,7 @@ function mapEmployeeDetail(data: Record<string, unknown>): Employee {
     workLocationId: String(data.work_location_id || ""),
     workLocationName: data.work_location_name ? String(data.work_location_name) : undefined,
     hireDate: String(data.hire_date || ""),
-    contractType: (data.contract_type as ContractType) || "full_time",
+    contractType: (data.contract_type as ContractType | null) ?? null,
     status: (data.status as EmployeeStatus) || "draft",
     completionScore: Number(data.completion_score ?? 0),
     terminationDate: data.termination_date ? String(data.termination_date) : undefined,
@@ -776,7 +776,7 @@ function mapEmployeeDetail(data: Record<string, unknown>): Employee {
     contractStartDate: data.contract_start_date ? String(data.contract_start_date) : undefined,
     contractEndDate: data.contract_end_date ? String(data.contract_end_date) : undefined,
     qiwaContractNo: data.qiwa_contract_no ? String(data.qiwa_contract_no) : undefined,
-    workType: (data.work_type as Employee["workType"]) || "on_site",
+    workType: (data.work_type as Employee["workType"]) ?? null,
     bloodType: data.blood_type ? String(data.blood_type) : undefined,
     dependentsCount: typeof data.dependents_count === "number" ? data.dependents_count : 0,
     passportNo: data.passport_no ? String(data.passport_no) : undefined,
@@ -806,22 +806,22 @@ export async function updateEmployeeHrProfileRecord(payload: {
   employeeId: string;
   firstNameAr: string;
   lastNameAr: string;
-  firstNameEn?: string;
-  lastNameEn?: string;
-  email?: string;
-  phone?: string;
-  nationalId?: string;
-  nationality?: string;
-  gender?: string;
-  birthDate?: string;
-  maritalStatus?: string;
-  jobTitle?: string;
-  nationalIdExpiry?: string;
-  passportNo?: string;
-  passportExpiry?: string;
-  bloodType?: string;
-  dependentsCount?: number;
-  jobGrade?: string;
+  firstNameEn?: string | null;
+  lastNameEn?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  nationalId?: string | null;
+  nationality?: string | null;
+  gender?: string | null;
+  birthDate?: string | null;
+  maritalStatus?: string | null;
+  jobTitle?: string | null;
+  nationalIdExpiry?: string | null;
+  passportNo?: string | null;
+  passportExpiry?: string | null;
+  bloodType?: string | null;
+  dependentsCount?: number | null;
+  jobGrade?: string | null;
 }) {
   const { data, error } = await enterpriseSupabase.rpc("update_employee_hr_profile", {
     p_employee_id: payload.employeeId,
@@ -850,13 +850,13 @@ export async function updateEmployeeHrProfileRecord(payload: {
 
 export async function updateEmployeeAssignmentRecord(payload: {
   employeeId: string;
-  departmentId?: string;
-  subsidiaryId?: string;
-  workLocationId?: string;
-  jobPositionId?: string;
-  costCenterId?: string;
-  managerId?: string;
-  workType?: string;
+  departmentId?: string | null;
+  subsidiaryId?: string | null;
+  workLocationId?: string | null;
+  jobPositionId?: string | null;
+  costCenterId?: string | null;
+  managerId?: string | null;
+  workType?: string | null;
 }) {
   const { data, error } = await enterpriseSupabase.rpc("update_employee_assignment", {
     p_employee_id: payload.employeeId,

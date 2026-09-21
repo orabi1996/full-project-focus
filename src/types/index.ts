@@ -225,9 +225,9 @@ export interface Employee {
   phone: string;
   nationalIdOrIqama: string;
   nationality: string;
-  gender: Gender;
+  gender?: Gender | null;
   birthDate: string;
-  maritalStatus: MaritalStatus;
+  maritalStatus?: MaritalStatus | null;
   avatarUrl?: string;
   avatarStoragePath?: string | null;
 
@@ -246,7 +246,7 @@ export interface Employee {
 
   // Employment Details
   hireDate: string;
-  contractType: ContractType;
+  contractType?: ContractType | null;
   probationEndDate?: string;
   status: EmployeeStatus;
   completionScore: number; // 0 to 100%
@@ -302,7 +302,7 @@ export interface Employee {
   contractEndDate?: string;
   qiwaContractNo?: string;
   yearsOfService?: number;
-  workType?: "on_site" | "hybrid" | "remote";
+  workType?: "on_site" | "hybrid" | "remote" | null;
   shiftId?: string;
   joiningDate?: string;
 
@@ -347,8 +347,8 @@ export interface EmployeeDirectoryItem {
   jobTitleEn?: string | null;
   status: EmployeeStatus;
   hireDate: string;
-  contractType: ContractType;
-  workType: string;
+  contractType?: ContractType | null;
+  workType?: string | null;
   departmentId?: string | null;
   departmentName?: string | null;
   subsidiaryId?: string | null;

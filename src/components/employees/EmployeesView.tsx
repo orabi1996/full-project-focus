@@ -275,6 +275,8 @@ export const EmployeesView: React.FC = () => {
 
   // Truthful Company-Wide KPI Metrics from Authoritative Aggregate Endpoint
   const totalEmployees = kpis?.available ? kpis.totalEmployees : (kpis?.totalEmployees ?? 0);
+  // totalEmployed = active + probation + on_leave (excludes terminated, suspended, draft, preboarding)
+  const totalEmployed = kpis?.available ? (kpis.totalEmployed ?? 0) : (kpis?.totalEmployed ?? 0);
   const saudiEmployees = kpis?.available ? kpis.saudiEmployees : (kpis?.saudiEmployees ?? 0);
   const expatEmployees = kpis?.available ? kpis.expatEmployees : (kpis?.expatEmployees ?? 0);
   const saudizationRate = kpis?.available ? kpis.saudizationRate : (kpis?.saudizationRate ?? 0);
@@ -367,10 +369,6 @@ export const EmployeesView: React.FC = () => {
       const row: Record<string, unknown> = {
         "الرقم الوظيفي": e.employeeNo,
         "الاسم الكامل": `${e.firstNameAr} ${e.lastNameAr}`,
-        "الهوية / الإقامة":
-          canViewSensitive && (canViewPayroll ? e.nationalIdOrIqama : "********")
-            ? e.nationalIdOrIqama
-            : "********",
         الإدارة: e.departmentName || "",
         "المسمى الوظيفي": e.jobTitleAr || e.jobTitle || "",
         "الدرجة الوظيفية": e.jobGrade || "",
@@ -393,11 +391,18 @@ export const EmployeesView: React.FC = () => {
         "عقد العمل": e.qiwaContractNo || "غير مربوط",
       };
 
+      // Sensitive fields: only include if caller is authorized AND projection provides them
+      if (canViewSensitive && e.nationalIdOrIqama) {
+        row["الهوية / الإقامة"] = canViewPayroll ? e.nationalIdOrIqama : "********";
+      }
+
       if (canViewPayroll) {
-        row["الراتب الأساسي"] = e.basicSalary;
-        row["بدل السكن"] = e.housingAllowance || 0;
-        row["بدل النقل"] = e.transportAllowance || 0;
-        row["إجمالي الراتب"] = e.totalSalary;
+        if (e.basicSalary !== undefined && e.basicSalary !== null) {
+          row["الراتب الأساسي"] = e.basicSalary;
+          row["بدل السكن"] = e.housingAllowance || 0;
+          row["بدل النقل"] = e.transportAllowance || 0;
+          row["إجمالي الراتب"] = e.totalSalary;
+        }
       }
 
       return row;
@@ -427,14 +432,28 @@ export const EmployeesView: React.FC = () => {
   // Add Employee Submission
   const handleCreateEmployee = async () => {
     if (isSaving) return;
-    if (
-      !newEmp.firstNameAr ||
-      !newEmp.lastNameAr ||
-      !newEmp.email ||
-      !newEmp.nationalIdOrIqama ||
-      !newEmp.nationality.trim()
-    ) {
-      toast.error("يرجى استكمال الحقول الإلزامية للموظف (بما في ذلك الجنسية)");
+    if (!newEmp.firstNameAr || !newEmp.lastNameAr) {
+      toast.error("يرجى إدخال الاسم الأول واسم العائلة باللغة العربية");
+      return;
+    }
+    if (!newEmp.email) {
+      toast.error("يرجى إدخال البريد الإلكتروني");
+      return;
+    }
+    if (!newEmp.nationality.trim()) {
+      toast.error("يرجى تحديد الجنسية");
+      return;
+    }
+    if (!newEmp.hireDate) {
+      toast.error("يرجى تحديد تاريخ التعيين");
+      return;
+    }
+    if (!newEmp.contractType) {
+      toast.error("يرجى تحديد نوع العقد");
+      return;
+    }
+    if (!newEmp.workType) {
+      toast.error("يرجى تحديد نمط العمل");
       return;
     }
 
@@ -447,8 +466,6 @@ export const EmployeesView: React.FC = () => {
     const tr = Number(newEmp.transportAllowance) || 0;
     const total = b + h + tr;
 
-    const isSaudi = isSaudiNationality(newEmp.nationality);
-
     const empData: Omit<Employee, "id" | "completionScore"> = {
       employeeNo: newEmp.employeeNo ? newEmp.employeeNo.trim() : "",
       firstNameAr: newEmp.firstNameAr.trim(),
@@ -459,9 +476,9 @@ export const EmployeesView: React.FC = () => {
       phone: newEmp.phone ? newEmp.phone.trim() : "",
       nationalIdOrIqama: newEmp.nationalIdOrIqama.trim(),
       nationality: newEmp.nationality.trim(),
-      gender: newEmp.gender || ("male" as Gender),
+      gender: newEmp.gender || undefined,
       birthDate: newEmp.birthDate || "",
-      maritalStatus: newEmp.maritalStatus || ("single" as MaritalStatus),
+      maritalStatus: newEmp.maritalStatus || undefined,
       subsidiaryId: newEmp.subsidiaryId || "",
       subsidiaryName: sub?.nameAr || undefined,
       departmentId: newEmp.departmentId || "",
@@ -470,11 +487,11 @@ export const EmployeesView: React.FC = () => {
       jobTitleEn: newEmp.jobTitleEn ? newEmp.jobTitleEn.trim() : "",
       jobGrade: newEmp.jobGrade ? newEmp.jobGrade.trim() : undefined,
       costCenter: newEmp.costCenter ? newEmp.costCenter.trim() : undefined,
-      workType: newEmp.workType || ("on_site" as Employee["workType"]),
+      workType: newEmp.workType || undefined,
       workLocationId: newEmp.workLocationId || "",
       workLocationName: loc?.nameAr || undefined,
       hireDate: newEmp.hireDate || "",
-      contractType: newEmp.contractType || ("full_time" as ContractType),
+      contractType: newEmp.contractType || undefined,
       status: newEmp.status || "draft",
       basicSalary: b,
       housingAllowance: h,
@@ -559,9 +576,9 @@ export const EmployeesView: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
         <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">إجمالي الموظفين</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">{totalEmployees}</h4>
-            <span className="text-[10px] text-emerald-600 font-bold">{totalEmployees > 0 && kpis?.activeEmployees != null ? Math.round((kpis.activeEmployees / totalEmployees) * 100) : (totalEmployees > 0 ? 100 : 0)}% على رأس العمل</span>
+            <span className="text-[11px] font-bold text-muted-foreground">على رأس العمل / في الخدمة</span>
+            <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">{totalEmployed}</h4>
+            <span className="text-[10px] text-emerald-600 font-bold">{totalEmployed > 0 && kpis?.activeEmployees != null ? Math.round((kpis.activeEmployees / totalEmployed) * 100) : (totalEmployed > 0 ? 100 : 0)}% نشط</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center text-primary">
             <Users className="h-5 w-5" />
@@ -1734,7 +1751,7 @@ export const EmployeesView: React.FC = () => {
               <div className="space-y-1.5">
                 <label className="font-bold text-foreground">نمط العمل</label>
                 <select
-                  value={newEmp.workType}
+                  value={newEmp.workType ?? ""}
                   onChange={(e) => setNewEmp({ ...newEmp, workType: e.target.value as Employee["workType"] })}
                   className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
@@ -1746,7 +1763,7 @@ export const EmployeesView: React.FC = () => {
               <div className="space-y-1.5">
                 <label className="font-bold text-foreground">نوع العقد الموثق</label>
                 <select
-                  value={newEmp.contractType}
+                  value={newEmp.contractType ?? ""}
                   onChange={(e) => setNewEmp({ ...newEmp, contractType: e.target.value as ContractType })}
                   className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >

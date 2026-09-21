@@ -30,6 +30,7 @@ import {
   useLeaveMutations,
   useLeaveTeamCalendar,
 } from "../../lib/domains/leaves";
+import { useBootstrapData } from "../../lib/domains/bootstrap/use-bootstrap";
 import { calculateWorkingDaysRecord } from "../../lib/data/operational-repository";
 
 export const LeavesView: React.FC = () => {
@@ -41,8 +42,9 @@ export const LeavesView: React.FC = () => {
     isSaving,
   } = useApp();
 
+  const { company } = useBootstrapData();
   const { leaveTypes, leaveBalances } = useLeaves();
-  const { applyLeave, addLeaveType, adjustLeaveBalance, accrueLeaveBalances } = useLeaveMutations();
+  const { applyLeave, addLeaveType, adjustLeaveBalance, accrueLeaveBalances, carryoverLeaveBalances } = useLeaveMutations();
 
   const canManage = canManageModule(currentRole, "leaves");
   const [activeTab, setActiveTab] = useState("balances");
@@ -105,11 +107,13 @@ export const LeavesView: React.FC = () => {
     };
   }, [startDate, endDate, selectedTypeId, isHalfDay]);
 
-  // Current month team calendar
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth();
-  const startOfMonth = new Date(currentYear, currentMonth, 1).toISOString().split("T")[0];
-  const endOfMonth = new Date(currentYear, currentMonth + 1, 0).toISOString().split("T")[0];
+  // Current month team calendar - timezone-safe ISO boundaries
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const startOfMonth = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-01`;
+  const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const endOfMonth = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(lastDayOfMonth).padStart(2, "0")}`;
   const { calendarItems, isLoading: isCalendarLoading } = useLeaveTeamCalendar(startOfMonth, endOfMonth);
 
   const selectedBalance = leaveBalances.find((b) => b.leaveTypeId === selectedTypeId);
@@ -122,6 +126,14 @@ export const LeavesView: React.FC = () => {
     }
     if (endDate < startDate) {
       toast.error("تاريخ النهاية يجب أن يكون بعد تاريخ البداية أو يطابقه");
+      return;
+    }
+    if (startDate.slice(0, 4) !== endDate.slice(0, 4)) {
+      toast.error("لا يمكن تقديم إجازة تمتد عبر سنتين ماليتين في طلب واحد. يرجى تقديم طلب منفصل لكل سنة.");
+      return;
+    }
+    if (isHalfDay && startDate !== endDate) {
+      toast.error("إجازة نصف يوم يجب أن تبدأ وتنتهي في نفس اليوم");
       return;
     }
     if (calculatedWorkingDays === null || calculatedWorkingDays <= 0) {
@@ -170,6 +182,8 @@ export const LeavesView: React.FC = () => {
         allowNegativeBalance: newTypeAllowNegative,
         requiresAttachment: newTypeRequiresAttachment,
         carryoverLimitDays: newTypeCarryoverLimit,
+        companyId: company?.id,
+        jurisdiction: company?.country || undefined,
       });
       if (ok) {
         setIsAddTypeModalOpen(false);
@@ -241,13 +255,22 @@ export const LeavesView: React.FC = () => {
           {canManage && (
             <>
               <Button
-                onClick={() => accrueLeaveBalances(new Date().getFullYear())}
+                onClick={() => accrueLeaveBalances(currentYear, undefined, undefined, company?.id)}
                 size="sm"
                 variant="secondary"
                 className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs cursor-pointer"
               >
                 <TrendingUp className="h-4 w-4 text-primary" />
                 ترحيل الاستحقاق السنوي
+              </Button>
+              <Button
+                onClick={() => carryoverLeaveBalances(currentYear - 1, currentYear, undefined, company?.id)}
+                size="sm"
+                variant="secondary"
+                className="rounded-full font-bold text-xs gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 shadow-xs cursor-pointer"
+              >
+                <Sliders className="h-4 w-4 text-primary" />
+                ترحيل الأرصدة ({currentYear - 1} → {currentYear})
               </Button>
               <Button
                 onClick={() => setIsAddTypeModalOpen(true)}

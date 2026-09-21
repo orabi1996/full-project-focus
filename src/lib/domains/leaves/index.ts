@@ -11,6 +11,7 @@ import {
   createLeaveTypeRecord,
   adjustLeaveBalanceRecord,
   runLeaveAccrualRecord,
+  runLeaveCarryoverRecord,
 } from "../../data/operational-repository";
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
@@ -304,7 +305,7 @@ export function useLeaveMutations() {
         accrualMethod: input.accrualMethod || "yearly_frontloaded",
         carryoverLimitDays: input.carryoverLimitDays ?? 0,
         carryoverExpiryMonths: input.carryoverExpiryMonths ?? 3,
-        jurisdiction: input.jurisdiction || "saudi_labor_law",
+        jurisdiction: input.jurisdiction || "",
         status: "active",
       };
 
@@ -380,12 +381,17 @@ export function useLeaveMutations() {
   );
 
   const accrueLeaveBalances = useCallback(
-    async (year: number, leaveTypeId?: string): Promise<boolean> => {
+    async (
+      year: number,
+      month?: number,
+      leaveTypeId?: string,
+      companyId?: string,
+    ): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `accrue-leaves-${year}`,
+        mutationKey: `accrue-leaves-${year}-${month || "all"}`,
         operation: async () => {
-          await runLeaveAccrualRecord(year, leaveTypeId);
+          await runLeaveAccrualRecord(year, month, leaveTypeId, companyId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
@@ -406,11 +412,44 @@ export function useLeaveMutations() {
     [mode, queryClient],
   );
 
+  const carryoverLeaveBalances = useCallback(
+    async (
+      sourceYear: number,
+      targetYear: number,
+      leaveTypeId?: string,
+      companyId?: string,
+    ): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `carryover-leaves-${sourceYear}-${targetYear}`,
+        operation: async () => {
+          await runLeaveCarryoverRecord(sourceYear, targetYear, leaveTypeId, companyId);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          return true;
+        },
+        demoOperation: () => {
+          return true;
+        },
+        onCommitted: () => {
+          toast.success(`تم ترحيل أرصدة الإجازات بنجاح من ${sourceYear} إلى ${targetYear}`);
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر ترحيل أرصدة الإجازات");
+        },
+      });
+
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
   return {
     applyLeave,
     decideLeave,
     addLeaveType,
     adjustLeaveBalance,
     accrueLeaveBalances,
+    carryoverLeaveBalances,
   };
 }

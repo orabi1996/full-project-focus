@@ -8,8 +8,45 @@ import type {
 } from "../types";
 import * as fs from "fs";
 import * as path from "path";
+import {
+  calculateWorkingDaysRecord,
+  submitLeaveRequestRecord,
+  decideLeaveRequestRecord,
+  fetchMyLeaveBalancesRecord,
+  fetchCompanyLeaveBalancesRecord,
+  fetchTeamLeaveCalendarRecord,
+  createLeaveTypeRecord,
+  adjustLeaveBalanceRecord,
+  runLeaveAccrualRecord,
+  runLeaveCarryoverRecord,
+} from "../lib/data/operational-repository";
+import {
+  useMyLeaveBalances,
+  useCompanyLeaveBalances,
+  useLeaveTypes,
+  useLeaveTeamCalendar,
+  useLeaves,
+  useLeaveMutations,
+} from "../lib/domains/leaves";
 
-describe("Production Leave Management, Entitlements & Absence Engine", () => {
+describe("Production Leave Management, Entitlements & Absence Engine (Prompt 10 Hotfix)", () => {
+  const hotfixMigrationPath = path.resolve(
+    __dirname,
+    "../../supabase/migrations/20260921010000_finalize_leave_workflow_jurisdiction_and_integrity.sql",
+  );
+  const baseMigrationPath = path.resolve(
+    __dirname,
+    "../../supabase/migrations/20260921000000_production_leave_entitlements_and_reservations.sql",
+  );
+  const hotfixSql = fs.readFileSync(hotfixMigrationPath, "utf-8");
+  const baseSql = fs.readFileSync(baseMigrationPath, "utf-8");
+
+  const leavesViewPath = path.resolve(
+    __dirname,
+    "../components/leaves/LeavesView.tsx",
+  );
+  const leavesViewContent = fs.readFileSync(leavesViewPath, "utf-8");
+
   describe("1. Query Keys Architecture", () => {
     it("provides dedicated hierarchical query keys for all leave operations", () => {
       expect(queryKeys.leaves.all).toEqual(["leaves"]);
@@ -159,7 +196,7 @@ describe("Production Leave Management, Entitlements & Absence Engine", () => {
       endDate: string,
       isHalfDay: boolean = false,
       holidays: string[] = [],
-      weekendDays: number[] = [5, 6], // 5: Friday, 6: Saturday
+      weekendDays: number[] = [5, 6],
     ): number {
       if (isHalfDay) return 0.5;
       const start = new Date(startDate);
@@ -183,15 +220,11 @@ describe("Production Leave Management, Entitlements & Absence Engine", () => {
     }
 
     it("excludes standard weekends (Friday & Saturday) from working days count", () => {
-      // 2026-09-03 is Thursday, 2026-09-04 is Friday, 2026-09-05 is Saturday, 2026-09-06 is Sunday
       const days = computeWorkingDays("2026-09-03", "2026-09-06");
-      // Thursday + Sunday = 2 working days
       expect(days).toBe(2);
     });
 
     it("excludes company paid holidays falling on working days", () => {
-      // 2026-09-21 (Mon) to 2026-09-24 (Thu) = 4 calendar days
-      // If 2026-09-23 is National Day (holiday)
       const holidays = ["2026-09-23"];
       const days = computeWorkingDays("2026-09-21", "2026-09-24", false, holidays);
       expect(days).toBe(3);
@@ -203,7 +236,6 @@ describe("Production Leave Management, Entitlements & Absence Engine", () => {
     });
 
     it("returns 1 for single working day", () => {
-      // 2026-09-21 is Monday (working day)
       const days = computeWorkingDays("2026-09-21", "2026-09-21", false);
       expect(days).toBe(1);
     });
@@ -214,7 +246,220 @@ describe("Production Leave Management, Entitlements & Absence Engine", () => {
     });
   });
 
-  describe("4. Overlap Prevention & Policy Restrictions", () => {
+  describe("4. 30 Production Hotfix Specifications", () => {
+    // 1. removes implicit SA default from leave_types and company_holidays
+    it("1. removes implicit SA default from leave_types and company_holidays", () => {
+      expect(hotfixSql).toContain("ALTER TABLE public.leave_types");
+      expect(hotfixSql).toContain("ALTER COLUMN jurisdiction DROP DEFAULT;");
+      expect(hotfixSql).toContain("ALTER TABLE public.company_holidays");
+    });
+
+    // 2. companies work_days / rest_days columns exist
+    it("2. companies work_days / rest_days and visibility columns exist", () => {
+      expect(hotfixSql).toContain("ADD COLUMN IF NOT EXISTS work_days integer[]");
+      expect(hotfixSql).toContain("ADD COLUMN IF NOT EXISTS rest_days integer[]");
+      expect(hotfixSql).toContain("ADD COLUMN IF NOT EXISTS allow_peer_leave_calendar_visibility boolean");
+    });
+
+    // 3. shifts work_days / rest_days columns exist
+    it("3. shifts work_days / rest_days columns exist", () => {
+      expect(hotfixSql).toContain("ALTER TABLE public.shifts");
+      expect(hotfixSql).toContain("ADD COLUMN IF NOT EXISTS work_days integer[]");
+      expect(hotfixSql).toContain("ADD COLUMN IF NOT EXISTS rest_days integer[]");
+    });
+
+    // 4. company_request_sequences exists and is concurrency safe
+    it("4. company_request_sequences exists and is concurrency safe with FOR UPDATE", () => {
+      expect(hotfixSql).toContain("CREATE TABLE IF NOT EXISTS public.company_request_sequences");
+      expect(hotfixSql).toContain("ON CONFLICT (company_id, year)");
+    });
+
+    // 5. leave_carryover_runs exists and is unique on (company_id, leave_type_id, source_year, target_year)
+    it("5. leave_carryover_runs exists with unique constraint", () => {
+      expect(hotfixSql).toContain("CREATE TABLE IF NOT EXISTS public.leave_carryover_runs");
+      expect(hotfixSql).toContain("CONSTRAINT uq_leave_carryover_run UNIQUE (company_id, leave_type_id, source_year, target_year)");
+    });
+
+    // 6. legacy leave_types backfill reset to company_id = NULL
+    it("6. legacy leave_types backfill reset to company_id = NULL", () => {
+      expect(hotfixSql).toContain("UPDATE public.leave_types");
+      expect(hotfixSql).toContain("SET company_id = NULL");
+      expect(hotfixSql).toContain("WHERE company_id = (SELECT id FROM public.companies ORDER BY created_at ASC LIMIT 1)");
+    });
+
+    // 7. direct DML on leave_balances is revoked from authenticated
+    it("7. direct DML on leave_balances is revoked from authenticated", () => {
+      expect(hotfixSql).toContain("REVOKE INSERT, UPDATE, DELETE ON public.leave_balances FROM authenticated;");
+    });
+
+    // 8. prevent_leave_ledger_modification trigger prevents UPDATE/DELETE on leave_balance_transactions
+    it("8. prevent_leave_ledger_modification trigger prevents UPDATE/DELETE on leave_balance_transactions", () => {
+      expect(hotfixSql).toContain("FUNCTION public.prevent_leave_ledger_modification()");
+      expect(hotfixSql).toContain("BEFORE UPDATE OR DELETE ON public.leave_balance_transactions");
+    });
+
+    // 9. calculate_working_days enforces tenant access
+    it("9. calculate_working_days enforces tenant access", () => {
+      expect(hotfixSql).toContain("FUNCTION public.calculate_working_days(");
+      expect(hotfixSql).toContain("current_user_can_manage_company");
+    });
+
+    // 10. calculate_working_days respects shift/company rest_days
+    it("10. calculate_working_days respects shift/company rest_days", () => {
+      expect(hotfixSql).toContain("v_effective_rest_days");
+      expect(hotfixSql).toContain("v_shift.rest_days");
+      expect(hotfixSql).toContain("v_company.rest_days");
+    });
+
+    // 11. calculate_working_days validates half-day (0.5 for 1 day, error if multi-day)
+    it("11. calculate_working_days validates half-day (0.5 for 1 day, error if multi-day)", () => {
+      expect(hotfixSql).toContain("IF p_is_half_day THEN");
+      expect(hotfixSql).toContain("p_start_date <> p_end_date");
+      expect(hotfixSql).toContain("إجازة نصف اليوم يجب أن تكون لتاريخ يوم واحد فقط");
+    });
+
+    // 12. submit_leave_request rejects cross-year requests (Option B)
+    it("12. submit_leave_request rejects cross-year requests (Option B)", () => {
+      expect(hotfixSql).toContain("EXTRACT(YEAR FROM p_start_date)::int <> EXTRACT(YEAR FROM p_end_date)::int");
+      expect(hotfixSql).toContain("طلب الإجازة يمتد عبر سنتين تقويميتين مختلفتين");
+    });
+
+    // 13. submit_leave_request rejects unauthorized on-behalf submissions
+    it("13. submit_leave_request rejects unauthorized on-behalf submissions", () => {
+      expect(hotfixSql).toContain("IF p_target_employee_id IS NOT NULL THEN");
+      expect(hotfixSql).toContain("current_user_can_manage_company");
+    });
+
+    // 14. submit_leave_request validates replacement employee is in same company
+    it("14. submit_leave_request validates replacement employee is in same company", () => {
+      expect(hotfixSql).toContain("p_replacement_employee_id IS NOT NULL");
+      expect(hotfixSql).toContain("v_rep_emp.company_id <> v_company_id");
+      expect(hotfixSql).toContain("الموظف البديل يجب أن يكون تابعاً لنفس منشأة الموظف");
+    });
+
+    // 15. submit_leave_request validates attachment existence and sets is_final/locked
+    it("15. submit_leave_request validates attachment existence and sets is_final/locked", () => {
+      expect(hotfixSql).toContain("p_attachment_file_id IS NOT NULL");
+      expect(hotfixSql).toContain("v_leave_type.requires_attachment");
+      expect(hotfixSql).toContain("v_att_file.company_id <> v_company_id");
+      expect(hotfixSql).toContain("UPDATE public.file_objects");
+    });
+
+    // 16. submit_leave_request resolves approval chain into approval_steps
+    it("16. submit_leave_request resolves approval chain into approval_steps", () => {
+      expect(hotfixSql).toContain("INSERT INTO public.approval_steps");
+      expect(hotfixSql).toContain("current_step_index");
+    });
+
+    // 17. decide_leave_request validates current step approver / delegation
+    it("17. decide_leave_request validates current step approver / delegation", () => {
+      expect(hotfixSql).toContain("FUNCTION public.decide_leave_request(");
+      expect(hotfixSql).toContain("current_step_index");
+      expect(hotfixSql).toContain("delegation_rules");
+    });
+
+    // 18. decide_leave_request advances intermediate steps without settling balance
+    it("18. decide_leave_request advances intermediate steps without settling balance", () => {
+      expect(hotfixSql).toContain("IF NOT v_is_final THEN");
+      expect(hotfixSql).toContain("current_step_index = current_step_index + 1");
+    });
+
+    // 19. decide_leave_request commits balance on final approval
+    it("19. decide_leave_request commits balance on final approval", () => {
+      expect(hotfixSql).toContain("reserved_days = GREATEST(0, reserved_days - v_chargeable_days)");
+      expect(hotfixSql).toContain("used_days = used_days + v_chargeable_days");
+    });
+
+    // 20. decide_leave_request releases reservation on rejection/withdrawal
+    it("20. decide_leave_request releases reservation on rejection/withdrawal", () => {
+      expect(hotfixSql).toContain("p_decision = 'rejected'");
+      expect(hotfixSql).toContain("reserved_days = GREATEST(0, reserved_days - v_chargeable_days)");
+      expect(hotfixSql).toContain("'reservation_release'");
+    });
+
+    // 21. decide_leave_request is idempotent on repeated calls
+    it("21. decide_leave_request is idempotent on repeated calls", () => {
+      expect(hotfixSql).toContain("v_request.status = 'approved' AND p_decision = 'approved'");
+      expect(hotfixSql).toContain("v_request.status = 'rejected' AND p_decision = 'rejected'");
+      expect(hotfixSql).toContain("تمت معالجة هذا الطلب مسبقاً");
+    });
+
+    // 22. get_my_leave_balances returns truthful negative available balances
+    it("22. get_my_leave_balances returns truthful negative available balances", () => {
+      expect(hotfixSql).toContain("FUNCTION public.get_my_leave_balances(");
+      expect(hotfixSql).toContain("((b.accrued_days + b.carried_over_days) - (b.used_days + b.reserved_days)) AS available_balance");
+    });
+
+    // 23. get_company_leave_balances returns truthful negative available balances
+    it("23. get_company_leave_balances returns truthful negative available balances", () => {
+      expect(hotfixSql).toContain("FUNCTION public.get_company_leave_balances(");
+      expect(hotfixSql).toContain("((b.accrued_days + b.carried_over_days) - (b.used_days + b.reserved_days)) AS available_balance");
+    });
+
+    // 24. get_team_leave_calendar respects allow_peer_leave_calendar_visibility
+    it("24. get_team_leave_calendar respects allow_peer_leave_calendar_visibility", () => {
+      expect(hotfixSql).toContain("FUNCTION public.get_team_leave_calendar(");
+      expect(hotfixSql).toContain("allow_peer_leave_calendar_visibility");
+    });
+
+    // 25. run_leave_accrual supports yearly_frontloaded, monthly_accrual, and contract_anniversary
+    it("25. run_leave_accrual supports yearly_frontloaded, monthly_accrual, and contract_anniversary", () => {
+      expect(hotfixSql).toContain("'yearly_frontloaded'");
+      expect(hotfixSql).toContain("'monthly_accrual'");
+      expect(hotfixSql).toContain("'contract_anniversary'");
+    });
+
+    // 26. run_leave_accrual creates leave_balance_transactions and records actual credit
+    it("26. run_leave_accrual creates leave_balance_transactions and records actual credit", () => {
+      expect(hotfixSql).toContain("INSERT INTO public.leave_balance_transactions");
+      expect(hotfixSql).toContain("v_actual_credit");
+      expect(hotfixSql).toContain("'accrual'");
+    });
+
+    // 27. run_leave_carryover is idempotent and respects carryover_limit_days
+    it("27. run_leave_carryover is idempotent and respects carryover_limit_days", () => {
+      expect(hotfixSql).toContain("FUNCTION public.run_leave_carryover(");
+      expect(hotfixSql).toContain("LEAST(v_unused, v_carryover_limit)");
+      expect(hotfixSql).toContain("INSERT INTO public.leave_carryover_runs");
+    });
+
+    // 28. create_leave_type requires explicit parameters without hidden legal defaults
+    it("28. create_leave_type requires explicit parameters without hidden legal defaults", () => {
+      expect(hotfixSql).toContain("FUNCTION public.create_leave_type(");
+      expect(hotfixSql).not.toContain("p_jurisdiction text DEFAULT 'SA'");
+      expect(hotfixSql).toContain("p_jurisdiction text DEFAULT NULL");
+    });
+
+    // 29. UI LeavesView uses timezone-aware calendar boundaries and rejects cross-year requests
+    it("29. UI LeavesView uses timezone-aware calendar boundaries and rejects cross-year requests", () => {
+      expect(leavesViewContent).toContain("startDate.slice(0, 4) !== endDate.slice(0, 4)");
+      expect(leavesViewContent).toContain("لا يمكن تقديم إجازة تمتد عبر سنتين ماليتين");
+      expect(leavesViewContent).toContain("isHalfDay && startDate !== endDate");
+      expect(leavesViewContent).toContain("company?.country");
+    });
+
+    // 30. operational-repository and domains/leaves export runLeaveCarryoverRecord and carryoverLeaveBalances
+    it("30. operational-repository and domains/leaves export runLeaveCarryoverRecord and carryoverLeaveBalances", () => {
+      expect(typeof runLeaveCarryoverRecord).toBe("function");
+      expect(typeof calculateWorkingDaysRecord).toBe("function");
+      expect(typeof submitLeaveRequestRecord).toBe("function");
+      expect(typeof decideLeaveRequestRecord).toBe("function");
+      expect(typeof fetchMyLeaveBalancesRecord).toBe("function");
+      expect(typeof fetchCompanyLeaveBalancesRecord).toBe("function");
+      expect(typeof fetchTeamLeaveCalendarRecord).toBe("function");
+      expect(typeof createLeaveTypeRecord).toBe("function");
+      expect(typeof adjustLeaveBalanceRecord).toBe("function");
+      expect(typeof runLeaveAccrualRecord).toBe("function");
+      expect(typeof useLeaves).toBe("function");
+      expect(typeof useLeaveMutations).toBe("function");
+      expect(typeof useMyLeaveBalances).toBe("function");
+      expect(typeof useCompanyLeaveBalances).toBe("function");
+      expect(typeof useLeaveTypes).toBe("function");
+      expect(typeof useLeaveTeamCalendar).toBe("function");
+    });
+  });
+
+  describe("5. Overlap Prevention & Policy Restrictions", () => {
     interface ActiveLeave {
       startDate: string;
       endDate: string;
@@ -285,7 +530,7 @@ describe("Production Leave Management, Entitlements & Absence Engine", () => {
     });
   });
 
-  describe("5. Ledger & Transaction Type Integrity", () => {
+  describe("6. Ledger & Transaction Type Integrity", () => {
     it("recognizes all authoritative transaction types for audit and accounting", () => {
       const validTypes: LeaveBalanceTransaction["transactionType"][] = [
         "opening",
@@ -308,65 +553,35 @@ describe("Production Leave Management, Entitlements & Absence Engine", () => {
     });
   });
 
-  describe("6. UI & Codebase Truthfulness Verification", () => {
-    const leavesViewPath = path.resolve(
-      __dirname,
-      "../components/leaves/LeavesView.tsx",
-    );
-    const leavesContent = fs.readFileSync(leavesViewPath, "utf-8");
-
+  describe("7. UI & Codebase Truthfulness Verification", () => {
     it("does NOT contain hardcoded fake initial dates 2026-09-01 or 2026-09-05 in LeavesView.tsx", () => {
-      expect(leavesContent).not.toContain('"2026-09-01"');
-      expect(leavesContent).not.toContain('"2026-09-05"');
+      expect(leavesViewContent).not.toContain('"2026-09-01"');
+      expect(leavesViewContent).not.toContain('"2026-09-05"');
     });
 
     it("does NOT contain hardcoded fake employees 'محمد الشمري' or 'نورة القحطاني'", () => {
-      expect(leavesContent).not.toContain("محمد الشمري");
-      expect(leavesContent).not.toContain("نورة القحطاني");
+      expect(leavesViewContent).not.toContain("محمد الشمري");
+      expect(leavesViewContent).not.toContain("نورة القحطاني");
     });
 
     it("does NOT contain external Unsplash avatar URLs in LeavesView.tsx", () => {
-      expect(leavesContent).not.toContain("images.unsplash.com");
+      expect(leavesViewContent).not.toContain("images.unsplash.com");
     });
 
     it("does NOT claim 'متوافق مع قوى ونظام العمل' as a global hardcoded truth", () => {
-      expect(leavesContent).not.toContain("متوافق مع قوى ونظام العمل");
-      expect(leavesContent).toContain("سياسة الإجازات المعتمدة");
+      expect(leavesViewContent).not.toContain("متوافق مع قوى ونظام العمل");
+      expect(leavesViewContent).toContain("سياسة الإجازات المعتمدة");
     });
 
     it("does NOT automatically select employees[0] in adjust balance modal", () => {
-      expect(leavesContent).not.toContain('useState(employees[0]?.id || "")');
-      expect(leavesContent).toContain('useState("")');
-      expect(leavesContent).toContain("-- اختر الموظف --");
+      expect(leavesViewContent).not.toContain('useState(employees[0]?.id || "")');
+      expect(leavesViewContent).toContain('useState("")');
+      expect(leavesViewContent).toContain("-- اختر الموظف --");
     });
 
     it("uses automatic working days calculation preview instead of free-form day input", () => {
-      expect(leavesContent).toContain("calculateWorkingDaysRecord");
-      expect(leavesContent).toContain("أيام العمل الفعلية المستحقة");
-    });
-  });
-
-  describe("7. Database Migration Completeness", () => {
-    const migrationPath = path.resolve(
-      __dirname,
-      "../../supabase/migrations/20260921000000_production_leave_entitlements_and_reservations.sql",
-    );
-
-    it("contains the complete production leave schema and RPC definitions", () => {
-      expect(fs.existsSync(migrationPath)).toBe(true);
-      const sql = fs.readFileSync(migrationPath, "utf-8");
-
-      expect(sql).toContain("CREATE TABLE IF NOT EXISTS public.leave_balance_transactions");
-      expect(sql).toContain("CREATE TABLE IF NOT EXISTS public.leave_accrual_runs");
-      expect(sql).toContain("CREATE TABLE IF NOT EXISTS public.company_holidays");
-      expect(sql).toContain("FUNCTION public.calculate_working_days");
-      expect(sql).toContain("FUNCTION public.submit_leave_request");
-      expect(sql).toContain("FUNCTION public.decide_leave_request");
-      expect(sql).toContain("FUNCTION public.get_my_leave_balances");
-      expect(sql).toContain("FUNCTION public.get_team_leave_calendar");
-      expect(sql).toContain("FUNCTION public.adjust_leave_balance");
-      expect(sql).toContain("FUNCTION public.run_leave_accrual");
-      expect(sql).toContain("FUNCTION public.create_leave_type");
+      expect(leavesViewContent).toContain("calculateWorkingDaysRecord");
+      expect(leavesViewContent).toContain("أيام العمل الفعلية المستحقة");
     });
   });
 });

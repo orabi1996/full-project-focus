@@ -853,6 +853,7 @@ export async function calculateWorkingDaysRecord(
   endDate: string,
   leaveTypeId?: string,
   isHalfDay?: boolean,
+  employeeId?: string,
 ): Promise<{ workingDays: number; calendarDays: number }> {
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -865,6 +866,7 @@ export async function calculateWorkingDaysRecord(
       p_end_date: endDate,
       p_leave_type_id: leaveTypeId || null,
       p_is_half_day: Boolean(isHalfDay),
+      p_employee_id: employeeId || null,
     });
 
     if (error) {
@@ -1012,6 +1014,7 @@ export async function fetchCompanyLeaveBalancesRecord(
     leaveTypeId: row.leave_type_id as string,
     leaveTypeCode: row.leave_type_code as string,
     leaveTypeNameAr: row.leave_type_name_ar as string,
+    leaveTypeNameEn: (row.leave_type_name_en as string) || (row.leave_type_name_ar as string),
     color: row.color as string,
     annualEntitlement: Number(row.annual_entitlement ?? 0),
     accruedDays: Number(row.accrued_days ?? 0),
@@ -1083,7 +1086,7 @@ export async function createLeaveTypeRecord(input: {
     p_accrual_method: input.accrualMethod || "yearly_frontloaded",
     p_carryover_limit_days: input.carryoverLimitDays ?? 0,
     p_carryover_expiry_months: input.carryoverExpiryMonths ?? 3,
-    p_jurisdiction: input.jurisdiction || "saudi_labor_law",
+    p_jurisdiction: input.jurisdiction || null,
     p_company_id: input.companyId || null,
   });
 
@@ -1112,11 +1115,30 @@ export async function adjustLeaveBalanceRecord(
 
 export async function runLeaveAccrualRecord(
   year: number,
+  month?: number,
   leaveTypeId?: string,
   companyId?: string,
 ) {
   const { data, error } = await callEnterpriseRpc("run_leave_accrual", {
     p_year: year,
+    p_month: month || null,
+    p_leave_type_id: leaveTypeId || null,
+    p_company_id: companyId || null,
+  });
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function runLeaveCarryoverRecord(
+  sourceYear: number,
+  targetYear: number,
+  leaveTypeId?: string,
+  companyId?: string,
+) {
+  const { data, error } = await callEnterpriseRpc("run_leave_carryover", {
+    p_source_year: sourceYear,
+    p_target_year: targetYear,
     p_leave_type_id: leaveTypeId || null,
     p_company_id: companyId || null,
   });

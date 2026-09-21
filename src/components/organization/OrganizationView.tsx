@@ -827,7 +827,7 @@ export const OrganizationView: React.FC = () => {
 
       {/* Tabs Menu */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="classera-tabs-strip">
+        <TabsList className="classera-tabs-strip w-full justify-start">
           <TabsTrigger
             value="structure"
             className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5"

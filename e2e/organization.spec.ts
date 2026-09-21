@@ -2,6 +2,13 @@ import { expect, test } from "@playwright/test";
 
 import { enterDemo, failOnPageErrors, openModule } from "./helpers";
 
+async function selectTab(page: Parameters<typeof enterDemo>[0], name: string | RegExp) {
+  const tab = page.getByRole("tab", { name });
+  await tab.scrollIntoViewIfNeeded();
+  await tab.click();
+  await expect(tab).toHaveAttribute("data-state", "active");
+}
+
 test.beforeEach(async ({ page }) => {
   await enterDemo(page);
   await openModule(page, "المنشأة والهيكل التنظيمي", "organization");
@@ -17,14 +24,13 @@ test("يعرض كل أقسام وحدة المنشأة", async ({ page }) => {
     "المناصب",
     "مراكز التكلفة",
   ]) {
-    await page.getByRole("tab", { name: tab }).click();
-    await expect(page.getByRole("tab", { name: tab })).toHaveAttribute("data-state", "active");
+    await selectTab(page, tab);
   }
   assertNoErrors();
 });
 
 test("يفتح محرر الوحدة التنظيمية ويحمي الاختيار الهرمي", async ({ page }) => {
-  await page.getByRole("tab", { name: /الأقسام والوحدات/ }).click();
+  await selectTab(page, /الأقسام والوحدات/);
   await page.getByRole("button", { name: /إضافة قسم جديد/ }).click();
   await expect(page.getByRole("dialog")).toContainText("إضافة إدارة / قسم جديد");
   await expect(page.getByText("الوحدة الأعلى")).toBeVisible();
@@ -32,8 +38,8 @@ test("يفتح محرر الوحدة التنظيمية ويحمي الاختي�
 });
 
 test("يعرض تخطيط المناصب ومراكز التكلفة", async ({ page }) => {
-  await page.getByRole("tab", { name: "المناصب" }).click();
+  await selectTab(page, "المناصب");
   await expect(page.getByText(/المخطط/).first()).toBeVisible();
-  await page.getByRole("tab", { name: "مراكز التكلفة" }).click();
+  await selectTab(page, "مراكز التكلفة");
   await expect(page.getByText(/الميزانية/).first()).toBeVisible();
 });

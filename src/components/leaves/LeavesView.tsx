@@ -34,7 +34,9 @@ import {
   useLeaveTypes,
   useLeaveMutations,
   useLeaveTeamCalendar,
+  useMyLeaveRequests,
 } from "../../lib/domains/leaves";
+import { useEmployeeDirectory } from "../../lib/domains/employees";
 import { useBootstrapData } from "../../lib/domains/bootstrap/use-bootstrap";
 import {
   calculateWorkingDaysRecord,
@@ -46,17 +48,15 @@ import {
   getCompanyMonth,
   getCompanyMonthBoundaries,
 } from "../../lib/utils/timezone-dates";
-import type { ServiceRequest } from "../../types";
+import type { ServiceRequest, EmployeeDirectoryItem } from "../../types";
 
 export const LeavesView: React.FC = () => {
   const {
-    employees,
     currentRole,
     currentUser,
     language,
     t,
     isSaving,
-    requests,
   } = useApp();
 
   const { company } = useBootstrapData();
@@ -71,10 +71,13 @@ export const LeavesView: React.FC = () => {
     companyTz,
   );
 
+  const canManage = canManageModule(currentRole, "leaves");
+
   // Dedicated queries (no bootstrap whole-app reload)
   const { leaveTypes } = useLeaveTypes();
   const { balances: myBalances } = useMyLeaveBalances(currentYear);
-  const { balances: companyBalances } = useCompanyLeaveBalances(currentYear);
+  const { balances: companyBalances } = useCompanyLeaveBalances(currentYear, undefined, { enabled: canManage });
+  const { requests: myLeaveRequests } = useMyLeaveRequests(currentYear);
   const { calendarItems, isLoading: isCalendarLoading } = useLeaveTeamCalendar(startOfMonth, endOfMonth);
 
   // Dedicated mutations
@@ -88,7 +91,6 @@ export const LeavesView: React.FC = () => {
     expireCarryoverBalances,
   } = useLeaveMutations();
 
-  const canManage = canManageModule(currentRole, "leaves");
   const [activeTab, setActiveTab] = useState("balances");
 
   // Modals state
@@ -112,43 +114,34 @@ export const LeavesView: React.FC = () => {
   const [stagedFileName, setStagedFileName] = useState<string | null>(null);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
 
-  // Add Type State
+  // Add Type State - explicit selections without silent believability defaults
   const [newTypeName, setNewTypeName] = useState("");
-  const [newTypeDays, setNewTypeDays] = useState(21);
-  const [newTypePaid, setNewTypePaid] = useState(true);
-  const [newTypeAllowHalfDay, setNewTypeAllowHalfDay] = useState(true);
-  const [newTypeAllowNegative, setNewTypeAllowNegative] = useState(false);
-  const [newTypeRequiresAttachment, setNewTypeRequiresAttachment] = useState(false);
-  const [newTypeCarryoverLimit, setNewTypeCarryoverLimit] = useState(5);
+  const [newTypeDays, setNewTypeDays] = useState<number | "">("");
+  const [newTypePaid, setNewTypePaid] = useState<boolean | null>(null);
+  const [newTypeAllowHalfDay, setNewTypeAllowHalfDay] = useState<boolean | null>(null);
+  const [newTypeAllowNegative, setNewTypeAllowNegative] = useState<boolean | null>(null);
+  const [newTypeRequiresAttachment, setNewTypeRequiresAttachment] = useState<boolean | null>(null);
+  const [newTypeCarryoverLimit, setNewTypeCarryoverLimit] = useState<number | "">("");
 
-  // Adjust Balance State - Searchable employee picker
+  // Adjust Balance State - Searchable employee directory query
   const [adjustEmpId, setAdjustEmpId] = useState("");
   const [adjustEmpSearch, setAdjustEmpSearch] = useState("");
   const [adjustDays, setAdjustDays] = useState(1);
   const [adjustReason, setAdjustReason] = useState("");
 
-  const filteredAdjustEmployees = useMemo(() => {
-    if (!adjustEmpSearch.trim()) return employees.slice(0, 50);
-    const s = adjustEmpSearch.toLowerCase();
-    return employees
-      .filter(
-        (e) =>
-          (e.firstNameAr && e.firstNameAr.toLowerCase().includes(s)) ||
-          (e.lastNameAr && e.lastNameAr.toLowerCase().includes(s)) ||
-          (e.employeeNo && e.employeeNo.toLowerCase().includes(s)),
-      )
-      .slice(0, 50);
-  }, [employees, adjustEmpSearch]);
+  const { data: directoryData } = useEmployeeDirectory({
+    search: adjustEmpSearch.trim() || undefined,
+    status: "active",
+    pageSize: 50,
+  });
+  const filteredAdjustEmployees = directoryData?.items ?? [];
 
-  // Returned Requests for resubmission
+  // Returned Requests for resubmission (derived from dedicated myLeaveRequests)
   const returnedLeaveRequests = useMemo(() => {
-    return requests.filter(
-      (r) =>
-        r.type === "leave" &&
-        r.status === "returned" &&
-        r.requesterId === currentUser?.id,
+    return myLeaveRequests.filter(
+      (r) => r.type === "leave" && r.status === "returned",
     );
-  }, [requests, currentUser]);
+  }, [myLeaveRequests]);
 
   const [resubmitTargetRequest, setResubmitTargetRequest] = useState<ServiceRequest | null>(null);
   const [resubmitStartDate, setResubmitStartDate] = useState("");
@@ -229,13 +222,19 @@ export const LeavesView: React.FC = () => {
     };
   }, [resubmitStartDate, resubmitEndDate, resubmitIsHalfDay, resubmitTargetRequest]);
 
-  const displayBalances = myBalances.length > 0 ? myBalances : companyBalances;
-  const selectedBalance = displayBalances.find((b) => b.leaveTypeId === selectedTypeId);
+  const selectedBalance = myBalances.find((b) => b.leaveTypeId === selectedTypeId);
   const selectedLeaveType = leaveTypes.find((lt) => lt.id === selectedTypeId);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const allowedTypes = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
+    if (!allowedTypes.includes(file.type) && !/\.(pdf|png|jpe?g|webp)$/i.test(file.name)) {
+      toast.error("نوع الملف غير مدعوم. الأنواع المسموحة هي: PDF, PNG, JPG, JPEG, WEBP");
+      return;
+    }
+
     if (stagedFileId) {
       await cleanupStagedLeaveAttachmentRecord(stagedFileId).catch(() => {});
       setStagedFileId(null);
@@ -359,23 +358,52 @@ export const LeavesView: React.FC = () => {
       toast.error("يرجى كتابة اسم نوع الإجازة");
       return;
     }
+    if (newTypeDays === "" || Number(newTypeDays) < 0) {
+      toast.error("يرجى تحديد الاستحقاق السنوي بالأيام (أكبر من أو يساوي صفر)");
+      return;
+    }
+    if (newTypePaid === null) {
+      toast.error("يرجى تحديد حالة الأجر (مدفوعة أو بدون أجر)");
+      return;
+    }
+    if (newTypeAllowHalfDay === null) {
+      toast.error("يرجى تحديد إمكانية طلب نصف يوم");
+      return;
+    }
+    if (newTypeAllowNegative === null) {
+      toast.error("يرجى تحديد إمكانية الرصيد السالب");
+      return;
+    }
+    if (newTypeRequiresAttachment === null) {
+      toast.error("يرجى تحديد إلزامية المرفق");
+      return;
+    }
+    if (newTypeCarryoverLimit === "" || Number(newTypeCarryoverLimit) < 0) {
+      toast.error("يرجى تحديد الحد الأقصى للترحيل بالأيام");
+      return;
+    }
     setIsCreatingType(true);
     try {
       const ok = await addLeaveType({
         nameAr: newTypeName.trim(),
-        maxDaysPerYear: newTypeDays,
-        isPaid: newTypePaid,
-        allowHalfDay: newTypeAllowHalfDay,
-        allowNegativeBalance: newTypeAllowNegative,
-        requiresAttachment: newTypeRequiresAttachment,
-        carryoverLimitDays: newTypeCarryoverLimit,
+        maxDaysPerYear: Number(newTypeDays),
+        isPaid: Boolean(newTypePaid),
+        allowHalfDay: Boolean(newTypeAllowHalfDay),
+        allowNegativeBalance: Boolean(newTypeAllowNegative),
+        requiresAttachment: Boolean(newTypeRequiresAttachment),
+        carryoverLimitDays: Number(newTypeCarryoverLimit),
         companyId: company?.id,
         jurisdiction: company?.country || undefined,
       });
       if (ok) {
         setIsAddTypeModalOpen(false);
         setNewTypeName("");
-        setNewTypeDays(21);
+        setNewTypeDays("");
+        setNewTypePaid(null);
+        setNewTypeAllowHalfDay(null);
+        setNewTypeAllowNegative(null);
+        setNewTypeRequiresAttachment(null);
+        setNewTypeCarryoverLimit("");
       }
     } finally {
       setIsCreatingType(false);
@@ -517,44 +545,63 @@ export const LeavesView: React.FC = () => {
         </div>
       )}
 
+      {/* Timezone Setup Warning Banner for Admins */}
+      {!companyTz && canManage && (
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 flex items-center gap-3 text-destructive shadow-xs">
+          <Info className="h-5 w-5 shrink-0" />
+          <div className="text-xs">
+            <p className="font-bold">تنبيه إداري: لم يتم ضبط المنطقة الزمنية للمنشأة</p>
+            <p className="text-[11px] opacity-90 mt-0.5">
+              يرجى إعداد المنطقة الزمنية من إعدادات المنشأة لضمان صحة مواعيد الاستحقاق وسجلات الإجازات دون افتراضات ضمنية.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Primary KPI Balance Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {displayBalances.map((bal) => (
-          <div
-            key={bal.leaveTypeId}
-            className="classera-kpi-card p-5 shadow-xs space-y-3.5 relative overflow-hidden"
-          >
-            <div className="flex items-center justify-between">
-              <span className="font-black text-xs text-foreground">
-                {language === "ar" ? bal.leaveTypeNameAr : bal.leaveTypeNameEn}
-              </span>
-              <div
-                className="h-3.5 w-3.5 rounded-full shadow-xs"
-                style={{ backgroundColor: bal.color || "#004BCE" }}
-              />
-            </div>
+        {myBalances.length > 0 ? (
+          myBalances.map((bal) => (
+            <div
+              key={bal.leaveTypeId}
+              className="classera-kpi-card p-5 shadow-xs space-y-3.5 relative overflow-hidden"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-black text-xs text-foreground">
+                  {language === "ar" ? bal.leaveTypeNameAr : bal.leaveTypeNameEn}
+                </span>
+                <div
+                  className="h-3.5 w-3.5 rounded-full shadow-xs"
+                  style={{ backgroundColor: bal.color || "#004BCE" }}
+                />
+              </div>
 
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-foreground font-tabular-nums font-mono">{bal.availableBalance}</span>
-              <span className="text-xs text-muted-foreground font-bold font-sans">يوم متاح</span>
-            </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-foreground font-tabular-nums font-mono">{bal.availableBalance}</span>
+                <span className="text-xs text-muted-foreground font-bold font-sans">يوم متاح</span>
+              </div>
 
-            <div className="grid grid-cols-3 gap-2 border-t border-border/60 pt-3 text-[11px] text-muted-foreground text-center">
-              <div>
-                <p>المستحق السنوي</p>
-                <p className="font-bold text-foreground mt-0.5 font-tabular-nums font-mono">{bal.annualEntitlement}</p>
-              </div>
-              <div>
-                <p>المستخدم</p>
-                <p className="font-bold text-foreground mt-0.5 font-tabular-nums font-mono">{bal.usedDays}</p>
-              </div>
-              <div>
-                <p className="text-amber-600 font-semibold">المحجوز</p>
-                <p className="font-bold text-amber-600 mt-0.5 font-tabular-nums font-mono">{bal.reservedDays}</p>
+              <div className="grid grid-cols-3 gap-2 border-t border-border/60 pt-3 text-[11px] text-muted-foreground text-center">
+                <div>
+                  <p>المستحق السنوي</p>
+                  <p className="font-bold text-foreground mt-0.5 font-tabular-nums font-mono">{bal.annualEntitlement}</p>
+                </div>
+                <div>
+                  <p>المستخدم</p>
+                  <p className="font-bold text-foreground mt-0.5 font-tabular-nums font-mono">{bal.usedDays}</p>
+                </div>
+                <div>
+                  <p className="text-amber-600 font-semibold">المحجوز</p>
+                  <p className="font-bold text-amber-600 mt-0.5 font-tabular-nums font-mono">{bal.reservedDays}</p>
+                </div>
               </div>
             </div>
+          ))
+        ) : (
+          <div className="col-span-full rounded-2xl border border-dashed border-border/80 p-8 text-center bg-card/40">
+            <p className="text-xs text-muted-foreground font-medium">لا توجد أرصدة إجازات مسجلة لحسابك في هذه السنة.</p>
           </div>
-        ))}
+        )}
       </div>
 
       {/* Tabs Layout */}
@@ -883,7 +930,7 @@ export const LeavesView: React.FC = () => {
                 <input
                   type="file"
                   onChange={handleFileChange}
-                  accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                  accept=".pdf,.png,.jpg,.jpeg,.webp"
                   className="w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
                 />
                 {stagedFileName && (
@@ -951,67 +998,116 @@ export const LeavesView: React.FC = () => {
               <input
                 type="number"
                 value={newTypeDays}
-                onChange={(e) => setNewTypeDays(Number(e.target.value))}
+                placeholder="مثال: 21"
+                onChange={(e) => setNewTypeDays(e.target.value === "" ? "" : Number(e.target.value))}
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="font-bold">الحد الأقصى لترحيل الأيام سنوياً</label>
+              <label className="font-bold">الحد الأقصى لترحيل الأيام سنوياً *</label>
               <input
                 type="number"
                 value={newTypeCarryoverLimit}
-                onChange={(e) => setNewTypeCarryoverLimit(Number(e.target.value))}
+                placeholder="مثال: 5 (أو 0 لعدم الترحيل)"
+                onChange={(e) => setNewTypeCarryoverLimit(e.target.value === "" ? "" : Number(e.target.value))}
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
-            <div className="space-y-2 pt-1">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="paidCheck"
-                  checked={newTypePaid}
-                  onChange={(e) => setNewTypePaid(e.target.checked)}
-                  className="rounded text-primary h-4 w-4"
-                />
-                <label htmlFor="paidCheck" className="text-xs font-bold text-foreground">
-                  إجازة مدفوعة الأجر (Paid Leave)
-                </label>
+            <div className="space-y-2 pt-1 border-t border-border/60">
+              <div className="space-y-1">
+                <label className="font-bold">حالة الأجر *</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="newTypePaid"
+                      checked={newTypePaid === true}
+                      onChange={() => setNewTypePaid(true)}
+                    />
+                    مدفوعة الأجر (Paid)
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="newTypePaid"
+                      checked={newTypePaid === false}
+                      onChange={() => setNewTypePaid(false)}
+                    />
+                    بدون أجر (Unpaid)
+                  </label>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="halfDayAllowedCheck"
-                  checked={newTypeAllowHalfDay}
-                  onChange={(e) => setNewTypeAllowHalfDay(e.target.checked)}
-                  className="rounded text-primary h-4 w-4"
-                />
-                <label htmlFor="halfDayAllowedCheck" className="text-xs font-bold text-foreground">
-                  السماح بتقديم نصف يوم
-                </label>
+
+              <div className="space-y-1">
+                <label className="font-bold">إمكانية تقديم نصف يوم *</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="newTypeHalfDay"
+                      checked={newTypeAllowHalfDay === true}
+                      onChange={() => setNewTypeAllowHalfDay(true)}
+                    />
+                    مسموح
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="newTypeHalfDay"
+                      checked={newTypeAllowHalfDay === false}
+                      onChange={() => setNewTypeAllowHalfDay(false)}
+                    />
+                    غير مسموح
+                  </label>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="negativeAllowedCheck"
-                  checked={newTypeAllowNegative}
-                  onChange={(e) => setNewTypeAllowNegative(e.target.checked)}
-                  className="rounded text-primary h-4 w-4"
-                />
-                <label htmlFor="negativeAllowedCheck" className="text-xs font-bold text-foreground">
-                  السماح برصيد سالب (سلفة إجازات)
-                </label>
+
+              <div className="space-y-1">
+                <label className="font-bold">إمكانية الرصيد السالب (سلفة إجازات) *</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="newTypeNegative"
+                      checked={newTypeAllowNegative === true}
+                      onChange={() => setNewTypeAllowNegative(true)}
+                    />
+                    مسموح
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="newTypeNegative"
+                      checked={newTypeAllowNegative === false}
+                      onChange={() => setNewTypeAllowNegative(false)}
+                    />
+                    غير مسموح
+                  </label>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="attachCheck"
-                  checked={newTypeRequiresAttachment}
-                  onChange={(e) => setNewTypeRequiresAttachment(e.target.checked)}
-                  className="rounded text-primary h-4 w-4"
-                />
-                <label htmlFor="attachCheck" className="text-xs font-bold text-foreground">
-                  إلزامية إرفاق مستند (تقرير طبي / إثبات)
-                </label>
+
+              <div className="space-y-1">
+                <label className="font-bold">إلزامية إرفاق مستند أو تقرير رسمي *</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="newTypeAttachment"
+                      checked={newTypeRequiresAttachment === true}
+                      onChange={() => setNewTypeRequiresAttachment(true)}
+                    />
+                    إلزامي
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="newTypeAttachment"
+                      checked={newTypeRequiresAttachment === false}
+                      onChange={() => setNewTypeRequiresAttachment(false)}
+                    />
+                    اختياري / غير إلزامي
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -1061,7 +1157,7 @@ export const LeavesView: React.FC = () => {
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
               >
                 <option value="">-- اختر الموظف --</option>
-                {filteredAdjustEmployees.map((emp) => (
+                {filteredAdjustEmployees.map((emp: EmployeeDirectoryItem) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.firstNameAr} {emp.lastNameAr} {emp.employeeNo ? `(${emp.employeeNo})` : ""}
                   </option>

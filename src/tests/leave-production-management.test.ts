@@ -16,6 +16,7 @@ import {
   fetchMyLeaveBalancesRecord,
   fetchCompanyLeaveBalancesRecord,
   fetchTeamLeaveCalendarRecord,
+  fetchMyLeaveRequestsRecord,
   createLeaveTypeRecord,
   adjustLeaveBalanceRecord,
   runLeaveAccrualRecord,
@@ -29,6 +30,7 @@ import {
   useCompanyLeaveBalances,
   useLeaveTypes,
   useLeaveTeamCalendar,
+  useMyLeaveRequests,
   useLeaves,
   useLeaveMutations,
 } from "../lib/domains/leaves";
@@ -40,6 +42,15 @@ import {
 } from "../lib/utils/timezone-dates";
 
 describe("Production Leave Management, Entitlements & Absence Engine (Prompt 10 Hotfix)", () => {
+  const runtimeClosureMigrationPath = path.resolve(
+    __dirname,
+    "../../supabase/migrations/20260922000000_leave_runtime_closure.sql",
+  );
+  const runtimeClosureSql = fs.readFileSync(runtimeClosureMigrationPath, "utf-8");
+  const operationalRepoPath = path.resolve(__dirname, "../lib/data/operational-repository.ts");
+  const operationalRepoContent = fs.readFileSync(operationalRepoPath, "utf-8");
+  const leavesDomainPath = path.resolve(__dirname, "../lib/domains/leaves/index.ts");
+  const leavesDomainContent = fs.readFileSync(leavesDomainPath, "utf-8");
   const microHotfixMigrationPath = path.resolve(
     __dirname,
     "../../supabase/migrations/20260921020000_close_leave_production_integrity_gaps.sql",
@@ -707,7 +718,7 @@ describe("Production Leave Management, Entitlements & Absence Engine (Prompt 10 
     it("LeavesView uses dedicated queries, timezone boundaries, attachments, employee picker, and resubmission", () => {
       // Uses dedicated queries instead of useLeaves()
       expect(leavesViewContent).toContain("useMyLeaveBalances(currentYear)");
-      expect(leavesViewContent).toContain("useCompanyLeaveBalances(currentYear)");
+      expect(leavesViewContent).toContain("useCompanyLeaveBalances(currentYear, undefined, { enabled: canManage })");
       expect(leavesViewContent).toContain("useLeaveTypes()");
       expect(leavesViewContent).not.toMatch(/\buseLeaves\(\)/);
 
@@ -733,6 +744,153 @@ describe("Production Leave Management, Entitlements & Absence Engine (Prompt 10 
       // Has carryover expiry button
       expect(leavesViewContent).toContain("expireCarryoverBalances");
     });
+  describe("Prompt 10.3 Final Runtime Closure (Leave Management)", () => {
+    // 1. Critical Schema & Attachment Fixes
+    it("uses bucket_id instead of bucket in all Leave attachment SQL", () => {
+      expect(runtimeClosureSql).toContain("v_att_file.bucket_id <> 'leave-attachments'");
+      expect(runtimeClosureSql).not.toContain("v_att_file.bucket <> 'leave-attachments'");
+      expect(runtimeClosureSql).not.toContain("v_att_file.bucket ");
+    });
+
+    it("creates public.leave_attachment_staging table with secure RLS", () => {
+      expect(runtimeClosureSql).toContain("CREATE TABLE IF NOT EXISTS public.leave_attachment_staging (");
+      expect(runtimeClosureSql).toContain("file_id uuid NOT NULL UNIQUE REFERENCES public.file_objects(id) ON DELETE CASCADE");
+      expect(runtimeClosureSql).toContain("company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE");
+      expect(runtimeClosureSql).toContain("employee_id uuid NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE");
+      expect(runtimeClosureSql).toContain("is_finalized boolean NOT NULL DEFAULT false");
+      expect(runtimeClosureSql).toContain("finalized_request_id uuid REFERENCES public.requests(id)");
+      expect(runtimeClosureSql).toContain("ALTER TABLE public.leave_attachment_staging ENABLE ROW LEVEL SECURITY;");
+      expect(runtimeClosureSql).toContain('CREATE POLICY "leave_attachment_staging_select"');
+      expect(runtimeClosureSql).toContain('CREATE POLICY "leave_attachment_staging_insert"');
+      expect(runtimeClosureSql).toContain('CREATE POLICY "leave_attachment_staging_delete"');
+    });
+
+    it("implements stage_leave_attachment RPC resolving auth.uid() and validating tenant boundaries", () => {
+      expect(runtimeClosureSql).toContain("FUNCTION public.stage_leave_attachment(");
+      expect(runtimeClosureSql).toContain("auth.uid()");
+      expect(runtimeClosureSql).toContain("v_att_file.bucket_id <> 'leave-attachments'");
+      expect(runtimeClosureSql).toContain("entity_type = 'leave_attachment_staging'");
+      expect(runtimeClosureSql).toContain("INSERT INTO public.leave_attachment_staging");
+    });
+
+    it("aligns attachment entity_type from staging to finalization without inventing status = staged", () => {
+      // In staging: entity_type = 'leave_attachment_staging', status = 'active'
+      expect(operationalRepoContent).toContain('entityType: "leave_attachment_staging"');
+      expect(operationalRepoContent).not.toContain('entityType: "leave_request",');
+      expect(operationalRepoContent).not.toContain("status: 'staged'");
+
+      // In submit_leave_request: updates to 'leave_request_attachment'
+      expect(runtimeClosureSql).toContain("entity_type = 'leave_request_attachment'");
+      expect(runtimeClosureSql).toContain("is_finalized = true");
+      expect(runtimeClosureSql).toContain("finalized_request_id = v_request_id");
+    });
+
+    it("provides upload rollback and cleanup to eliminate orphan private storage files", () => {
+      expect(operationalRepoContent).toContain("rollbackUploadedFile");
+      expect(operationalRepoContent).toContain("stage_leave_attachment");
+      expect(operationalRepoContent).toContain("cleanupStagedLeaveAttachmentRecord");
+    });
+
+    // 2. Tenant Isolation & Company-Aware Approver Rules
+    it("implements current_user_has_role_for_company helper for tenant-isolated approvals", () => {
+      expect(runtimeClosureSql).toContain("FUNCTION public.current_user_has_role_for_company(");
+      expect(runtimeClosureSql).toContain("v_user_company_id <> p_company_id");
+      expect(runtimeClosureSql).toContain("current_user_has_any_role(p_roles)");
+    });
+
+    it("decide_leave_request uses company-aware role authorization preventing cross-tenant approvals", () => {
+      expect(runtimeClosureSql).toContain("public.current_user_has_role_for_company(v_request.company_id, ARRAY['hr_manager', 'hr', 'org_admin'])");
+      expect(runtimeClosureSql).toContain("public.current_user_has_role_for_company(v_request.company_id, ARRAY['finance', 'finance_manager', 'finance_officer'])");
+      expect(runtimeClosureSql).toContain("public.current_user_has_role_for_company(v_request.company_id, ARRAY[v_current_step.approver_role])");
+      expect(runtimeClosureSql).not.toContain("OR public.current_user_has_any_role(ARRAY['hr_manager', 'hr'])");
+    });
+
+    it("validates delegation relationships strictly within the same request company", () => {
+      expect(runtimeClosureSql).toContain("e_delegator.company_id = v_request.company_id");
+      expect(runtimeClosureSql).toContain("v_caller_emp.company_id = v_request.company_id");
+    });
+
+    it("enforces approval chain selection determinism with unique constraints and deterministic ordering", () => {
+      expect(runtimeClosureSql).toContain("uq_approval_chains_company_default");
+      expect(runtimeClosureSql).toContain("uq_approval_chains_system_default");
+      expect(runtimeClosureSql).toContain("ORDER BY created_at ASC");
+    });
+
+    // 3. Carryover Accounting & Expiry Engine
+    it("adds carried_over_used_days to leave_balances and implements carryover-first accounting", () => {
+      expect(runtimeClosureSql).toContain("ADD COLUMN IF NOT EXISTS carried_over_used_days numeric NOT NULL DEFAULT 0;");
+      expect(runtimeClosureSql).toContain("v_rem_carry := GREATEST(0, COALESCE(v_balance.carried_over_days, 0) - COALESCE(v_balance.carried_over_used_days, 0) - COALESCE(v_balance.carried_over_expired_days, 0));");
+      expect(runtimeClosureSql).toContain("v_carry_portion := LEAST(v_chargeable_days, v_rem_carry);");
+      expect(runtimeClosureSql).toContain("v_accrued_portion := v_chargeable_days - v_carry_portion;");
+      expect(runtimeClosureSql).toContain("carried_over_used_days = COALESCE(carried_over_used_days, 0) + v_carry_portion");
+    });
+
+    it("deducts carried_over_expired_days from available_balance in get_my_leave_balances and get_company_leave_balances", () => {
+      expect(runtimeClosureSql).toContain("COALESCE(b.carried_over_expired_days, 0)");
+      expect(runtimeClosureSql).toContain("(COALESCE(b.accrued_days, 0) + COALESCE(b.carried_over_days, 0)) - (");
+    });
+
+    it("run_leave_carryover_expiry expires only remaining carryover taking into account carried_over_used_days", () => {
+      expect(runtimeClosureSql).toContain("GREATEST(0, v_bal.carried_over_days - COALESCE(v_bal.carried_over_used_days, 0) - COALESCE(v_bal.carried_over_expired_days, 0));");
+      expect(runtimeClosureSql).not.toContain("v_bal.carried_over_days - COALESCE(v_bal.carried_over_expired_days, 0) - v_bal.used_days");
+    });
+
+    // 4. Timezone Validation
+    it("run_leave_accrual removes Asia/Riyadh fallback and requires configured company timezone", () => {
+      expect(runtimeClosureSql).not.toContain("COALESCE(v_company.timezone, 'Asia/Riyadh')");
+      expect(runtimeClosureSql).toContain("لم يتم ضبط المنطقة الزمنية للمنشأة (company.timezone)");
+    });
+
+    // 5. Concurrency-Safe Leave Type Code Generation
+    it("uses company_leave_type_sequences transactional counter table instead of COUNT(*) + 1", () => {
+      expect(runtimeClosureSql).toContain("CREATE TABLE IF NOT EXISTS public.company_leave_type_sequences (");
+      expect(runtimeClosureSql).toContain("company_leave_type_sequences.current_val + 1");
+      expect(runtimeClosureSql).not.toContain("SELECT COALESCE(count(*), 0) + 1 INTO v_seq_num");
+    });
+
+    it("create_leave_type preserves name_en as NULL when omitted (never copies Arabic)", () => {
+      expect(runtimeClosureSql).toContain("p_name_en text DEFAULT NULL");
+      expect(operationalRepoContent).toContain("p_name_en: input.nameEn || null");
+      expect(operationalRepoContent).not.toContain("p_name_en: input.nameEn || input.nameAr");
+    });
+
+    // 6. Dedicated Requests Query & UI Separation
+    it("provides get_my_leave_requests RPC and useMyLeaveRequests hook", () => {
+      expect(runtimeClosureSql).toContain("FUNCTION public.get_my_leave_requests(");
+      expect(leavesDomainContent).toContain("export function useMyLeaveRequests(");
+      expect(typeof fetchMyLeaveRequestsRecord).toBe("function");
+      expect(typeof useMyLeaveRequests).toBe("function");
+    });
+
+    // 7. Source Contract Guards (Section 35)
+    it("LeavesView source contracts enforce balance privacy, guarded queries, and secure pickers", () => {
+      // Privacy: NEVER fall back from myBalances to companyBalances
+      expect(leavesViewContent).not.toContain("myBalances.length > 0 ? myBalances : companyBalances");
+      expect(leavesViewContent).not.toMatch(/const displayBalancess*=/);
+
+      // Guarded company balance query: only enabled when canManage
+      expect(leavesViewContent).toContain("useCompanyLeaveBalances(currentYear, undefined, { enabled: canManage })");
+      expect(leavesViewContent).not.toMatch(/useCompanyLeaveBalances(currentYear)[^,]/);
+
+      // Does not use bootstrap employees or requests in LeavesView
+      expect(leavesViewContent).not.toMatch(/const\s*\{[^}]*\bemployees\b[^}]*\}\s*=\s*useApp\(\)/);
+      expect(leavesViewContent).not.toMatch(/const\s*\{[^}]*\brequests\b[^}]*\}\s*=\s*useApp\(\)/);
+
+      // Uses useEmployeeDirectory search for admin balance adjustment
+      expect(leavesViewContent).toContain("useEmployeeDirectory({");
+
+      // Uses useMyLeaveRequests for employee leave lifecycle
+      expect(leavesViewContent).toContain("useMyLeaveRequests(currentYear)");
+
+      // Attachment file input restricts types to safe minimum (.pdf,.png,.jpg,.jpeg,.webp)
+      expect(leavesViewContent).toContain('accept=".pdf,.png,.jpg,.jpeg,.webp"');
+      expect(leavesViewContent).not.toContain(".doc,.docx");
+
+      // Displays timezone warning banner for admins when company timezone is unconfigured
+      expect(leavesViewContent).toContain("!companyTz && canManage");
+      expect(leavesViewContent).toContain("لم يتم ضبط المنطقة الزمنية للمنشأة");
+    });
+  });
+
   });
 });
-

@@ -34,10 +34,11 @@ import type {
   WorkLocation,
   WorkforcePlan,
   TeamLeaveCalendarItem,
+  ServiceRequest,
 } from "../../types";
 import { enterpriseSupabase } from "./enterprise-client";
 import { supabase } from "../../integrations/supabase/client";
-import { uploadSecureFile } from "../storage/storage-service";
+import { uploadSecureFile, rollbackUploadedFile } from "../storage/storage-service";
 import { AppMutationError } from "./reliable-mutation";
 
 export interface OperationalSnapshot {
@@ -1129,7 +1130,7 @@ export async function createLeaveTypeRecord(input: {
 }) {
   const { data, error } = await callEnterpriseRpc("create_leave_type", {
     p_name_ar: input.nameAr,
-    p_name_en: input.nameEn || input.nameAr,
+    p_name_en: input.nameEn || null,
     p_code: input.code || null,
     p_color: input.color || "#365F91",
     p_is_paid: input.isPaid ?? true,
@@ -1236,50 +1237,39 @@ export async function uploadLeaveAttachmentRecord(
     file,
     originalFilename: file.name,
     contentType: file.type,
-    entityType: "leave_request",
+    entityType: "leave_attachment_staging",
     companyId,
     employeeId,
   });
 
-  const { data: userAuth } = await supabase.auth.getUser();
-  const userId = userAuth?.user?.id;
+  try {
+    const { error: stageError } = await callEnterpriseRpc<{ success: boolean; staging_id: string }>(
+      "stage_leave_attachment",
+      {
+        p_file_id: fileObj.id,
+        p_target_employee_id: employeeId || null,
+      },
+    );
 
-  type StagingDbClient = {
-    from(table: string): {
-      insert(row: Record<string, unknown>): Promise<{ error: { message: string } | null }>;
-      delete(): {
-        eq(col1: string, val1: unknown): {
-          eq(col2: string, val2: unknown): Promise<{ error: { message: string } | null }>;
-        };
-      };
+    if (stageError) {
+      throw new Error(stageError.message);
+    }
+
+    return {
+      fileId: fileObj.id,
+      fileName: fileObj.original_filename,
+      fileSize: fileObj.size_bytes,
     };
-  };
-
-  const stagingDb = enterpriseSupabase as unknown as StagingDbClient;
-
-  const { error: stageError } = await stagingDb
-    .from("leave_attachment_staging")
-    .insert({
-      company_id: companyId,
-      employee_id: employeeId,
-      file_id: fileObj.id,
-      storage_bucket: fileObj.bucket_id || "leave-attachments",
-      storage_path: fileObj.object_path,
-      file_name: fileObj.original_filename,
-      file_size_bytes: fileObj.size_bytes,
-      mime_type: fileObj.content_type,
-      uploaded_by: userId,
-    });
-
-  if (stageError) {
-    throw new Error(`فشل تسجيل المرفق المؤقت: ${stageError.message}`);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await rollbackUploadedFile({
+      fileId: fileObj.id,
+      bucket: "leave-attachments",
+      objectPath: fileObj.object_path,
+      reason: `Staging metadata creation failed: ${msg}`,
+    }).catch(() => {});
+    throw new Error(`فشل تسجيل المرفق المؤقت: ${msg}`);
   }
-
-  return {
-    fileId: fileObj.id,
-    fileName: fileObj.original_filename,
-    fileSize: fileObj.size_bytes,
-  };
 }
 
 export async function cleanupStagedLeaveAttachmentRecord(fileId: string): Promise<void> {
@@ -1299,6 +1289,49 @@ export async function cleanupStagedLeaveAttachmentRecord(fileId: string): Promis
     .delete()
     .eq("file_id", fileId)
     .eq("is_finalized", false);
+
+  await rollbackUploadedFile({
+    fileId,
+    bucket: "leave-attachments",
+    reason: "User cancelled or cleaned up staged leave attachment",
+  }).catch(() => {});
+}
+
+export async function fetchMyLeaveRequestsRecord(
+  year?: number,
+): Promise<ServiceRequest[]> {
+  const { data, error } = await callEnterpriseRpc<Record<string, unknown>[]>(
+    "get_my_leave_requests",
+    {
+      p_year: year || null,
+    },
+  );
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    referenceNo: (row.reference as string) || "",
+    type: "leave" as const,
+    requesterId: (row.employee_id as string) || "",
+    requesterName: "موظف",
+    status: (row.status as ServiceRequest["status"]) || "pending",
+    currentStepIndex: Number(row.current_step_index ?? 1),
+    totalSteps: Number(row.total_steps ?? 1),
+    currentApproverRole: (row.current_approver_role as string) || undefined,
+    submittedAt: (row.created_at as string) || new Date().toISOString(),
+    updatedAt: (row.updated_at as string) || (row.created_at as string) || new Date().toISOString(),
+    payload: {
+      startDate: (row.start_date as string) || "",
+      endDate: (row.end_date as string) || "",
+      totalDays: Number(row.days ?? 0),
+      reason: (row.reason as string) || "",
+      decisionNote: (row.decision_note as string) || "",
+      decidedAt: (row.decided_at as string) || "",
+      ...((row.payload as Record<string, string | number | boolean | null | undefined>) || {}),
+    },
+    timeline: [],
+  }));
 }
 
 export async function createExpenseCategoryRecord(input: {

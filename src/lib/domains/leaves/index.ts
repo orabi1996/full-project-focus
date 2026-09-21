@@ -9,6 +9,7 @@ import {
   fetchMyLeaveBalancesRecord,
   fetchCompanyLeaveBalancesRecord,
   fetchTeamLeaveCalendarRecord,
+  fetchMyLeaveRequestsRecord,
   createLeaveTypeRecord,
   adjustLeaveBalanceRecord,
   runLeaveAccrualRecord,
@@ -59,7 +60,11 @@ export function useMyLeaveBalances(year?: number, employeeId?: string) {
   };
 }
 
-export function useCompanyLeaveBalances(year?: number, departmentId?: string) {
+export function useCompanyLeaveBalances(
+  year?: number,
+  departmentId?: string,
+  options?: { enabled?: boolean },
+) {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
   const targetYear = year || new Date().getFullYear();
@@ -69,7 +74,7 @@ export function useCompanyLeaveBalances(year?: number, departmentId?: string) {
   const query = useQuery({
     queryKey: queryKeys.leaves.adminBalances({ year: targetYear, departmentId }),
     queryFn: () => fetchCompanyLeaveBalancesRecord(targetYear, departmentId),
-    enabled: isLive,
+    enabled: isLive && (options?.enabled ?? true),
     staleTime: 60 * 1000,
   });
 
@@ -85,6 +90,46 @@ export function useCompanyLeaveBalances(year?: number, departmentId?: string) {
 
   return {
     balances: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+export function useMyLeaveRequests(year?: number) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+  const targetYear = year || new Date().getFullYear();
+
+  const demoRequests = useDemoStore((s) => s.requests);
+
+  const query = useQuery({
+    queryKey: ["my-leave-requests", targetYear],
+    queryFn: () => fetchMyLeaveRequestsRecord(targetYear),
+    enabled: isLive,
+    staleTime: 60 * 1000,
+  });
+
+  if (!isLive) {
+    const filtered = demoRequests.filter(
+      (r) =>
+        r.type === "leave" &&
+        (!targetYear ||
+          (r.payload?.startDate &&
+            new Date(String(r.payload.startDate)).getFullYear() === targetYear)),
+    );
+    return {
+      requests: filtered,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: async () => ({ data: filtered }),
+    };
+  }
+
+  return {
+    requests: query.data ?? [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

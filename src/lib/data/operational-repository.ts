@@ -163,7 +163,9 @@ export function mapAttendanceCorrection(
   employeeMap: Map<string, Employee>,
 ): AttendanceCorrectionRequest {
   const emp = employeeMap.get(row.employee_id);
-  const payload = (typeof row.payload === "object" && row.payload !== null ? row.payload : {}) as Record<string, any>;
+  const payload = (
+    typeof row.payload === "object" && row.payload !== null ? row.payload : {}
+  ) as Record<string, any>;
   return {
     id: row.id,
     originalAttendanceId: payload.originalAttendanceId || undefined,
@@ -177,7 +179,8 @@ export function mapAttendanceCorrection(
     correctInTime: payload.correctInTime || payload.correctIn || "08:00",
     correctOutTime: payload.correctOutTime || payload.correctOut || "17:00",
     reason: row.reason || payload.reason || "تصحيح بصمة",
-    status: row.status === "approved" ? "approved" : row.status === "rejected" ? "rejected" : "pending",
+    status:
+      row.status === "approved" ? "approved" : row.status === "rejected" ? "rejected" : "pending",
     submittedAt: row.created_at,
     reviewedBy: row.decided_by,
     reviewedAt: row.decided_at,
@@ -670,6 +673,8 @@ export async function fetchOperationalSnapshot(
       ),
       evaluationType: row.evaluation_type as EvaluationRecord["evaluationType"],
       overallScore: numberValue(row.overall_score),
+      competencyScores: (row.competency_scores as Record<string, number> | null) ?? {},
+      notes: row.notes ?? undefined,
       status: row.status as EvaluationRecord["status"],
       submittedAt: row.submitted_at ?? undefined,
     })),
@@ -783,8 +788,9 @@ export async function fetchOperationalSnapshot(
       expiryDate: row.expiry_date || (row as any).expires_at || undefined,
       fileUrl: row.file_url || "",
       fileId: (row as any).file_id ?? undefined,
-      status: ((row.status || "valid") as EmployeeDocument["status"]),
-      confidentiality: ((row as any).confidentiality || "internal") as EmployeeDocument["confidentiality"],
+      status: (row.status || "valid") as EmployeeDocument["status"],
+      confidentiality: ((row as any).confidentiality ||
+        "internal") as EmployeeDocument["confidentiality"],
       visibility: ((row as any).visibility || "employee_visible") as EmployeeDocument["visibility"],
       verifiedBy: (row as any).verified_by ?? undefined,
       verifiedAt: (row as any).verified_at ?? undefined,
@@ -829,9 +835,7 @@ export async function fetchOperationalSnapshot(
     delegationRules: (delegationRulesResult.data ?? []).map((row) =>
       mapDelegationRule(row, employeeMap),
     ),
-    overtimeRecords: (overtimeResult.data ?? []).map((row) =>
-      mapOvertimeRecord(row, employeeMap),
-    ),
+    overtimeRecords: (overtimeResult.data ?? []).map((row) => mapOvertimeRecord(row, employeeMap)),
     attendanceCorrections: (attendanceCorrectionsResult.data ?? []).map((row) =>
       mapAttendanceCorrection(row, employeeMap),
     ),
@@ -1007,10 +1011,13 @@ export async function fetchMyLeaveBalancesRecord(
   year?: number,
   employeeId?: string,
 ): Promise<EmployeeLeaveBalance[]> {
-  const { data, error } = await callEnterpriseRpc<Record<string, unknown>[]>("get_my_leave_balances", {
-    p_year: year || new Date().getFullYear(),
-    p_employee_id: employeeId || null,
-  });
+  const { data, error } = await callEnterpriseRpc<Record<string, unknown>[]>(
+    "get_my_leave_balances",
+    {
+      p_year: year || new Date().getFullYear(),
+      p_employee_id: employeeId || null,
+    },
+  );
 
   if (error) throw new Error(error.message);
 
@@ -1039,10 +1046,13 @@ export async function fetchCompanyLeaveBalancesRecord(
   year?: number,
   departmentId?: string,
 ): Promise<EmployeeLeaveBalance[]> {
-  const { data, error } = await callEnterpriseRpc<Record<string, unknown>[]>("get_company_leave_balances", {
-    p_year: year || new Date().getFullYear(),
-    p_department_id: departmentId || null,
-  });
+  const { data, error } = await callEnterpriseRpc<Record<string, unknown>[]>(
+    "get_company_leave_balances",
+    {
+      p_year: year || new Date().getFullYear(),
+      p_department_id: departmentId || null,
+    },
+  );
 
   if (error) throw new Error(error.message);
 
@@ -1073,11 +1083,14 @@ export async function fetchTeamLeaveCalendarRecord(
   endDate: string,
   departmentId?: string,
 ): Promise<TeamLeaveCalendarItem[]> {
-  const { data, error } = await callEnterpriseRpc<Record<string, unknown>[]>("get_team_leave_calendar", {
-    p_start_date: startDate,
-    p_end_date: endDate,
-    p_department_id: departmentId || null,
-  });
+  const { data, error } = await callEnterpriseRpc<Record<string, unknown>[]>(
+    "get_team_leave_calendar",
+    {
+      p_start_date: startDate,
+      p_end_date: endDate,
+      p_department_id: departmentId || null,
+    },
+  );
 
   if (error) throw new Error(error.message);
 
@@ -2099,8 +2112,9 @@ export async function createEvaluationRecord(evaluation: Omit<EvaluationRecord, 
     employee_id: evaluation.employeeId,
     evaluator_employee_id: evaluation.evaluatorId || null,
     evaluation_type: evaluation.evaluationType,
-    competency_scores: {},
+    competency_scores: evaluation.competencyScores ?? {},
     overall_score: evaluation.overallScore,
+    notes: evaluation.notes ?? null,
     status: evaluation.status,
     submitted_at: evaluation.submittedAt ?? new Date().toISOString(),
   });
@@ -2339,9 +2353,7 @@ export async function createAuditEventRecord(entry: AuditLogEntry) {
 // Delegation Rules Persistence
 // ============================================================================
 
-export async function fetchDelegationRulesServer(
-  employees: Employee[],
-): Promise<DelegationRule[]> {
+export async function fetchDelegationRulesServer(employees: Employee[]): Promise<DelegationRule[]> {
   const { data, error } = await enterpriseSupabase
     .from("delegation_rules")
     .select("*")
@@ -2404,9 +2416,7 @@ export async function revokeDelegationRuleRecord(id: string): Promise<void> {
 // Overtime Records Persistence
 // ============================================================================
 
-export async function fetchOvertimeRecordsServer(
-  employees: Employee[],
-): Promise<OvertimeRecord[]> {
+export async function fetchOvertimeRecordsServer(employees: Employee[]): Promise<OvertimeRecord[]> {
   const { data, error } = await enterpriseSupabase
     .from("overtime_records")
     .select("*")

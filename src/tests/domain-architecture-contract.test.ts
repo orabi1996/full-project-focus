@@ -80,6 +80,7 @@ describe("Domain Architecture Contract Tests", () => {
 
     it("maintains isolated state that notifies external listeners upon mutation", () => {
       let notifyCount = 0;
+      const initialVersion = demoStore.getVersion();
       const unsubscribe = demoStore.subscribe(() => {
         notifyCount++;
       });
@@ -103,6 +104,7 @@ describe("Domain Architecture Contract Tests", () => {
       demoStore.notify();
 
       expect(notifyCount).toBe(1);
+      expect(demoStore.getVersion()).toBe(initialVersion + 1);
       expect(demoStore.employees.length).toBe(initialEmployeesCount + 1);
 
       unsubscribe();

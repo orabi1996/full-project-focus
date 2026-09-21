@@ -1,24 +1,22 @@
 import { expect, test } from "@playwright/test";
 
-import { enterDemo } from "./helpers";
+import { enterDemo, openModule } from "./helpers";
 
 test("يفتح الإجراءات الحساسة في وضع المراجعة", async ({ page }) => {
   test.skip(test.info().project.name.includes("mobile"), "المسار المكتبي فقط");
   await enterDemo(page);
 
   const flows = [
-    ["دليل وملفات الموظفين", /إضافة موظف/],
-    ["الإجازات والعطلات", /طلب إجازة/],
-    ["الحضور والانصراف", /تصحيح|بصمة/],
-    ["مسيرات الرواتب", /تشغيل مسير/],
-    ["إدارة النفقات", /مطالبة|مصروف/],
-    ["التوظيف وتتبع المتقدمين", /وظيفة|مرشح/],
+    ["employees", "دليل وملفات الموظفين", /إضافة موظف/],
+    ["leaves", "الإجازات والعطلات", /طلب إجازة/],
+    ["attendance", "الحضور والانصراف", /تصحيح|بصمة/],
+    ["payroll", "مسيرات الرواتب", /تشغيل مسير/],
+    ["expenses", "إدارة النفقات", /مطالبة|مصروف/],
+    ["ats", "التوظيف وتتبع المتقدمين", /وظيفة|مرشح/],
   ] as const;
 
-  for (const [moduleName, action] of flows) {
-    const moduleButton = page.getByRole("button", { name: new RegExp(moduleName) }).first();
-    await moduleButton.scrollIntoViewIfNeeded();
-    await moduleButton.click();
+  for (const [moduleId, moduleName, action] of flows) {
+    await openModule(page, moduleName, moduleId);
     await expect(page.getByText(action).first()).toBeVisible();
   }
 });

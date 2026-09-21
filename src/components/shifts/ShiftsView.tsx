@@ -43,6 +43,7 @@ export const ShiftsView: React.FC = () => {
   const [shiftEndTime, setShiftEndTime] = useState("17:00");
   const [shiftGraceArrival, setShiftGraceArrival] = useState(15);
   const [shiftType, setShiftType] = useState<"fixed" | "flexible" | "split">("fixed");
+  const [isCreatingShift, setIsCreatingShift] = useState(false);
 
   // Device Form State
   const [deviceName, setDeviceName] = useState("");
@@ -50,12 +51,13 @@ export const ShiftsView: React.FC = () => {
 
   const daysOfWeek = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
-  const handleCreateShift = () => {
+  const handleCreateShift = async () => {
     if (!shiftName) {
       toast.error("يرجى كتابة اسم الوردية / الدوام");
       return;
     }
-    addShift({
+    setIsCreatingShift(true);
+    const created = await addShift({
       code: `SH-${Math.floor(10 + Math.random() * 90)}`,
       nameAr: shiftName,
       nameEn: shiftName,
@@ -68,7 +70,8 @@ export const ShiftsView: React.FC = () => {
       overtimeEligible: true,
       allowSinglePunch: false,
     });
-    toast.success(`تم إنشاء الوردية (${shiftName}) بنجاح!`);
+    setIsCreatingShift(false);
+    if (!created) return;
     setIsAddShiftOpen(false);
     setShiftName("");
   };
@@ -78,9 +81,9 @@ export const ShiftsView: React.FC = () => {
       toast.error("يرجى كتابة اسم الجهاز");
       return;
     }
-    toast.success(`تم ربط واختبار الاتصال بجهاز البصمة (${deviceName}) بنجاح!`);
-    setIsAddDeviceOpen(false);
-    setDeviceName("");
+    toast.info(
+      "لم يتم حفظ الجهاز من هذه الشاشة. استخدم إدارة الأجهزة داخل وحدة الحضور لإجراء الربط والاختبار الفعلي.",
+    );
   };
 
   return (
@@ -90,14 +93,23 @@ export const ShiftsView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2.5">
             <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
-              <IconSymbol name="calendar_month" source="material" filled size={24} className="text-primary" />
+              <IconSymbol
+                name="calendar_month"
+                source="material"
+                filled
+                size={24}
+                className="text-primary"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-black text-foreground">
                   {t.nav.shifts} والورديات وأجهزة البصمة
                 </h1>
-                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                <Badge
+                  variant="outline"
+                  className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5"
+                >
                   جدولة وورديات مرنة
                 </Badge>
               </div>
@@ -133,13 +145,22 @@ export const ShiftsView: React.FC = () => {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="classera-tabs-strip max-w-md">
-          <TabsTrigger value="definitions" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
+          <TabsTrigger
+            value="definitions"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
+          >
             {t.attendance.shiftsManagement} ({shifts.length})
           </TabsTrigger>
-          <TabsTrigger value="scheduler" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
+          <TabsTrigger
+            value="scheduler"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
+          >
             {t.attendance.scheduler}
           </TabsTrigger>
-          <TabsTrigger value="devices" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
+          <TabsTrigger
+            value="devices"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
+          >
             أجهزة البصمة والاعتماد
           </TabsTrigger>
         </TabsList>
@@ -154,7 +175,10 @@ export const ShiftsView: React.FC = () => {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-3.5 w-3.5 rounded-full shadow-xs" style={{ backgroundColor: sh.color || "#004BCE" }} />
+                    <div
+                      className="h-3.5 w-3.5 rounded-full shadow-xs"
+                      style={{ backgroundColor: sh.color || "#004BCE" }}
+                    />
                     <h3 className="font-black text-xs text-foreground">
                       {language === "ar" ? sh.nameAr : sh.nameEn}
                     </h3>
@@ -194,10 +218,13 @@ export const ShiftsView: React.FC = () => {
           <div className="rounded-3xl border border-border/80 bg-card overflow-hidden shadow-xs space-y-3 p-5">
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <span className="text-xs font-black text-foreground">
-                جدول الدوامات الأسبوعي المعتمد (سبتمبر 2026)
+                معاينة تخطيطية لجدول الدوامات الأسبوعي
               </span>
-              <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px] rounded-full px-2.5 font-bold border-emerald-200">
-                تم النشر لكافة الفروع
+              <Badge
+                variant="outline"
+                className="text-emerald-700 bg-emerald-50 text-[10px] rounded-full px-2.5 font-bold border-emerald-200"
+              >
+                غير منشور — بانتظار ربط الإسنادات الفعلية
               </Badge>
             </div>
 
@@ -264,8 +291,11 @@ export const ShiftsView: React.FC = () => {
                       IP: 192.168.10.150 • Port: 4370
                     </p>
                   </div>
-                  <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px] rounded-full px-2.5 font-bold border-emerald-200">
-                    متصل الآن
+                  <Badge
+                    variant="outline"
+                    className="text-emerald-700 bg-emerald-50 text-[10px] rounded-full px-2.5 font-bold border-emerald-200"
+                  >
+                    بيانات توضيحية غير متصلة
                   </Badge>
                 </div>
                 <div className="rounded-2xl border border-border/60 bg-muted/20 p-3.5 flex items-center justify-between">
@@ -275,8 +305,11 @@ export const ShiftsView: React.FC = () => {
                       IP: 192.168.20.150 • Port: 4370
                     </p>
                   </div>
-                  <Badge variant="outline" className="text-emerald-700 bg-emerald-50 text-[10px] rounded-full px-2.5 font-bold border-emerald-200">
-                    متصل الآن
+                  <Badge
+                    variant="outline"
+                    className="text-emerald-700 bg-emerald-50 text-[10px] rounded-full px-2.5 font-bold border-emerald-200"
+                  >
+                    بيانات توضيحية غير متصلة
                   </Badge>
                 </div>
               </div>
@@ -290,16 +323,21 @@ export const ShiftsView: React.FC = () => {
                 </h3>
               </div>
               <p className="text-xs text-muted-foreground font-medium leading-relaxed">
-                يمكن رفع ملفات حركات البصمة من أجهزة USB بصيغة CSV أو Excel وسيتم تطبيق فحص التكرارات ومطابقتها آلياً.
+                يمكن رفع ملفات حركات البصمة من أجهزة USB بصيغة CSV أو Excel وسيتم تطبيق فحص
+                التكرارات ومطابقتها آلياً.
               </p>
               <Button
-                onClick={() => toast.success("تم استيراد ومعالجة 450 حركة بصمة خام ومطابقتها بنجاح!")}
+                onClick={() =>
+                  toast.info(
+                    "الاستيراد من هذه الشاشة غير مفعّل بعد. استخدم إدارة البصمات داخل وحدة الحضور.",
+                  )
+                }
                 size="sm"
                 variant="outline"
                 className="rounded-full text-xs font-bold gap-1.5 w-full h-10 border-border/80 hover:bg-secondary"
               >
                 <Upload className="h-4 w-4 text-primary" />
-                اختيار ملف البصمات (CSV / XLSX)
+                إدارة الاستيراد من وحدة الحضور
               </Button>
             </div>
           </div>
@@ -362,8 +400,13 @@ export const ShiftsView: React.FC = () => {
           </div>
 
           <DialogFooter className="mt-3">
-            <Button size="sm" onClick={handleCreateShift} className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9">
-              تأكيد وإنشاء الوردية
+            <Button
+              size="sm"
+              onClick={handleCreateShift}
+              disabled={isCreatingShift}
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
+            >
+              {isCreatingShift ? "جاري الحفظ..." : "تأكيد وإنشاء الوردية"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -405,7 +448,11 @@ export const ShiftsView: React.FC = () => {
           </div>
 
           <DialogFooter className="mt-3">
-            <Button size="sm" onClick={handleCreateDevice} className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9">
+            <Button
+              size="sm"
+              onClick={handleCreateDevice}
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 h-9"
+            >
               اختبار وربط الجهاز
             </Button>
           </DialogFooter>

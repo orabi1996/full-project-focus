@@ -51,6 +51,32 @@ const demoModeEnabled = isDemoModeEnabled(
   import.meta.env.PROD,
 );
 
+const DEMO_SESSION_KEY = "hrms_demo_session";
+
+function hasPersistedDemoSession() {
+  if (typeof window === "undefined" || import.meta.env.PROD || !demoModeEnabled) return false;
+
+  try {
+    return window.sessionStorage.getItem(DEMO_SESSION_KEY) === "active";
+  } catch {
+    return false;
+  }
+}
+
+function persistDemoSession(active: boolean) {
+  if (typeof window === "undefined") return;
+
+  try {
+    if (active && !import.meta.env.PROD && demoModeEnabled) {
+      window.sessionStorage.setItem(DEMO_SESSION_KEY, "active");
+    } else {
+      window.sessionStorage.removeItem(DEMO_SESSION_KEY);
+    }
+  } catch {
+    // Demo persistence is a convenience only; authentication must keep working without storage.
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [session, setSession] = useState<Session | null>(null);
@@ -102,6 +128,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    const persistedDemoSession = hasPersistedDemoSession();
+    setIsDemo(persistedDemoSession);
+    if (persistedDemoSession) setIsLoading(false);
+
     // Detect recovery tokens in URL on initial mount
     if (typeof window !== "undefined") {
       const hash = window.location.hash || "";
@@ -123,15 +153,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         previousUserId.current = currentUserId;
         setSession(data.session);
         if (currentUserId) {
+          persistDemoSession(false);
+          setIsDemo(false);
           hadActiveSession.current = true;
           void loadRole(currentUserId);
           void refreshMfaState();
+        } else {
+          setIsDemo(hasPersistedDemoSession());
         }
       })
       .catch(() => {
         if (!mounted) return;
         previousUserId.current = null;
         setSession(null);
+        setIsDemo(hasPersistedDemoSession());
       })
       .finally(() => {
         if (mounted) setIsLoading(false);
@@ -154,6 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           void refreshMfaState();
         }
       } else if (event === "SIGNED_OUT") {
+        const preserveDemo = !hadActiveSession.current && hasPersistedDemoSession();
         clearSensitiveQueryCache(queryClient);
         // Detect unexpected session expiration
         if (hadActiveSession.current && !isExplicitSignOut.current) {
@@ -163,7 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isExplicitSignOut.current = false;
         previousUserId.current = null;
         setSession(null);
-        setIsDemo(false);
+        setIsDemo(preserveDemo);
         setAal("aal1");
         setNextLevel("aal1");
         setMfaFactors([]);
@@ -175,12 +211,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         previousUserId.current = nextUserId;
         setSession(nextSession);
-        setIsDemo(false);
         if (nextUserId) {
+          persistDemoSession(false);
+          setIsDemo(false);
           hadActiveSession.current = true;
           void loadRole(nextUserId);
           void refreshMfaState();
         } else {
+          setIsDemo(hasPersistedDemoSession());
           setRole("employee");
           setAal("aal1");
           setNextLevel("aal1");
@@ -211,6 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (data.session) {
+          persistDemoSession(false);
           setSession(data.session);
           setIsDemo(false);
           hadActiveSession.current = true;
@@ -265,6 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         setSession(data.session);
+        persistDemoSession(false);
         setIsDemo(false);
         hadActiveSession.current = true;
         if (data.session.user.id) void loadRole(data.session.user.id);
@@ -365,6 +405,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isExplicitSignOut.current = true;
     hadActiveSession.current = false;
     previousUserId.current = null;
+    persistDemoSession(false);
     setIsDemo(false);
     setAal("aal1");
     setNextLevel("aal1");
@@ -401,9 +442,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.warn("Access to Demo mode is restricted in production environments.");
           return;
         }
+        persistDemoSession(true);
         setIsDemo(true);
       },
-      leaveDemo: () => setIsDemo(false),
+      leaveDemo: () => {
+        persistDemoSession(false);
+        setIsDemo(false);
+      },
     }),
     [
       session,

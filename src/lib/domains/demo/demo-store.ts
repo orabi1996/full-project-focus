@@ -152,13 +152,19 @@ class DemoStore {
   accountingJournals: AccountingJournalEntry[] = [...mockAccountingJournals];
 
   private listeners: Set<Listener> = new Set();
+  private version = 0;
 
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
 
+  getVersion() {
+    return this.version;
+  }
+
   notify() {
+    this.version += 1;
     this.listeners.forEach((listener) => listener());
   }
 
@@ -208,9 +214,11 @@ export const demoStore = new DemoStore();
 import { useSyncExternalStore } from "react";
 
 export function useDemoStore<T>(selector: (store: DemoStore) => T): T {
-  return useSyncExternalStore(
+  useSyncExternalStore(
     (onStoreChange) => demoStore.subscribe(onStoreChange),
-    () => selector(demoStore),
-    () => selector(demoStore),
+    () => demoStore.getVersion(),
+    () => demoStore.getVersion(),
   );
+
+  return selector(demoStore);
 }

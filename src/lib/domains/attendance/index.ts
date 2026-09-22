@@ -6,7 +6,6 @@ import type {
   OvertimeRecord,
 } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
-import { createRequestRecord } from "../../data/hrms-repository";
 import {
   approveAttendanceCorrectionRecord,
   rejectAttendanceCorrectionRecord,
@@ -18,6 +17,7 @@ import {
   fetchMyAttendanceRecordsRecord,
   fetchCompanyAttendanceRecordsRecord,
   recordMobileAttendancePunchRecord,
+  submitAttendanceCorrectionRecord,
   type AttendanceRecordItem,
 } from "../../data/operational-repository";
 import { processAttendanceServer } from "../../business/attendance.functions";
@@ -314,7 +314,7 @@ export function useAttendanceMutations() {
       reason: string;
       employeeId?: string;
     }): Promise<boolean> => {
-      const empId = payload.employeeId || demoStore.employees[0]?.id || "emp-01";
+      const empId = mode === "demo" ? payload.employeeId || demoStore.employees[0]?.id || "emp-01" : "";
       const emp = demoStore.employees.find((e) => e.id === empId);
 
       const newCorrection: AttendanceCorrectionRequest = {
@@ -337,15 +337,14 @@ export function useAttendanceMutations() {
         mode,
         mutationKey: `corr-${empId}-${payload.workDate}`,
         operation: async () => {
-          await createRequestRecord(empId, "attendance_correction", {
+          await submitAttendanceCorrectionRecord({
             workDate: payload.workDate,
-            correctInTime: payload.correctIn,
-            correctOutTime: payload.correctOut,
+            correctIn: payload.correctIn,
+            correctOut: payload.correctOut,
             reason: payload.reason,
           });
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.corrections() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {
@@ -376,7 +375,6 @@ export function useAttendanceMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.corrections() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {
@@ -408,7 +406,6 @@ export function useAttendanceMutations() {
           await rejectAttendanceCorrectionRecord(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.corrections() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {
@@ -448,7 +445,6 @@ export function useAttendanceMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.overtime() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {
@@ -479,7 +475,6 @@ export function useAttendanceMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.overtime() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {
@@ -511,7 +506,6 @@ export function useAttendanceMutations() {
           await rejectOvertimeRecord(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.overtime() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {
@@ -542,7 +536,6 @@ export function useAttendanceMutations() {
         operation: async () => {
           await processAttendanceServer({ data: { fromDate, toDate } });
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
         demoOperation: () => {

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
 import { IconSymbol } from "../ui/IconSymbol";
@@ -28,6 +29,7 @@ import {
 } from "../ui/dialog";
 
 export const ShiftsView: React.FC = () => {
+  const navigate = useNavigate();
   const { shifts, employees, addShift, openEmployeeProfile, currentRole, language, t } = useApp();
   const canManage = canManageModule(currentRole, "shifts");
   const [activeTab, setActiveTab] = useState("definitions");
@@ -167,50 +169,86 @@ export const ShiftsView: React.FC = () => {
 
         {/* Tab 1: Shift Definitions */}
         <TabsContent value="definitions" className="space-y-4 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {shifts.map((sh) => (
-              <div
-                key={sh.id}
-                className="classera-kpi-card p-5 shadow-xs space-y-3.5 relative overflow-hidden"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      className="h-3.5 w-3.5 rounded-full shadow-xs"
-                      style={{ backgroundColor: sh.color || "#004BCE" }}
-                    />
-                    <h3 className="font-black text-xs text-foreground">
-                      {language === "ar" ? sh.nameAr : sh.nameEn}
-                    </h3>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] rounded-full px-2.5 font-bold">
-                    {sh.type === "fixed" ? "ثابت" : sh.type === "flexible" ? "مرن" : "فترتان"}
-                  </Badge>
+          {shifts.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-border/80 bg-card p-12 text-center">
+              <div className="flex flex-col items-center justify-center gap-3">
+                <div className="h-14 w-14 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+                  <Clock className="h-7 w-7" />
                 </div>
-
-                <div className="rounded-2xl border border-border/60 bg-muted/20 p-3.5 text-xs space-y-2 font-mono">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">أوقات العمل:</span>
-                    <span className="font-bold text-foreground">
-                      {sh.startTime} - {sh.endTime}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">فترة السماح (حضور):</span>
-                    <span className="font-bold text-emerald-600">
-                      +{sh.graceMinutesArrival} دقيقة
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">حساب الإضافي:</span>
-                    <span className="font-bold text-primary">
-                      {sh.overtimeEligible ? "مفعل (1.5x)" : "غير مفعل"}
-                    </span>
-                  </div>
+                <p className="font-bold text-foreground text-sm">
+                  لم يتم تعريف ورديات أو سياسات دوام بعد بشركة «الأندلس»
+                </p>
+                <p className="text-xs text-muted-foreground max-w-md">
+                  يلزم تعريف وردية دوام واحدة على الأقل (ثابتة، مرنة، أو فترتين) وتحديد أوقات الحضور والانصراف لحساب التأخير والإضافي بدقة.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+                  {canManage && (
+                    <Button
+                      size="sm"
+                      onClick={() => setIsAddShiftOpen(true)}
+                      className="rounded-full text-xs font-bold gap-2 cursor-pointer shadow-xs"
+                    >
+                      <Plus className="h-4 w-4" />
+                      تعريف أول وردية الآن
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate({ to: "/setup" })}
+                    className="rounded-full text-xs font-bold gap-2 cursor-pointer border-amber-300 text-amber-700 bg-amber-500/10 hover:bg-amber-500/20"
+                  >
+                    انتقل إلى شاشة تهيئة النظام
+                  </Button>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {shifts.map((sh) => (
+                <div
+                  key={sh.id}
+                  className="classera-kpi-card p-5 shadow-xs space-y-3.5 relative overflow-hidden"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="h-3.5 w-3.5 rounded-full shadow-xs"
+                        style={{ backgroundColor: sh.color || "#004BCE" }}
+                      />
+                      <h3 className="font-black text-xs text-foreground">
+                        {language === "ar" ? sh.nameAr : sh.nameEn}
+                      </h3>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] rounded-full px-2.5 font-bold">
+                      {sh.type === "fixed" ? "ثابت" : sh.type === "flexible" ? "مرن" : "فترتان"}
+                    </Badge>
+                  </div>
+
+                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-3.5 text-xs space-y-2 font-mono">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">أوقات العمل:</span>
+                      <span className="font-bold text-foreground">
+                        {sh.startTime} - {sh.endTime}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">فترة السماح (حضور):</span>
+                      <span className="font-bold text-emerald-600">
+                        +{sh.graceMinutesArrival} دقيقة
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">حساب الإضافي:</span>
+                      <span className="font-bold text-primary">
+                        {sh.overtimeEligible ? "مفعل (1.5x)" : "غير مفعل"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         {/* Tab 2: Interactive Scheduler Matrix */}
@@ -241,32 +279,40 @@ export const ShiftsView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {employees.slice(0, 8).map((emp) => (
-                    <tr key={emp.id} className="hover:bg-muted/20 transition-colors group">
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => openEmployeeProfile(emp)}
-                          className="font-bold text-foreground group-hover:text-primary group-hover:underline cursor-pointer text-start"
-                        >
-                          {emp.firstNameAr} {emp.lastNameAr}
-                        </button>
+                  {employees.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                        لم تتم إضافة موظفين بعد لجدولة الورديات.
                       </td>
-                      {daysOfWeek.map((_, dIdx) => (
-                        <td key={dIdx} className="py-3 px-2 text-center">
-                          {dIdx === 5 || dIdx === 6 ? (
-                            <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] text-muted-foreground font-bold">
-                              راحة
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] text-primary font-mono font-bold">
-                              08:00 - 17:00
-                            </span>
-                          )}
-                        </td>
-                      ))}
                     </tr>
-                  ))}
+                  ) : (
+                    employees.slice(0, 8).map((emp) => (
+                      <tr key={emp.id} className="hover:bg-muted/20 transition-colors group">
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => openEmployeeProfile(emp)}
+                            className="font-bold text-foreground group-hover:text-primary group-hover:underline cursor-pointer text-start"
+                          >
+                            {emp.firstNameAr} {emp.lastNameAr}
+                          </button>
+                        </td>
+                        {daysOfWeek.map((_, dIdx) => (
+                          <td key={dIdx} className="py-3 px-2 text-center">
+                            {dIdx === 5 || dIdx === 6 ? (
+                              <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] text-muted-foreground font-bold">
+                                راحة
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] text-primary font-mono font-bold">
+                                08:00 - 17:00
+                              </span>
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

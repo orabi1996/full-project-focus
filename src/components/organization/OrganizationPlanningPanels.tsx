@@ -263,8 +263,35 @@ export function CostCentersPanel() {
       </div>
 
       {filteredCenters.length === 0 && (
-        <div className="rounded-3xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
-          لا توجد مراكز تكلفة مطابقة لنتائج البحث.
+        <div className="rounded-3xl border border-dashed border-border p-12 text-center text-xs text-muted-foreground">
+          {costCenters.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3">
+              <div className="h-12 w-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+                <CircleDollarSign className="h-6 w-6" />
+              </div>
+              <p className="font-bold text-foreground text-sm">
+                لم يتم تعريف مراكز تكلفة بعد بشركة «الأندلس»
+              </p>
+              <p className="text-xs text-muted-foreground max-w-md">
+                تساعد مراكز التكلفة في توزيع التكاليف والرواتب والميزانيات التشغيلية على الوحدات المختلفة بدقة.
+              </p>
+              {canManage && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    reset();
+                    setOpen(true);
+                  }}
+                  className="rounded-full text-xs font-bold gap-2 mt-2 cursor-pointer shadow-xs"
+                >
+                  <Plus className="h-4 w-4" />
+                  إضافة مركز تكلفة
+                </Button>
+              )}
+            </div>
+          ) : (
+            "لا توجد مراكز تكلفة مطابقة لنتائج البحث."
+          )}
         </div>
       )}
 
@@ -625,8 +652,35 @@ export function JobPositionsPanel() {
             })}
             {filteredPositions.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-xs text-muted-foreground">
-                  لا توجد مناصب وظيفية مسجلة مطابقة للبحث.
+                <td colSpan={7} className="p-12 text-center text-xs text-muted-foreground">
+                  {jobPositions.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="h-12 w-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+                        <BriefcaseBusiness className="h-6 w-6" />
+                      </div>
+                      <p className="font-bold text-foreground text-sm">
+                        لم يتم تخطيط أي مناصب وظيفية بعد بشركة «الأندلس»
+                      </p>
+                      <p className="text-xs text-muted-foreground max-w-md">
+                        خطط الاحتياج الوظيفي وحدد السلم الوظيفي والمسميات المعتمدة للشركة من هنا.
+                      </p>
+                      {canManage && (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            reset();
+                            setOpen(true);
+                          }}
+                          className="rounded-full text-xs font-bold gap-2 mt-2 cursor-pointer shadow-xs"
+                        >
+                          <Plus className="h-4 w-4" />
+                          إضافة منصب وظيفي
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    "لا توجد مناصب وظيفية مسجلة مطابقة للبحث."
+                  )}
                 </td>
               </tr>
             )}

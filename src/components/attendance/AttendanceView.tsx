@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
 import { BiometricTerminalPanel } from "./BiometricTerminalPanel";
@@ -40,6 +41,7 @@ import {
 import type { OvertimeRecord } from "../../types";
 
 export const AttendanceView: React.FC = () => {
+  const navigate = useNavigate();
   const {
     attendanceRecords,
     overtimeRecords,
@@ -710,9 +712,33 @@ export const AttendanceView: React.FC = () => {
                     <tr>
                       <td
                         colSpan={9}
-                        className="text-center py-10 text-muted-foreground font-medium"
+                        className="text-center py-12 text-muted-foreground font-medium"
                       >
-                        لا توجد سجلات حضور تطابق معايير الفلترة المحددة
+                        {attendanceRecords.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center gap-3 py-4">
+                            <div className="h-12 w-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+                              <Clock className="h-6 w-6" />
+                            </div>
+                            <p className="font-bold text-foreground text-sm">
+                              لا توجد سجلات حضور وانصراف بعد بشركة «الأندلس»
+                            </p>
+                            <p className="text-xs text-muted-foreground max-w-md">
+                              يتم تسجيل الحركات تلقائياً فور قيام الموظفين بالحضور عبر التطبيق الذكي بموقع العمل أو عبر أجهزة البصمة المربوطة.
+                            </p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => navigate({ to: "/setup" })}
+                                className="rounded-full text-xs font-bold gap-2 cursor-pointer border-amber-300 text-amber-700 bg-amber-500/10 hover:bg-amber-500/20"
+                              >
+                                انتقل إلى شاشة تهيئة النظام لضبط المواقع والورديات
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          "لا توجد سجلات حضور تطابق معايير الفلترة المحددة"
+                        )}
                       </td>
                     </tr>
                   )}

@@ -1202,7 +1202,34 @@ export const OrganizationView: React.FC = () => {
 
           {filteredOrgUnits.length === 0 && (
             <div className="rounded-3xl border border-dashed border-border p-12 text-center text-xs text-muted-foreground">
-              لا توجد إدارات أو وحدات تنظيمية مطابقة للبحث أو التصفية الحالية.
+              {orgUnits.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className="h-12 w-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+                    <Building2 className="h-6 w-6" />
+                  </div>
+                  <p className="font-bold text-foreground text-sm">
+                    لم تتم إضافة إدارات أو أقسام بعد بشركة «الأندلس»
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-md">
+                    يمكنك بناء الهيكل التنظيمي للشركة وإضافة الإدارات والأقسام التابعة لها لتوزيع الموظفين والمهام.
+                  </p>
+                  {canManage && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        resetDeptForm();
+                        setIsAddDeptOpen(true);
+                      }}
+                      className="rounded-full text-xs font-bold gap-2 mt-2 cursor-pointer shadow-xs"
+                    >
+                      <Plus className="h-4 w-4" />
+                      إضافة أول قسم / إدارة
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                "لا توجد إدارات أو وحدات تنظيمية مطابقة للبحث أو التصفية الحالية."
+              )}
             </div>
           )}
         </TabsContent>
@@ -1460,8 +1487,35 @@ export const OrganizationView: React.FC = () => {
           </div>
 
           {filteredSubsidiaries.length === 0 && (
-            <div className="rounded-3xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
-              لا توجد شركات تابعة مسجلة مطابقة لنتائج البحث.
+            <div className="rounded-3xl border border-dashed border-border p-12 text-center text-xs text-muted-foreground">
+              {subsidiaries.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className="h-12 w-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+                    <Building className="h-6 w-6" />
+                  </div>
+                  <p className="font-bold text-foreground text-sm">
+                    لا توجد شركات تابعة أو كيانات شقيقة مسجلة لشركة «الأندلس»
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-md">
+                    إذا كانت الشركة تمتلك فروعاً مستقلة قانونياً أو شركات شقيقة، يمكنك إضافتها هنا لربط الهيكل المشترك.
+                  </p>
+                  {canManage && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        resetSubForm();
+                        setIsAddSubOpen(true);
+                      }}
+                      className="rounded-full text-xs font-bold gap-2 mt-2 cursor-pointer shadow-xs"
+                    >
+                      <Plus className="h-4 w-4" />
+                      إضافة شركة تابعة
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                "لا توجد شركات تابعة مسجلة مطابقة لنتائج البحث."
+              )}
             </div>
           )}
         </TabsContent>
@@ -1593,8 +1647,35 @@ export const OrganizationView: React.FC = () => {
           </div>
 
           {filteredWorkLocations.length === 0 && (
-            <div className="rounded-3xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
-              لا توجد مواقع جغرافية مسجلة مطابقة لنتائج البحث.
+            <div className="rounded-3xl border border-dashed border-border p-12 text-center text-xs text-muted-foreground">
+              {workLocations.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className="h-12 w-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+                    <MapPin className="h-6 w-6" />
+                  </div>
+                  <p className="font-bold text-foreground text-sm">
+                    لم تتم إضافة مواقع عمل أو مقار جغرافية بعد بشركة «الأندلس»
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-md">
+                    أضف المقر الرئيسي، الفروع، والمكاتب التشغيلية مع تحديد النطاق الجغرافي (GPS Geofence) لتفعيل الحضور الذكي.
+                  </p>
+                  {canManage && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        resetLocForm();
+                        setIsAddLocOpen(true);
+                      }}
+                      className="rounded-full text-xs font-bold gap-2 mt-2 cursor-pointer shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      <Plus className="h-4 w-4" />
+                      إضافة موقع عمل وسياج جغرافي
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                "لا توجد مواقع جغرافية مسجلة مطابقة لنتائج البحث."
+              )}
             </div>
           )}
         </TabsContent>

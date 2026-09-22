@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
 import { IconSymbol } from "../ui/IconSymbol";
@@ -52,6 +53,7 @@ import {
 import type { ServiceRequest, EmployeeDirectoryItem } from "../../types";
 
 export const LeavesView: React.FC = () => {
+  const navigate = useNavigate();
   const {
     currentRole,
     currentUser,
@@ -660,8 +662,24 @@ export const LeavesView: React.FC = () => {
             </div>
           ))
         ) : (
-          <div className="col-span-full rounded-2xl border border-dashed border-border/80 p-8 text-center bg-card/40">
-            <p className="text-xs text-muted-foreground font-medium">لا توجد أرصدة إجازات مسجلة لحسابك في هذه السنة.</p>
+          <div className="col-span-full rounded-3xl border border-dashed border-border/80 p-8 text-center bg-card/40">
+            <div className="flex flex-col items-center justify-center gap-2">
+              <p className="text-xs text-muted-foreground font-medium">
+                {leaveTypes.length === 0
+                  ? "لم يتم تعريف أنواع وسياسات الإجازات لشركة «الأندلس» بعد — انتقل إلى تهيئة النظام للبدء."
+                  : "لا توجد أرصدة إجازات مسجلة لحسابك في هذه السنة."}
+              </p>
+              {leaveTypes.length === 0 && canManage && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate({ to: "/setup" })}
+                  className="rounded-full text-xs font-bold gap-1 mt-1 border-amber-300 text-amber-700 bg-amber-500/10 hover:bg-amber-500/20"
+                >
+                  انتقل إلى تهيئة النظام
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -777,32 +795,68 @@ export const LeavesView: React.FC = () => {
 
         {/* Tab 2: Leave Types List */}
         <TabsContent value="types" className="space-y-4 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {leaveTypes.map((type) => (
-              <div
-                key={type.id}
-                className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-3 hover:border-primary/40 transition-all"
-              >
-                <div className="flex items-center justify-between">
-                  <h3 className="font-black text-xs text-foreground">{type.nameAr}</h3>
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] rounded-full px-2.5 font-bold ${
-                      type.isPaid
-                        ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {type.isPaid ? "مدفوعة الأجر" : "بدون أجر"}
-                  </Badge>
+          {leaveTypes.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-border/80 bg-card p-12 text-center">
+              <div className="flex flex-col items-center justify-center gap-3">
+                <div className="h-14 w-14 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+                  <CalendarDays className="h-7 w-7" />
                 </div>
-                <div className="border-t border-border/60 pt-2.5 flex justify-between text-xs text-muted-foreground">
-                  <span>الحد الأقصى السنوي:</span>
-                  <span className="font-bold text-foreground font-mono">{type.maxDaysPerYear} يوماً</span>
+                <p className="font-bold text-foreground text-sm">
+                  لم يتم تعريف أنواع أو سياسات إجازات بعد بشركة «الأندلس»
+                </p>
+                <p className="text-xs text-muted-foreground max-w-md">
+                  يلزم تعريف أنواع الإجازات (اعتيادية، مرضية، دراسية، إلخ) وتحديد رصيد كل نوع لحساب المستحقات للموظفين.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+                  {canManage && (
+                    <Button
+                      size="sm"
+                      onClick={() => setIsAddTypeModalOpen(true)}
+                      className="rounded-full text-xs font-bold gap-2 cursor-pointer shadow-xs"
+                    >
+                      <Plus className="h-4 w-4" />
+                      إضافة نوع إجازة جديد
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate({ to: "/setup" })}
+                    className="rounded-full text-xs font-bold gap-2 cursor-pointer border-amber-300 text-amber-700 bg-amber-500/10 hover:bg-amber-500/20"
+                  >
+                    انتقل إلى شاشة تهيئة النظام
+                  </Button>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {leaveTypes.map((type) => (
+                <div
+                  key={type.id}
+                  className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-3 hover:border-primary/40 transition-all"
+                >
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-black text-xs text-foreground">{type.nameAr}</h3>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] rounded-full px-2.5 font-bold ${
+                        type.isPaid
+                          ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {type.isPaid ? "مدفوعة الأجر" : "بدون أجر"}
+                    </Badge>
+                  </div>
+                  <div className="border-t border-border/60 pt-2.5 flex justify-between text-xs text-muted-foreground">
+                    <span>الحد الأقصى السنوي:</span>
+                    <span className="font-bold text-foreground font-mono">{type.maxDaysPerYear} يوماً</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         {/* Tab 3: Statutory & Company Leave Policies */}

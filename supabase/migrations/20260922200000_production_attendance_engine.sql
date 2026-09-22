@@ -1330,6 +1330,7 @@ BEGIN
 
   INSERT INTO public.requests (
     employee_id,
+    company_id,
     type,
     status,
     start_date,
@@ -1339,6 +1340,7 @@ BEGIN
     payload
   ) VALUES (
     v_employee.id,
+    v_employee.company_id,
     'attendance_fix',
     'pending_approval',
     p_work_date,
@@ -1659,5 +1661,160 @@ $$;
 
 REVOKE ALL ON FUNCTION public.record_staff_attendance_punch(text,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.record_staff_attendance_punch(text,text,text) TO authenticated;
+
+-- --------------------------------------------------------------------------
+-- 16) Dedicated scoped attendance-correction reads
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.get_attendance_correction_requests(
+  p_from date,
+  p_to date,
+  p_status text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_company_id uuid := public.current_user_company_id();
+  v_employee_id uuid := public.current_employee_id();
+  v_full_access boolean;
+  v_team_access boolean;
+BEGIN
+  IF auth.uid() IS NULL OR v_company_id IS NULL THEN
+    RAISE EXCEPTION 'لا توجد جلسة أو منشأة نشطة.';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to < p_from THEN
+    RAISE EXCEPTION 'نطاق التاريخ غير صحيح.';
+  END IF;
+
+  v_full_access := public.current_user_has_role_for_company(
+    v_company_id,
+    ARRAY['super_admin','org_admin','hr_manager','attendance_officer','auditor']
+  );
+  v_team_access := public.current_user_has_role_for_company(
+    v_company_id,
+    ARRAY['line_manager']
+  );
+
+  RETURN COALESCE((
+    SELECT jsonb_agg(
+      jsonb_build_object(
+        'id', r.id,
+        'employee_id', r.employee_id,
+        'employee_no', e.employee_no,
+        'employee_name', COALESCE(NULLIF(trim(concat_ws(' ',e.first_name_ar,e.last_name_ar)),''), e.full_name),
+        'department_name', d.name,
+        'work_date', COALESCE(r.start_date, (r.payload->>'workDate')::date),
+        'original_attendance_id', r.payload->>'originalAttendanceId',
+        'original_in', r.payload->>'originalIn',
+        'original_out', r.payload->>'originalOut',
+        'correct_in', COALESCE(r.payload->>'correctInTime', r.payload->>'correctIn'),
+        'correct_out', COALESCE(r.payload->>'correctOutTime', r.payload->>'correctOut'),
+        'reason', r.reason,
+        'status', r.status,
+        'submitted_at', r.created_at,
+        'reviewed_by', r.decided_by,
+        'reviewed_at', r.decided_at
+      )
+      ORDER BY r.created_at DESC
+    )
+    FROM public.requests r
+    JOIN public.employees e ON e.id = r.employee_id
+    LEFT JOIN public.departments d ON d.id = e.department_id
+    WHERE r.company_id = v_company_id
+      AND r.type = 'attendance_fix'
+      AND COALESCE(r.start_date, (r.payload->>'workDate')::date) BETWEEN p_from AND p_to
+      AND (p_status IS NULL OR r.status::text = p_status)
+      AND (
+        v_full_access
+        OR (v_team_access AND e.manager_id = v_employee_id)
+        OR r.employee_id = v_employee_id
+      )
+  ), '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.get_attendance_correction_requests(date,date,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_attendance_correction_requests(date,date,text) TO authenticated;
+
+-- --------------------------------------------------------------------------
+-- 17) Dedicated scoped overtime reads
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.get_overtime_attendance_requests(
+  p_from date,
+  p_to date,
+  p_status text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_company_id uuid := public.current_user_company_id();
+  v_employee_id uuid := public.current_employee_id();
+  v_full_access boolean;
+  v_team_access boolean;
+BEGIN
+  IF auth.uid() IS NULL OR v_company_id IS NULL THEN
+    RAISE EXCEPTION 'لا توجد جلسة أو منشأة نشطة.';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to < p_from THEN
+    RAISE EXCEPTION 'نطاق التاريخ غير صحيح.';
+  END IF;
+
+  v_full_access := public.current_user_has_role_for_company(
+    v_company_id,
+    ARRAY['super_admin','org_admin','hr_manager','attendance_officer','payroll_officer','auditor']
+  );
+  v_team_access := public.current_user_has_role_for_company(
+    v_company_id,
+    ARRAY['line_manager']
+  );
+
+  RETURN COALESCE((
+    SELECT jsonb_agg(
+      jsonb_build_object(
+        'id', o.id,
+        'employee_id', o.employee_id,
+        'employee_no', e.employee_no,
+        'employee_name', COALESCE(NULLIF(trim(concat_ws(' ',e.first_name_ar,e.last_name_ar)),''), e.full_name),
+        'department_name', d.name,
+        'work_date', o.work_date,
+        'start_time', o.start_time,
+        'end_time', o.end_time,
+        'hours', o.hours,
+        'rate_multiplier', o.rate_multiplier,
+        'rate_type', o.rate_type,
+        'reason', o.reason,
+        'hourly_rate', o.hourly_rate,
+        'total_amount', o.total_amount,
+        'status', o.status,
+        'approved_by', o.approved_by,
+        'approved_at', o.approved_at,
+        'created_at', o.created_at
+      )
+      ORDER BY o.work_date DESC, o.created_at DESC
+    )
+    FROM public.overtime_records o
+    JOIN public.employees e ON e.id = o.employee_id
+    LEFT JOIN public.departments d ON d.id = e.department_id
+    WHERE o.company_id = v_company_id
+      AND o.work_date BETWEEN p_from AND p_to
+      AND (p_status IS NULL OR o.status::text = p_status)
+      AND (
+        v_full_access
+        OR (v_team_access AND e.manager_id = v_employee_id)
+        OR o.employee_id = v_employee_id
+      )
+  ), '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.get_overtime_attendance_requests(date,date,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_overtime_attendance_requests(date,date,text) TO authenticated;
 
 COMMIT;

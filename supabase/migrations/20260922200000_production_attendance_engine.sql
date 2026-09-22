@@ -440,6 +440,92 @@ REVOKE ALL ON FUNCTION public.get_attendance_policy() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_attendance_policy() TO authenticated;
 
 -- --------------------------------------------------------------------------
+-- 6b) Authoritative attendance-policy update
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.upsert_attendance_policy(
+  p_allow_mobile_punch boolean,
+  p_require_geofence boolean,
+  p_auto_approve_mobile_punches boolean,
+  p_allow_outside_geofence_with_reason boolean,
+  p_max_location_accuracy_meters numeric,
+  p_require_published_schedule boolean,
+  p_missing_punch_behavior text,
+  p_overtime_requires_approval boolean,
+  p_early_departure_grace_minutes integer
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $
+DECLARE
+  v_company_id uuid := public.current_user_company_id();
+BEGIN
+  IF v_company_id IS NULL THEN
+    RAISE EXCEPTION 'لا توجد منشأة مرتبطة بالحساب الحالي.';
+  END IF;
+  IF NOT public.current_user_has_role_for_company(
+    v_company_id,
+    ARRAY['super_admin','org_admin','hr_manager','attendance_officer']
+  ) THEN
+    RAISE EXCEPTION 'غير مصرح بتعديل سياسة الحضور.';
+  END IF;
+  IF p_missing_punch_behavior NOT IN ('flag','absent','ignore') THEN
+    RAISE EXCEPTION 'سياسة البصمة الناقصة غير صالحة.';
+  END IF;
+  IF p_early_departure_grace_minutes < 0 THEN
+    RAISE EXCEPTION 'فترة سماح الانصراف المبكر لا يمكن أن تكون سالبة.';
+  END IF;
+  IF p_max_location_accuracy_meters IS NOT NULL AND p_max_location_accuracy_meters <= 0 THEN
+    RAISE EXCEPTION 'حد دقة الموقع يجب أن يكون أكبر من صفر.';
+  END IF;
+
+  INSERT INTO public.attendance_policies (
+    company_id,
+    allow_mobile_punch,
+    require_geofence,
+    auto_approve_mobile_punches,
+    allow_outside_geofence_with_reason,
+    max_location_accuracy_meters,
+    require_published_schedule,
+    missing_punch_behavior,
+    overtime_requires_approval,
+    early_departure_grace_minutes,
+    updated_at
+  ) VALUES (
+    v_company_id,
+    p_allow_mobile_punch,
+    p_require_geofence,
+    p_auto_approve_mobile_punches,
+    p_allow_outside_geofence_with_reason,
+    p_max_location_accuracy_meters,
+    p_require_published_schedule,
+    p_missing_punch_behavior,
+    p_overtime_requires_approval,
+    p_early_departure_grace_minutes,
+    now()
+  )
+  ON CONFLICT (company_id)
+  DO UPDATE SET
+    allow_mobile_punch = EXCLUDED.allow_mobile_punch,
+    require_geofence = EXCLUDED.require_geofence,
+    auto_approve_mobile_punches = EXCLUDED.auto_approve_mobile_punches,
+    allow_outside_geofence_with_reason = EXCLUDED.allow_outside_geofence_with_reason,
+    max_location_accuracy_meters = EXCLUDED.max_location_accuracy_meters,
+    require_published_schedule = EXCLUDED.require_published_schedule,
+    missing_punch_behavior = EXCLUDED.missing_punch_behavior,
+    overtime_requires_approval = EXCLUDED.overtime_requires_approval,
+    early_departure_grace_minutes = EXCLUDED.early_departure_grace_minutes,
+    updated_at = now();
+
+  RETURN public.get_attendance_policy();
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.upsert_attendance_policy(boolean,boolean,boolean,boolean,numeric,boolean,text,boolean,integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.upsert_attendance_policy(boolean,boolean,boolean,boolean,numeric,boolean,text,boolean,integer) TO authenticated;
+
+-- --------------------------------------------------------------------------
 -- 7) Mobile attendance punch: employee identity and company are server-resolved
 -- --------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.record_mobile_attendance_punch(
@@ -1055,7 +1141,7 @@ BEGIN
   SELECT count(*) INTO v_total
   FROM public.employees e
   WHERE e.company_id = v_company_id
-    AND e.status NOT IN ('terminated','draft','preboarding');
+    AND e.status::text NOT IN ('terminated','draft','preboarding');
 
   SELECT
     count(*) FILTER (WHERE a.status::text = 'present'),

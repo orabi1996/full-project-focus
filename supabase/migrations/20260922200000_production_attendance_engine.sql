@@ -1817,4 +1817,812 @@ $$;
 REVOKE ALL ON FUNCTION public.get_overtime_attendance_requests(date,date,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_overtime_attendance_requests(date,date,text) TO authenticated;
 
+-- --------------------------------------------------------------------------
+-- 18) Overtime is unpriced in Attendance; legacy positive-rate constraint
+--     would reject the truthful zero-valued placeholder.
+-- --------------------------------------------------------------------------
+ALTER TABLE public.overtime_records
+  DROP CONSTRAINT IF EXISTS overtime_rate_positive;
+
+ALTER TABLE public.overtime_records
+  DROP CONSTRAINT IF EXISTS overtime_rate_nonnegative;
+
+ALTER TABLE public.overtime_records
+  ADD CONSTRAINT overtime_rate_nonnegative
+  CHECK (rate_multiplier >= 0);
+
+-- --------------------------------------------------------------------------
+-- 19) Recreate overtime submission with policy-aware approval semantics.
+--     Attendance authorizes duration only; Payroll owns financial pricing.
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.submit_overtime_attendance_request(
+  p_employee_id uuid,
+  p_work_date date,
+  p_start_time time,
+  p_end_time time,
+  p_reason text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_company_id uuid := public.current_user_company_id();
+  v_target public.employees%ROWTYPE;
+  v_caller_employee_id uuid := public.current_employee_id();
+  v_start_ts timestamp;
+  v_end_ts timestamp;
+  v_hours numeric(8,2);
+  v_id uuid;
+  v_period_status text;
+  v_requires_approval boolean;
+  v_status text;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'غير مصرح: يجب تسجيل الدخول.';
+  END IF;
+  IF v_company_id IS NULL THEN
+    RAISE EXCEPTION 'لا توجد منشأة مرتبطة بالحساب الحالي.';
+  END IF;
+  IF p_work_date IS NULL OR p_start_time IS NULL OR p_end_time IS NULL THEN
+    RAISE EXCEPTION 'تاريخ وفترة العمل الإضافي مطلوبة.';
+  END IF;
+  IF NULLIF(btrim(COALESCE(p_reason,'')), '') IS NULL THEN
+    RAISE EXCEPTION 'مبرر العمل الإضافي مطلوب.';
+  END IF;
+
+  SELECT * INTO v_target
+  FROM public.employees
+  WHERE id = p_employee_id
+    AND company_id = v_company_id
+    AND status::text NOT IN ('terminated','draft','preboarding');
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'الموظف غير موجود داخل المنشأة الحالية.';
+  END IF;
+
+  IF NOT (
+    public.current_user_has_role_for_company(
+      v_company_id,
+      ARRAY['super_admin','org_admin','hr_manager','attendance_officer']
+    )
+    OR (
+      public.current_user_has_role_for_company(v_company_id, ARRAY['line_manager'])
+      AND v_target.manager_id = v_caller_employee_id
+    )
+  ) THEN
+    RAISE EXCEPTION 'غير مصرح بتكليف هذا الموظف بعمل إضافي.';
+  END IF;
+
+  SELECT overtime_requires_approval
+  INTO v_requires_approval
+  FROM public.attendance_policies
+  WHERE company_id = v_company_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'لم يتم إعداد سياسة الحضور للمنشأة.';
+  END IF;
+
+  SELECT status INTO v_period_status
+  FROM public.attendance_periods
+  WHERE company_id = v_company_id
+    AND period_year = EXTRACT(YEAR FROM p_work_date)::integer
+    AND period_month = EXTRACT(MONTH FROM p_work_date)::integer;
+
+  IF v_period_status = 'closed' THEN
+    RAISE EXCEPTION 'فترة الحضور لهذا التاريخ مغلقة.';
+  END IF;
+
+  v_start_ts := p_work_date::timestamp + p_start_time;
+  v_end_ts := p_work_date::timestamp + p_end_time;
+  IF v_end_ts <= v_start_ts THEN
+    v_end_ts := v_end_ts + interval '1 day';
+  END IF;
+
+  v_hours := round((EXTRACT(EPOCH FROM (v_end_ts - v_start_ts)) / 3600.0)::numeric, 2);
+  IF v_hours <= 0 OR v_hours > 16 THEN
+    RAISE EXCEPTION 'مدة العمل الإضافي غير صالحة.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.overtime_records o
+    WHERE o.employee_id = v_target.id
+      AND o.work_date = p_work_date
+      AND o.status IN ('pending','approved')
+  ) THEN
+    RAISE EXCEPTION 'يوجد تكليف عمل إضافي فعال لهذا الموظف في نفس التاريخ.';
+  END IF;
+
+  v_status := CASE WHEN v_requires_approval THEN 'pending' ELSE 'approved' END;
+
+  INSERT INTO public.overtime_records (
+    employee_id,
+    company_id,
+    work_date,
+    start_time,
+    end_time,
+    hours,
+    rate_multiplier,
+    rate_type,
+    reason,
+    hourly_rate,
+    total_amount,
+    status,
+    approved_by,
+    approved_at,
+    created_by
+  ) VALUES (
+    v_target.id,
+    v_company_id,
+    p_work_date,
+    p_start_time,
+    p_end_time,
+    v_hours,
+    0,
+    'pending_payroll_rule',
+    btrim(p_reason),
+    0,
+    0,
+    v_status,
+    CASE WHEN v_status = 'approved' THEN auth.uid() ELSE NULL END,
+    CASE WHEN v_status = 'approved' THEN now() ELSE NULL END,
+    auth.uid()
+  )
+  RETURNING id INTO v_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'overtime_id', v_id,
+    'hours', v_hours,
+    'status', v_status,
+    'pricing_status', 'pending_payroll_rule'
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.submit_overtime_attendance_request(uuid,date,time,time,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.submit_overtime_attendance_request(uuid,date,time,time,text) TO authenticated;
+
+-- --------------------------------------------------------------------------
+-- 20) Tenant-safe overtime decisions. Approval authorizes the request only;
+--     actual overtime in attendance is calculated from approved punches.
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.approve_overtime_request(p_overtime_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_company_id uuid := public.current_user_company_id();
+  v_caller_employee_id uuid := public.current_employee_id();
+  v_record public.overtime_records%ROWTYPE;
+  v_target public.employees%ROWTYPE;
+BEGIN
+  IF auth.uid() IS NULL OR v_company_id IS NULL THEN
+    RAISE EXCEPTION 'لا توجد جلسة أو منشأة نشطة.' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_record
+  FROM public.overtime_records
+  WHERE id = p_overtime_id
+    AND company_id = v_company_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'طلب العمل الإضافي غير موجود داخل المنشأة الحالية' USING ERRCODE = 'P0002';
+  END IF;
+
+  SELECT * INTO v_target
+  FROM public.employees
+  WHERE id = v_record.employee_id
+    AND company_id = v_company_id;
+
+  IF NOT (
+    public.current_user_has_role_for_company(
+      v_company_id,
+      ARRAY['super_admin','org_admin','hr_manager','attendance_officer']
+    )
+    OR (
+      public.current_user_has_role_for_company(v_company_id, ARRAY['line_manager'])
+      AND v_target.manager_id = v_caller_employee_id
+    )
+  ) THEN
+    RAISE EXCEPTION 'غير مصرح باعتماد العمل الإضافي' USING ERRCODE = '42501';
+  END IF;
+
+  IF v_record.status <> 'pending' THEN
+    RAISE EXCEPTION 'تم اتخاذ القرار في طلب العمل الإضافي مسبقاً (الحالة: %)', v_record.status
+      USING ERRCODE = '23505';
+  END IF;
+
+  UPDATE public.overtime_records
+  SET status = 'approved',
+      approved_by = auth.uid(),
+      approved_at = now()
+  WHERE id = p_overtime_id;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'overtimeId', p_overtime_id,
+    'employeeId', v_record.employee_id,
+    'hours', v_record.hours,
+    'approvedBy', auth.uid(),
+    'approvedAt', now()
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.approve_overtime_request(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.approve_overtime_request(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.reject_overtime_request(p_overtime_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_company_id uuid := public.current_user_company_id();
+  v_caller_employee_id uuid := public.current_employee_id();
+  v_record public.overtime_records%ROWTYPE;
+  v_target public.employees%ROWTYPE;
+BEGIN
+  IF auth.uid() IS NULL OR v_company_id IS NULL THEN
+    RAISE EXCEPTION 'لا توجد جلسة أو منشأة نشطة.' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_record
+  FROM public.overtime_records
+  WHERE id = p_overtime_id
+    AND company_id = v_company_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'طلب العمل الإضافي غير موجود داخل المنشأة الحالية' USING ERRCODE = 'P0002';
+  END IF;
+
+  SELECT * INTO v_target
+  FROM public.employees
+  WHERE id = v_record.employee_id
+    AND company_id = v_company_id;
+
+  IF NOT (
+    public.current_user_has_role_for_company(
+      v_company_id,
+      ARRAY['super_admin','org_admin','hr_manager','attendance_officer']
+    )
+    OR (
+      public.current_user_has_role_for_company(v_company_id, ARRAY['line_manager'])
+      AND v_target.manager_id = v_caller_employee_id
+    )
+  ) THEN
+    RAISE EXCEPTION 'غير مصرح برفض العمل الإضافي' USING ERRCODE = '42501';
+  END IF;
+
+  IF v_record.status <> 'pending' THEN
+    RAISE EXCEPTION 'تم اتخاذ القرار في طلب العمل الإضافي مسبقاً (الحالة: %)', v_record.status
+      USING ERRCODE = '23505';
+  END IF;
+
+  UPDATE public.overtime_records
+  SET status = 'rejected',
+      approved_by = auth.uid(),
+      approved_at = now()
+  WHERE id = p_overtime_id;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'overtimeId', p_overtime_id,
+    'rejectedBy', auth.uid(),
+    'rejectedAt', now()
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.reject_overtime_request(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.reject_overtime_request(uuid) TO authenticated;
+
+-- --------------------------------------------------------------------------
+-- 21) Tenant-safe correction decisions without fabricated 08:00/17:00.
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.approve_attendance_correction(p_request_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_company_id uuid := public.current_user_company_id();
+  v_caller_employee_id uuid := public.current_employee_id();
+  v_req public.requests%ROWTYPE;
+  v_target public.employees%ROWTYPE;
+  v_payload jsonb;
+  v_work_date date;
+  v_check_in time;
+  v_check_out time;
+  v_att public.attendance_records%ROWTYPE;
+  v_schedule public.schedule_assignments%ROWTYPE;
+  v_shift public.shifts%ROWTYPE;
+  v_worked_minutes integer := 0;
+  v_late_minutes integer := 0;
+  v_early_minutes integer := 0;
+  v_overtime_minutes integer := 0;
+  v_start_minutes integer;
+  v_end_minutes integer;
+  v_in_minutes integer;
+  v_out_minutes integer;
+  v_status public.attendance_status := 'present';
+BEGIN
+  IF auth.uid() IS NULL OR v_company_id IS NULL THEN
+    RAISE EXCEPTION 'لا توجد جلسة أو منشأة نشطة.' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_req
+  FROM public.requests
+  WHERE id = p_request_id
+    AND company_id = v_company_id
+    AND type = 'attendance_fix'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'طلب تصحيح البصمة غير موجود داخل المنشأة الحالية' USING ERRCODE = 'P0002';
+  END IF;
+
+  SELECT * INTO v_target
+  FROM public.employees
+  WHERE id = v_req.employee_id
+    AND company_id = v_company_id;
+
+  IF NOT (
+    public.current_user_has_role_for_company(
+      v_company_id,
+      ARRAY['super_admin','org_admin','hr_manager','attendance_officer']
+    )
+    OR (
+      public.current_user_has_role_for_company(v_company_id, ARRAY['line_manager'])
+      AND v_target.manager_id = v_caller_employee_id
+    )
+  ) THEN
+    RAISE EXCEPTION 'غير مصرح باعتماد تصحيح البصمة' USING ERRCODE = '42501';
+  END IF;
+
+  IF v_req.created_by = auth.uid()
+     AND NOT public.current_user_has_role_for_company(v_company_id, ARRAY['super_admin']) THEN
+    RAISE EXCEPTION 'لا يمكن لصاحب الطلب اعتماد طلبه بنفسه' USING ERRCODE = '42501';
+  END IF;
+
+  IF v_req.status::text NOT IN ('pending','pending_approval') THEN
+    RAISE EXCEPTION 'تم اتخاذ القرار في هذا الطلب مسبقاً (الحالة: %)', v_req.status
+      USING ERRCODE = '23505';
+  END IF;
+
+  v_payload := COALESCE(v_req.payload, '{}'::jsonb);
+  v_work_date := COALESCE((v_payload->>'workDate')::date, v_req.start_date);
+
+  IF v_work_date IS NULL THEN
+    RAISE EXCEPTION 'تاريخ التصحيح غير موجود' USING ERRCODE = '22023';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.attendance_periods
+    WHERE company_id = v_company_id
+      AND period_year = EXTRACT(YEAR FROM v_work_date)::integer
+      AND period_month = EXTRACT(MONTH FROM v_work_date)::integer
+      AND status = 'closed'
+  ) THEN
+    RAISE EXCEPTION 'فترة الحضور لهذا التاريخ مغلقة' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_att
+  FROM public.attendance_records
+  WHERE employee_id = v_req.employee_id
+    AND work_date = v_work_date
+  FOR UPDATE;
+
+  v_check_in := COALESCE(
+    NULLIF(COALESCE(v_payload->>'correctInTime', v_payload->>'correctIn'), '')::time,
+    v_att.check_in
+  );
+  v_check_out := COALESCE(
+    NULLIF(COALESCE(v_payload->>'correctOutTime', v_payload->>'correctOut'), '')::time,
+    v_att.check_out
+  );
+
+  IF v_check_in IS NULL OR v_check_out IS NULL THEN
+    RAISE EXCEPTION 'لا يمكن اعتماد التصحيح دون وقت دخول وخروج كامل بعد دمج السجل الحالي'
+      USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO v_schedule
+  FROM public.schedule_assignments
+  WHERE employee_id = v_req.employee_id
+    AND work_date = v_work_date
+    AND status = 'published'
+  LIMIT 1;
+
+  IF v_schedule.shift_id IS NOT NULL THEN
+    SELECT * INTO v_shift
+    FROM public.shifts
+    WHERE id = v_schedule.shift_id;
+  END IF;
+
+  v_in_minutes := EXTRACT(HOUR FROM v_check_in)::integer * 60
+                + EXTRACT(MINUTE FROM v_check_in)::integer;
+  v_out_minutes := EXTRACT(HOUR FROM v_check_out)::integer * 60
+                 + EXTRACT(MINUTE FROM v_check_out)::integer;
+  IF v_out_minutes <= v_in_minutes THEN
+    v_out_minutes := v_out_minutes + 1440;
+  END IF;
+  v_worked_minutes := v_out_minutes - v_in_minutes;
+
+  IF v_shift.id IS NOT NULL THEN
+    v_start_minutes := EXTRACT(HOUR FROM v_shift.start_time)::integer * 60
+                     + EXTRACT(MINUTE FROM v_shift.start_time)::integer;
+    v_end_minutes := EXTRACT(HOUR FROM v_shift.end_time)::integer * 60
+                   + EXTRACT(MINUTE FROM v_shift.end_time)::integer;
+    IF v_end_minutes <= v_start_minutes THEN
+      v_end_minutes := v_end_minutes + 1440;
+    END IF;
+
+    IF v_in_minutes < v_start_minutes - 720 THEN
+      v_in_minutes := v_in_minutes + 1440;
+    END IF;
+
+    v_late_minutes := GREATEST(
+      0,
+      v_in_minutes - v_start_minutes - COALESCE(v_shift.grace_minutes_arrival, 0)
+    );
+    v_early_minutes := GREATEST(
+      0,
+      v_end_minutes - v_out_minutes - COALESCE(v_shift.grace_minutes_departure, 0)
+    );
+    IF v_shift.overtime_eligible IS NOT FALSE THEN
+      v_overtime_minutes := GREATEST(0, v_out_minutes - v_end_minutes);
+    END IF;
+  END IF;
+
+  v_status := CASE
+    WHEN v_late_minutes > 0 THEN 'late'::public.attendance_status
+    WHEN v_early_minutes > 0 THEN 'early_departure'::public.attendance_status
+    ELSE 'present'::public.attendance_status
+  END;
+
+  UPDATE public.requests
+  SET status = 'approved',
+      decided_by = auth.uid(),
+      decided_at = now(),
+      decision_note = 'تم اعتماد تصحيح البصمة وتحديث سجل الحضور'
+  WHERE id = p_request_id;
+
+  INSERT INTO public.attendance_records (
+    employee_id,
+    company_id,
+    work_date,
+    shift_id,
+    scheduled_in,
+    scheduled_out,
+    check_in,
+    check_out,
+    status,
+    worked_hours,
+    worked_minutes,
+    late_minutes,
+    early_departure_minutes,
+    overtime_hours,
+    overtime_minutes,
+    is_manual,
+    punch_source,
+    geofence_valid,
+    violations_count,
+    reviewed_by_payroll,
+    note,
+    processed_at
+  ) VALUES (
+    v_req.employee_id,
+    v_company_id,
+    v_work_date,
+    v_schedule.shift_id,
+    v_shift.start_time,
+    v_shift.end_time,
+    v_check_in,
+    v_check_out,
+    v_status,
+    round((v_worked_minutes::numeric / 60.0), 2),
+    v_worked_minutes,
+    v_late_minutes,
+    v_early_minutes,
+    round((v_overtime_minutes::numeric / 60.0), 2),
+    v_overtime_minutes,
+    true,
+    'correction_request',
+    NULL,
+    (CASE WHEN v_late_minutes > 0 THEN 1 ELSE 0 END)
+      + (CASE WHEN v_early_minutes > 0 THEN 1 ELSE 0 END),
+    false,
+    'تم تصحيح البصمة بموجب طلب معتمد',
+    now()
+  )
+  ON CONFLICT (employee_id, work_date)
+  DO UPDATE SET
+    company_id = EXCLUDED.company_id,
+    shift_id = EXCLUDED.shift_id,
+    scheduled_in = EXCLUDED.scheduled_in,
+    scheduled_out = EXCLUDED.scheduled_out,
+    check_in = EXCLUDED.check_in,
+    check_out = EXCLUDED.check_out,
+    status = EXCLUDED.status,
+    worked_hours = EXCLUDED.worked_hours,
+    worked_minutes = EXCLUDED.worked_minutes,
+    late_minutes = EXCLUDED.late_minutes,
+    early_departure_minutes = EXCLUDED.early_departure_minutes,
+    overtime_hours = EXCLUDED.overtime_hours,
+    overtime_minutes = EXCLUDED.overtime_minutes,
+    is_manual = true,
+    punch_source = 'correction_request',
+    geofence_valid = NULL,
+    violations_count = EXCLUDED.violations_count,
+    reviewed_by_payroll = false,
+    note = EXCLUDED.note,
+    processed_at = now();
+
+  INSERT INTO public.request_timeline (
+    request_id, step_number, actor_id, actor_name, actor_role, action, note
+  ) VALUES (
+    p_request_id,
+    COALESCE(v_req.current_step_index, 1),
+    auth.uid(),
+    'Attendance Approver',
+    'attendance_approver',
+    'approved',
+    'تم اعتماد تصحيح البصمة'
+  );
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'requestId', p_request_id,
+    'employeeId', v_req.employee_id,
+    'workDate', v_work_date,
+    'approvedBy', auth.uid(),
+    'approvedAt', now()
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.approve_attendance_correction(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.approve_attendance_correction(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.reject_attendance_correction(p_request_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_company_id uuid := public.current_user_company_id();
+  v_caller_employee_id uuid := public.current_employee_id();
+  v_req public.requests%ROWTYPE;
+  v_target public.employees%ROWTYPE;
+BEGIN
+  IF auth.uid() IS NULL OR v_company_id IS NULL THEN
+    RAISE EXCEPTION 'لا توجد جلسة أو منشأة نشطة.' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_req
+  FROM public.requests
+  WHERE id = p_request_id
+    AND company_id = v_company_id
+    AND type = 'attendance_fix'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'طلب تصحيح البصمة غير موجود داخل المنشأة الحالية' USING ERRCODE = 'P0002';
+  END IF;
+
+  SELECT * INTO v_target
+  FROM public.employees
+  WHERE id = v_req.employee_id
+    AND company_id = v_company_id;
+
+  IF NOT (
+    public.current_user_has_role_for_company(
+      v_company_id,
+      ARRAY['super_admin','org_admin','hr_manager','attendance_officer']
+    )
+    OR (
+      public.current_user_has_role_for_company(v_company_id, ARRAY['line_manager'])
+      AND v_target.manager_id = v_caller_employee_id
+    )
+  ) THEN
+    RAISE EXCEPTION 'غير مصرح برفض تصحيح البصمة' USING ERRCODE = '42501';
+  END IF;
+
+  IF v_req.created_by = auth.uid()
+     AND NOT public.current_user_has_role_for_company(v_company_id, ARRAY['super_admin']) THEN
+    RAISE EXCEPTION 'لا يمكن لصاحب الطلب رفض طلبه بنفسه' USING ERRCODE = '42501';
+  END IF;
+
+  IF v_req.status::text NOT IN ('pending','pending_approval') THEN
+    RAISE EXCEPTION 'تم اتخاذ القرار في هذا الطلب مسبقاً (الحالة: %)', v_req.status
+      USING ERRCODE = '23505';
+  END IF;
+
+  UPDATE public.requests
+  SET status = 'rejected',
+      decided_by = auth.uid(),
+      decided_at = now(),
+      decision_note = 'تم رفض طلب تصحيح البصمة'
+  WHERE id = p_request_id;
+
+  INSERT INTO public.request_timeline (
+    request_id, step_number, actor_id, actor_name, actor_role, action, note
+  ) VALUES (
+    p_request_id,
+    COALESCE(v_req.current_step_index, 1),
+    auth.uid(),
+    'Attendance Approver',
+    'attendance_approver',
+    'rejected',
+    'تم رفض تصحيح البصمة'
+  );
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'requestId', p_request_id,
+    'rejectedBy', auth.uid(),
+    'rejectedAt', now()
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.reject_attendance_correction(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.reject_attendance_correction(uuid) TO authenticated;
+
+-- --------------------------------------------------------------------------
+-- 22) Harden attendance-period close: every published working schedule must
+--     have a processed attendance row; correction/overtime decisions must be final.
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.close_attendance_period(
+  p_year integer,
+  p_month integer,
+  p_note text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_company_id uuid := public.current_user_company_id();
+  v_timezone text;
+  v_from date;
+  v_to date;
+  v_pending_punches integer;
+  v_missing_records integer;
+  v_unprocessed_schedules integer;
+  v_pending_corrections integer;
+  v_pending_overtime integer;
+  v_period_id uuid;
+BEGIN
+  IF p_year < 2000 OR p_year > 2200 OR p_month < 1 OR p_month > 12 THEN
+    RAISE EXCEPTION 'فترة الحضور غير صالحة.';
+  END IF;
+  IF v_company_id IS NULL THEN
+    RAISE EXCEPTION 'لا توجد منشأة مرتبطة بالحساب الحالي.';
+  END IF;
+  IF NOT public.current_user_has_role_for_company(
+    v_company_id,
+    ARRAY['super_admin','org_admin','hr_manager','attendance_officer']
+  ) THEN
+    RAISE EXCEPTION 'غير مصرح بإغلاق فترة الحضور.';
+  END IF;
+
+  SELECT timezone INTO v_timezone
+  FROM public.companies
+  WHERE id = v_company_id;
+
+  IF v_timezone IS NULL OR btrim(v_timezone) = '' THEN
+    RAISE EXCEPTION 'لم يتم إعداد المنطقة الزمنية للمنشأة.';
+  END IF;
+
+  BEGIN
+    PERFORM now() AT TIME ZONE v_timezone;
+  EXCEPTION WHEN invalid_parameter_value THEN
+    RAISE EXCEPTION 'المنطقة الزمنية للمنشأة غير صالحة.';
+  END;
+
+  v_from := make_date(p_year, p_month, 1);
+  v_to := (v_from + interval '1 month - 1 day')::date;
+
+  SELECT count(*) INTO v_pending_punches
+  FROM public.punches p
+  WHERE p.company_id = v_company_id
+    AND p.approval_status = 'pending'
+    AND (p.punch_time AT TIME ZONE v_timezone)::date BETWEEN v_from AND v_to;
+
+  SELECT count(*) INTO v_missing_records
+  FROM public.attendance_records a
+  WHERE a.company_id = v_company_id
+    AND a.work_date BETWEEN v_from AND v_to
+    AND (
+      a.status::text = 'missing_punch'
+      OR (
+        (a.check_in IS NULL OR a.check_out IS NULL)
+        AND a.status::text NOT IN ('absent','leave','holiday','rest_day')
+      )
+    );
+
+  SELECT count(*) INTO v_unprocessed_schedules
+  FROM public.schedule_assignments sa
+  JOIN public.employees e ON e.id = sa.employee_id
+  WHERE e.company_id = v_company_id
+    AND sa.work_date BETWEEN v_from AND v_to
+    AND sa.status = 'published'
+    AND NOT sa.is_rest_day
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.attendance_records a
+      WHERE a.employee_id = sa.employee_id
+        AND a.work_date = sa.work_date
+        AND a.company_id = v_company_id
+    );
+
+  SELECT count(*) INTO v_pending_corrections
+  FROM public.requests r
+  WHERE r.company_id = v_company_id
+    AND r.type = 'attendance_fix'
+    AND COALESCE(r.start_date, (r.payload->>'workDate')::date) BETWEEN v_from AND v_to
+    AND r.status::text IN ('pending','pending_approval','returned');
+
+  SELECT count(*) INTO v_pending_overtime
+  FROM public.overtime_records o
+  WHERE o.company_id = v_company_id
+    AND o.work_date BETWEEN v_from AND v_to
+    AND o.status = 'pending';
+
+  IF v_pending_punches > 0 THEN
+    RAISE EXCEPTION 'لا يمكن إغلاق الفترة: توجد % بصمة معلقة بانتظار المراجعة.', v_pending_punches;
+  END IF;
+  IF v_missing_records > 0 THEN
+    RAISE EXCEPTION 'لا يمكن إغلاق الفترة: توجد % حالة بصمة ناقصة تحتاج للمراجعة.', v_missing_records;
+  END IF;
+  IF v_unprocessed_schedules > 0 THEN
+    RAISE EXCEPTION 'لا يمكن إغلاق الفترة: توجد % وردية منشورة لم تتم معالجتها.', v_unprocessed_schedules;
+  END IF;
+  IF v_pending_corrections > 0 THEN
+    RAISE EXCEPTION 'لا يمكن إغلاق الفترة: توجد % طلبات تصحيح بصمة غير محسومة.', v_pending_corrections;
+  END IF;
+  IF v_pending_overtime > 0 THEN
+    RAISE EXCEPTION 'لا يمكن إغلاق الفترة: توجد % تكليفات عمل إضافي غير محسومة.', v_pending_overtime;
+  END IF;
+
+  INSERT INTO public.attendance_periods (
+    company_id, period_year, period_month, status, closed_by, closed_at, close_note
+  ) VALUES (
+    v_company_id, p_year, p_month, 'closed', auth.uid(), now(), NULLIF(btrim(COALESCE(p_note,'')), '')
+  )
+  ON CONFLICT (company_id, period_year, period_month)
+  DO UPDATE SET
+    status = 'closed',
+    closed_by = auth.uid(),
+    closed_at = now(),
+    close_note = EXCLUDED.close_note,
+    updated_at = now()
+  RETURNING id INTO v_period_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'period_id', v_period_id,
+    'year', p_year,
+    'month', p_month,
+    'status', 'closed'
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.close_attendance_period(integer,integer,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.close_attendance_period(integer,integer,text) TO authenticated;
+
 COMMIT;

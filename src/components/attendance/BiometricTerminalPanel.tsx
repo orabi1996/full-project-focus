@@ -108,7 +108,7 @@ export const BiometricTerminalPanel: React.FC = () => {
     setBusy(true);
     try {
       await decidePunchServer({ data: { punchId, decision } });
-      toast.success(decision === "approved" ? "تم اعتماد البصمة وتحديث الحضور" : "تم رفض البصمة");
+      toast.success(decision === "approved" ? "تم اعتماد البصمة. شغّل معالجة الحضور لتحديث السجل المحسوب." : "تم رفض البصمة. شغّل معالجة الحضور لتحديث السجل المحسوب.");
       await load();
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : "تعذر تنفيذ القرار");

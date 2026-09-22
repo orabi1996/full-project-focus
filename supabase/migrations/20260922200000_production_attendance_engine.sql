@@ -1495,4 +1495,164 @@ $$;
 REVOKE ALL ON FUNCTION public.submit_overtime_attendance_request(uuid,date,time,time,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.submit_overtime_attendance_request(uuid,date,time,time,text) TO authenticated;
 
+-- --------------------------------------------------------------------------
+-- 14) Secure token rotation: raw token is returned once, hash only is persisted
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.rotate_biometric_device_token(
+  p_device_id uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_company_id uuid := public.current_user_company_id();
+  v_token text;
+  v_device_code text;
+BEGIN
+  IF v_company_id IS NULL THEN
+    RAISE EXCEPTION 'لا توجد منشأة مرتبطة بالحساب الحالي.';
+  END IF;
+  IF NOT public.current_user_has_role_for_company(
+    v_company_id,
+    ARRAY['super_admin','org_admin','hr_manager','attendance_officer']
+  ) THEN
+    RAISE EXCEPTION 'غير مصرح بإدارة أجهزة الحضور.';
+  END IF;
+
+  SELECT device_id INTO v_device_code
+  FROM public.biometric_devices
+  WHERE id = p_device_id
+    AND company_id = v_company_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'الجهاز غير موجود داخل المنشأة الحالية.';
+  END IF;
+
+  v_token := encode(gen_random_bytes(32), 'hex');
+
+  UPDATE public.biometric_devices
+  SET device_token = NULL,
+      device_token_hash = encode(digest(v_token, 'sha256'), 'hex'),
+      token_last4 = right(v_token, 4),
+      updated_at = now()
+  WHERE id = p_device_id;
+
+  RETURN jsonb_build_object(
+    'id', p_device_id,
+    'device_id', v_device_code,
+    'token', v_token,
+    'token_last4', right(v_token, 4)
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.rotate_biometric_device_token(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.rotate_biometric_device_token(uuid) TO authenticated;
+
+-- --------------------------------------------------------------------------
+-- 15) Authorized supervisor/manual punch with server-resolved tenant scope
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.record_staff_attendance_punch(
+  p_employee_ref text,
+  p_punch_type text,
+  p_device_id text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_company_id uuid := public.current_user_company_id();
+  v_caller_employee_id uuid := public.current_employee_id();
+  v_employee public.employees%ROWTYPE;
+  v_device public.biometric_devices%ROWTYPE;
+  v_punch_id uuid;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'غير مصرح: يجب تسجيل الدخول.';
+  END IF;
+  IF v_company_id IS NULL THEN
+    RAISE EXCEPTION 'لا توجد منشأة مرتبطة بالحساب الحالي.';
+  END IF;
+  IF p_punch_type NOT IN ('in','out') THEN
+    RAISE EXCEPTION 'نوع البصمة غير صالح.';
+  END IF;
+
+  SELECT * INTO v_employee
+  FROM public.employees
+  WHERE company_id = v_company_id
+    AND (id::text = btrim(p_employee_ref) OR employee_no = btrim(p_employee_ref))
+    AND status::text <> 'terminated'
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'الموظف غير موجود داخل المنشأة الحالية.';
+  END IF;
+
+  IF NOT (
+    public.current_user_has_role_for_company(
+      v_company_id,
+      ARRAY['super_admin','org_admin','hr_manager','attendance_officer']
+    )
+    OR (
+      public.current_user_has_role_for_company(v_company_id, ARRAY['line_manager'])
+      AND v_employee.manager_id = v_caller_employee_id
+    )
+  ) THEN
+    RAISE EXCEPTION 'غير مصرح بتسجيل بصمة لهذا الموظف.';
+  END IF;
+
+  IF NULLIF(btrim(COALESCE(p_device_id,'')), '') IS NOT NULL THEN
+    SELECT * INTO v_device
+    FROM public.biometric_devices
+    WHERE company_id = v_company_id
+      AND device_id = btrim(p_device_id)
+      AND status = 'active';
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'الجهاز المحدد غير مسجل أو غير نشط لهذه المنشأة.';
+    END IF;
+  END IF;
+
+  INSERT INTO public.punches (
+    employee_id,
+    company_id,
+    punch_time,
+    punch_type,
+    source,
+    device_id,
+    work_location_id,
+    approval_status,
+    geofence_valid,
+    raw_payload
+  ) VALUES (
+    v_employee.id,
+    v_company_id,
+    now(),
+    p_punch_type,
+    'manual_admin',
+    CASE WHEN v_device.id IS NOT NULL THEN v_device.device_id ELSE NULL END,
+    COALESCE(v_device.work_location_id, v_employee.work_location_id),
+    'approved',
+    NULL,
+    jsonb_build_object('entered_by', auth.uid())
+  )
+  RETURNING id INTO v_punch_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'punch_id', v_punch_id,
+    'employee_id', v_employee.id,
+    'employee_no', v_employee.employee_no,
+    'employee_name', COALESCE(NULLIF(trim(concat_ws(' ',v_employee.first_name_ar,v_employee.last_name_ar)),''), v_employee.full_name)
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.record_staff_attendance_punch(text,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.record_staff_attendance_punch(text,text,text) TO authenticated;
+
 COMMIT;

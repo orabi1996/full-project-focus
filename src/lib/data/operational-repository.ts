@@ -2632,3 +2632,298 @@ export async function rejectAttendanceCorrectionRecord(id: string): Promise<void
     throw new AppMutationError("تعذر رفض تصحيح البصمة", "backend");
   }
 }
+
+
+// ============================================================================
+// Production Attendance Repository (Prompt 12)
+// ============================================================================
+
+export interface AttendancePolicyRecord {
+  configured: boolean;
+  companyId?: string;
+  allowMobilePunch: boolean;
+  requireGeofence: boolean;
+  autoApproveMobilePunches: boolean;
+  allowOutsideGeofenceWithReason: boolean;
+  maxLocationAccuracyMeters: number | null;
+  requirePublishedSchedule: boolean;
+  missingPunchBehavior: "flag" | "absent" | "ignore";
+  overtimeRequiresApproval: boolean;
+  earlyDepartureGraceMinutes: number;
+}
+
+export interface AttendanceRecordItem {
+  id: string;
+  employeeId: string;
+  employeeNo?: string;
+  employeeName?: string;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  workDate: string;
+  shiftId?: string | null;
+  scheduledIn?: string | null;
+  scheduledOut?: string | null;
+  checkIn?: string | null;
+  checkOut?: string | null;
+  status: string;
+  workedHours: number;
+  workedMinutes: number;
+  lateMinutes: number;
+  earlyDepartureMinutes: number;
+  overtimeHours: number;
+  overtimeMinutes: number;
+  punchSource?: string | null;
+  geofenceValid?: boolean | null;
+  violationsCount: number;
+  reviewedByPayroll: boolean;
+  note?: string | null;
+}
+
+export interface AttendanceSummaryRecord {
+  date: string;
+  totalEmployees: number;
+  present: number;
+  late: number;
+  absent: number;
+  missingPunch: number;
+  pendingPunches: number;
+  attendanceRate: number;
+}
+
+function mapAttendancePolicyRpc(raw: Record<string, unknown>): AttendancePolicyRecord {
+  return {
+    configured: Boolean(raw["configured"]),
+    companyId: raw["company_id"] ? String(raw["company_id"]) : undefined,
+    allowMobilePunch: Boolean(raw["allow_mobile_punch"]),
+    requireGeofence: Boolean(raw["require_geofence"]),
+    autoApproveMobilePunches: Boolean(raw["auto_approve_mobile_punches"]),
+    allowOutsideGeofenceWithReason: Boolean(raw["allow_outside_geofence_with_reason"]),
+    maxLocationAccuracyMeters:
+      raw["max_location_accuracy_meters"] == null
+        ? null
+        : Number(raw["max_location_accuracy_meters"]),
+    requirePublishedSchedule:
+      raw["require_published_schedule"] == null
+        ? true
+        : Boolean(raw["require_published_schedule"]),
+    missingPunchBehavior:
+      raw["missing_punch_behavior"] === "absent" || raw["missing_punch_behavior"] === "ignore"
+        ? raw["missing_punch_behavior"]
+        : "flag",
+    overtimeRequiresApproval:
+      raw["overtime_requires_approval"] == null
+        ? true
+        : Boolean(raw["overtime_requires_approval"]),
+    earlyDepartureGraceMinutes: Number(raw["early_departure_grace_minutes"] ?? 0),
+  };
+}
+
+function mapAttendanceRpcItem(raw: Record<string, unknown>): AttendanceRecordItem {
+  return {
+    id: String(raw["id"] ?? ""),
+    employeeId: String(raw["employee_id"] ?? ""),
+    employeeNo: raw["employee_no"] ? String(raw["employee_no"]) : undefined,
+    employeeName: raw["employee_name"] ? String(raw["employee_name"]) : undefined,
+    departmentId: raw["department_id"] ? String(raw["department_id"]) : null,
+    departmentName: raw["department_name"] ? String(raw["department_name"]) : null,
+    workDate: String(raw["work_date"] ?? ""),
+    shiftId: raw["shift_id"] ? String(raw["shift_id"]) : null,
+    scheduledIn: raw["scheduled_in"] ? String(raw["scheduled_in"]).slice(0, 5) : null,
+    scheduledOut: raw["scheduled_out"] ? String(raw["scheduled_out"]).slice(0, 5) : null,
+    checkIn: raw["check_in"] ? String(raw["check_in"]).slice(0, 5) : null,
+    checkOut: raw["check_out"] ? String(raw["check_out"]).slice(0, 5) : null,
+    status: String(raw["status"] ?? "present"),
+    workedHours: Number(raw["worked_hours"] ?? 0),
+    workedMinutes: Number(raw["worked_minutes"] ?? 0),
+    lateMinutes: Number(raw["late_minutes"] ?? 0),
+    earlyDepartureMinutes: Number(raw["early_departure_minutes"] ?? 0),
+    overtimeHours: Number(raw["overtime_hours"] ?? 0),
+    overtimeMinutes: Number(raw["overtime_minutes"] ?? 0),
+    punchSource: raw["punch_source"] ? String(raw["punch_source"]) : null,
+    geofenceValid:
+      raw["geofence_valid"] == null ? null : Boolean(raw["geofence_valid"]),
+    violationsCount: Number(raw["violations_count"] ?? 0),
+    reviewedByPayroll: Boolean(raw["reviewed_by_payroll"]),
+    note: raw["note"] ? String(raw["note"]) : null,
+  };
+}
+
+export async function fetchAttendancePolicyRecord(): Promise<AttendancePolicyRecord> {
+  const { data, error } = await (enterpriseSupabase.rpc as any)("get_attendance_policy");
+  if (error) throw new Error(error.message);
+  return mapAttendancePolicyRpc((data as Record<string, unknown>) ?? {});
+}
+
+export async function saveAttendancePolicyRecord(input: {
+  allowMobilePunch: boolean;
+  requireGeofence: boolean;
+  autoApproveMobilePunches: boolean;
+  allowOutsideGeofenceWithReason: boolean;
+  maxLocationAccuracyMeters: number | null;
+  requirePublishedSchedule: boolean;
+  missingPunchBehavior: "flag" | "absent" | "ignore";
+  overtimeRequiresApproval: boolean;
+  earlyDepartureGraceMinutes: number;
+}): Promise<AttendancePolicyRecord> {
+  const { data, error } = await (enterpriseSupabase.rpc as any)("upsert_attendance_policy", {
+    p_allow_mobile_punch: input.allowMobilePunch,
+    p_require_geofence: input.requireGeofence,
+    p_auto_approve_mobile_punches: input.autoApproveMobilePunches,
+    p_allow_outside_geofence_with_reason: input.allowOutsideGeofenceWithReason,
+    p_max_location_accuracy_meters: input.maxLocationAccuracyMeters,
+    p_require_published_schedule: input.requirePublishedSchedule,
+    p_missing_punch_behavior: input.missingPunchBehavior,
+    p_overtime_requires_approval: input.overtimeRequiresApproval,
+    p_early_departure_grace_minutes: input.earlyDepartureGraceMinutes,
+  });
+  if (error) throw new Error(error.message);
+  return mapAttendancePolicyRpc((data as Record<string, unknown>) ?? {});
+}
+
+export async function fetchMyAttendanceRecordsRecord(
+  fromDate: string,
+  toDate: string,
+): Promise<AttendanceRecordItem[]> {
+  const { data, error } = await (enterpriseSupabase.rpc as any)("get_my_attendance_records", {
+    p_from: fromDate,
+    p_to: toDate,
+  });
+  if (error) throw new Error(error.message);
+  return Array.isArray(data)
+    ? data.map((row) => mapAttendanceRpcItem(row as Record<string, unknown>))
+    : [];
+}
+
+export async function fetchCompanyAttendanceRecordsRecord(input: {
+  fromDate: string;
+  toDate: string;
+  employeeId?: string | null;
+  departmentId?: string | null;
+  status?: string | null;
+  page?: number;
+  pageSize?: number;
+}): Promise<{ items: AttendanceRecordItem[]; totalCount: number; page: number; pageSize: number }> {
+  const { data, error } = await (enterpriseSupabase.rpc as any)("get_company_attendance_records", {
+    p_from: input.fromDate,
+    p_to: input.toDate,
+    p_employee_id: input.employeeId ?? null,
+    p_department_id: input.departmentId ?? null,
+    p_status: input.status ?? null,
+    p_page: input.page ?? 1,
+    p_page_size: input.pageSize ?? 50,
+  });
+  if (error) throw new Error(error.message);
+
+  const raw = (data as Record<string, unknown>) ?? {};
+  const items = Array.isArray(raw["items"])
+    ? (raw["items"] as Record<string, unknown>[]).map(mapAttendanceRpcItem)
+    : [];
+  return {
+    items,
+    totalCount: Number(raw["total_count"] ?? items.length),
+    page: Number(raw["page"] ?? input.page ?? 1),
+    pageSize: Number(raw["page_size"] ?? input.pageSize ?? 50),
+  };
+}
+
+export async function fetchAttendanceSummaryRecord(
+  date?: string | null,
+): Promise<AttendanceSummaryRecord> {
+  const { data, error } = await (enterpriseSupabase.rpc as any)("get_attendance_summary", {
+    p_date: date ?? null,
+  });
+  if (error) throw new Error(error.message);
+  const raw = (data as Record<string, unknown>) ?? {};
+  return {
+    date: String(raw["date"] ?? ""),
+    totalEmployees: Number(raw["total_employees"] ?? 0),
+    present: Number(raw["present"] ?? 0),
+    late: Number(raw["late"] ?? 0),
+    absent: Number(raw["absent"] ?? 0),
+    missingPunch: Number(raw["missing_punch"] ?? 0),
+    pendingPunches: Number(raw["pending_punches"] ?? 0),
+    attendanceRate: Number(raw["attendance_rate"] ?? 0),
+  };
+}
+
+export async function recordMobileAttendancePunchRecord(input: {
+  punchType: "in" | "out";
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracyMeters?: number | null;
+  idempotencyKey: string;
+  note?: string | null;
+}): Promise<{
+  success: boolean;
+  duplicate: boolean;
+  punchId: string;
+  workDate: string;
+  geofenceValid: boolean | null;
+  distanceMeters: number | null;
+  approvalStatus: string;
+}> {
+  const { data, error } = await (enterpriseSupabase.rpc as any)("record_mobile_attendance_punch", {
+    p_punch_type: input.punchType,
+    p_latitude: input.latitude ?? null,
+    p_longitude: input.longitude ?? null,
+    p_accuracy_meters: input.accuracyMeters ?? null,
+    p_idempotency_key: input.idempotencyKey,
+    p_note: input.note ?? null,
+  });
+  if (error) throw new Error(error.message);
+  const raw = (data as Record<string, unknown>) ?? {};
+  return {
+    success: Boolean(raw["success"]),
+    duplicate: Boolean(raw["duplicate"]),
+    punchId: String(raw["punch_id"] ?? ""),
+    workDate: String(raw["work_date"] ?? ""),
+    geofenceValid:
+      raw["geofence_valid"] == null ? null : Boolean(raw["geofence_valid"]),
+    distanceMeters:
+      raw["distance_meters"] == null ? null : Number(raw["distance_meters"]),
+    approvalStatus: String(raw["approval_status"] ?? "pending"),
+  };
+}
+
+export async function closeAttendancePeriodRecord(input: {
+  year: number;
+  month: number;
+  note?: string | null;
+}): Promise<{ success: boolean; periodId: string; status: string }> {
+  const { data, error } = await (enterpriseSupabase.rpc as any)("close_attendance_period", {
+    p_year: input.year,
+    p_month: input.month,
+    p_note: input.note ?? null,
+  });
+  if (error) throw new Error(error.message);
+  const raw = (data as Record<string, unknown>) ?? {};
+  return {
+    success: Boolean(raw["success"]),
+    periodId: String(raw["period_id"] ?? ""),
+    status: String(raw["status"] ?? ""),
+  };
+}
+
+export async function registerBiometricDeviceRecord(input: {
+  deviceId: string;
+  nameAr: string;
+  vendor?: string | null;
+  workLocationId?: string | null;
+  autoApprove?: boolean;
+}): Promise<{ id: string; deviceId: string; token: string; tokenLast4: string }> {
+  const { data, error } = await (enterpriseSupabase.rpc as any)("register_biometric_device", {
+    p_device_id: input.deviceId,
+    p_name_ar: input.nameAr,
+    p_vendor: input.vendor ?? null,
+    p_work_location_id: input.workLocationId ?? null,
+    p_auto_approve: input.autoApprove ?? false,
+  });
+  if (error) throw new Error(error.message);
+  const raw = (data as Record<string, unknown>) ?? {};
+  return {
+    id: String(raw["id"] ?? ""),
+    deviceId: String(raw["device_id"] ?? input.deviceId),
+    token: String(raw["token"] ?? ""),
+    tokenLast4: String(raw["token_last4"] ?? ""),
+  };
+}

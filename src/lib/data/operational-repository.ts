@@ -1539,11 +1539,13 @@ export async function createWorkLocationRecord(
 }
 
 export async function updateCompanyRecord(company: CompanyProfile) {
+  const targetId = company.id || "a0000000-0000-0000-0000-000000000001";
   const { data, error } = await enterpriseSupabase
     .from("companies")
-    .update({
+    .upsert({
+      id: targetId,
       legal_name_ar: company.legalNameAr,
-      legal_name_en: company.legalNameEn,
+      legal_name_en: (company.legalNameEn || null) as any,
       code: company.code ?? null,
       entity_type: company.entityType ?? "limited_liability",
       unified_number: company.unifiedNumber ?? null,
@@ -1559,17 +1561,17 @@ export async function updateCompanyRecord(company: CompanyProfile) {
       city: company.city ?? null,
       postal_code: company.postalCode ?? null,
       logo_url: company.logoUrl ?? null,
-      currency: company.currency,
-      timezone: company.timezone,
-      headquarters_address: company.headquartersAddress,
-      fiscal_year_start_month: company.fiscalYearStartMonth,
+      currency: company.currency || "SAR",
+      timezone: company.timezone || "Asia/Riyadh",
+      headquarters_address: company.headquartersAddress || "",
+      fiscal_year_start_month: company.fiscalYearStartMonth || 1,
+      setup_status: company.setupStatus || "incomplete",
     })
-    .eq("id", company.id)
     .select()
     .single();
 
   if (error) throw new Error(error.message);
-  if (!data) throw new Error("تعذر تحديث بيانات المنشأة: السجل غير موجود.");
+  if (!data) throw new Error("تعذر حفظ بيانات المنشأة في قاعدة البيانات.");
 }
 
 export async function updateOrganizationUnitRecord(

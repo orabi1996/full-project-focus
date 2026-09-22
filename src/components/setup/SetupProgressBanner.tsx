@@ -1,22 +1,46 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
 import { useNavigate } from "@tanstack/react-router";
-import { AlertCircle, ArrowLeft, X, Sparkles } from "lucide-react";
+import { ArrowLeft, X, Sparkles, AlertCircle } from "lucide-react";
 import { Button } from "../ui/button";
+import { calculateSetupProgress } from "../../lib/domains/setup/setup-progress";
 
 export const SetupProgressBanner: React.FC = () => {
-  const { company, orgUnits, currentRole } = useApp();
+  const {
+    company,
+    orgUnits,
+    workLocations,
+    costCenters,
+    jobPositions,
+    shifts,
+    leaveTypes,
+    currentRole,
+  } = useApp();
+
   const navigate = useNavigate();
   const [dismissed, setDismissed] = useState(false);
 
   // Show only for admins/HR managers
   const canManage = canManageModule(currentRole, "setup");
-  if (!canManage || dismissed) return null;
 
-  // Show if company setup is marked incomplete or if no departments are created yet
-  const isIncomplete = company?.setupStatus === "incomplete" || orgUnits.length === 0;
-  if (!isIncomplete) return null;
+  const progress = useMemo(() => {
+    return calculateSetupProgress({
+      company,
+      orgUnits,
+      workLocations,
+      costCenters,
+      jobPositions,
+      shifts,
+      leaveTypes,
+    });
+  }, [company, orgUnits, workLocations, costCenters, jobPositions, shifts, leaveTypes]);
+
+  if (!canManage || dismissed || progress.isFullyConfigured) {
+    return null;
+  }
+
+  const companyName = company?.legalNameAr || "الأندلس";
 
   return (
     <div
@@ -29,9 +53,13 @@ export const SetupProgressBanner: React.FC = () => {
             <Sparkles className="h-3.5 w-3.5" />
           </div>
           <p className="font-bold text-foreground">
-            تهيئة النظام لشركة «{company?.legalNameAr || "الأندلس"}» قيد الاستكمال.
+            تهيئة النظام لشركة «{companyName}» قيد الاستكمال ({progress.percentage}%).
             <span className="font-normal text-muted-foreground mr-1.5 hidden md:inline">
-              يمكنك استكمال الهيكل التنظيمي ومقار العمل وقواعد التشغيل تدريجيًا دون تعطيل بقية الوحدات.
+              {progress.missingFields.length > 0
+                ? `بانتظار: ${progress.missingFields.slice(0, 2).join("، ")}${
+                    progress.missingFields.length > 2 ? " والمزيد..." : ""
+                  }`
+                : "يمكنك استكمال بقية الإعدادات تدريجياً دون تعطيل العمليات القائمة."}
             </span>
           </p>
         </div>
@@ -42,7 +70,7 @@ export const SetupProgressBanner: React.FC = () => {
             onClick={() => navigate({ to: "/setup" })}
             className="h-7 rounded-full text-[11px] font-black bg-amber-600 hover:bg-amber-700 text-white gap-1.5 shadow-xs cursor-pointer px-3"
           >
-            استكمال التهيئة
+            استكمال التهيئة ({progress.percentage}%)
             <ArrowLeft className="h-3 w-3" />
           </Button>
           <button

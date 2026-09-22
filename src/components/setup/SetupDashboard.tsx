@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
 import { useNavigate } from "@tanstack/react-router";
@@ -8,31 +8,24 @@ import {
   MapPin,
   Clock,
   CalendarCheck,
-  DollarSign,
   ShieldCheck,
   CheckCircle2,
   AlertTriangle,
   ArrowLeft,
-  ExternalLink,
-  Plus,
   RefreshCw,
-  FileText,
-  Users,
-  Layers,
-  ChevronRight,
-  Shield,
-  Briefcase,
-  HelpCircle,
   Sparkles,
+  Layers,
+  Plus,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { CompanyProfilePanel } from "../organization/CompanyProfilePanel";
 import { OrganizationView } from "../organization/OrganizationView";
-import { ShiftsView } from "../shifts/ShiftsView";
-import { LeavesView } from "../leaves/LeavesView";
-import { RbacView } from "../rbac/RbacView";
+import { ShiftDefinitionsSetupPanel } from "./ShiftDefinitionsSetupPanel";
+import { LeavePoliciesSetupPanel } from "./LeavePoliciesSetupPanel";
+import { UserCompanyAccessPanel } from "./UserCompanyAccessPanel";
+import { calculateSetupProgress } from "../../lib/domains/setup/setup-progress";
 import { toast } from "sonner";
 
 export const SetupDashboard: React.FC = () => {
@@ -41,14 +34,10 @@ export const SetupDashboard: React.FC = () => {
     orgUnits,
     workLocations,
     costCenters,
+    jobPositions,
     shifts,
     leaveTypes,
-    payrollGroups,
-    approvalChains,
-    employees,
     currentRole,
-    language,
-    t,
     refreshCoreData,
   } = useApp();
 
@@ -69,36 +58,20 @@ export const SetupDashboard: React.FC = () => {
     }
   };
 
-  // 1. Stage Validations
-  const isCompanyComplete = Boolean(
-    company?.legalNameAr &&
-    company?.legalNameAr.trim() !== "" &&
-    company?.taxNumber &&
-    company?.taxNumber.trim() !== "" &&
-    company?.crNumber &&
-    company?.crNumber.trim() !== ""
-  );
+  // Unified domain progress calculation
+  const progress = useMemo(() => {
+    return calculateSetupProgress({
+      company,
+      orgUnits,
+      workLocations,
+      costCenters,
+      jobPositions,
+      shifts,
+      leaveTypes,
+    });
+  }, [company, orgUnits, workLocations, costCenters, jobPositions, shifts, leaveTypes]);
 
-  const isOrgComplete = orgUnits.length > 0;
-  const isLocationsComplete = workLocations.length > 0;
-  const isShiftsComplete = shifts.length > 0;
-  const isLeavesComplete = leaveTypes.length > 0;
-  const isPayrollComplete = payrollGroups.length > 0;
-  const isApprovalsComplete = approvalChains.length > 0;
-
-  // Calculate completion percentage
-  const stages = [
-    { id: "company", title: "بيانات شركة الأندلس", complete: isCompanyComplete, weight: 20 },
-    { id: "organization", title: "الهيكل التنظيمي والأقسام", complete: isOrgComplete, weight: 20 },
-    { id: "locations", title: "مقار العمل ومراكز التكلفة", complete: isLocationsComplete, weight: 15 },
-    { id: "shifts", title: "إعدادات الحضور والورديات", complete: isShiftsComplete, weight: 15 },
-    { id: "leaves", title: "سياسات وأنواع الإجازات", complete: isLeavesComplete, weight: 10 },
-    { id: "payroll", title: "مجموعات وبنود الرواتب", complete: isPayrollComplete, weight: 10 },
-    { id: "approvals", title: "مسارات الاعتماد والتفويضات", complete: isApprovalsComplete, weight: 10 },
-  ];
-
-  const completedWeight = stages.filter((s) => s.complete).reduce((acc, s) => acc + s.weight, 0);
-  const isFullyConfigured = completedWeight === 100;
+  const companyName = company?.legalNameAr || "الأندلس";
 
   return (
     <div className="space-y-6 pb-12" dir="rtl">
@@ -114,21 +87,17 @@ export const SetupDashboard: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl md:text-2xl font-black text-foreground">
-                    تهيئة النظام — شركة «{company?.legalNameAr || "الأندلس"}»
+                    تهيئة النظام — شركة «{companyName}»
                   </h1>
                   <Badge
-                    variant={isFullyConfigured ? "default" : "secondary"}
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                      isFullyConfigured
-                        ? "bg-emerald-500/10 text-emerald-600 border-emerald-200"
-                        : "bg-amber-500/10 text-amber-600 border-amber-200"
-                    }`}
+                    variant={progress.isFullyConfigured ? "default" : "secondary"}
+                    className="rounded-full text-xs font-bold"
                   >
-                    {isFullyConfigured ? "مكتملة التهيئة" : "قيد التهيئة والاستكمال"}
+                    {progress.isFullyConfigured ? "مكتمل الجاهزية" : "قيد الاستكمال"}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  فصل إعداد القواعد واللوائح التنظيمية عن العمليات اليومية. يتم حفظ التغييرات وتطبيقها تدريجيًا.
+                <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
+                  إعداد الملف المؤسسي، الهيكل الإداري، ومقار العمل وقواعد التشغيل لشركة الأندلس بصورة معزولة عن العمليات اليومية.
                 </p>
               </div>
             </div>
@@ -140,95 +109,99 @@ export const SetupDashboard: React.FC = () => {
               size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="rounded-full text-xs font-bold gap-2 cursor-pointer"
+              className="rounded-full text-xs font-bold gap-1.5 h-10 px-4 cursor-pointer"
             >
               <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin text-primary" : ""}`} />
               تحديث الحالة
             </Button>
+            <Button
+              size="sm"
+              onClick={() => navigate({ to: "/dashboard" })}
+              className="rounded-full text-xs font-bold gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 cursor-pointer"
+            >
+              الانتقال للعمليات
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
-        {/* Progress Bar & Metric */}
-        <div className="mt-6 pt-6 border-t border-border/60">
-          <div className="flex items-center justify-between text-xs font-bold mb-2">
-            <span className="text-foreground flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              اكتمال المتطلبات الأساسية للنظام
+        {/* Progress Metric Bar */}
+        <div className="mt-8 space-y-3 rounded-2xl bg-muted/40 p-5 border border-border/60">
+          <div className="flex items-center justify-between text-xs font-bold">
+            <span className="flex items-center gap-1.5 text-foreground">
+              <Sparkles className="h-4 w-4 text-amber-500" />
+              نسبة جاهزية التهيئة العامة للنظام
             </span>
-            <span className="font-mono text-primary font-black text-sm">{completedWeight}%</span>
+            <span className="font-mono text-sm font-black text-primary">
+              {progress.percentage}%
+            </span>
           </div>
+
           <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-primary to-blue-500 transition-all duration-500 rounded-full"
-              style={{ width: `${completedWeight}%` }}
+              className="h-full rounded-full bg-gradient-to-r from-primary to-emerald-500 transition-all duration-500"
+              style={{ width: `${progress.percentage}%` }}
             />
           </div>
-          <p className="text-[11px] text-muted-foreground mt-2">
-            * لا يشترط استكمال كافة الوحدات لبدء استخدام النظام؛ يمكنك تهيئة الوحدات التي تحتاجها فقط دون التأثير على بقية العمليات.
-          </p>
+
+          {progress.missingFields.length > 0 && (
+            <div className="pt-2 text-[11px] text-muted-foreground">
+              <span className="font-bold text-amber-600">المتطلبات المتبقية: </span>
+              {progress.missingFields.join(" • ")}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Navigation Tabs between Overview and Detailed Setup Panels */}
+      {/* Tabs Navigation */}
       <Tabs value={activeSetupTab} onValueChange={setActiveSetupTab} className="w-full">
-        <TabsList className="classera-tabs-strip w-full justify-start overflow-x-auto">
-          <TabsTrigger value="overview" className="rounded-xl text-xs font-bold py-2 px-4">
-            نظرة عامة وقائمة التهيئة
+        <TabsList className="classera-tabs-strip max-w-4xl flex-wrap h-auto p-1.5 gap-1">
+          <TabsTrigger value="overview" className="rounded-xl text-xs font-bold py-2 px-3.5">
+            لوحة المتابعة العامة
           </TabsTrigger>
-          <TabsTrigger value="company" className="rounded-xl text-xs font-bold py-2 px-4">
-            بيانات المنشأة والحسابات
+          <TabsTrigger value="company" className="rounded-xl text-xs font-bold py-2 px-3.5">
+            1. بيانات المنشأة والسجل
           </TabsTrigger>
-          <TabsTrigger value="org" className="rounded-xl text-xs font-bold py-2 px-4">
-            الهيكل التنظيمي ({orgUnits.length})
+          <TabsTrigger value="org" className="rounded-xl text-xs font-bold py-2 px-3.5">
+            2. الهيكل والمقار
           </TabsTrigger>
-          <TabsTrigger value="shifts" className="rounded-xl text-xs font-bold py-2 px-4">
-            إعدادات الورديات ({shifts.length})
+          <TabsTrigger value="shifts" className="rounded-xl text-xs font-bold py-2 px-3.5">
+            3. الورديات وساعات العمل
           </TabsTrigger>
-          <TabsTrigger value="leaves" className="rounded-xl text-xs font-bold py-2 px-4">
-            سياسات الإجازات ({leaveTypes.length})
+          <TabsTrigger value="leaves" className="rounded-xl text-xs font-bold py-2 px-3.5">
+            4. سياسات الإجازات
           </TabsTrigger>
-          <TabsTrigger value="rbac" className="rounded-xl text-xs font-bold py-2 px-4">
-            المستخدمون والصلاحيات
+          <TabsTrigger value="users" className="rounded-xl text-xs font-bold py-2 px-3.5">
+            5. حوكمة ربط المستخدمين
           </TabsTrigger>
         </TabsList>
 
-        {/* ===================== TAB 1: OVERVIEW & CHECKLIST ===================== */}
+        {/* ===================== TAB 1: OVERVIEW STAGES ===================== */}
         <TabsContent value="overview" className="space-y-6 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Step 1: Company Profile */}
-            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs hover:border-primary/40 transition-all">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-2xl flex items-center justify-center font-bold ${
-                    isCompanyComplete ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
-                  }`}>
-                    <Building2 className="h-5 w-5" />
+            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs hover:border-primary/40 transition-all flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                      <Building2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-foreground">1. بيانات شركة «الأندلس»</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">الاسم والسجل التجاري</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-black text-foreground">1. بيانات شركة الأندلس</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      الاسم بالعربية: «{company?.legalNameAr || "الأندلس"}»
-                    </p>
-                  </div>
+                  <Badge
+                    variant={company?.crNumber ? "default" : "secondary"}
+                    className="rounded-full text-[10px] font-bold"
+                  >
+                    {company?.crNumber ? "مكتمل" : "يتطلب استكمال"}
+                  </Badge>
                 </div>
-                <Badge
-                  variant={isCompanyComplete ? "default" : "secondary"}
-                  className="rounded-full text-[10px] font-bold"
-                >
-                  {isCompanyComplete ? "مكتمل" : "يتطلب بيانات"}
-                </Badge>
-              </div>
-              <div className="mt-4 text-xs text-muted-foreground leading-relaxed">
-                {isCompanyComplete ? (
-                  <span className="text-emerald-600 font-bold flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4" />
-                    تم تسجيل السجل التجاري والرقم الضريبي بنجاح.
-                  </span>
-                ) : (
-                  <span className="text-amber-700 bg-amber-500/10 px-2.5 py-1.5 rounded-xl block border border-amber-200">
-                    لم يُختلق سجل تجاري أو أرقام ضريبية عشوائية. يرجى إدخال السجل التجاري والرقم الضريبي الفعلي لشركة الأندلس.
-                  </span>
-                )}
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  الاسم بالعربية مثبت كـ «الأندلس». يجب إدخال رقم السجل التجاري المعتمد لإثبات التأسيس.
+                </p>
               </div>
               <div className="mt-4 pt-3 border-t border-border/60 flex justify-end">
                 <Button
@@ -237,46 +210,39 @@ export const SetupDashboard: React.FC = () => {
                   onClick={() => setActiveSetupTab("company")}
                   className="rounded-full text-xs font-bold gap-1.5 cursor-pointer"
                 >
-                  استكمال بيانات المنشأة
+                  استكمال البيانات
                   <ArrowLeft className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>
 
             {/* Step 2: Org Structure */}
-            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs hover:border-primary/40 transition-all">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-2xl flex items-center justify-center font-bold ${
-                    isOrgComplete ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-500/10 text-slate-600"
-                  }`}>
-                    <Network className="h-5 w-5" />
+            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs hover:border-primary/40 transition-all flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-2xl flex items-center justify-center font-bold ${
+                      orgUnits.length > 0 ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-500/10 text-slate-600"
+                    }`}>
+                      <Network className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-foreground">2. الهيكل التنظيمي</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">الأقسام: {orgUnits.length}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-black text-foreground">2. الهيكل التنظيمي والأقسام</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      عدد الأقسام الحالية: {orgUnits.length}
-                    </p>
-                  </div>
+                  <Badge
+                    variant={orgUnits.length > 0 ? "default" : "secondary"}
+                    className="rounded-full text-[10px] font-bold"
+                  >
+                    {orgUnits.length > 0 ? "مُعرّف" : "فارغ"}
+                  </Badge>
                 </div>
-                <Badge
-                  variant={isOrgComplete ? "default" : "secondary"}
-                  className="rounded-full text-[10px] font-bold"
-                >
-                  {isOrgComplete ? "مُعرّف" : "فارغ"}
-                </Badge>
-              </div>
-              <div className="mt-4 text-xs text-muted-foreground leading-relaxed">
-                {isOrgComplete ? (
-                  <span className="text-emerald-600 font-bold flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4" />
-                    تم تعريف {orgUnits.length} وحدة تنظيمية / قسم بنجاح.
-                  </span>
-                ) : (
-                  <span className="text-slate-600 bg-slate-500/10 px-2.5 py-1.5 rounded-xl block border border-slate-200">
-                    لم تتم إضافة أقسام بعد. لن يتم اختلاق أقسام وهمية؛ يقوم المسؤول بإضافتها حسب الهيكل الفعلي.
-                  </span>
-                )}
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {orgUnits.length > 0
+                    ? `تم بناء ${orgUnits.length} وحدة تنظيمية في الهيكل المعتمد.`
+                    : "لم تتم إضافة أقسام بعد — يضيف المسؤول الأقسام الحقيقية دون افتراض أي بيانات وهمية."}
+                </p>
               </div>
               <div className="mt-4 pt-3 border-t border-border/60 flex justify-end">
                 <Button
@@ -291,88 +257,72 @@ export const SetupDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Step 3: Work Locations & Cost Centers */}
-            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs hover:border-primary/40 transition-all">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-2xl flex items-center justify-center font-bold ${
-                    isLocationsComplete ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-500/10 text-slate-600"
-                  }`}>
-                    <MapPin className="h-5 w-5" />
+            {/* Step 3: Work Locations */}
+            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs hover:border-primary/40 transition-all flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-2xl flex items-center justify-center font-bold ${
+                      workLocations.length > 0 ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-500/10 text-slate-600"
+                    }`}>
+                      <MapPin className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-foreground">3. مقار العمل ومراكز التكلفة</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">المواقع: {workLocations.length}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-black text-foreground">3. مقار العمل ومراكز التكلفة</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      مقار العمل: {workLocations.length} | مراكز التكلفة: {costCenters.length}
-                    </p>
-                  </div>
+                  <Badge
+                    variant={workLocations.length > 0 ? "default" : "secondary"}
+                    className="rounded-full text-[10px] font-bold"
+                  >
+                    {workLocations.length > 0 ? "مُعرّف" : "فارغ"}
+                  </Badge>
                 </div>
-                <Badge
-                  variant={isLocationsComplete ? "default" : "secondary"}
-                  className="rounded-full text-[10px] font-bold"
-                >
-                  {isLocationsComplete ? "مُعرّف" : "فارغ"}
-                </Badge>
-              </div>
-              <div className="mt-4 text-xs text-muted-foreground leading-relaxed">
-                {isLocationsComplete ? (
-                  <span className="text-emerald-600 font-bold flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4" />
-                    تم تعريف مقار العمل الجغرافية ونطاق البصمة بدقة.
-                  </span>
-                ) : (
-                  <span className="text-slate-600 bg-slate-500/10 px-2.5 py-1.5 rounded-xl block border border-slate-200">
-                    لم تتم إضافة مقار عمل بعد. يتم تحديد المقار والفروع ونطاقات الحضور الجغرافي من التهيئة.
-                  </span>
-                )}
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {workLocations.length > 0
+                    ? `تم تعريف ${workLocations.length} موقع جغرافي وسياج حضور ذكي.`
+                    : "يلزم تحديد المقر الرئيسي والفروع مع نطاق الـ GPS لتفعيل تحضير الموظفين."}
+                </p>
               </div>
               <div className="mt-4 pt-3 border-t border-border/60 flex justify-end">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => navigate({ to: "/organization" })}
+                  onClick={() => setActiveSetupTab("org")}
                   className="rounded-full text-xs font-bold gap-1.5 cursor-pointer"
                 >
-                  إضافة مقر عمل
+                  إضافة وإدارة مقار العمل
                   <ArrowLeft className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>
 
-            {/* Step 4: Attendance & Shifts */}
-            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs hover:border-primary/40 transition-all">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-2xl flex items-center justify-center font-bold ${
-                    isShiftsComplete ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-500/10 text-slate-600"
-                  }`}>
-                    <Clock className="h-5 w-5" />
+            {/* Step 4: Shifts */}
+            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs hover:border-primary/40 transition-all flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-2xl flex items-center justify-center font-bold ${
+                      shifts.length > 0 ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-500/10 text-slate-600"
+                    }`}>
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-foreground">4. سياسات وورديات العمل</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">الورديات: {shifts.length}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-black text-foreground">4. إعدادات الحضور والورديات</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      الورديات المُعرّفة: {shifts.length}
-                    </p>
-                  </div>
+                  <Badge
+                    variant={shifts.length > 0 ? "default" : "secondary"}
+                    className="rounded-full text-[10px] font-bold"
+                  >
+                    {shifts.length > 0 ? "مُعرّف" : "فارغ"}
+                  </Badge>
                 </div>
-                <Badge
-                  variant={isShiftsComplete ? "default" : "secondary"}
-                  className="rounded-full text-[10px] font-bold"
-                >
-                  {isShiftsComplete ? "مُعرّف" : "فارغ"}
-                </Badge>
-              </div>
-              <div className="mt-4 text-xs text-muted-foreground leading-relaxed">
-                {isShiftsComplete ? (
-                  <span className="text-emerald-600 font-bold flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4" />
-                    تم تعريف مواعيد وساعات العمل وقواعد الحضور بنجاح.
-                  </span>
-                ) : (
-                  <span className="text-slate-600 bg-slate-500/10 px-2.5 py-1.5 rounded-xl block border border-slate-200">
-                    تعريف الورديات يتم في التهيئة، بينما توزيع الموظفين عليها يتم في شاشة العمليات اليومية.
-                  </span>
-                )}
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  تعريف قواعد الورديات وأوقات السماح يتم هنا، بينما توزيع الموظفين يتم في العمليات اليومية.
+                </p>
               </div>
               <div className="mt-4 pt-3 border-t border-border/60 flex justify-end">
                 <Button
@@ -387,40 +337,31 @@ export const SetupDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Step 5: Leave Policies */}
-            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs hover:border-primary/40 transition-all">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-2xl flex items-center justify-center font-bold ${
-                    isLeavesComplete ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-500/10 text-slate-600"
-                  }`}>
-                    <CalendarCheck className="h-5 w-5" />
+            {/* Step 5: Leaves */}
+            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs hover:border-primary/40 transition-all flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-2xl flex items-center justify-center font-bold ${
+                      leaveTypes.length > 0 ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-500/10 text-slate-600"
+                    }`}>
+                      <CalendarCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-foreground">5. لوائح وأنواع الإجازات</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">الأنواع: {leaveTypes.length}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-black text-foreground">5. سياسات وأنواع الإجازات</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      أنواع الإجازات المُعرّفة: {leaveTypes.length}
-                    </p>
-                  </div>
+                  <Badge
+                    variant={leaveTypes.length > 0 ? "default" : "secondary"}
+                    className="rounded-full text-[10px] font-bold"
+                  >
+                    {leaveTypes.length > 0 ? "مُعرّف" : "فارغ"}
+                  </Badge>
                 </div>
-                <Badge
-                  variant={isLeavesComplete ? "default" : "secondary"}
-                  className="rounded-full text-[10px] font-bold"
-                >
-                  {isLeavesComplete ? "مُعرّف" : "فارغ"}
-                </Badge>
-              </div>
-              <div className="mt-4 text-xs text-muted-foreground leading-relaxed">
-                {isLeavesComplete ? (
-                  <span className="text-emerald-600 font-bold flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4" />
-                    لوائح الإجازات والاستحقاق السنوي والترحيل معتمدة.
-                  </span>
-                ) : (
-                  <span className="text-slate-600 bg-slate-500/10 px-2.5 py-1.5 rounded-xl block border border-slate-200">
-                    تعريف نوع الإجازة يتم في التهيئة، بينما تقديم الموظف للطلب واعتماده يتم في العمليات التشغيلية.
-                  </span>
-                )}
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  تعريف سياسات الاستحقاق والترحيل يتم هنا، بينما تقديم واعتماد الإجازات يتم في العمليات.
+                </p>
               </div>
               <div className="mt-4 pt-3 border-t border-border/60 flex justify-end">
                 <Button
@@ -435,37 +376,35 @@ export const SetupDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Step 6: Users & Roles */}
-            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs hover:border-primary/40 transition-all">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold">
-                    <ShieldCheck className="h-5 w-5" />
+            {/* Step 6: Users Governance */}
+            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs hover:border-primary/40 transition-all flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                      <ShieldCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-foreground">6. حوكمة ربط المستخدمين</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">ربط الحسابات بالشركة</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-black text-foreground">6. المستخدمون والأدوار والصلاحيات</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      حوكمة الوصول ونطاق المنشأة
-                    </p>
-                  </div>
+                  <Badge variant="default" className="rounded-full text-[10px] font-bold bg-primary/10 text-primary border-primary/20">
+                    محمي
+                  </Badge>
                 </div>
-                <Badge variant="default" className="rounded-full text-[10px] font-bold bg-primary/10 text-primary border-primary/20">
-                  محمي
-                </Badge>
-              </div>
-              <div className="mt-4 text-xs text-muted-foreground leading-relaxed">
-                <span className="text-slate-600 bg-slate-500/10 px-2.5 py-1.5 rounded-xl block border border-slate-200">
-                  يتم الاحتفاظ بحسابات الدخول الحالية وصلاحياتها دون تغيير تلقائي. يراجع المسؤول ربط الحسابات بنطاق شركة الأندلس.
-                </span>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  ربط الحسابات المعتمدة بنطاق شركة «الأندلس» دون منح أي صلاحيات إضافية تلقائياً.
+                </p>
               </div>
               <div className="mt-4 pt-3 border-t border-border/60 flex justify-end">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setActiveSetupTab("rbac")}
+                  onClick={() => setActiveSetupTab("users")}
                   className="rounded-full text-xs font-bold gap-1.5 cursor-pointer"
                 >
-                  مراجعة الصلاحيات والمستخدمين
+                  مراجعة واعتماد الربط
                   <ArrowLeft className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -479,7 +418,7 @@ export const SetupDashboard: React.FC = () => {
             <div className="mb-6">
               <h2 className="text-base font-black text-foreground">بيانات المنشأة والحسابات البنكية</h2>
               <p className="text-xs text-muted-foreground mt-1">
-                استكمال البيانات القانونية والرسمية لشركة الأندلس. لا يتم اختلاق أرقام أو سجلات تجارية عشوائية.
+                استكمال البيانات القانونية لشركة «الأندلس». لا يتم اختلاق أرقام أو سجلات تجارية عشوائية.
               </p>
             </div>
             <CompanyProfilePanel />
@@ -493,17 +432,17 @@ export const SetupDashboard: React.FC = () => {
 
         {/* ===================== TAB 4: SHIFTS SETUP ===================== */}
         <TabsContent value="shifts" className="pt-4">
-          <ShiftsView />
+          <ShiftDefinitionsSetupPanel />
         </TabsContent>
 
         {/* ===================== TAB 5: LEAVES POLICIES ===================== */}
         <TabsContent value="leaves" className="pt-4">
-          <LeavesView />
+          <LeavePoliciesSetupPanel />
         </TabsContent>
 
-        {/* ===================== TAB 6: RBAC SETUP ===================== */}
-        <TabsContent value="rbac" className="pt-4">
-          <RbacView />
+        {/* ===================== TAB 6: USERS GOVERNANCE ===================== */}
+        <TabsContent value="users" className="pt-4">
+          <UserCompanyAccessPanel />
         </TabsContent>
       </Tabs>
     </div>

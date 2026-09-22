@@ -1274,4 +1274,225 @@ $$;
 REVOKE ALL ON FUNCTION public.close_attendance_period(integer,integer,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.close_attendance_period(integer,integer,text) TO authenticated;
 
+-- --------------------------------------------------------------------------
+-- 12) Self-service attendance correction submission
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.submit_attendance_correction(
+  p_work_date date,
+  p_correct_in time DEFAULT NULL,
+  p_correct_out time DEFAULT NULL,
+  p_reason text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_employee public.employees%ROWTYPE;
+  v_period_status text;
+  v_request_id uuid;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'غير مصرح: يجب تسجيل الدخول.';
+  END IF;
+  IF NULLIF(btrim(COALESCE(p_reason,'')), '') IS NULL THEN
+    RAISE EXCEPTION 'سبب تصحيح البصمة مطلوب.';
+  END IF;
+  IF p_correct_in IS NULL AND p_correct_out IS NULL THEN
+    RAISE EXCEPTION 'يجب إدخال وقت دخول أو خروج مصحح.';
+  END IF;
+
+  SELECT * INTO v_employee
+  FROM public.employees
+  WHERE user_id = auth.uid()
+    AND status::text <> 'terminated'
+  LIMIT 1;
+
+  IF NOT FOUND OR v_employee.company_id IS NULL THEN
+    RAISE EXCEPTION 'لا يوجد ملف موظف نشط مرتبط بالحساب الحالي.';
+  END IF;
+
+  SELECT status INTO v_period_status
+  FROM public.attendance_periods
+  WHERE company_id = v_employee.company_id
+    AND period_year = EXTRACT(YEAR FROM p_work_date)::integer
+    AND period_month = EXTRACT(MONTH FROM p_work_date)::integer;
+
+  IF v_period_status = 'closed' THEN
+    RAISE EXCEPTION 'فترة الحضور لهذا التاريخ مغلقة.';
+  END IF;
+
+  INSERT INTO public.requests (
+    employee_id,
+    type,
+    status,
+    start_date,
+    end_date,
+    reason,
+    created_by,
+    payload
+  ) VALUES (
+    v_employee.id,
+    'attendance_fix',
+    'pending_approval',
+    p_work_date,
+    p_work_date,
+    btrim(p_reason),
+    auth.uid(),
+    jsonb_build_object(
+      'workDate', p_work_date,
+      'correctInTime', p_correct_in,
+      'correctOutTime', p_correct_out
+    )
+  )
+  RETURNING id INTO v_request_id;
+
+  INSERT INTO public.request_timeline (
+    request_id,
+    step_number,
+    actor_id,
+    actor_name,
+    actor_role,
+    action,
+    note
+  ) VALUES (
+    v_request_id,
+    1,
+    auth.uid(),
+    COALESCE(NULLIF(trim(concat_ws(' ',v_employee.first_name_ar,v_employee.last_name_ar)),''), v_employee.full_name),
+    'employee',
+    'submitted',
+    'تم إرسال طلب تصحيح البصمة'
+  );
+
+  RETURN jsonb_build_object('success', true, 'request_id', v_request_id);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.submit_attendance_correction(date,time,time,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.submit_attendance_correction(date,time,time,text) TO authenticated;
+
+-- --------------------------------------------------------------------------
+-- 13) Overtime attendance request: duration is authoritative, pricing belongs to Payroll
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.submit_overtime_attendance_request(
+  p_employee_id uuid,
+  p_work_date date,
+  p_start_time time,
+  p_end_time time,
+  p_reason text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_company_id uuid := public.current_user_company_id();
+  v_target public.employees%ROWTYPE;
+  v_caller_employee_id uuid := public.current_employee_id();
+  v_start_ts timestamp;
+  v_end_ts timestamp;
+  v_hours numeric(8,2);
+  v_id uuid;
+  v_period_status text;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'غير مصرح: يجب تسجيل الدخول.';
+  END IF;
+  IF v_company_id IS NULL THEN
+    RAISE EXCEPTION 'لا توجد منشأة مرتبطة بالحساب الحالي.';
+  END IF;
+  IF NULLIF(btrim(COALESCE(p_reason,'')), '') IS NULL THEN
+    RAISE EXCEPTION 'مبرر العمل الإضافي مطلوب.';
+  END IF;
+
+  SELECT * INTO v_target
+  FROM public.employees
+  WHERE id = p_employee_id
+    AND company_id = v_company_id
+    AND status::text NOT IN ('terminated','draft','preboarding');
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'الموظف غير موجود داخل المنشأة الحالية.';
+  END IF;
+
+  IF NOT (
+    public.current_user_has_role_for_company(
+      v_company_id,
+      ARRAY['super_admin','org_admin','hr_manager','attendance_officer']
+    )
+    OR (
+      public.current_user_has_role_for_company(v_company_id, ARRAY['line_manager'])
+      AND v_target.manager_id = v_caller_employee_id
+    )
+  ) THEN
+    RAISE EXCEPTION 'غير مصرح بتكليف هذا الموظف بعمل إضافي.';
+  END IF;
+
+  SELECT status INTO v_period_status
+  FROM public.attendance_periods
+  WHERE company_id = v_company_id
+    AND period_year = EXTRACT(YEAR FROM p_work_date)::integer
+    AND period_month = EXTRACT(MONTH FROM p_work_date)::integer;
+
+  IF v_period_status = 'closed' THEN
+    RAISE EXCEPTION 'فترة الحضور لهذا التاريخ مغلقة.';
+  END IF;
+
+  v_start_ts := p_work_date::timestamp + p_start_time;
+  v_end_ts := p_work_date::timestamp + p_end_time;
+  IF v_end_ts <= v_start_ts THEN
+    v_end_ts := v_end_ts + interval '1 day';
+  END IF;
+
+  v_hours := round((EXTRACT(EPOCH FROM (v_end_ts - v_start_ts)) / 3600.0)::numeric, 2);
+  IF v_hours <= 0 OR v_hours > 16 THEN
+    RAISE EXCEPTION 'مدة العمل الإضافي غير صالحة.';
+  END IF;
+
+  INSERT INTO public.overtime_records (
+    employee_id,
+    company_id,
+    work_date,
+    start_time,
+    end_time,
+    hours,
+    rate_multiplier,
+    rate_type,
+    reason,
+    hourly_rate,
+    total_amount,
+    status,
+    created_by
+  ) VALUES (
+    v_target.id,
+    v_company_id,
+    p_work_date,
+    p_start_time,
+    p_end_time,
+    v_hours,
+    0,
+    'pending_payroll_rule',
+    btrim(p_reason),
+    0,
+    0,
+    'pending',
+    auth.uid()
+  )
+  RETURNING id INTO v_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'overtime_id', v_id,
+    'hours', v_hours,
+    'pricing_status', 'pending_payroll_rule'
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.submit_overtime_attendance_request(uuid,date,time,time,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.submit_overtime_attendance_request(uuid,date,time,time,text) TO authenticated;
+
 COMMIT;

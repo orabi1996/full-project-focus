@@ -38,8 +38,9 @@ interface DeviceRow {
 
 export const BiometricTerminalPanel: React.FC = () => {
   const { company } = useApp();
-  const timezoneConfigured = isValidTimezone(company?.timezone);
-  const companyToday = timezoneConfigured ? getCompanyToday(company.timezone) : "";
+  const companyTimezone = company?.timezone ?? "";
+  const timezoneConfigured = isValidTimezone(companyTimezone);
+  const companyToday = timezoneConfigured ? getCompanyToday(companyTimezone) : "";
   const employeeDirectory = useEmployeeDirectory(
     { page: 1, pageSize: 100, status: "active", sort: "employee_no_asc" },
     { enabled: true },
@@ -52,8 +53,8 @@ export const BiometricTerminalPanel: React.FC = () => {
   const [employeeRef, setEmployeeRef] = useState("");
   const [deviceId, setDeviceId] = useState("");
   const [newToken, setNewToken] = useState<string | null>(null);
-  const [year, setYear] = useState(timezoneConfigured ? getCompanyYear(company.timezone) : 0);
-  const [month, setMonth] = useState(timezoneConfigured ? getCompanyMonth(company.timezone) : 0);
+  const [year, setYear] = useState(timezoneConfigured ? getCompanyYear(companyTimezone) : 0);
+  const [month, setMonth] = useState(timezoneConfigured ? getCompanyMonth(companyTimezone) : 0);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -79,9 +80,9 @@ export const BiometricTerminalPanel: React.FC = () => {
   useEffect(() => {
     if (!timezoneConfigured || !companyToday) return;
     if (!date) setDate(companyToday);
-    if (!year) setYear(getCompanyYear(company.timezone));
-    if (!month) setMonth(getCompanyMonth(company.timezone));
-  }, [company.timezone, companyToday, date, month, timezoneConfigured, year]);
+    if (!year) setYear(getCompanyYear(companyTimezone));
+    if (!month) setMonth(getCompanyMonth(companyTimezone));
+  }, [companyTimezone, companyToday, date, month, timezoneConfigured, year]);
 
   const handlePunch = async (punchType: "in" | "out") => {
     if (!employeeRef.trim()) {

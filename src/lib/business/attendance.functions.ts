@@ -19,9 +19,37 @@ function timeOfDay(iso: string) {
 }
 
 function formatTime(minutes: number) {
-  const h = Math.floor(minutes / 60) % 24;
-  const m = Math.round(minutes % 60);
+  const normalized = ((minutes % 1440) + 1440) % 1440;
+  const h = Math.floor(normalized / 60);
+  const m = Math.round(normalized % 60);
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
+}
+
+function localPunchParts(iso: string, timezone: string) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = Object.fromEntries(
+    formatter
+      .formatToParts(new Date(iso))
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+  const date = `${parts.year}-${parts.month}-${parts.day}`;
+  const minutes = Number(parts.hour) * 60 + Number(parts.minute);
+  return { date, minutes };
+}
+
+function addCalendarDays(date: string, days: number) {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
 }
 
 /**
@@ -43,106 +71,418 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
       "org_admin",
       "hr_manager",
       "attendance_officer",
-      "line_manager",
     ]);
 
-    let punchQuery = supabase
-      .from("punches")
-      .select("employee_id, punch_time, punch_type")
-      .neq("approval_status", "rejected")
-      .gte("punch_time", `${data.fromDate}T00:00:00Z`)
-      .lte("punch_time", `${data.toDate}T23:59:59Z`)
-      .order("punch_time");
-    if (data.employeeId) punchQuery = punchQuery.eq("employee_id", data.employeeId);
+    const { data: companyId, error: companyIdError } = await supabase.rpc(
+      "current_user_company_id",
+    );
+    if (companyIdError || !companyId) {
+      throw new Error("لا توجد منشأة نشطة مرتبطة بالحساب الحالي");
+    }
 
-    const [punchRes, scheduleRes, shiftRes] = await Promise.all([
-      punchQuery,
+    const [{ data: company, error: companyError }, { data: policy, error: policyError }] =
+      await Promise.all([
+        supabase.from("companies").select("id, timezone").eq("id", companyId).single(),
+        supabase
+          .from("attendance_policies")
+          .select(
+            "require_published_schedule, missing_punch_behavior, early_departure_grace_minutes",
+          )
+          .eq("company_id", companyId)
+          .maybeSingle(),
+      ]);
+
+    if (companyError) throw new Error(`تعذر قراءة إعدادات المنشأة: ${companyError.message}`);
+    if (policyError) throw new Error(`تعذر قراءة سياسة الحضور: ${policyError.message}`);
+    if (!policy) throw new Error("لم يتم إعداد سياسة الحضور للمنشأة");
+    if (!company?.timezone) throw new Error("لم يتم إعداد المنطقة الزمنية للمنشأة");
+
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: company.timezone }).format(new Date());
+    } catch {
+      throw new Error("المنطقة الزمنية للمنشأة غير صالحة");
+    }
+
+    const timezone = company.timezone as string;
+
+    const { data: closedPeriods, error: closedError } = await supabase
+      .from("attendance_periods")
+      .select("period_year, period_month")
+      .eq("company_id", companyId)
+      .eq("status", "closed");
+    if (closedError) throw new Error(`تعذر قراءة حالة فترات الحضور: ${closedError.message}`);
+
+    const closedKeys = new Set(
+      (closedPeriods ?? []).map(
+        (period: any) =>
+          `${period.period_year}-${String(period.period_month).padStart(2, "0")}`,
+      ),
+    );
+    for (
+      let cursor = data.fromDate;
+      cursor <= data.toDate;
+      cursor = addCalendarDays(cursor, 1)
+    ) {
+      if (closedKeys.has(cursor.slice(0, 7))) {
+        throw new Error(`فترة الحضور ${cursor.slice(0, 7)} مغلقة ولا يمكن إعادة معالجتها`);
+      }
+    }
+
+    let employeeQuery = supabase
+      .from("employees")
+      .select("id, company_id, status")
+      .eq("company_id", companyId)
+      .neq("status", "terminated");
+    if (data.employeeId) employeeQuery = employeeQuery.eq("id", data.employeeId);
+
+    const { data: employees, error: employeeError } = await employeeQuery;
+    if (employeeError) throw new Error(`تعذر قراءة الموظفين: ${employeeError.message}`);
+
+    const employeeIds = (employees ?? []).map((employee: any) => employee.id);
+    if (!employeeIds.length) return { processed: 0, skipped: 0 };
+
+    const widenedFrom = addCalendarDays(data.fromDate, -1);
+    const widenedToExclusive = addCalendarDays(data.toDate, 2);
+
+    const [
+      punchRes,
+      scheduleRes,
+      shiftRes,
+      leaveRes,
+      holidayRes,
+    ] = await Promise.all([
+      supabase
+        .from("punches")
+        .select(
+          "employee_id, punch_time, punch_type, source, geofence_valid, approval_status",
+        )
+        .eq("company_id", companyId)
+        .eq("approval_status", "approved")
+        .in("employee_id", employeeIds)
+        .gte("punch_time", `${widenedFrom}T00:00:00Z`)
+        .lt("punch_time", `${widenedToExclusive}T00:00:00Z`)
+        .order("punch_time"),
       supabase
         .from("schedule_assignments")
-        .select("employee_id, shift_id, work_date, is_rest_day")
+        .select("employee_id, shift_id, work_date, is_rest_day, status")
+        .in("employee_id", employeeIds)
         .gte("work_date", data.fromDate)
-        .lte("work_date", data.toDate),
+        .lte("work_date", data.toDate)
+        .eq("status", "published"),
       supabase
         .from("shifts")
         .select(
           "id, start_time, end_time, grace_minutes_arrival, grace_minutes_departure, overtime_eligible",
         ),
+      supabase
+        .from("requests")
+        .select("employee_id, start_date, end_date")
+        .eq("company_id", companyId)
+        .eq("type", "leave")
+        .eq("status", "approved")
+        .in("employee_id", employeeIds)
+        .lte("start_date", data.toDate)
+        .gte("end_date", data.fromDate),
+      supabase
+        .from("company_holidays")
+        .select("start_date, end_date")
+        .eq("company_id", companyId)
+        .lte("start_date", data.toDate)
+        .gte("end_date", data.fromDate),
     ]);
 
     if (punchRes.error) throw new Error(`تعذر قراءة البصمات: ${punchRes.error.message}`);
+    if (scheduleRes.error) throw new Error(`تعذر قراءة جداول الدوام: ${scheduleRes.error.message}`);
+    if (shiftRes.error) throw new Error(`تعذر قراءة الورديات: ${shiftRes.error.message}`);
+    if (leaveRes.error) throw new Error(`تعذر قراءة الإجازات المعتمدة: ${leaveRes.error.message}`);
+    if (holidayRes.error) throw new Error(`تعذر قراءة العطلات: ${holidayRes.error.message}`);
 
-    const shifts = new Map<string, any>((shiftRes.data ?? []).map((s: any) => [s.id, s]));
+    const shifts = new Map<string, any>((shiftRes.data ?? []).map((shift: any) => [shift.id, shift]));
     const schedules = new Map<string, any>(
-      (scheduleRes.data ?? []).map((s: any) => [`${s.employee_id}|${s.work_date}`, s]),
+      (scheduleRes.data ?? []).map((schedule: any) => [
+        `${schedule.employee_id}|${schedule.work_date}`,
+        schedule,
+      ]),
     );
 
-    const grouped = new Map<string, { in?: string; out?: string }>();
+    const punchesByEmployee = new Map<string, any[]>();
     for (const punch of punchRes.data ?? []) {
-      const day = String(punch.punch_time).slice(0, 10);
-      const key = `${punch.employee_id}|${day}`;
-      const entry = grouped.get(key) ?? {};
-      if (punch.punch_type === "in") {
-        if (!entry.in) entry.in = punch.punch_time;
-      } else {
-        entry.out = punch.punch_time;
-      }
-      grouped.set(key, entry);
+      const local = localPunchParts(punch.punch_time, timezone);
+      const enriched = { ...punch, localDate: local.date, localMinutes: local.minutes };
+      const list = punchesByEmployee.get(punch.employee_id) ?? [];
+      list.push(enriched);
+      punchesByEmployee.set(punch.employee_id, list);
     }
 
-    const rows: Record<string, unknown>[] = [];
-    for (const [key, entry] of grouped) {
-      const [employeeId, workDate] = key.split("|");
-      const schedule = schedules.get(key);
-      if (schedule?.is_rest_day) continue;
-      const shift = schedule?.shift_id ? shifts.get(schedule.shift_id) : undefined;
+    if (policy.require_published_schedule) {
+      const unscheduled = (punchRes.data ?? []).filter((punch: any) => {
+        const local = localPunchParts(punch.punch_time, timezone);
+        if (local.date < data.fromDate || local.date > addCalendarDays(data.toDate, 1)) return false;
+        const directKey = `${punch.employee_id}|${local.date}`;
+        if (schedules.has(directKey)) return false;
+        const previousDate = addCalendarDays(local.date, -1);
+        const previousSchedule = schedules.get(`${punch.employee_id}|${previousDate}`);
+        if (!previousSchedule?.shift_id) return true;
+        const previousShift = shifts.get(previousSchedule.shift_id);
+        if (!previousShift) return true;
+        const previousStart = toMinutes(previousShift.start_time);
+        const previousEnd = toMinutes(previousShift.end_time);
+        const overnight = previousEnd <= previousStart;
+        return !(overnight && local.minutes < previousStart);
+      });
 
-      if (!entry.in) continue;
-      const checkInMin = timeOfDay(entry.in);
-      const checkOutMin = entry.out ? timeOfDay(entry.out) : null;
-
-      let lateMinutes = 0;
-      let overtimeMinutes = 0;
-      let expectedMinutes = 8 * 60;
-
-      if (shift) {
-        const shiftStart = toMinutes(shift.start_time);
-        const shiftEnd = toMinutes(shift.end_time);
-        expectedMinutes = (shiftEnd >= shiftStart ? shiftEnd : shiftEnd + 1440) - shiftStart;
-        const grace = shift.grace_minutes_arrival ?? 0;
-        lateMinutes = Math.max(0, checkInMin - shiftStart - grace);
+      if (unscheduled.length) {
+        throw new Error(
+          `تعذر معالجة الحضور: توجد ${unscheduled.length} بصمة معتمدة بدون جدول دوام منشور.`,
+        );
       }
+    }
 
-      let workedMinutes = 0;
-      if (checkOutMin !== null) {
-        workedMinutes = checkOutMin >= checkInMin ? checkOutMin - checkInMin : checkOutMin + 1440 - checkInMin;
-        if (!shift || shift.overtime_eligible !== false) {
-          overtimeMinutes = Math.max(0, workedMinutes - expectedMinutes);
+    const isHoliday = (date: string) =>
+      (holidayRes.data ?? []).some(
+        (holiday: any) => holiday.start_date <= date && holiday.end_date >= date,
+      );
+    const isOnLeave = (employeeId: string, date: string) =>
+      (leaveRes.data ?? []).some(
+        (leave: any) =>
+          leave.employee_id === employeeId &&
+          leave.start_date <= date &&
+          leave.end_date >= date,
+      );
+
+    const rows: Record<string, unknown>[] = [];
+    const scheduleEntries = [...schedules.entries()];
+
+    if (!policy.require_published_schedule) {
+      for (const employeeId of employeeIds) {
+        for (const punch of punchesByEmployee.get(employeeId) ?? []) {
+          if (punch.localDate < data.fromDate || punch.localDate > data.toDate) continue;
+          const key = `${employeeId}|${punch.localDate}`;
+          if (!schedules.has(key)) {
+            schedules.set(key, {
+              employee_id: employeeId,
+              shift_id: null,
+              work_date: punch.localDate,
+              is_rest_day: false,
+              status: "published",
+            });
+            scheduleEntries.push([key, schedules.get(key)]);
+          }
         }
       }
+    }
+
+    for (const [key, schedule] of scheduleEntries) {
+      const [employeeId, workDate] = key.split("|");
+      if (!employeeId || !workDate || workDate < data.fromDate || workDate > data.toDate) continue;
+
+      const shift = schedule.shift_id ? shifts.get(schedule.shift_id) : null;
+      if (!schedule.is_rest_day && schedule.shift_id && !shift) {
+        throw new Error(`الوردية المرتبطة بجدول ${workDate} غير موجودة أو غير متاحة`);
+      }
+      if (!schedule.is_rest_day && policy.require_published_schedule && !shift) {
+        throw new Error(`جدول ${workDate} لا يحتوي وردية صالحة`);
+      }
+
+      const baseRow: Record<string, unknown> = {
+        employee_id: employeeId,
+        company_id: companyId,
+        work_date: workDate,
+        shift_id: schedule.shift_id ?? null,
+        scheduled_in: shift?.start_time ?? null,
+        scheduled_out: shift?.end_time ?? null,
+        worked_hours: 0,
+        worked_minutes: 0,
+        late_minutes: 0,
+        early_departure_minutes: 0,
+        overtime_minutes: 0,
+        overtime_hours: 0,
+        is_manual: false,
+        geofence_valid: null,
+        violations_count: 0,
+        reviewed_by_payroll: false,
+        processed_at: new Date().toISOString(),
+      };
+
+      if (schedule.is_rest_day) {
+        rows.push({
+          ...baseRow,
+          status: "rest_day",
+          check_in: null,
+          check_out: null,
+          punch_source: null,
+          note: "يوم راحة حسب جدول الدوام المنشور",
+        });
+        continue;
+      }
+
+      if (isHoliday(workDate)) {
+        rows.push({
+          ...baseRow,
+          status: "holiday",
+          check_in: null,
+          check_out: null,
+          punch_source: null,
+          note: "عطلة مسجلة للمنشأة",
+        });
+        continue;
+      }
+
+      if (isOnLeave(employeeId, workDate)) {
+        rows.push({
+          ...baseRow,
+          status: "leave",
+          check_in: null,
+          check_out: null,
+          punch_source: null,
+          note: "إجازة معتمدة",
+        });
+        continue;
+      }
+
+      const employeePunches = punchesByEmployee.get(employeeId) ?? [];
+      const shiftStart = shift ? toMinutes(shift.start_time) : 0;
+      const shiftEnd = shift ? toMinutes(shift.end_time) : 0;
+      const overnight = Boolean(shift && shiftEnd <= shiftStart);
+      const nextDate = addCalendarDays(workDate, 1);
+
+      const relevantPunches = employeePunches
+        .filter((punch) => {
+          if (!shift) return punch.localDate === workDate;
+          if (!overnight) return punch.localDate === workDate;
+          return (
+            (punch.localDate === workDate && punch.localMinutes >= shiftStart) ||
+            (punch.localDate === nextDate && punch.localMinutes < shiftStart)
+          );
+        })
+        .sort(
+          (a, b) =>
+            new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime(),
+        );
+
+      const firstIn = relevantPunches.find((punch) => punch.punch_type === "in");
+      const lastOut = [...relevantPunches].reverse().find((punch) => punch.punch_type === "out");
+
+      if (!firstIn) {
+        if (policy.missing_punch_behavior === "ignore") continue;
+        rows.push({
+          ...baseRow,
+          status: policy.missing_punch_behavior === "absent" ? "absent" : "missing_punch",
+          check_in: null,
+          check_out: lastOut ? formatTime(lastOut.localMinutes) : null,
+          punch_source: lastOut?.source ?? null,
+          geofence_valid: lastOut?.geofence_valid ?? null,
+          violations_count: 1,
+          note:
+            policy.missing_punch_behavior === "absent"
+              ? "غياب وفق سياسة البصمة الناقصة"
+              : "بصمة دخول مفقودة وتحتاج للمراجعة",
+        });
+        continue;
+      }
+
+      const checkInRelative = firstIn.localMinutes;
+      let checkOutRelative: number | null = null;
+      if (lastOut) {
+        checkOutRelative =
+          overnight && lastOut.localDate === nextDate
+            ? 1440 + lastOut.localMinutes
+            : lastOut.localMinutes;
+      }
+
+      const shiftEndRelative = shift
+        ? overnight
+          ? 1440 + shiftEnd
+          : shiftEnd
+        : null;
+      const arrivalGrace = Number(shift?.grace_minutes_arrival ?? 0);
+      const departureGrace = Number(
+        shift?.grace_minutes_departure ?? policy.early_departure_grace_minutes ?? 0,
+      );
+
+      const lateMinutes = shift
+        ? Math.max(0, checkInRelative - shiftStart - arrivalGrace)
+        : 0;
+      const earlyDepartureMinutes =
+        shift && checkOutRelative !== null && shiftEndRelative !== null
+          ? Math.max(0, shiftEndRelative - checkOutRelative - departureGrace)
+          : 0;
+      const overtimeMinutes =
+        shift &&
+        checkOutRelative !== null &&
+        shiftEndRelative !== null &&
+        shift.overtime_eligible !== false
+          ? Math.max(0, checkOutRelative - shiftEndRelative)
+          : 0;
+
+      const workedMinutes = lastOut
+        ? Math.max(
+            0,
+            Math.round(
+              (new Date(lastOut.punch_time).getTime() -
+                new Date(firstIn.punch_time).getTime()) /
+                60000,
+            ),
+          )
+        : 0;
+
+      const geofenceValues = relevantPunches
+        .map((punch) => punch.geofence_valid)
+        .filter((value) => value !== null && value !== undefined);
+      const geofenceValid =
+        geofenceValues.length === 0
+          ? null
+          : geofenceValues.every((value) => value === true);
+
+      const sourceSet = new Set(relevantPunches.map((punch) => punch.source).filter(Boolean));
+      const punchSource =
+        sourceSet.size === 0 ? null : sourceSet.size === 1 ? [...sourceSet][0] : "mixed";
+
+      const missingOut = !lastOut;
+      const violationsCount =
+        (lateMinutes > 0 ? 1 : 0) +
+        (earlyDepartureMinutes > 0 ? 1 : 0) +
+        (missingOut ? 1 : 0);
+
+      const status = missingOut
+        ? "missing_punch"
+        : lateMinutes > 0
+          ? "late"
+          : earlyDepartureMinutes > 0
+            ? "early_departure"
+            : "present";
 
       rows.push({
-        employee_id: employeeId,
-        work_date: workDate,
-        check_in: formatTime(checkInMin),
-        check_out: checkOutMin !== null ? formatTime(checkOutMin) : null,
-        status: lateMinutes > 0 ? "late" : "present",
+        ...baseRow,
+        check_in: formatTime(firstIn.localMinutes),
+        check_out: lastOut ? formatTime(lastOut.localMinutes) : null,
+        status,
         worked_hours: round2(workedMinutes / 60),
         worked_minutes: workedMinutes,
         late_minutes: lateMinutes,
+        early_departure_minutes: earlyDepartureMinutes,
         overtime_minutes: overtimeMinutes,
-        is_manual: false,
-        note: "احتُسب آليًا من البصمات",
+        overtime_hours: round2(overtimeMinutes / 60),
+        punch_source: punchSource,
+        geofence_valid: geofenceValid,
+        violations_count: violationsCount,
+        note: missingOut ? "بصمة خروج مفقودة وتحتاج للمراجعة" : "احتُسب آليًا من البصمات المعتمدة",
       });
     }
 
-    if (!rows.length) return { processed: 0 };
+    if (!rows.length) return { processed: 0, skipped: 0 };
 
-    const { error } = await supabase
+    const { error: saveError } = await supabase
       .from("attendance_records")
       .upsert(rows, { onConflict: "employee_id,work_date" });
-    if (error) throw new Error(`تعذر حفظ سجلات الحضور: ${error.message}`);
+    if (saveError) throw new Error(`تعذر حفظ سجلات الحضور: ${saveError.message}`);
 
-    return { processed: rows.length };
+    return {
+      processed: rows.length,
+      period: { from: data.fromDate, to: data.toDate },
+      companyId,
+      timezone,
+    };
   });
 
 // ============================================================

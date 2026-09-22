@@ -59,7 +59,11 @@ export const queryKeys = {
     punches: (date: string) => [...queryKeys.attendance.all, "punches", date] as const,
     periods: (year?: number) => [...queryKeys.attendance.all, "periods", year ?? "all"] as const,
     overtime: () => [...queryKeys.attendance.all, "overtime"] as const,
+    overtimeList: (filters: { fromDate: string; toDate: string; status?: string | null }) =>
+      [...queryKeys.attendance.overtime(), filters.fromDate, filters.toDate, filters.status ?? "all"] as const,
     corrections: () => [...queryKeys.attendance.all, "corrections"] as const,
+    correctionList: (filters: { fromDate: string; toDate: string; status?: string | null }) =>
+      [...queryKeys.attendance.corrections(), filters.fromDate, filters.toDate, filters.status ?? "all"] as const,
   },
   workflow: {
     all: ["workflow"] as const,

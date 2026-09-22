@@ -745,7 +745,7 @@ export interface OvertimeRecord {
   endTime: string;
   hours: number;
   rateMultiplier: number; // e.g. 1.5 for normal overtime, 2.0 for holiday/weekend
-  rateType: "regular_150" | "holiday_200";
+  rateType: "regular_150" | "holiday_200" | "pending_payroll_rule";
   reason: string;
   hourlyRate: number; // base hourly rate
   totalAmount: number; // hours * hourlyRate * rateMultiplier
@@ -768,7 +768,7 @@ export interface AttendanceCorrectionRequest {
   correctInTime: string;
   correctOutTime: string;
   reason: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "returned";
   submittedAt: string;
   reviewedBy?: string;
   reviewedAt?: string;

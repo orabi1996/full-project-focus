@@ -4,13 +4,15 @@ import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { useApp } from "../../lib/context/AppContext";
+import { useEmployeeDirectory } from "../../lib/domains/employees";
+import { getCompanyMonth, getCompanyToday, getCompanyYear, isValidTimezone } from "../../lib/utils/timezone-dates";
 import {
   decidePunchServer,
   listBiometricDevicesServer,
   listPunchesServer,
   recordPunchServer,
   registerBiometricDeviceServer,
-  settleAttendancePeriodServer,
+  closeAttendancePeriodServer,
 } from "../../lib/business/attendance.functions";
 
 interface PunchRow {
@@ -34,20 +36,25 @@ interface DeviceRow {
   total_punches: number;
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
-
 export const BiometricTerminalPanel: React.FC = () => {
-  const { employees } = useApp();
+  const { company } = useApp();
+  const companyTimezone = company?.timezone ?? "";
+  const timezoneConfigured = isValidTimezone(companyTimezone);
+  const companyToday = timezoneConfigured ? getCompanyToday(companyTimezone) : "";
+  const employeeDirectory = useEmployeeDirectory(
+    { page: 1, pageSize: 100, status: "active", sort: "employee_no_asc" },
+    { enabled: true },
+  );
 
-  const [date, setDate] = useState(today());
+  const [date, setDate] = useState(companyToday);
   const [punches, setPunches] = useState<PunchRow[]>([]);
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [employeeRef, setEmployeeRef] = useState("");
-  const [deviceId, setDeviceId] = useState("FP-TERMINAL-01");
+  const [deviceId, setDeviceId] = useState("");
   const [newToken, setNewToken] = useState<string | null>(null);
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [year, setYear] = useState(timezoneConfigured ? getCompanyYear(companyTimezone) : 0);
+  const [month, setMonth] = useState(timezoneConfigured ? getCompanyMonth(companyTimezone) : 0);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -67,8 +74,15 @@ export const BiometricTerminalPanel: React.FC = () => {
   }, [date]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (date) void load();
+  }, [date, load]);
+
+  useEffect(() => {
+    if (!timezoneConfigured || !companyToday) return;
+    if (!date) setDate(companyToday);
+    if (!year) setYear(getCompanyYear(companyTimezone));
+    if (!month) setMonth(getCompanyMonth(companyTimezone));
+  }, [companyTimezone, companyToday, date, month, timezoneConfigured, year]);
 
   const handlePunch = async (punchType: "in" | "out") => {
     if (!employeeRef.trim()) {
@@ -95,7 +109,7 @@ export const BiometricTerminalPanel: React.FC = () => {
     setBusy(true);
     try {
       await decidePunchServer({ data: { punchId, decision } });
-      toast.success(decision === "approved" ? "تم اعتماد البصمة وتحديث الحضور" : "تم رفض البصمة");
+      toast.success(decision === "approved" ? "تم اعتماد البصمة. شغّل معالجة الحضور لتحديث السجل المحسوب." : "تم رفض البصمة. شغّل معالجة الحضور لتحديث السجل المحسوب.");
       await load();
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : "تعذر تنفيذ القرار");
@@ -105,18 +119,21 @@ export const BiometricTerminalPanel: React.FC = () => {
   };
 
   const handleSettle = async () => {
+    if (!timezoneConfigured || !year || !month) {
+      toast.error("يجب إعداد المنطقة الزمنية للمنشأة قبل إغلاق فترة الحضور");
+      return;
+    }
     setBusy(true);
     try {
-      const result = (await settleAttendancePeriodServer({ data: { year, month } })) as {
-        approvedPunches?: number;
-        totalNet?: number;
-      };
-      toast.success(
-        `تمت تسوية ${result.approvedPunches ?? 0} بصمة وإقفال مسيّر ${month}/${year} بصافي ${Math.round(result.totalNet ?? 0).toLocaleString("ar-EG")} ر.س`,
-      );
+      const result = (await closeAttendancePeriodServer({
+        data: { year, month },
+      })) as { success?: boolean; status?: string };
+      if (result?.success) {
+        toast.success(`تم إغلاق فترة الحضور ${month}/${year}. لم يتم تشغيل أو قفل الرواتب.`);
+      }
       await load();
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "تعذرت التسوية");
+      toast.error(error instanceof Error ? error.message : "تعذر إغلاق فترة الحضور");
     } finally {
       setBusy(false);
     }
@@ -124,7 +141,7 @@ export const BiometricTerminalPanel: React.FC = () => {
 
   const handleRegister = async () => {
     const nameAr = window.prompt("اسم الجهاز", "جهاز البصمة - فرع جديد");
-    const id = window.prompt("معرّف الجهاز (Device ID)", "FP-TERMINAL-02");
+    const id = window.prompt("معرّف الجهاز (Device ID)", "");
     if (!nameAr || !id) return;
     setBusy(true);
     try {
@@ -162,7 +179,7 @@ export const BiometricTerminalPanel: React.FC = () => {
                 {device.name_ar} — {device.device_id}
               </option>
             ))}
-            {devices.length === 0 && <option value="FP-TERMINAL-01">FP-TERMINAL-01</option>}
+            <option value="">إدخال يدوي بدون جهاز محدد</option>
           </select>
           <input
             list="employee-refs"
@@ -172,9 +189,9 @@ export const BiometricTerminalPanel: React.FC = () => {
             className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
           />
           <datalist id="employee-refs">
-            {employees.map((employee: any) => (
+            {employeeDirectory.items.map((employee) => (
               <option key={employee.id} value={employee.employeeNo}>
-                {employee.nameAr ?? employee.name ?? employee.fullName}
+                {employee.fullName}
               </option>
             ))}
           </datalist>
@@ -243,10 +260,10 @@ export const BiometricTerminalPanel: React.FC = () => {
         <div className="rounded-2xl border border-border/60 bg-card p-5 space-y-3">
           <div className="flex items-center gap-2">
             <Lock className="h-5 w-5 text-primary" />
-            <h3 className="font-bold text-sm">تسوية الحضور وإقفال المسيّر</h3>
+            <h3 className="font-bold text-sm">إغلاق فترة الحضور</h3>
           </div>
           <p className="text-xs text-muted-foreground">
-            تعتمد البصمات المعلقة، تعيد بناء سجل الحضور، ثم تحتسب الرواتب وتقفل المسيّر.
+            يغلق الفترة بعد التأكد من عدم وجود بصمات معلقة أو حالات ناقصة. لا يقوم هذا الإجراء بحساب أو قفل الرواتب.
           </p>
           <div className="grid grid-cols-2 gap-2">
             <input
@@ -265,7 +282,7 @@ export const BiometricTerminalPanel: React.FC = () => {
             />
           </div>
           <Button disabled={busy} onClick={handleSettle} className="w-full rounded-xl font-bold">
-            تسوية واحتساب الرواتب
+            إغلاق فترة الحضور
           </Button>
         </div>
       </div>
@@ -281,7 +298,7 @@ export const BiometricTerminalPanel: React.FC = () => {
               onChange={(e) => setDate(e.target.value)}
               className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs"
             />
-            <Button size="sm" variant="ghost" onClick={() => void load()} disabled={loading}>
+            <Button size="sm" variant="ghost" onClick={() => void load()} disabled={loading || !date}>
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </Button>
           </div>

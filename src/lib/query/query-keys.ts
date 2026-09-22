@@ -48,8 +48,22 @@ export const queryKeys = {
   attendance: {
     all: ["attendance"] as const,
     records: () => [...queryKeys.attendance.all, "records"] as const,
+    myRecords: (filters: { fromDate: string; toDate: string }) =>
+      [...queryKeys.attendance.all, "myRecords", filters.fromDate, filters.toDate] as const,
+    adminRecords: (filters: Record<string, unknown>) =>
+      [...queryKeys.attendance.all, "adminRecords", filters] as const,
+    summary: (date?: string | null) =>
+      [...queryKeys.attendance.all, "summary", date ?? "company-today"] as const,
+    policy: () => [...queryKeys.attendance.all, "policy"] as const,
+    devices: () => [...queryKeys.attendance.all, "devices"] as const,
+    punches: (date: string) => [...queryKeys.attendance.all, "punches", date] as const,
+    periods: (year?: number) => [...queryKeys.attendance.all, "periods", year ?? "all"] as const,
     overtime: () => [...queryKeys.attendance.all, "overtime"] as const,
+    overtimeList: (filters: { fromDate: string; toDate: string; status?: string | null }) =>
+      [...queryKeys.attendance.overtime(), filters.fromDate, filters.toDate, filters.status ?? "all"] as const,
     corrections: () => [...queryKeys.attendance.all, "corrections"] as const,
+    correctionList: (filters: { fromDate: string; toDate: string; status?: string | null }) =>
+      [...queryKeys.attendance.corrections(), filters.fromDate, filters.toDate, filters.status ?? "all"] as const,
   },
   workflow: {
     all: ["workflow"] as const,

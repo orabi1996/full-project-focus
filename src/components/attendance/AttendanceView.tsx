@@ -1,6 +1,9 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useApp } from "../../lib/context/AppContext";
+import { useAttendance } from "../../lib/domains/attendance";
+import { useEmployeeDirectory } from "../../lib/domains/employees";
+import { getCompanyMonthBoundaries, getCompanyToday, isValidTimezone } from "../../lib/utils/timezone-dates";
 import { exportToCSV } from "../../lib/utils/export-helpers";
 import { BiometricTerminalPanel } from "./BiometricTerminalPanel";
 import { BiometricDevicesPanel } from "./BiometricDevicesPanel";
@@ -43,11 +46,7 @@ import type { OvertimeRecord } from "../../types";
 export const AttendanceView: React.FC = () => {
   const navigate = useNavigate();
   const {
-    attendanceRecords,
-    overtimeRecords,
-    attendanceCorrections,
-    employees,
-    currentUser,
+    company,
     currentRole,
     punchInOut,
     submitAttendanceCorrection,
@@ -58,17 +57,48 @@ export const AttendanceView: React.FC = () => {
     rejectOvertimeRequest,
     processAttendance,
     openEmployeeProfile,
-    language,
-    t,
     isSaving,
+    dataMode,
   } = useApp();
 
   const canManageAttendance = [
     "super_admin",
+    "org_admin",
     "hr_manager",
-    "department_manager",
-    "operations_manager",
+    "attendance_officer",
+    "line_manager",
   ].includes(currentRole);
+
+  const companyTimezone = company?.timezone ?? "";
+  const timezoneConfigured = isValidTimezone(companyTimezone);
+  const companyToday = timezoneConfigured ? getCompanyToday(companyTimezone) : "";
+  const companyYear = companyToday ? Number(companyToday.slice(0, 4)) : 0;
+  const companyMonth = companyToday ? Number(companyToday.slice(5, 7)) : 0;
+  const monthBoundaries =
+    timezoneConfigured && companyYear && companyMonth
+      ? getCompanyMonthBoundaries(companyYear, companyMonth, companyTimezone)
+      : { startDate: "", endDate: "" };
+
+  const employeeDirectory = useEmployeeDirectory(
+    { page: 1, pageSize: 100, status: "active", sort: "employee_no_asc" },
+    { enabled: canManageAttendance },
+  );
+
+  const {
+    attendanceRecords,
+    overtimeRecords,
+    attendanceCorrections,
+    attendanceSummary,
+    attendancePolicy,
+    isLoading: isAttendanceLoading,
+    isError: isAttendanceError,
+    error: attendanceError,
+  } = useAttendance({
+    enabled: dataMode !== "live" || timezoneConfigured,
+    fromDate: monthBoundaries.startDate || undefined,
+    toDate: companyToday || undefined,
+    pageSize: 200,
+  });
 
   const [activeTab, setActiveTab] = useState<"timesheet" | "biometric" | "overtime" | "corrections" | "policies">(
     "timesheet",
@@ -81,19 +111,17 @@ export const AttendanceView: React.FC = () => {
 
   // Correction Modal State
   const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
-  const [correctionDate, setCorrectionDate] = useState(new Date().toISOString().slice(0, 10));
-  const [correctInTime, setCorrectInTime] = useState("08:00");
-  const [correctOutTime, setCorrectOutTime] = useState("17:00");
+  const [correctionDate, setCorrectionDate] = useState(companyToday);
+  const [correctInTime, setCorrectInTime] = useState("");
+  const [correctOutTime, setCorrectOutTime] = useState("");
   const [correctionReason, setCorrectionReason] = useState("");
 
   // Overtime Modal State
   const [isOvertimeModalOpen, setIsOvertimeModalOpen] = useState(false);
-  const [otEmpId, setOtEmpId] = useState(employees[0]?.id || "");
-  const [otDate, setOtDate] = useState(new Date().toISOString().slice(0, 10));
+  const [otEmpId, setOtEmpId] = useState("");
+  const [otDate, setOtDate] = useState(companyToday);
   const [otStartTime, setOtStartTime] = useState("17:00");
   const [otEndTime, setOtEndTime] = useState("20:00");
-  const [otHours, setOtHours] = useState(3.0);
-  const [otRateType, setOtRateType] = useState<"regular_150" | "holiday_200">("regular_150");
   const [otReason, setOtReason] = useState("");
   const [isProcessingAttendance, setIsProcessingAttendance] = useState(false);
   const [isSubmittingCorrection, setIsSubmittingCorrection] = useState(false);
@@ -101,19 +129,18 @@ export const AttendanceView: React.FC = () => {
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
 
   const selectedOtEmployee = useMemo(
-    () => employees.find((e) => e.id === otEmpId) || employees[0],
-    [employees, otEmpId],
+    () => employeeDirectory.items.find((employee) => employee.id === otEmpId),
+    [employeeDirectory.items, otEmpId],
   );
 
-  // Hourly rate based on Saudi Labor Law: (Basic Salary / 30 days / 8 hours)
-  const calculatedHourlyRate = useMemo(() => {
-    if (!selectedOtEmployee) return 50;
-    const basic = selectedOtEmployee.basicSalary || 6000;
-    return Number((basic / 240).toFixed(2));
-  }, [selectedOtEmployee]);
-
-  const otMultiplier = otRateType === "regular_150" ? 1.5 : 2.0;
-  const calculatedOtTotal = Number((otHours * calculatedHourlyRate * otMultiplier).toFixed(2));
+  const calculatedOtHours = useMemo(() => {
+    if (!otStartTime || !otEndTime) return 0;
+    const [startHour, startMinute] = otStartTime.split(":").map(Number);
+    const [endHour, endMinute] = otEndTime.split(":").map(Number);
+    let minutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+    if (minutes <= 0) minutes += 24 * 60;
+    return Number((minutes / 60).toFixed(2));
+  }, [otStartTime, otEndTime]);
 
   // Filtered Attendance Records
   const filteredRecords = useMemo(() => {
@@ -144,23 +171,29 @@ export const AttendanceView: React.FC = () => {
     return Array.from(set);
   }, [attendanceRecords]);
 
-  // KPIs
-  const totalEmployeesCount = 120;
-  const presentCount = attendanceRecords.filter((r) => r.status === "present").length + 104;
-  const lateCount = attendanceRecords.filter((r) => r.status === "late").length;
-  const absentCount = attendanceRecords.filter((r) => r.status === "absent").length;
-  const attendanceRate = Number(((presentCount / totalEmployeesCount) * 100).toFixed(1));
+  // KPIs — Live mode comes from the server summary; Demo remains derived from Demo Store.
+  const totalEmployeesCount =
+    attendanceSummary?.totalEmployees ??
+    (dataMode === "demo" ? employeeDirectory.totalCount : 0);
+  const presentCount =
+    attendanceSummary?.present ??
+    attendanceRecords.filter((r) => r.status === "present").length;
+  const lateCount =
+    attendanceSummary?.late ??
+    attendanceRecords.filter((r) => r.status === "late").length;
+  const absentCount =
+    attendanceSummary?.absent ??
+    attendanceRecords.filter((r) => r.status === "absent").length;
+  const attendanceRate =
+    attendanceSummary?.attendanceRate ??
+    (totalEmployeesCount > 0
+      ? Number((((presentCount + lateCount) / totalEmployeesCount) * 100).toFixed(1))
+      : 0);
 
   const totalOvertimeApprovedHours = useMemo(() => {
     return overtimeRecords
       .filter((ot) => ot.status === "approved")
       .reduce((sum, ot) => sum + ot.hours, 0);
-  }, [overtimeRecords]);
-
-  const totalOvertimeApprovedAmount = useMemo(() => {
-    return overtimeRecords
-      .filter((ot) => ot.status === "approved")
-      .reduce((sum, ot) => sum + ot.totalAmount, 0);
   }, [overtimeRecords]);
 
   const pendingCorrectionsCount = attendanceCorrections.filter(
@@ -171,12 +204,15 @@ export const AttendanceView: React.FC = () => {
     if (isProcessingAttendance) return;
     setIsProcessingAttendance(true);
     try {
-      const today = new Date();
-      const from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-      const to = today.toISOString().slice(0, 10);
-      const ok = await processAttendance(from, to);
+      if (!timezoneConfigured || !monthBoundaries.startDate || !companyToday) {
+        toast.error("يجب إعداد منطقة زمنية صحيحة للمنشأة قبل معالجة الحضور.");
+        return;
+      }
+      const ok = await processAttendance(monthBoundaries.startDate, companyToday);
       if (ok) {
-        toast.success("تمت معالجة واحتساب ساعات الحضور الإجمالية والتأخيرات لشهر سبتمبر 2026 بنجاح");
+        toast.success(
+          `تمت معالجة سجلات الحضور للفترة من ${monthBoundaries.startDate} إلى ${companyToday}`,
+        );
       }
     } finally {
       setIsProcessingAttendance(false);
@@ -185,29 +221,49 @@ export const AttendanceView: React.FC = () => {
 
   const handlePunch = (type: "in" | "out") => {
     if (isSaving) return;
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const res = await punchInOut(type, {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          });
-          if (res.success) {
-            toast.success(
-              `${res.message} • ${res.geofenceValid ? "داخل السياج الجغرافي للمقر" : "خارج النطاق الجغرافي"}`,
-            );
-          }
-        },
-        async () => {
-          const res = await punchInOut(type);
-          if (res.success) toast.success(res.message);
-        },
-      );
-    } else {
-      void punchInOut(type).then((res) => {
-        if (res.success) toast.success(res.message);
-      });
+    if (dataMode === "live" && !timezoneConfigured) {
+      toast.error("لم يتم إعداد المنطقة الزمنية للمنشأة.");
+      return;
     }
+    if (dataMode === "live" && attendancePolicy?.configured && !attendancePolicy.allowMobilePunch) {
+      toast.error("تسجيل الحضور من الجوال غير مفعل في سياسة المنشأة.");
+      return;
+    }
+
+    const submitWithoutLocation = async () => {
+      if (dataMode === "live" && attendancePolicy?.requireGeofence) {
+        toast.error("لا يمكن تسجيل الحضور بدون موقع جغرافي لأن السياج الجغرافي إلزامي.");
+        return;
+      }
+      const res = await punchInOut(type);
+      if (res.success) toast.success(res.message);
+    };
+
+    if (!navigator.geolocation) {
+      void submitWithoutLocation();
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const res = await punchInOut(type, {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        });
+        if (res.success) {
+          toast.success(
+            attendancePolicy?.requireGeofence
+              ? `${res.message} • ${res.geofenceValid ? "داخل النطاق الجغرافي" : "بحاجة للمراجعة"}`
+              : res.message,
+          );
+        }
+      },
+      () => {
+        void submitWithoutLocation();
+      },
+      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 0 },
+    );
   };
 
   const handleExportAttendance = () => {
@@ -216,13 +272,13 @@ export const AttendanceView: React.FC = () => {
       "اسم الموظف": r.employeeName,
       "الإدارة / القطاع": r.departmentName,
       التاريخ: r.workDate,
-      الوردية: r.scheduledShift || "الوردية الصباحية",
+      الوردية: r.scheduledShift || "—",
       "وقت الدخول": r.actualIn || "—",
       "وقت الخروج": r.actualOut || "—",
       "ساعات العمل": r.workedHours,
       "التأخير (دقائق)": r.lateMinutes,
       "ساعات إضافية": r.overtimeHours,
-      "السياج الجغرافي": r.geofenceValid ? "داخل المقر" : "خارج النطاق",
+      "السياج الجغرافي": r.geofenceValid ? "مطابق" : r.punchSource === "mobile_gps" ? "غير مطابق/للمراجعة" : "غير مطبق",
       الحالة: r.status === "present" ? "حاضر" : r.status === "late" ? "متأخر" : "غائب",
     }));
     exportToCSV(`Attendance_Report_${new Date().toISOString().split("T")[0]}`, data);
@@ -252,12 +308,16 @@ export const AttendanceView: React.FC = () => {
   };
 
   const handleCreateOvertime = async () => {
+    if (!selectedOtEmployee) {
+      toast.error("اختر الموظف المكلف بالعمل الإضافي.");
+      return;
+    }
     if (!otReason.trim()) {
       toast.error("يرجى كتابة مبرر ومهمة العمل الإضافي");
       return;
     }
-    if (otHours <= 0) {
-      toast.error("عدد ساعات العمل الإضافي يجب أن يكون أكبر من صفر");
+    if (calculatedOtHours <= 0 || calculatedOtHours > 16) {
+      toast.error("مدة العمل الإضافي غير صالحة");
       return;
     }
     if (isSubmittingOvertime) return;
@@ -266,21 +326,22 @@ export const AttendanceView: React.FC = () => {
       const ok = await submitOvertimeRequest({
         employeeId: selectedOtEmployee.id,
         employeeNo: selectedOtEmployee.employeeNo,
-        employeeName: `${selectedOtEmployee.firstNameAr} ${selectedOtEmployee.lastNameAr}`,
-        departmentName: selectedOtEmployee.departmentName || "قطاع العمليات",
+        employeeName: selectedOtEmployee.fullName,
+        departmentName: selectedOtEmployee.departmentName || "",
         workDate: otDate,
         startTime: otStartTime,
         endTime: otEndTime,
-        hours: otHours,
-        rateMultiplier: otMultiplier,
-        rateType: otRateType,
+        hours: calculatedOtHours,
+        rateMultiplier: 0,
+        rateType: "pending_payroll_rule",
         reason: otReason,
-        hourlyRate: calculatedHourlyRate,
-        totalAmount: calculatedOtTotal,
+        hourlyRate: 0,
+        totalAmount: 0,
       });
       if (ok) {
         setIsOvertimeModalOpen(false);
         setOtReason("");
+        setOtEmpId("");
       }
     } finally {
       setIsSubmittingOvertime(false);
@@ -344,12 +405,11 @@ export const AttendanceView: React.FC = () => {
               نظام إدارة الحضور والورديات والعمل الإضافي
             </h1>
             <Badge variant="secondary" className="classera-badge-pulse font-bold text-[11px] rounded-full px-3 py-0.5">
-              الامتثال للائحة العمل السعودية
+              سياسة الحضور المعتمدة للمنشأة
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground font-medium mt-1">
-            تسجيل البصمة والموقع الجغرافي GPS، السياج الجغرافي، واحتساب الساعات الإضافية وفق المادة 107 من نظام
-            العمل السعودي
+            تسجيل الحضور والبصمات والموقع الجغرافي ومراجعة الاستثناءات وفق إعدادات المنشأة الفعلية.
           </p>
         </div>
 
@@ -391,6 +451,32 @@ export const AttendanceView: React.FC = () => {
         </div>
       </div>
 
+      {dataMode === "live" && (!timezoneConfigured || isAttendanceError || !attendancePolicy?.configured) && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-500/10 p-4 text-xs text-amber-800 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-black">الحضور يحتاج تهيئة تشغيل مكتملة</p>
+            <p className="mt-1">
+              {!timezoneConfigured
+                ? "لم يتم إعداد منطقة زمنية صحيحة للمنشأة."
+                : isAttendanceError
+                  ? attendanceError instanceof Error ? attendanceError.message : "تعذر تحميل بيانات الحضور."
+                  : "لم يتم إعداد سياسة الحضور للمنشأة."}
+            </p>
+          </div>
+          {canManageAttendance && (
+            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/setup" })}>
+              فتح التهيئة
+            </Button>
+          )}
+        </div>
+      )}
+
+      {isAttendanceLoading && dataMode === "live" && (
+        <div className="rounded-2xl border border-border/60 bg-card p-3 text-xs text-muted-foreground">
+          جاري تحميل بيانات الحضور من المصدر المعتمد...
+        </div>
+      )}
+
       {/* Attendance & Overtime KPI Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="classera-kpi-card p-5 shadow-xs flex items-center justify-between">
@@ -417,8 +503,8 @@ export const AttendanceView: React.FC = () => {
               {totalOvertimeApprovedHours}{" "}
               <span className="text-xs font-normal text-muted-foreground font-sans">ساعة</span>
             </p>
-            <span className="text-[10px] text-primary font-bold font-tabular-nums">
-              {totalOvertimeApprovedAmount.toLocaleString()} ر.س مخصص شهري
+            <span className="text-[10px] text-muted-foreground font-bold">
+              التسعير المالي يتم داخل دورة الرواتب بعد الاعتماد
             </span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
@@ -432,7 +518,7 @@ export const AttendanceView: React.FC = () => {
               حالات التأخير والانصراف المبكر
             </span>
             <p className="text-2xl font-black text-amber-600 mt-0.5 font-tabular-nums font-mono">{lateCount}</p>
-            <span className="text-[10px] text-amber-600 font-bold">ضمن فترة السماح القانونية</span>
+            <span className="text-[10px] text-amber-600 font-bold">وفق الوردية والسياسة المهيأة</span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
             <AlertTriangle className="h-6 w-6" />
@@ -466,7 +552,7 @@ export const AttendanceView: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="overtime" className="rounded-xl text-xs font-bold gap-1.5 py-2">
             <Clock className="h-3.5 w-3.5 text-amber-500" />
-            الساعات والعمل الإضافي (م107)
+            الساعات والعمل الإضافي
             {overtimeRecords.filter((o) => o.status === "pending").length > 0 && (
               <Badge className="mr-1 bg-amber-500 text-white rounded-full text-[10px] h-4 px-1.5">
                 {overtimeRecords.filter((o) => o.status === "pending").length}
@@ -748,21 +834,19 @@ export const AttendanceView: React.FC = () => {
           </div>
         </TabsContent>
 
-        {/* TAB 2: Overtime Management (المادة 107 من نظام العمل) */}
+        {/* TAB 2: Overtime Management */}
         <TabsContent value="overtime" className="space-y-4">
           <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-border/60 pb-4">
               <div>
                 <h2 className="text-base font-black text-foreground flex items-center gap-2">
                   <Clock className="h-5 w-5 text-primary" />
-                  محرك احتساب وإدارة العمل الإضافي (Overtime Engine)
+                  تكليفات العمل الإضافي
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  وفقاً لنظام العمل السعودي: يُحسب أجر الساعة الإضافية بمعدل 150% (ساعة ونصف) وساعات
-                  العطل والأعياد بمعدل 200%.
+                  وحدة الحضور تحفظ مدة التكليف واعتماده فقط. قيمة الاستحقاق المالي تُحسب لاحقاً داخل Payroll وفق السياسة الفعالة للمنشأة.
                 </p>
               </div>
-
               {canManageAttendance && (
                 <Button
                   onClick={() => setIsOvertimeModalOpen(true)}
@@ -775,19 +859,16 @@ export const AttendanceView: React.FC = () => {
               )}
             </div>
 
-            {/* Overtime Table */}
             <div className="overflow-x-auto rounded-2xl border border-border/60">
               <table className="w-full text-xs">
                 <thead className="border-b border-border/60 bg-muted/40 font-bold text-muted-foreground">
                   <tr>
                     <th className="py-3 px-4 text-start">الموظف</th>
-                    <th className="py-3 px-4 text-start">تاريخ العمل الإضافي</th>
+                    <th className="py-3 px-4 text-start">التاريخ</th>
                     <th className="py-3 px-4 text-center">الفترة</th>
-                    <th className="py-3 px-4 text-center">عدد الساعات</th>
-                    <th className="py-3 px-4 text-center">المعدل النظامي</th>
-                    <th className="py-3 px-4 text-center">أجر الساعة الأساسي</th>
-                    <th className="py-3 px-4 text-center">المستحق المالي الإجمالي</th>
-                    <th className="py-3 px-4 text-start">المبرر ومهمة العمل</th>
+                    <th className="py-3 px-4 text-center">المدة</th>
+                    <th className="py-3 px-4 text-start">المبرر</th>
+                    <th className="py-3 px-4 text-center">التسعير</th>
                     <th className="py-3 px-4 text-center">الحالة</th>
                     <th className="py-3 px-4 text-center">الإجراءات</th>
                   </tr>
@@ -798,38 +879,17 @@ export const AttendanceView: React.FC = () => {
                       <td className="py-3 px-4">
                         <span className="font-bold text-foreground block">{ot.employeeName}</span>
                         <span className="text-[10px] text-muted-foreground font-mono">
-                          {ot.employeeNo} • {ot.departmentName}
+                          {ot.employeeNo} {ot.departmentName ? `• ${ot.departmentName}` : ""}
                         </span>
                       </td>
                       <td className="py-3 px-4 font-mono font-medium">{ot.workDate}</td>
-                      <td className="py-3 px-4 text-center font-mono">
-                        {ot.startTime} — {ot.endTime}
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono font-black text-primary">
-                        {ot.hours} ساعة
-                      </td>
+                      <td className="py-3 px-4 text-center font-mono">{ot.startTime} — {ot.endTime}</td>
+                      <td className="py-3 px-4 text-center font-mono font-black text-primary">{ot.hours} ساعة</td>
+                      <td className="py-3 px-4 max-w-xs truncate text-muted-foreground" title={ot.reason}>{ot.reason}</td>
                       <td className="py-3 px-4 text-center">
-                        <Badge
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                            ot.rateType === "regular_150"
-                              ? "bg-amber-500/10 text-amber-700 border-amber-300"
-                              : "bg-purple-500/10 text-purple-700 border-purple-300"
-                          }`}
-                        >
-                          {ot.rateMultiplier === 1.5 ? "150% (دوام عادي)" : "200% (عطلة/عيد)"}
+                        <Badge variant="outline" className="rounded-full text-[10px]">
+                          {ot.rateType === "pending_payroll_rule" ? "يُسعّر في Payroll" : "مسعّر من دورة سابقة"}
                         </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono font-medium">
-                        {ot.hourlyRate} ر.س/س
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono font-black text-emerald-600">
-                        {ot.totalAmount.toLocaleString()} ر.س
-                      </td>
-                      <td
-                        className="py-3 px-4 max-w-xs truncate text-muted-foreground font-medium"
-                        title={ot.reason}
-                      >
-                        {ot.reason}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <Badge
@@ -841,11 +901,7 @@ export const AttendanceView: React.FC = () => {
                                 : "bg-blue-500/10 text-blue-700 border-blue-300"
                           }`}
                         >
-                          {ot.status === "approved"
-                            ? "معتمد للمسير"
-                            : ot.status === "rejected"
-                              ? "مرفوض"
-                              : "بانتظار الاعتماد"}
+                          {ot.status === "approved" ? "معتمد" : ot.status === "rejected" ? "مرفوض" : "بانتظار الاعتماد"}
                         </Badge>
                       </td>
                       <td className="py-3 px-4 text-center">
@@ -870,20 +926,15 @@ export const AttendanceView: React.FC = () => {
                             </Button>
                           </div>
                         ) : (
-                          <span className="text-[11px] text-muted-foreground font-mono">
-                            {ot.approvedBy ? `اعتمد بواسطة: ${ot.approvedBy}` : "—"}
-                          </span>
+                          <span className="text-[11px] text-muted-foreground">—</span>
                         )}
                       </td>
                     </tr>
                   ))}
                   {overtimeRecords.length === 0 && (
                     <tr>
-                      <td
-                        colSpan={10}
-                        className="text-center py-10 text-muted-foreground font-medium"
-                      >
-                        لا توجد طلبات عمل إضافي مسجلة حالياً
+                      <td colSpan={8} className="text-center py-10 text-muted-foreground font-medium">
+                        لا توجد تكليفات عمل إضافي مسجلة حالياً
                       </td>
                     </tr>
                   )}
@@ -1023,101 +1074,55 @@ export const AttendanceView: React.FC = () => {
             <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
               <div className="flex items-center gap-2 text-primary font-black text-sm">
                 <ShieldCheck className="h-5 w-5 text-emerald-600" />
-                نظام العمل السعودي - ساعات الدوام والعمل الإضافي
+                سياسة الحضور الفعالة
               </div>
-
-              <div className="space-y-3 text-xs leading-relaxed text-muted-foreground">
-                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60">
-                  <span className="font-bold text-foreground block mb-1">
-                    المادة 98 (ساعات العمل الفعلية):
-                  </span>
-                  لا يجوز تشغيل العامل تشغيلاً فعلياً أكثر من 8 ساعات في اليوم الواحد إذا اعتمد صاحب
-                  العمل المعيار اليومي، أو أكثر من 48 ساعة في الأسبوع إذا اعتمد المعيار الأسبوعي.
-                  وتخفض ساعات العمل خلال شهر رمضان للمسلمين بحيث لا تزيد على 6 ساعات يومياً أو 36
-                  ساعة أسبوعياً.
+              {!attendancePolicy?.configured ? (
+                <div className="rounded-2xl border border-amber-300 bg-amber-500/10 p-4 text-xs text-amber-800 space-y-3">
+                  <p className="font-bold">لم يتم إعداد سياسة حضور لهذه المنشأة بعد.</p>
+                  {canManageAttendance && (
+                    <Button size="sm" variant="outline" onClick={() => navigate({ to: "/setup" })}>
+                      فتح تهيئة النظام
+                    </Button>
+                  )}
                 </div>
-
-                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60">
-                  <span className="font-bold text-foreground block mb-1">
-                    المادة 107 (أجر الساعات الإضافية):
-                  </span>
-                  يجب على صاحب العمل أن يدفع للعامل عن ساعات العمل الإضافية أجراً يوازي أجر الساعة
-                  مضافاً إليه 50% من أجره الأساسي. وإذا كان التشغيل في أيام الأعياد أو العطلات
-                  الأسبوعية، تكون جميع الساعات إضافية بأجر مضاعف.
+              ) : (
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between rounded-xl bg-muted/40 p-3"><span>تسجيل الجوال</span><b>{attendancePolicy.allowMobilePunch ? "مفعل" : "غير مفعل"}</b></div>
+                  <div className="flex justify-between rounded-xl bg-muted/40 p-3"><span>السياج الجغرافي</span><b>{attendancePolicy.requireGeofence ? "إلزامي" : "غير إلزامي"}</b></div>
+                  <div className="flex justify-between rounded-xl bg-muted/40 p-3"><span>جدول دوام منشور</span><b>{attendancePolicy.requirePublishedSchedule ? "مطلوب" : "غير مطلوب"}</b></div>
+                  <div className="flex justify-between rounded-xl bg-muted/40 p-3"><span>البصمة الناقصة</span><b>{attendancePolicy.missingPunchBehavior}</b></div>
+                  <div className="flex justify-between rounded-xl bg-muted/40 p-3"><span>اعتماد الإضافي</span><b>{attendancePolicy.overtimeRequiresApproval ? "مطلوب" : "غير مطلوب"}</b></div>
                 </div>
-
-                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60">
-                  <span className="font-bold text-foreground block mb-1">
-                    المادة 101 (فترات الراحة والصلاة):
-                  </span>
-                  لا يعمل العامل أكثر من 5 ساعات متتالية دون فترة للراحة والصلاة وتناول الطعام لا
-                  تقل عن نصف ساعة في المرة الواحدة.
-                </div>
-              </div>
+              )}
             </div>
 
             <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
               <div className="flex items-center gap-2 text-primary font-black text-sm">
                 <MapPin className="h-5 w-5 text-indigo-600" />
-                إعدادات السياج الجغرافي GPS وأجهزة الدوام
+                حالة إعداد التشغيل
               </div>
-
-              <div className="space-y-3 text-xs">
-                <div className="p-4 rounded-2xl border border-border/60 bg-muted/40 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-foreground block">
-                      مقر الرياض - الإدارة العامة
-                    </span>
-                    <span className="text-[11px] text-muted-foreground font-mono">
-                      خط العرض: 24.7136 | خط الطول: 46.6753
-                    </span>
-                  </div>
-                  <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-300 rounded-full text-[10px]">
-                    نطاق 150 متر
-                  </Badge>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between rounded-xl bg-muted/40 p-3">
+                  <span>المنطقة الزمنية</span>
+                  <b>{timezoneConfigured ? companyTimezone : "غير مهيأة"}</b>
                 </div>
-
-                <div className="p-4 rounded-2xl border border-border/60 bg-muted/40 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-foreground block">
-                      فرع جدة والمنطقة الغربية
-                    </span>
-                    <span className="text-[11px] text-muted-foreground font-mono">
-                      خط العرض: 21.5433 | خط الطول: 39.1728
-                    </span>
-                  </div>
-                  <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-300 rounded-full text-[10px]">
-                    نطاق 200 متر
-                  </Badge>
+                <div className="flex justify-between rounded-xl bg-muted/40 p-3">
+                  <span>الفترة المعروضة</span>
+                  <b className="font-mono">{monthBoundaries.startDate || "—"} → {companyToday || "—"}</b>
                 </div>
-
-                <div className="p-4 rounded-2xl border border-border/60 bg-muted/40 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-foreground block">
-                      فرع الخبر والمنطقة الشرقية
-                    </span>
-                    <span className="text-[11px] text-muted-foreground font-mono">
-                      خط العرض: 26.2172 | خط الطول: 50.1971
-                    </span>
-                  </div>
-                  <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-300 rounded-full text-[10px]">
-                    نطاق 150 متر
-                  </Badge>
+                <div className="flex justify-between rounded-xl bg-muted/40 p-3">
+                  <span>بصمات معلقة اليوم</span>
+                  <b>{attendanceSummary?.pendingPunches ?? 0}</b>
                 </div>
-
-                <div className="p-3.5 rounded-2xl bg-secondary/50 border border-primary/20 flex items-start gap-2 text-foreground">
-                  <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                  <p className="text-[11px] leading-relaxed">
-                    يتم التحقق من موقع الموظف آلياً عند استخدام تطبيق الجوال؛ في حال كانت البصمة
-                    خارج النطاق، يُسجل الحضور مع إشعار بالخروج عن السياج للمشرف.
-                  </p>
-                </div>
+              </div>
+              <div className="rounded-2xl border border-border/60 bg-muted/30 p-4 text-[11px] leading-relaxed text-muted-foreground">
+                قواعد ساعات العمل والتعويض المالي لا تُفترض داخل شاشة الحضور؛ يتم تطبيقها من إعدادات المنشأة ووحدة الرواتب المعتمدة.
               </div>
             </div>
           </div>
         </TabsContent>
 
-        {/* TAB: Biometric devices, punches & settlement */}
+        {/* TAB: Biometric devices, punches & attendance-period close */}
         <TabsContent value="biometric" className="space-y-4">
           <BiometricDevicesPanel />
           <BiometricTerminalPanel />
@@ -1133,7 +1138,7 @@ export const AttendanceView: React.FC = () => {
               طلب تصحيح أو تسجيل بصمة منسية
             </DialogTitle>
             <DialogDescription className="text-xs font-medium">
-              سيتم إرسال الطلب مع المبررات إلى مديرك المباشر لاعتماده وتعديل مسير الدوام
+              سيتم إرسال الطلب مع المبررات إلى مسار الاعتماد المعتمد للمنشأة قبل تعديل سجل الحضور
             </DialogDescription>
           </DialogHeader>
 
@@ -1200,10 +1205,10 @@ export const AttendanceView: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="text-base font-black flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
-              تسجيل تكليف بساعات عمل إضافي (م107)
+              تسجيل تكليف بساعات عمل إضافي
             </DialogTitle>
             <DialogDescription className="text-xs font-medium">
-              احتساب مالي فوري وفق الأجر الأساسي ونسبة العمل الإضافي المعتمدة نظاماً
+              تُحفظ مدة التكليف واعتمادها هنا، أما التسعير المالي فيتم داخل Payroll وفق السياسة الفعالة.
             </DialogDescription>
           </DialogHeader>
 
@@ -1215,108 +1220,50 @@ export const AttendanceView: React.FC = () => {
                 onChange={(e) => setOtEmpId(e.target.value)}
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
-                {employees.map((emp) => (
+                <option value="">اختر الموظف</option>
+                {employeeDirectory.items.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.firstNameAr} {emp.lastNameAr} ({emp.employeeNo}) — {emp.jobTitleAr}
+                    {emp.fullName} ({emp.employeeNo}){emp.jobTitle ? ` — ${emp.jobTitle}` : ""}
                   </option>
                 ))}
               </select>
             </div>
 
+            <div className="space-y-1.5">
+              <label className="font-bold">تاريخ التكليف *</label>
+              <input
+                type="date"
+                value={otDate}
+                onChange={(e) => setOtDate(e.target.value)}
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
-                <label className="font-bold">تاريخ التكليف *</label>
-                <input
-                  type="date"
-                  value={otDate}
-                  onChange={(e) => setOtDate(e.target.value)}
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
+                <label className="font-bold">وقت البدء *</label>
+                <input type="time" value={otStartTime} onChange={(e) => setOtStartTime(e.target.value)} className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono" />
               </div>
               <div className="space-y-1.5">
-                <label className="font-bold">نوع الوردية الإضافية *</label>
-                <select
-                  value={otRateType}
-                  onChange={(e) => setOtRateType(e.target.value as any)}
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                >
-                  <option value="regular_150">يوم عمل عادي (معدل 150%)</option>
-                  <option value="holiday_200">عطلة أسبوعية أو رسمية (معدل 200%)</option>
-                </select>
+                <label className="font-bold">وقت الانتهاء *</label>
+                <input type="time" value={otEndTime} onChange={(e) => setOtEndTime(e.target.value)} className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono" />
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-1.5">
-                <label className="font-bold">وقت البدء</label>
-                <input
-                  type="time"
-                  value={otStartTime}
-                  onChange={(e) => setOtStartTime(e.target.value)}
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="font-bold">وقت الانتهاء</label>
-                <input
-                  type="time"
-                  value={otEndTime}
-                  onChange={(e) => setOtEndTime(e.target.value)}
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="font-bold">إجمالي الساعات *</label>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0.5"
-                  max="12"
-                  value={otHours}
-                  onChange={(e) => setOtHours(Number(e.target.value))}
-                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-              </div>
-            </div>
-
-            {/* Live Calculation Preview Card */}
-            <div className="p-3.5 rounded-2xl bg-secondary/60 border border-primary/20 space-y-1.5">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground">أجر الساعة الأساسي:</span>
-                <span className="font-mono font-bold">{calculatedHourlyRate} ر.س</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground">معامل الاحتساب النظامي:</span>
-                <span className="font-bold text-amber-600">{otMultiplier}x</span>
-              </div>
-              <div className="flex justify-between items-center text-xs pt-1.5 border-t border-border/60">
-                <span className="font-bold text-foreground">إجمالي المستحق المالي للطلب:</span>
-                <span className="text-sm font-mono font-black text-emerald-600">
-                  {calculatedOtTotal.toLocaleString()} ر.س
-                </span>
-              </div>
+            <div className="rounded-2xl bg-secondary/60 border border-primary/20 p-3.5 text-xs flex justify-between">
+              <span className="text-muted-foreground">المدة المحسوبة</span>
+              <b className="font-mono">{calculatedOtHours} ساعة</b>
             </div>
 
             <div className="space-y-1.5">
               <label className="font-bold">مبرر ومهمة العمل الإضافي *</label>
-              <textarea
-                rows={2}
-                value={otReason}
-                onChange={(e) => setOtReason(e.target.value)}
-                placeholder="اكتب أسباب التكليف ومخرجات العمل المطلوبة بالتفصيل..."
-                className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-              />
+              <textarea rows={2} value={otReason} onChange={(e) => setOtReason(e.target.value)} placeholder="اكتب سبب التكليف ومخرجات العمل المطلوبة..." className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs" />
             </div>
           </div>
 
           <DialogFooter className="mt-3">
-            <Button
-              size="sm"
-              disabled={isSubmittingOvertime}
-              onClick={handleCreateOvertime}
-              className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-9"
-            >
-              {isSubmittingOvertime ? "جاري الحفظ..." : "حفظ واعتماد التكليف"}
+            <Button size="sm" disabled={isSubmittingOvertime || !otEmpId || !otDate} onClick={handleCreateOvertime} className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-9">
+              {isSubmittingOvertime ? "جاري الحفظ..." : "حفظ التكليف"}
             </Button>
           </DialogFooter>
         </DialogContent>

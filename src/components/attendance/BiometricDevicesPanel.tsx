@@ -100,7 +100,7 @@ export const BiometricDevicesPanel: React.FC = () => {
             <h3 className="text-sm font-black text-foreground">إعدادات أجهزة البصمة</h3>
             <p className="text-xs text-muted-foreground">
               كل جهاز يرسل بصماته إلى <span className="font-mono">/api/public/biometric/punch</span>{" "}
-              برمز اتصاله، وتنعكس على الحضور ثم على تسوية الرواتب.
+              برمز اتصاله، وتدخل في سجل البصمات ثم معالجة الحضور وفق سياسة المنشأة.
             </p>
           </div>
         </div>
@@ -134,7 +134,7 @@ export const BiometricDevicesPanel: React.FC = () => {
             checked={form.autoApprove}
             onChange={(e) => setForm((f) => ({ ...f, autoApprove: e.target.checked }))}
           />
-          اعتماد البصمات تلقائيًا
+          اعتماد البصمات تلقائيًا (اختياري)
         </label>
         <div className="flex items-end">
           <Button size="sm" onClick={() => void addDevice()} disabled={busy}>

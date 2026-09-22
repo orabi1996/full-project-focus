@@ -200,7 +200,7 @@ export interface AppContextType {
   // Attendance
   punchInOut: (
     type: "in" | "out",
-    coords?: { lat: number; lng: number },
+    coords?: { lat: number; lng: number; accuracy?: number },
   ) => Promise<{ success: boolean; message: string; geofenceValid: boolean }>;
   submitAttendanceCorrection: (payload: {
     workDate: string;

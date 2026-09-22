@@ -2497,31 +2497,45 @@ export async function fetchOvertimeRecordsServer(employees: Employee[]): Promise
 export async function createOvertimeRecord(
   record: Omit<OvertimeRecord, "id" | "status" | "createdAt">,
 ): Promise<string> {
-  const { data: userData } = await supabase.auth.getUser();
-  const { data, error } = await enterpriseSupabase
-    .from("overtime_records")
-    .insert({
-      employee_id: record.employeeId,
-      work_date: record.workDate,
-      start_time: record.startTime || "17:00:00",
-      end_time: record.endTime || "20:00:00",
-      hours: record.hours,
-      rate_multiplier: record.rateMultiplier || 1.5,
-      rate_type: record.rateType || "regular_150",
-      reason: record.reason || "",
-      hourly_rate: record.hourlyRate || 0,
-      total_amount:
-        record.totalAmount ||
-        record.hours * (record.hourlyRate || 0) * (record.rateMultiplier || 1.5),
-      status: "pending",
-      created_by: userData.user?.id ?? null,
-    })
-    .select("id")
-    .single();
+  const { data, error } = await (enterpriseSupabase.rpc as any)(
+    "submit_overtime_attendance_request",
+    {
+      p_employee_id: record.employeeId,
+      p_work_date: record.workDate,
+      p_start_time: record.startTime,
+      p_end_time: record.endTime,
+      p_reason: record.reason,
+    },
+  );
 
   if (error) throw new AppMutationError(error.message, "backend", { details: error });
-  if (!data?.id) throw new AppMutationError("تعذر تسجيل طلب العمل الإضافي", "backend");
-  return data.id;
+  const raw = (data as Record<string, unknown>) ?? {};
+  const id = String(raw["overtime_id"] ?? "");
+  if (!id) throw new AppMutationError("تعذر تسجيل طلب العمل الإضافي", "backend");
+  return id;
+}
+
+export async function submitAttendanceCorrectionRecord(input: {
+  workDate: string;
+  correctIn?: string;
+  correctOut?: string;
+  reason: string;
+}): Promise<string> {
+  const { data, error } = await (enterpriseSupabase.rpc as any)(
+    "submit_attendance_correction",
+    {
+      p_work_date: input.workDate,
+      p_correct_in: input.correctIn || null,
+      p_correct_out: input.correctOut || null,
+      p_reason: input.reason,
+    },
+  );
+
+  if (error) throw new AppMutationError(error.message, "backend", { details: error });
+  const raw = (data as Record<string, unknown>) ?? {};
+  const id = String(raw["request_id"] ?? "");
+  if (!id) throw new AppMutationError("تعذر إرسال طلب تصحيح البصمة", "backend");
+  return id;
 }
 
 export async function approveOvertimeRecord(id: string): Promise<void> {

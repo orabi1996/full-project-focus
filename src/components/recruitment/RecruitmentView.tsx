@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { useRecruitmentMutations } from "../../lib/domains/recruitment";
 import { useApp } from "../../lib/context/AppContext";
 import type { Candidate, CandidateStage } from "../../types";
 import { IconSymbol } from "../ui/IconSymbol";
@@ -54,7 +55,6 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
     workforcePlans,
     orgUnits,
     workLocations,
-    subsidiaries,
     company,
     currentRole,
     addJobOpening,
@@ -62,11 +62,17 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
     updateCandidateScore,
     moveCandidateStage,
     sendJobOffer,
-    addEmployee,
     openEmployeeProfile,
     language,
     t,
   } = useApp();
+
+  const { convertCandidateToEmployee } = useRecruitmentMutations();
+  const canSetFinancialData = ["super_admin", "payroll_officer", "finance_officer"].includes(
+    currentRole,
+  );
+  const [onboardFirstName, setOnboardFirstName] = useState("");
+  const [onboardLastName, setOnboardLastName] = useState("");
 
   const [activeTab, setActiveTab] = useState(section === "ats" ? "pipeline" : "workforce");
 
@@ -114,18 +120,16 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
   const offerFileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Onboarding (Convert to Employee) State
-  const [onboardDeptId, setOnboardDeptId] = useState(orgUnits[0]?.id || "");
-  const [onboardLocationId, setOnboardLocationId] = useState(workLocations[0]?.id || "");
+  const [onboardDeptId, setOnboardDeptId] = useState("");
+  const [onboardLocationId, setOnboardLocationId] = useState("");
   const [onboardContractType, setOnboardContractType] = useState<
-    "full_time" | "part_time" | "contractor" | "seasonal" | "internship"
-  >("full_time");
-  const [onboardWorkType, setOnboardWorkType] = useState<"on_site" | "hybrid" | "remote">(
-    "on_site",
-  );
-  const [onboardBasic, setOnboardBasic] = useState(15000);
-  const [onboardHousing, setOnboardHousing] = useState(3750);
-  const [onboardTransport, setOnboardTransport] = useState(1000);
-  const [onboardStartDate, setOnboardStartDate] = useState(new Date().toISOString().slice(0, 10));
+    "" | "full_time" | "part_time" | "contractor" | "seasonal" | "internship"
+  >("");
+  const [onboardWorkType, setOnboardWorkType] = useState<"" | "on_site" | "hybrid" | "remote">("");
+  const [onboardBasic, setOnboardBasic] = useState(0);
+  const [onboardHousing, setOnboardHousing] = useState(0);
+  const [onboardTransport, setOnboardTransport] = useState(0);
+  const [onboardStartDate, setOnboardStartDate] = useState("");
   const [isConvertingCandidate, setIsConvertingCandidate] = useState(false);
 
   // Scorecard State
@@ -282,85 +286,46 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
   const handleOpenOnboarding = (cand: Candidate) => {
     setCandidateToHire(cand);
-    setOnboardBasic(offerBasic || 15000);
-    setOnboardHousing(offerHousing || 3750);
-    setOnboardTransport(offerTransport || 1000);
-    setOnboardStartDate(new Date().toISOString().slice(0, 10));
+    const [firstName = "", ...lastName] = cand.fullName.trim().split(/\s+/);
+    setOnboardFirstName(firstName);
+    setOnboardLastName(lastName.join(" "));
+    const job = jobOpenings.find((j) => j.id === cand.jobId);
+    setOnboardContractType(job?.employmentType || "");
+    setOnboardWorkType("");
+    setOnboardDeptId(job?.departmentId || "");
+    setOnboardLocationId(job?.locationId || "");
+    setOnboardBasic(0);
+    setOnboardHousing(0);
+    setOnboardTransport(0);
+    setOnboardStartDate("");
     setIsOnboardingModalOpen(true);
   };
 
   const handleCompleteOnboarding = async () => {
-    if (!candidateToHire) return;
-    if (!onboardDeptId || !onboardLocationId || !onboardStartDate) {
-      toast.error("يرجى استكمال القسم ومقر العمل وتاريخ المباشرة");
+    if (!candidateToHire || isConvertingCandidate) return;
+    if (!onboardContractType || !onboardWorkType) {
+      toast.error("يرجى اختيار نوع العقد ونمط العمل");
       return;
     }
-    const nameParts = candidateToHire.fullName.trim().split(" ");
-    const firstName = nameParts[0] || "موظف";
-    const lastName = nameParts.slice(1).join(" ") || "جديد";
-
-    const dept = orgUnits.find((u) => u.id === onboardDeptId);
-    const loc = workLocations.find((w) => w.id === onboardLocationId);
-    const sub = subsidiaries[0];
-
-    const total = onboardBasic + onboardHousing + onboardTransport;
-
-    const canSetFinancialData = ["super_admin", "payroll_officer", "finance_officer"].includes(
-      currentRole,
-    );
     setIsConvertingCandidate(true);
-
-    const employeeCreated = await addEmployee({
-      // The database allocates the authoritative employee number transactionally.
-      employeeNo: "",
-      firstNameAr: firstName,
-      lastNameAr: lastName,
-      firstNameEn: firstName,
-      lastNameEn: lastName,
-      email: candidateToHire.email,
-      phone: candidateToHire.phone,
-      departmentId: onboardDeptId,
-      departmentName: dept?.nameAr || "التقنية",
-      subsidiaryId: sub?.id || "sub-1",
-      subsidiaryName: sub?.nameAr || company.legalNameAr,
-      workLocationId: onboardLocationId,
-      workLocationName: loc?.nameAr || "المقر الرئيسي",
-      jobTitleAr: candidateToHire.jobTitle,
-      jobTitleEn: candidateToHire.jobTitle,
-      nationalIdOrIqama: "",
-      nationality: "",
-      birthDate: "",
-      contractType: onboardContractType,
-      workType: onboardWorkType,
-      status: "draft",
-      hireDate: onboardStartDate,
-      basicSalary: canSetFinancialData ? onboardBasic : 0,
-      housingAllowance: canSetFinancialData ? onboardHousing : 0,
-      transportAllowance: canSetFinancialData ? onboardTransport : 0,
-      otherAllowances: 0,
-      totalSalary: canSetFinancialData ? total : 0,
-      customFields: {
-        joiningDate: onboardStartDate,
-        sourceCandidateId: candidateToHire.id,
-        offeredCompensationPendingFinancialApproval: !canSetFinancialData,
-      },
-    });
-
-    if (!employeeCreated) {
+    try {
+      const converted = await convertCandidateToEmployee({
+        candidateId: candidateToHire.id,
+        firstNameAr: onboardFirstName,
+        lastNameAr: onboardLastName,
+        departmentId: onboardDeptId,
+        workLocationId: onboardLocationId,
+        hireDate: onboardStartDate,
+        contractType: onboardContractType,
+        workType: onboardWorkType,
+        basicSalary: canSetFinancialData ? onboardBasic : 0,
+        housingAllowance: canSetFinancialData ? onboardHousing : 0,
+        transportAllowance: canSetFinancialData ? onboardTransport : 0,
+      });
+      if (converted) setIsOnboardingModalOpen(false);
+    } finally {
       setIsConvertingCandidate(false);
-      return;
     }
-
-    const candidateUpdated = await moveCandidateStage(candidateToHire.id, "hired");
-    setIsConvertingCandidate(false);
-    if (!candidateUpdated) {
-      toast.warning("تم إنشاء مسودة الموظف، لكن تعذر تحديث مرحلة المرشح. يلزم مراجعة سجل التوظيف.");
-      setIsOnboardingModalOpen(false);
-      return;
-    }
-
-    toast.success(`تم إنشاء مسودة الموظف (${candidateToHire.fullName}) وتحديث مرحلة المرشح بنجاح`);
-    setIsOnboardingModalOpen(false);
   };
 
   return (
@@ -728,8 +693,13 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
 
       {/* MODAL 1: Onboarding Wizard (Convert to Employee) */}
       {candidateToHire && (
-        <Dialog open={isOnboardingModalOpen} onOpenChange={setIsOnboardingModalOpen}>
-          <DialogContent className="max-w-lg rounded-3xl p-6">
+        <Dialog
+          open={isOnboardingModalOpen}
+          onOpenChange={(open) => {
+            if (!isConvertingCandidate) setIsOnboardingModalOpen(open);
+          }}
+        >
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl p-6">
             <DialogHeader>
               <DialogTitle className="text-base font-black flex items-center gap-2">
                 <UserCheck className="h-5 w-5 text-emerald-600" />
@@ -742,6 +712,24 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
             </DialogHeader>
 
             <div className="space-y-3.5 text-xs py-2">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-1.5 font-bold">
+                  الاسم الأول بالعربية *
+                  <input
+                    value={onboardFirstName}
+                    onChange={(e) => setOnboardFirstName(e.target.value)}
+                    className="w-full h-9 rounded-xl border px-3"
+                  />
+                </label>
+                <label className="space-y-1.5 font-bold">
+                  اسم العائلة بالعربية *
+                  <input
+                    value={onboardLastName}
+                    onChange={(e) => setOnboardLastName(e.target.value)}
+                    className="w-full h-9 rounded-xl border px-3"
+                  />
+                </label>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
                   <label className="font-bold">تاريخ المباشرة الرسمي *</label>
@@ -765,6 +753,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                     onChange={(e) => setOnboardDeptId(e.target.value)}
                     className="w-full h-9 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   >
+                    <option value="">اختر القسم</option>
                     {orgUnits.map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.nameAr}
@@ -779,6 +768,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                     onChange={(e) => setOnboardLocationId(e.target.value)}
                     className="w-full h-9 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   >
+                    <option value="">اختر مقر العمل</option>
                     {workLocations.map((w) => (
                       <option key={w.id} value={w.id}>
                         {w.nameAr}
@@ -798,6 +788,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                     }
                     className="w-full h-9 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs"
                   >
+                    <option value="">اختر نوع العقد</option>
                     <option value="full_time">دوام كامل</option>
                     <option value="part_time">دوام جزئي</option>
                     <option value="contractor">متعاقد</option>
@@ -812,6 +803,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
                     onChange={(e) => setOnboardWorkType(e.target.value as typeof onboardWorkType)}
                     className="w-full h-9 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs"
                   >
+                    <option value="">اختر نمط العمل</option>
                     <option value="on_site">من مقر العمل</option>
                     <option value="hybrid">هجين</option>
                     <option value="remote">عن بُعد</option>
@@ -820,50 +812,62 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({ section = "ats
               </div>
 
               {/* Salary Package */}
-              <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/60 space-y-2">
-                <span className="font-bold text-foreground block">الحزمة المالية المعتمدة:</span>
-                <div className="grid grid-cols-3 gap-2 font-mono">
-                  <div>
-                    <label className="text-[10px] text-muted-foreground block font-sans">
-                      الأساسي
-                    </label>
-                    <input
-                      type="number"
-                      value={onboardBasic}
-                      onChange={(e) => setOnboardBasic(Number(e.target.value))}
-                      className="w-full h-8 rounded-xl border border-border/80 bg-card px-2 text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-muted-foreground block font-sans">
-                      السكن
-                    </label>
-                    <input
-                      type="number"
-                      value={onboardHousing}
-                      onChange={(e) => setOnboardHousing(Number(e.target.value))}
-                      className="w-full h-8 rounded-xl border border-border/80 bg-card px-2 text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-muted-foreground block font-sans">
-                      النقل
-                    </label>
-                    <input
-                      type="number"
-                      value={onboardTransport}
-                      onChange={(e) => setOnboardTransport(Number(e.target.value))}
-                      className="w-full h-8 rounded-xl border border-border/80 bg-card px-2 text-xs"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t border-border/60 font-black text-sm text-primary">
-                  <span>إجمالي الراتب الشهري:</span>
-                  <span className="font-mono">
-                    {(onboardBasic + onboardHousing + onboardTransport).toLocaleString()} ر.س
+              {!canSetFinancialData && (
+                <p className="text-muted-foreground">
+                  ستُنشأ المسودة دون راتب معتمد؛ يستكمله صاحب الصلاحية المالية.
+                </p>
+              )}
+              {canSetFinancialData && (
+                <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/60 space-y-2">
+                  <span className="font-bold text-foreground block">
+                    بيانات الراتب (تحتاج مراجعتك):
                   </span>
+                  <div className="grid grid-cols-3 gap-2 font-mono">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground block font-sans">
+                        الأساسي
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={onboardBasic}
+                        onChange={(e) => setOnboardBasic(Number(e.target.value))}
+                        className="w-full h-8 rounded-xl border border-border/80 bg-card px-2 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground block font-sans">
+                        السكن
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={onboardHousing}
+                        onChange={(e) => setOnboardHousing(Number(e.target.value))}
+                        className="w-full h-8 rounded-xl border border-border/80 bg-card px-2 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground block font-sans">
+                        النقل
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={onboardTransport}
+                        onChange={(e) => setOnboardTransport(Number(e.target.value))}
+                        className="w-full h-8 rounded-xl border border-border/80 bg-card px-2 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-border/60 font-black text-sm text-primary">
+                    <span>إجمالي الراتب الشهري:</span>
+                    <span className="font-mono">
+                      {(onboardBasic + onboardHousing + onboardTransport).toLocaleString()} ر.س
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <DialogFooter className="mt-3">

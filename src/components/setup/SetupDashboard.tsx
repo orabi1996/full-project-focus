@@ -24,6 +24,7 @@ import { CompanyProfilePanel } from "../organization/CompanyProfilePanel";
 import { OrganizationView } from "../organization/OrganizationView";
 import { ShiftDefinitionsSetupPanel } from "./ShiftDefinitionsSetupPanel";
 import { LeavePoliciesSetupPanel } from "./LeavePoliciesSetupPanel";
+import { AttendancePolicySetupPanel } from "./AttendancePolicySetupPanel";
 import { UserCompanyAccessPanel } from "./UserCompanyAccessPanel";
 import { calculateSetupProgress } from "../../lib/domains/setup/setup-progress";
 import { toast } from "sonner";
@@ -168,11 +169,14 @@ export const SetupDashboard: React.FC = () => {
           <TabsTrigger value="shifts" className="rounded-xl text-xs font-bold py-2 px-3.5">
             3. الورديات وساعات العمل
           </TabsTrigger>
+          <TabsTrigger value="attendance" className="rounded-xl text-xs font-bold py-2 px-3.5">
+            4. سياسة الحضور
+          </TabsTrigger>
           <TabsTrigger value="leaves" className="rounded-xl text-xs font-bold py-2 px-3.5">
-            4. سياسات الإجازات
+            5. سياسات الإجازات
           </TabsTrigger>
           <TabsTrigger value="users" className="rounded-xl text-xs font-bold py-2 px-3.5">
-            5. حوكمة ربط المستخدمين
+            7. حوكمة ربط المستخدمين
           </TabsTrigger>
         </TabsList>
 
@@ -337,7 +341,41 @@ export const SetupDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Step 5: Leaves */}
+            {/* Step 5: Attendance Policy */}
+            <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs hover:border-primary/40 transition-all flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                      <CalendarCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-foreground">5. سياسة الحضور والانصراف</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">GPS • الجداول • الاستثناءات</p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="rounded-full text-[10px] font-bold">
+                    يتطلب إعداداً صريحاً
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  ضبط تسجيل الجوال والسياج الجغرافي وجدول الدوام المنشور وسياسة البصمة الناقصة دون افتراض قواعد تلقائية.
+                </p>
+              </div>
+              <div className="mt-4 pt-3 border-t border-border/60 flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setActiveSetupTab("attendance")}
+                  className="rounded-full text-xs font-bold gap-1.5 cursor-pointer"
+                >
+                  إعداد سياسة الحضور
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Step 6: Leaves */}
             <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs hover:border-primary/40 transition-all flex flex-col justify-between">
               <div className="space-y-3">
                 <div className="flex items-start justify-between gap-3">
@@ -348,7 +386,7 @@ export const SetupDashboard: React.FC = () => {
                       <CalendarCheck className="h-5 w-5" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-black text-foreground">5. لوائح وأنواع الإجازات</h3>
+                      <h3 className="text-sm font-black text-foreground">6. لوائح وأنواع الإجازات</h3>
                       <p className="text-xs text-muted-foreground mt-0.5">الأنواع: {leaveTypes.length}</p>
                     </div>
                   </div>
@@ -435,12 +473,17 @@ export const SetupDashboard: React.FC = () => {
           <ShiftDefinitionsSetupPanel />
         </TabsContent>
 
-        {/* ===================== TAB 5: LEAVES POLICIES ===================== */}
+        {/* ===================== TAB 5: ATTENDANCE POLICY ===================== */}
+        <TabsContent value="attendance" className="pt-4">
+          <AttendancePolicySetupPanel />
+        </TabsContent>
+
+        {/* ===================== TAB 6: LEAVES POLICIES ===================== */}
         <TabsContent value="leaves" className="pt-4">
           <LeavePoliciesSetupPanel />
         </TabsContent>
 
-        {/* ===================== TAB 6: USERS GOVERNANCE ===================== */}
+        {/* ===================== TAB 7: USERS GOVERNANCE ===================== */}
         <TabsContent value="users" className="pt-4">
           <UserCompanyAccessPanel />
         </TabsContent>

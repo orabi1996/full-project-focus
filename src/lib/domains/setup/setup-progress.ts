@@ -16,7 +16,7 @@ export interface SetupStage {
   weight: number;
   description: string;
   missingNote?: string;
-  actionTab: "company" | "org" | "locations" | "shifts" | "leaves" | "users";
+  actionTab: "company" | "org" | "locations" | "shifts" | "attendance" | "leaves" | "users";
 }
 
 export interface SetupProgressResult {
@@ -36,6 +36,7 @@ export function calculateSetupProgress(params: {
   jobPositions?: JobPosition[];
   shifts: ShiftDefinition[];
   leaveTypes: LeaveTypePolicy[];
+  attendancePolicyConfigured?: boolean;
   activeUsersCount?: number;
 }): SetupProgressResult {
   const {
@@ -46,6 +47,7 @@ export function calculateSetupProgress(params: {
     jobPositions = [],
     shifts,
     leaveTypes,
+    attendancePolicyConfigured = false,
     activeUsersCount = 1,
   } = params;
 
@@ -75,11 +77,15 @@ export function calculateSetupProgress(params: {
   const isShiftsComplete = (shifts || []).length > 0;
   if (!isShiftsComplete) missingFields.push("تعريف وردية دوام أساسية واحدة على الأقل");
 
-  // 5. Leave Policies
+  // 5. Attendance Policy
+  const isAttendancePolicyComplete = attendancePolicyConfigured;
+  if (!isAttendancePolicyComplete) missingFields.push("إعداد سياسة الحضور والانصراف للمنشأة");
+
+  // 6. Leave Policies
   const isLeavesComplete = (leaveTypes || []).length > 0;
   if (!isLeavesComplete) missingFields.push("تعريف لائحة الإجازات وسياسة الاستحقاق السنوي");
 
-  // 6. User Company Governance
+  // 7. User Company Governance
   const isUsersLinked = activeUsersCount > 0;
   if (!isUsersLinked) missingFields.push("ربط واعتماد المستخدمين المصرح لهم بنطاق شركة الأندلس");
 
@@ -89,7 +95,7 @@ export function calculateSetupProgress(params: {
       title: "بيانات السجل والمنشأة",
       category: "base",
       complete: isCompanyBaseComplete,
-      weight: 25,
+      weight: 20,
       description: "توثيق الاسم القانوني لشركة «الأندلس» والسجل التجاري المعتمد",
       missingNote: !hasCrNumber ? "يلزم إدخال رقم السجل التجاري لإثبات هوية المنشأة" : undefined,
       actionTab: "company",
@@ -119,10 +125,20 @@ export function calculateSetupProgress(params: {
       title: "سياسات وورديات العمل",
       category: "operational",
       complete: isShiftsComplete,
-      weight: 15,
+      weight: 10,
       description: "تحديد مواعيد وساعات العمل وقواعد السماح واحتساب الإضافي",
       missingNote: !isShiftsComplete ? "لم يتم تعريف ورديات بعد" : undefined,
       actionTab: "shifts",
+    },
+    {
+      id: "attendance_policy",
+      title: "سياسة الحضور والانصراف",
+      category: "operational",
+      complete: isAttendancePolicyComplete,
+      weight: 10,
+      description: "ضبط تسجيل الجوال والسياج الجغرافي والجداول والاستثناءات من مصدر تهيئة واحد",
+      missingNote: !isAttendancePolicyComplete ? "لم يتم حفظ سياسة حضور للمنشأة بعد" : undefined,
+      actionTab: "attendance",
     },
     {
       id: "leave_policies",

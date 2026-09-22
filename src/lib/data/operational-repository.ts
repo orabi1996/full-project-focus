@@ -2840,6 +2840,104 @@ export async function fetchCompanyAttendanceRecordsRecord(input: {
   };
 }
 
+export async function fetchScopedOvertimeRecordsRecord(input: {
+  fromDate: string;
+  toDate: string;
+  status?: string | null;
+}): Promise<OvertimeRecord[]> {
+  const { data, error } = await (enterpriseSupabase.rpc as any)(
+    "get_overtime_attendance_requests",
+    {
+      p_from: input.fromDate,
+      p_to: input.toDate,
+      p_status: input.status ?? null,
+    },
+  );
+  if (error) throw new Error(error.message);
+
+  return Array.isArray(data)
+    ? (data as Record<string, unknown>[]).map((row) => ({
+        id: String(row["id"] ?? ""),
+        employeeId: String(row["employee_id"] ?? ""),
+        employeeNo: String(row["employee_no"] ?? ""),
+        employeeName: String(row["employee_name"] ?? ""),
+        departmentName: String(row["department_name"] ?? ""),
+        workDate: String(row["work_date"] ?? ""),
+        startTime: row["start_time"] ? String(row["start_time"]).slice(0, 5) : "",
+        endTime: row["end_time"] ? String(row["end_time"]).slice(0, 5) : "",
+        hours: Number(row["hours"] ?? 0),
+        rateMultiplier: Number(row["rate_multiplier"] ?? 0),
+        rateType:
+          row["rate_type"] === "regular_150" ||
+          row["rate_type"] === "holiday_200" ||
+          row["rate_type"] === "pending_payroll_rule"
+            ? (row["rate_type"] as OvertimeRecord["rateType"])
+            : "pending_payroll_rule",
+        reason: String(row["reason"] ?? ""),
+        hourlyRate: Number(row["hourly_rate"] ?? 0),
+        totalAmount: Number(row["total_amount"] ?? 0),
+        status:
+          row["status"] === "approved" || row["status"] === "rejected"
+            ? (row["status"] as OvertimeRecord["status"])
+            : "pending",
+        approvedBy: row["approved_by"] ? String(row["approved_by"]) : undefined,
+        approvedAt: row["approved_at"] ? String(row["approved_at"]) : undefined,
+        createdAt: String(row["created_at"] ?? ""),
+      }))
+    : [];
+}
+
+export async function fetchScopedAttendanceCorrectionsRecord(input: {
+  fromDate: string;
+  toDate: string;
+  status?: string | null;
+}): Promise<AttendanceCorrectionRequest[]> {
+  const { data, error } = await (enterpriseSupabase.rpc as any)(
+    "get_attendance_correction_requests",
+    {
+      p_from: input.fromDate,
+      p_to: input.toDate,
+      p_status: input.status ?? null,
+    },
+  );
+  if (error) throw new Error(error.message);
+
+  return Array.isArray(data)
+    ? (data as Record<string, unknown>[]).map((row) => {
+        const rawStatus = String(row["status"] ?? "pending");
+        const status: AttendanceCorrectionRequest["status"] =
+          rawStatus === "approved"
+            ? "approved"
+            : rawStatus === "rejected"
+              ? "rejected"
+              : rawStatus === "returned"
+                ? "returned"
+                : "pending";
+
+        return {
+          id: String(row["id"] ?? ""),
+          originalAttendanceId: row["original_attendance_id"]
+            ? String(row["original_attendance_id"])
+            : undefined,
+          employeeId: String(row["employee_id"] ?? ""),
+          employeeNo: String(row["employee_no"] ?? ""),
+          employeeName: String(row["employee_name"] ?? ""),
+          departmentName: String(row["department_name"] ?? ""),
+          workDate: String(row["work_date"] ?? ""),
+          originalIn: row["original_in"] ? String(row["original_in"]) : undefined,
+          originalOut: row["original_out"] ? String(row["original_out"]) : undefined,
+          correctInTime: row["correct_in"] ? String(row["correct_in"]).slice(0, 5) : "",
+          correctOutTime: row["correct_out"] ? String(row["correct_out"]).slice(0, 5) : "",
+          reason: String(row["reason"] ?? ""),
+          status,
+          submittedAt: String(row["submitted_at"] ?? ""),
+          reviewedBy: row["reviewed_by"] ? String(row["reviewed_by"]) : undefined,
+          reviewedAt: row["reviewed_at"] ? String(row["reviewed_at"]) : undefined,
+        };
+      })
+    : [];
+}
+
 export async function fetchAttendanceSummaryRecord(
   date?: string | null,
 ): Promise<AttendanceSummaryRecord> {

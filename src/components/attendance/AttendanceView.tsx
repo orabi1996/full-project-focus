@@ -69,13 +69,14 @@ export const AttendanceView: React.FC = () => {
     "line_manager",
   ].includes(currentRole);
 
-  const timezoneConfigured = isValidTimezone(company?.timezone);
-  const companyToday = timezoneConfigured ? getCompanyToday(company.timezone) : "";
+  const companyTimezone = company?.timezone ?? "";
+  const timezoneConfigured = isValidTimezone(companyTimezone);
+  const companyToday = timezoneConfigured ? getCompanyToday(companyTimezone) : "";
   const companyYear = companyToday ? Number(companyToday.slice(0, 4)) : 0;
   const companyMonth = companyToday ? Number(companyToday.slice(5, 7)) : 0;
   const monthBoundaries =
     timezoneConfigured && companyYear && companyMonth
-      ? getCompanyMonthBoundaries(companyYear, companyMonth, company.timezone)
+      ? getCompanyMonthBoundaries(companyYear, companyMonth, companyTimezone)
       : { startDate: "", endDate: "" };
 
   const employeeDirectory = useEmployeeDirectory(
@@ -1103,7 +1104,7 @@ export const AttendanceView: React.FC = () => {
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between rounded-xl bg-muted/40 p-3">
                   <span>المنطقة الزمنية</span>
-                  <b>{timezoneConfigured ? company.timezone : "غير مهيأة"}</b>
+                  <b>{timezoneConfigured ? companyTimezone : "غير مهيأة"}</b>
                 </div>
                 <div className="flex justify-between rounded-xl bg-muted/40 p-3">
                   <span>الفترة المعروضة</span>

@@ -2191,6 +2191,22 @@ export async function createJobOpeningRecord(job: Omit<JobOpening, "id">) {
   if (error) throw new Error(error.message);
 }
 
+export async function convertCandidateToEmployeeRecord(input: import("../domains/recruitment/candidate-conversion").CandidateConversionInput) {
+  const { data, error } = await enterpriseSupabase.rpc("convert_candidate_to_employee", {
+    p_candidate_id: input.candidateId, p_first_name_ar: input.firstNameAr,
+    p_last_name_ar: input.lastNameAr, p_department_id: input.departmentId,
+    p_work_location_id: input.workLocationId, p_hire_date: input.hireDate,
+    p_contract_type: input.contractType, p_work_type: input.workType,
+    p_basic_salary: input.basicSalary, p_housing_allowance: input.housingAllowance,
+    p_transport_allowance: input.transportAllowance,
+  });
+  if (error) throw new Error(error.message);
+  if (!data || typeof data !== "object" || Array.isArray(data) || data.success !== true || typeof data.id !== "string") {
+    throw new Error("تعذر تأكيد تحويل المرشح؛ يمكن إعادة المحاولة بأمان");
+  }
+  return data.id;
+}
+
 export async function createCandidateRecord(candidate: Omit<Candidate, "id"> & { id?: string }) {
   const { error } = await enterpriseSupabase.from("candidates").insert({
     id: candidate.id ?? undefined,

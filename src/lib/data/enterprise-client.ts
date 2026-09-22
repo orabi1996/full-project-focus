@@ -584,6 +584,15 @@ type EnterpriseFunctions = Database["public"]["Functions"] & {
     };
     Returns: Json;
   };
+  convert_candidate_to_employee: {
+    Args: {
+      p_candidate_id: string; p_first_name_ar: string; p_last_name_ar: string;
+      p_department_id: string; p_work_location_id: string; p_hire_date: string;
+      p_contract_type: string; p_work_type: string;
+      p_basic_salary?: number; p_housing_allowance?: number; p_transport_allowance?: number;
+    };
+    Returns: Json;
+  };
   create_employee: {
     Args: {
       p_first_name_ar: string;

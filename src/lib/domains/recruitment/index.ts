@@ -1,9 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
-import type { Candidate, CandidateStage, JobOffer, JobOpening, WorkforcePlan } from "../../../types";
+import type {
+  Candidate,
+  CandidateStage,
+  JobOffer,
+  JobOpening,
+  WorkforcePlan,
+} from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
 import {
   createCandidateRecord,
+  convertCandidateToEmployeeRecord,
   createJobOfferRecord,
   createJobOpeningRecord,
   updateCandidateRecord,
@@ -14,6 +21,11 @@ import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
 import { uploadCandidateCvFile, uploadJobOfferFile, rollbackUploadedFile } from "../../storage";
+import {
+  convertDemoCandidate,
+  validateCandidateConversion,
+  type CandidateConversionInput,
+} from "./candidate-conversion";
 
 export function useRecruitment() {
   const { session, isDemo } = useAuth();
@@ -44,9 +56,51 @@ export function useRecruitment() {
 }
 
 export function useRecruitmentMutations() {
-  const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
+  const { isDemo } = useAuth();
+  const mode: MutationDataMode = isDemo ? "demo" : "live";
   const queryClient = useQueryClient();
+
+  const convertCandidateToEmployee = useCallback(
+    async (input: CandidateConversionInput): Promise<boolean> => {
+      try {
+        validateCandidateConversion(input);
+        const result = await executeReliableMutation({
+          mode,
+          mutationKey: `convert-candidate-${input.candidateId}`,
+          operation: () => convertCandidateToEmployeeRecord(input),
+          demoOperation: () => {
+            const next = convertDemoCandidate(input, demoStore.candidates, demoStore.employees);
+            demoStore.employees = next.employees;
+            demoStore.candidates = next.candidates;
+            demoStore.notify();
+            return next.id;
+          },
+          onRejected: (err) => {
+            toast.error(err.message);
+          },
+        });
+        if (!result.ok) return false;
+        // A refresh failure cannot undo a confirmed transaction or turn it into a failed write.
+        const refresh = await Promise.allSettled([
+          queryClient.invalidateQueries({ queryKey: queryKeys.employees.all }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.all }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all }),
+        ]);
+        toast.success(
+          mode === "demo"
+            ? "تم تحويل المرشح (وضع العرض التجريبي)"
+            : "تم إنشاء مسودة الموظف وربطها بالمرشح بنجاح",
+        );
+        if (refresh.some((r) => r.status === "rejected"))
+          toast.warning("تم الحفظ؛ يرجى تحديث الصفحة لعرض أحدث البيانات");
+        return true;
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "تعذر تحويل المرشح");
+        return false;
+      }
+    },
+    [mode, queryClient],
+  );
 
   const addJobOpening = useCallback(
     async (job: Omit<JobOpening, "id">): Promise<boolean> => {
@@ -84,7 +138,10 @@ export function useRecruitmentMutations() {
 
   const addCandidate = useCallback(
     async (candidate: Omit<Candidate, "id">, cvFile?: File): Promise<boolean> => {
-      const candId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `cand-${Date.now()}`;
+      const candId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `cand-${Date.now()}`;
       let cvFileId: string | undefined = candidate.cvFileId;
       let cvUrl: string | undefined = candidate.cvUrl;
 
@@ -210,7 +267,10 @@ export function useRecruitmentMutations() {
 
   const sendJobOffer = useCallback(
     async (offer: Omit<JobOffer, "id" | "status">, offerFile?: File): Promise<boolean> => {
-      const offerId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `off-${Date.now()}`;
+      const offerId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `off-${Date.now()}`;
       let offerFileId: string | undefined;
 
       if (offerFile) {
@@ -222,7 +282,8 @@ export function useRecruitmentMutations() {
           });
           offerFileId = uploaded.id;
         } catch (uploadErr) {
-          const msg = uploadErr instanceof Error ? uploadErr.message : "فشل رفع وثيقة العرض الوظيفي";
+          const msg =
+            uploadErr instanceof Error ? uploadErr.message : "فشل رفع وثيقة العرض الوظيفي";
           toast.error(msg);
           return false;
         }
@@ -272,6 +333,7 @@ export function useRecruitmentMutations() {
 
   return {
     addJobOpening,
+    convertCandidateToEmployee,
     addCandidate,
     updateCandidateScore,
     moveCandidateStage,

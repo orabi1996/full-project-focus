@@ -10,12 +10,10 @@ describe("truthful workflow UI contracts", () => {
   it("does not mark a candidate hired before employee creation succeeds", () => {
     const recruitment = source("src/components/recruitment/RecruitmentView.tsx");
 
-    expect(recruitment).toContain("const employeeCreated = await addEmployee");
-    expect(recruitment).toContain("if (!employeeCreated)");
-    expect(recruitment).toContain('await moveCandidateStage(candidateToHire.id, "hired")');
-    expect(recruitment.indexOf("if (!employeeCreated)")).toBeLessThan(
-      recruitment.indexOf('await moveCandidateStage(candidateToHire.id, "hired")'),
-    );
+    expect(recruitment).toContain("const converted = await convertCandidateToEmployee");
+    expect(recruitment).toContain("if (converted) setIsOnboardingModalOpen(false)");
+    expect(recruitment).not.toContain('await moveCandidateStage(candidateToHire.id, "hired")');
+    expect(recruitment).not.toContain("await addEmployee");
   });
 
   it("does not fabricate identity, bank or profile data during candidate conversion", () => {
@@ -25,8 +23,8 @@ describe("truthful workflow UI contracts", () => {
     expect(recruitment).not.toContain('birthDate: "1990-01-01"');
     expect(recruitment).not.toContain('bankName: "مصرف الراجحي"');
     expect(recruitment).not.toContain('iban: "SA0000000000000000000000"');
-    expect(recruitment).toContain('status: "draft"');
-    expect(recruitment).toContain('employeeNo: ""');
+    expect(recruitment).not.toContain('|| "جديد"');
+    expect(recruitment).not.toContain('subsidiaries[0]');
   });
 
   it("waits for shift and performance writes before closing their dialogs", () => {

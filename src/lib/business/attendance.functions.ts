@@ -496,18 +496,6 @@ const HR_ATTENDANCE_ROLES = [
   "attendance_officer",
 ] as const;
 
-async function resolveEmployeeId(supabase: any, ref: string) {
-  const isUuid = /^[0-9a-f-]{36}$/i.test(ref);
-  const { data, error } = await supabase
-    .from("employees")
-    .select("id, full_name, employee_no")
-    .eq(isUuid ? "id" : "employee_no", ref)
-    .maybeSingle();
-  if (error) throw new Error(`تعذر البحث عن الموظف: ${error.message}`);
-  if (!data) throw new Error("لا يوجد موظف بهذا الرقم الوظيفي");
-  return data;
-}
-
 /** Lists registered biometric devices (tokens are never exposed). */
 export const listBiometricDevicesServer = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -596,7 +584,7 @@ export const recordPunchServer = createServerFn({ method: "POST" })
     };
   });
 
-/** Lists punches for a day with employee identity and approval state. */
+/** Lists tenant-scoped punches for one company-local calendar day. */
 export const listPunchesServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { date: string }) => {
@@ -606,107 +594,65 @@ export const listPunchesServer = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const supabase = context.supabase as any;
     await assertRole(supabase, context.userId, [...HR_ATTENDANCE_ROLES, "line_manager"]);
+
+    const { data: companyId, error: companyIdError } = await supabase.rpc(
+      "current_user_company_id",
+    );
+    if (companyIdError || !companyId) {
+      throw new Error("لا توجد منشأة نشطة مرتبطة بالحساب الحالي");
+    }
+
+    const { data: company, error: companyError } = await supabase
+      .from("companies")
+      .select("timezone")
+      .eq("id", companyId)
+      .single();
+    if (companyError) throw new Error(`تعذر قراءة إعدادات المنشأة: ${companyError.message}`);
+    if (!company?.timezone) throw new Error("لم يتم إعداد المنطقة الزمنية للمنشأة");
+
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: company.timezone }).format(new Date());
+    } catch {
+      throw new Error("المنطقة الزمنية للمنشأة غير صالحة");
+    }
+
+    const fromUtc = `${addCalendarDays(data.date, -1)}T00:00:00Z`;
+    const toUtc = `${addCalendarDays(data.date, 2)}T00:00:00Z`;
+
     const { data: rows, error } = await supabase
       .from("punches")
       .select(
-        "id, employee_id, punch_time, punch_type, source, device_id, approval_status, employees(full_name, employee_no)",
+        "id, employee_id, punch_time, punch_type, source, device_id, approval_status, geofence_valid, employees(full_name, employee_no)",
       )
-      .gte("punch_time", `${data.date}T00:00:00Z`)
-      .lte("punch_time", `${data.date}T23:59:59Z`)
+      .eq("company_id", companyId)
+      .gte("punch_time", fromUtc)
+      .lt("punch_time", toUtc)
       .order("punch_time", { ascending: false });
     if (error) throw new Error(`تعذر قراءة البصمات: ${error.message}`);
-    return (rows ?? []).map((row: any) => ({
-      id: row.id,
-      employeeId: row.employee_id,
-      employeeName: row.employees?.full_name ?? "—",
-      employeeNo: row.employees?.employee_no ?? "—",
-      punchTime: row.punch_time,
-      punchType: row.punch_type,
-      source: row.source,
-      deviceId: row.device_id,
-      approvalStatus: row.approval_status,
-    }));
+
+    return (rows ?? [])
+      .filter((row: any) => localPunchParts(row.punch_time, company.timezone).date === data.date)
+      .map((row: any) => ({
+        id: row.id,
+        employeeId: row.employee_id,
+        employeeName: row.employees?.full_name ?? "—",
+        employeeNo: row.employees?.employee_no ?? "—",
+        punchTime: row.punch_time,
+        punchType: row.punch_type,
+        source: row.source,
+        deviceId: row.device_id,
+        approvalStatus: row.approval_status,
+        geofenceValid: row.geofence_valid,
+      }));
   });
 
-/** Rebuilds one employee's attendance record for a single day from approved punches. */
-export async function recomputeDay(supabase: any, employeeId: string, day: string) {
-  const { data: punches } = await supabase
-    .from("punches")
-    .select("punch_time, punch_type")
-    .eq("employee_id", employeeId)
-    .neq("approval_status", "rejected")
-    .gte("punch_time", `${day}T00:00:00Z`)
-    .lte("punch_time", `${day}T23:59:59Z`)
-    .order("punch_time");
-
-  const list = punches ?? [];
-  const firstIn = list.find((p: any) => p.punch_type === "in");
-  if (!firstIn) {
-    await supabase
-      .from("attendance_records")
-      .delete()
-      .eq("employee_id", employeeId)
-      .eq("work_date", day)
-      .eq("is_manual", false);
-    return;
-  }
-  const lastOut = [...list].reverse().find((p: any) => p.punch_type === "out");
-
-  const { data: schedule } = await supabase
-    .from("schedule_assignments")
-    .select("shift_id, is_rest_day")
-    .eq("employee_id", employeeId)
-    .eq("work_date", day)
-    .maybeSingle();
-  let shift: any = null;
-  if (schedule?.shift_id) {
-    const { data } = await supabase
-      .from("shifts")
-      .select("start_time, end_time, grace_minutes_arrival, overtime_eligible")
-      .eq("id", schedule.shift_id)
-      .maybeSingle();
-    shift = data;
-  }
-
-  const checkInMin = timeOfDay(firstIn.punch_time);
-  const checkOutMin = lastOut ? timeOfDay(lastOut.punch_time) : null;
-  let expectedMinutes = 8 * 60;
-  let lateMinutes = 0;
-  if (shift) {
-    const start = toMinutes(shift.start_time);
-    const end = toMinutes(shift.end_time);
-    expectedMinutes = (end >= start ? end : end + 1440) - start;
-    lateMinutes = Math.max(0, checkInMin - start - (shift.grace_minutes_arrival ?? 0));
-  }
-  let workedMinutes = 0;
-  let overtimeMinutes = 0;
-  if (checkOutMin !== null) {
-    workedMinutes =
-      checkOutMin >= checkInMin ? checkOutMin - checkInMin : checkOutMin + 1440 - checkInMin;
-    if (!shift || shift.overtime_eligible !== false) {
-      overtimeMinutes = Math.max(0, workedMinutes - expectedMinutes);
-    }
-  }
-
-  await supabase.from("attendance_records").upsert(
-    {
-      employee_id: employeeId,
-      work_date: day,
-      check_in: formatTime(checkInMin),
-      check_out: checkOutMin !== null ? formatTime(checkOutMin) : null,
-      status: lateMinutes > 0 ? "late" : "present",
-      worked_hours: round2(workedMinutes / 60),
-      worked_minutes: workedMinutes,
-      late_minutes: lateMinutes,
-      overtime_minutes: overtimeMinutes,
-      is_manual: false,
-      note: "احتُسب آليًا من بصمات الجهاز",
-    },
-    { onConflict: "employee_id,work_date" },
-  );
-}
-
-/** Approves or rejects a punch, then rebuilds the affected attendance day. */
+/**
+ * Approves or rejects a raw punch.
+ *
+ * The decision intentionally does not run the legacy single-day UTC/8-hour calculator.
+ * The authoritative company-timezone/schedule engine is run explicitly through
+ * processAttendanceServer after exception review.
+ */
 export const decidePunchServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { punchId: string; decision: "approved" | "rejected" }) => {
@@ -718,17 +664,39 @@ export const decidePunchServer = createServerFn({ method: "POST" })
     const supabase = context.supabase as any;
     await assertRole(supabase, context.userId, [...HR_ATTENDANCE_ROLES, "line_manager"]);
 
+    const { data: companyId, error: companyIdError } = await supabase.rpc(
+      "current_user_company_id",
+    );
+    if (companyIdError || !companyId) {
+      throw new Error("لا توجد منشأة نشطة مرتبطة بالحساب الحالي");
+    }
+
     const { data: punch, error } = await supabase
       .from("punches")
       .update({ approval_status: data.decision })
+      .eq("company_id", companyId)
       .eq("id", data.punchId)
       .select("employee_id, punch_time")
       .maybeSingle();
     if (error) throw new Error(`تعذر تحديث البصمة: ${error.message}`);
-    if (!punch) throw new Error("البصمة غير موجودة");
+    if (!punch) throw new Error("البصمة غير موجودة أو خارج نطاق المنشأة الحالية");
 
-    await recomputeDay(supabase, punch.employee_id, String(punch.punch_time).slice(0, 10));
-    return { ok: true };
+    const { data: company } = await supabase
+      .from("companies")
+      .select("timezone")
+      .eq("id", companyId)
+      .maybeSingle();
+    const workDate =
+      company?.timezone
+        ? localPunchParts(punch.punch_time, company.timezone).date
+        : null;
+
+    return {
+      ok: true,
+      requiresReprocess: true,
+      employeeId: punch.employee_id,
+      workDate,
+    };
   });
 
 /**
@@ -780,7 +748,7 @@ export const updateBiometricDeviceServer = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const supabase = context.supabase as any;
-    await assertRole(supabase, context.userId, ["super_admin", "org_admin", "hr_manager"]);
+    await assertRole(supabase, context.userId, ["super_admin", "org_admin", "hr_manager", "attendance_officer"]);
 
     const payload: Record<string, unknown> = {};
     if (data.nameAr?.trim()) payload["name_ar"] = data.nameAr.trim();
@@ -806,7 +774,7 @@ export const updateBiometricDeviceServer = createServerFn({ method: "POST" })
     return { id: data.id, token };
   });
 
-/** Removes a device; its historical punches (and payroll effect) stay intact. */
+/** Removes a device registration while preserving historical punch records. */
 export const deleteBiometricDeviceServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string }) => {
@@ -815,7 +783,7 @@ export const deleteBiometricDeviceServer = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const supabase = context.supabase as any;
-    await assertRole(supabase, context.userId, ["super_admin", "org_admin", "hr_manager"]);
+    await assertRole(supabase, context.userId, ["super_admin", "org_admin", "hr_manager", "attendance_officer"]);
     const { error } = await supabase.from("biometric_devices").delete().eq("id", data.id);
     if (error) throw new Error(`تعذر حذف الجهاز: ${error.message}`);
     return { ok: true };

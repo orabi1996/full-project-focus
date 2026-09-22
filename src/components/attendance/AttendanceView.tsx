@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useApp } from "../../lib/context/AppContext";
+import { useAttendance } from "../../lib/domains/attendance";
+import { getCompanyMonthBoundaries, getCompanyToday, isValidTimezone } from "../../lib/utils/timezone-dates";
 import { exportToCSV } from "../../lib/utils/export-helpers";
 import { BiometricTerminalPanel } from "./BiometricTerminalPanel";
 import { BiometricDevicesPanel } from "./BiometricDevicesPanel";
@@ -43,10 +45,8 @@ import type { OvertimeRecord } from "../../types";
 export const AttendanceView: React.FC = () => {
   const navigate = useNavigate();
   const {
-    attendanceRecords,
-    overtimeRecords,
-    attendanceCorrections,
     employees,
+    company,
     currentUser,
     currentRole,
     punchInOut,
@@ -61,14 +61,41 @@ export const AttendanceView: React.FC = () => {
     language,
     t,
     isSaving,
+    dataMode,
   } = useApp();
 
   const canManageAttendance = [
     "super_admin",
+    "org_admin",
     "hr_manager",
-    "department_manager",
-    "operations_manager",
+    "attendance_officer",
+    "line_manager",
   ].includes(currentRole);
+
+  const timezoneConfigured = isValidTimezone(company?.timezone);
+  const companyToday = timezoneConfigured ? getCompanyToday(company.timezone) : "";
+  const companyYear = companyToday ? Number(companyToday.slice(0, 4)) : 0;
+  const companyMonth = companyToday ? Number(companyToday.slice(5, 7)) : 0;
+  const monthBoundaries =
+    timezoneConfigured && companyYear && companyMonth
+      ? getCompanyMonthBoundaries(companyYear, companyMonth, company.timezone)
+      : { startDate: "", endDate: "" };
+
+  const {
+    attendanceRecords,
+    overtimeRecords,
+    attendanceCorrections,
+    attendanceSummary,
+    attendancePolicy,
+    isLoading: isAttendanceLoading,
+    isError: isAttendanceError,
+    error: attendanceError,
+  } = useAttendance({
+    enabled: dataMode !== "live" || timezoneConfigured,
+    fromDate: monthBoundaries.startDate || undefined,
+    toDate: companyToday || undefined,
+    pageSize: 200,
+  });
 
   const [activeTab, setActiveTab] = useState<"timesheet" | "biometric" | "overtime" | "corrections" | "policies">(
     "timesheet",
@@ -81,19 +108,17 @@ export const AttendanceView: React.FC = () => {
 
   // Correction Modal State
   const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
-  const [correctionDate, setCorrectionDate] = useState(new Date().toISOString().slice(0, 10));
+  const [correctionDate, setCorrectionDate] = useState(companyToday);
   const [correctInTime, setCorrectInTime] = useState("08:00");
   const [correctOutTime, setCorrectOutTime] = useState("17:00");
   const [correctionReason, setCorrectionReason] = useState("");
 
   // Overtime Modal State
   const [isOvertimeModalOpen, setIsOvertimeModalOpen] = useState(false);
-  const [otEmpId, setOtEmpId] = useState(employees[0]?.id || "");
-  const [otDate, setOtDate] = useState(new Date().toISOString().slice(0, 10));
+  const [otEmpId, setOtEmpId] = useState("");
+  const [otDate, setOtDate] = useState(companyToday);
   const [otStartTime, setOtStartTime] = useState("17:00");
   const [otEndTime, setOtEndTime] = useState("20:00");
-  const [otHours, setOtHours] = useState(3.0);
-  const [otRateType, setOtRateType] = useState<"regular_150" | "holiday_200">("regular_150");
   const [otReason, setOtReason] = useState("");
   const [isProcessingAttendance, setIsProcessingAttendance] = useState(false);
   const [isSubmittingCorrection, setIsSubmittingCorrection] = useState(false);
@@ -101,19 +126,18 @@ export const AttendanceView: React.FC = () => {
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
 
   const selectedOtEmployee = useMemo(
-    () => employees.find((e) => e.id === otEmpId) || employees[0],
+    () => employees.find((e) => e.id === otEmpId),
     [employees, otEmpId],
   );
 
-  // Hourly rate based on Saudi Labor Law: (Basic Salary / 30 days / 8 hours)
-  const calculatedHourlyRate = useMemo(() => {
-    if (!selectedOtEmployee) return 50;
-    const basic = selectedOtEmployee.basicSalary || 6000;
-    return Number((basic / 240).toFixed(2));
-  }, [selectedOtEmployee]);
-
-  const otMultiplier = otRateType === "regular_150" ? 1.5 : 2.0;
-  const calculatedOtTotal = Number((otHours * calculatedHourlyRate * otMultiplier).toFixed(2));
+  const calculatedOtHours = useMemo(() => {
+    if (!otStartTime || !otEndTime) return 0;
+    const [startHour, startMinute] = otStartTime.split(":").map(Number);
+    const [endHour, endMinute] = otEndTime.split(":").map(Number);
+    let minutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+    if (minutes <= 0) minutes += 24 * 60;
+    return Number((minutes / 60).toFixed(2));
+  }, [otStartTime, otEndTime]);
 
   // Filtered Attendance Records
   const filteredRecords = useMemo(() => {
@@ -144,23 +168,29 @@ export const AttendanceView: React.FC = () => {
     return Array.from(set);
   }, [attendanceRecords]);
 
-  // KPIs
-  const totalEmployeesCount = 120;
-  const presentCount = attendanceRecords.filter((r) => r.status === "present").length + 104;
-  const lateCount = attendanceRecords.filter((r) => r.status === "late").length;
-  const absentCount = attendanceRecords.filter((r) => r.status === "absent").length;
-  const attendanceRate = Number(((presentCount / totalEmployeesCount) * 100).toFixed(1));
+  // KPIs — Live mode comes from the server summary; Demo remains derived from Demo Store.
+  const totalEmployeesCount =
+    attendanceSummary?.totalEmployees ??
+    (dataMode === "demo" ? employees.filter((e) => e.status !== "terminated").length : 0);
+  const presentCount =
+    attendanceSummary?.present ??
+    attendanceRecords.filter((r) => r.status === "present").length;
+  const lateCount =
+    attendanceSummary?.late ??
+    attendanceRecords.filter((r) => r.status === "late").length;
+  const absentCount =
+    attendanceSummary?.absent ??
+    attendanceRecords.filter((r) => r.status === "absent").length;
+  const attendanceRate =
+    attendanceSummary?.attendanceRate ??
+    (totalEmployeesCount > 0
+      ? Number((((presentCount + lateCount) / totalEmployeesCount) * 100).toFixed(1))
+      : 0);
 
   const totalOvertimeApprovedHours = useMemo(() => {
     return overtimeRecords
       .filter((ot) => ot.status === "approved")
       .reduce((sum, ot) => sum + ot.hours, 0);
-  }, [overtimeRecords]);
-
-  const totalOvertimeApprovedAmount = useMemo(() => {
-    return overtimeRecords
-      .filter((ot) => ot.status === "approved")
-      .reduce((sum, ot) => sum + ot.totalAmount, 0);
   }, [overtimeRecords]);
 
   const pendingCorrectionsCount = attendanceCorrections.filter(
@@ -171,12 +201,15 @@ export const AttendanceView: React.FC = () => {
     if (isProcessingAttendance) return;
     setIsProcessingAttendance(true);
     try {
-      const today = new Date();
-      const from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-      const to = today.toISOString().slice(0, 10);
-      const ok = await processAttendance(from, to);
+      if (!timezoneConfigured || !monthBoundaries.startDate || !companyToday) {
+        toast.error("يجب إعداد منطقة زمنية صحيحة للمنشأة قبل معالجة الحضور.");
+        return;
+      }
+      const ok = await processAttendance(monthBoundaries.startDate, companyToday);
       if (ok) {
-        toast.success("تمت معالجة واحتساب ساعات الحضور الإجمالية والتأخيرات لشهر سبتمبر 2026 بنجاح");
+        toast.success(
+          `تمت معالجة سجلات الحضور للفترة من ${monthBoundaries.startDate} إلى ${companyToday}`,
+        );
       }
     } finally {
       setIsProcessingAttendance(false);
@@ -185,29 +218,49 @@ export const AttendanceView: React.FC = () => {
 
   const handlePunch = (type: "in" | "out") => {
     if (isSaving) return;
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const res = await punchInOut(type, {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          });
-          if (res.success) {
-            toast.success(
-              `${res.message} • ${res.geofenceValid ? "داخل السياج الجغرافي للمقر" : "خارج النطاق الجغرافي"}`,
-            );
-          }
-        },
-        async () => {
-          const res = await punchInOut(type);
-          if (res.success) toast.success(res.message);
-        },
-      );
-    } else {
-      void punchInOut(type).then((res) => {
-        if (res.success) toast.success(res.message);
-      });
+    if (dataMode === "live" && !timezoneConfigured) {
+      toast.error("لم يتم إعداد المنطقة الزمنية للمنشأة.");
+      return;
     }
+    if (dataMode === "live" && attendancePolicy?.configured && !attendancePolicy.allowMobilePunch) {
+      toast.error("تسجيل الحضور من الجوال غير مفعل في سياسة المنشأة.");
+      return;
+    }
+
+    const submitWithoutLocation = async () => {
+      if (dataMode === "live" && attendancePolicy?.requireGeofence) {
+        toast.error("لا يمكن تسجيل الحضور بدون موقع جغرافي لأن السياج الجغرافي إلزامي.");
+        return;
+      }
+      const res = await punchInOut(type);
+      if (res.success) toast.success(res.message);
+    };
+
+    if (!navigator.geolocation) {
+      void submitWithoutLocation();
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const res = await punchInOut(type, {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        });
+        if (res.success) {
+          toast.success(
+            attendancePolicy?.requireGeofence
+              ? `${res.message} • ${res.geofenceValid ? "داخل النطاق الجغرافي" : "بحاجة للمراجعة"}`
+              : res.message,
+          );
+        }
+      },
+      () => {
+        void submitWithoutLocation();
+      },
+      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 0 },
+    );
   };
 
   const handleExportAttendance = () => {
@@ -216,13 +269,13 @@ export const AttendanceView: React.FC = () => {
       "اسم الموظف": r.employeeName,
       "الإدارة / القطاع": r.departmentName,
       التاريخ: r.workDate,
-      الوردية: r.scheduledShift || "الوردية الصباحية",
+      الوردية: r.scheduledShift || "—",
       "وقت الدخول": r.actualIn || "—",
       "وقت الخروج": r.actualOut || "—",
       "ساعات العمل": r.workedHours,
       "التأخير (دقائق)": r.lateMinutes,
       "ساعات إضافية": r.overtimeHours,
-      "السياج الجغرافي": r.geofenceValid ? "داخل المقر" : "خارج النطاق",
+      "السياج الجغرافي": r.geofenceValid ? "مطابق" : r.punchSource === "mobile_gps" ? "غير مطابق/للمراجعة" : "غير مطبق",
       الحالة: r.status === "present" ? "حاضر" : r.status === "late" ? "متأخر" : "غائب",
     }));
     exportToCSV(`Attendance_Report_${new Date().toISOString().split("T")[0]}`, data);
@@ -252,12 +305,16 @@ export const AttendanceView: React.FC = () => {
   };
 
   const handleCreateOvertime = async () => {
+    if (!selectedOtEmployee) {
+      toast.error("اختر الموظف المكلف بالعمل الإضافي.");
+      return;
+    }
     if (!otReason.trim()) {
       toast.error("يرجى كتابة مبرر ومهمة العمل الإضافي");
       return;
     }
-    if (otHours <= 0) {
-      toast.error("عدد ساعات العمل الإضافي يجب أن يكون أكبر من صفر");
+    if (calculatedOtHours <= 0 || calculatedOtHours > 16) {
+      toast.error("مدة العمل الإضافي غير صالحة");
       return;
     }
     if (isSubmittingOvertime) return;
@@ -267,20 +324,21 @@ export const AttendanceView: React.FC = () => {
         employeeId: selectedOtEmployee.id,
         employeeNo: selectedOtEmployee.employeeNo,
         employeeName: `${selectedOtEmployee.firstNameAr} ${selectedOtEmployee.lastNameAr}`,
-        departmentName: selectedOtEmployee.departmentName || "قطاع العمليات",
+        departmentName: selectedOtEmployee.departmentName || "",
         workDate: otDate,
         startTime: otStartTime,
         endTime: otEndTime,
-        hours: otHours,
-        rateMultiplier: otMultiplier,
-        rateType: otRateType,
+        hours: calculatedOtHours,
+        rateMultiplier: 0,
+        rateType: "pending_payroll_rule",
         reason: otReason,
-        hourlyRate: calculatedHourlyRate,
-        totalAmount: calculatedOtTotal,
+        hourlyRate: 0,
+        totalAmount: 0,
       });
       if (ok) {
         setIsOvertimeModalOpen(false);
         setOtReason("");
+        setOtEmpId("");
       }
     } finally {
       setIsSubmittingOvertime(false);

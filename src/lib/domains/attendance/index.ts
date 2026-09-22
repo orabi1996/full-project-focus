@@ -28,6 +28,7 @@ import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
 
 export interface AttendanceQueryFilters {
+  enabled?: boolean;
   fromDate?: string;
   toDate?: string;
   departmentId?: string | null;
@@ -134,21 +135,21 @@ export function useAttendance(filters: AttendanceQueryFilters = {}) {
       const items = await fetchMyAttendanceRecordsRecord(fromDate, toDate);
       return { items, totalCount: items.length, page: 1, pageSize: items.length };
     },
-    enabled: isLive,
+    enabled: isLive && filters.enabled !== false,
     staleTime: 30_000,
   });
 
   const policyQuery = useQuery({
     queryKey: queryKeys.attendance.policy(),
     queryFn: fetchAttendancePolicyRecord,
-    enabled: isLive,
+    enabled: isLive && filters.enabled !== false,
     staleTime: 60_000,
   });
 
   const summaryQuery = useQuery({
     queryKey: queryKeys.attendance.summary(null),
     queryFn: () => fetchAttendanceSummaryRecord(null),
-    enabled: isLive && canReadCompany,
+    enabled: isLive && filters.enabled !== false && canReadCompany,
     staleTime: 30_000,
   });
 

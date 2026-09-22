@@ -768,7 +768,7 @@ export interface AttendanceCorrectionRequest {
   correctInTime: string;
   correctOutTime: string;
   reason: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "returned";
   submittedAt: string;
   reviewedBy?: string;
   reviewedAt?: string;

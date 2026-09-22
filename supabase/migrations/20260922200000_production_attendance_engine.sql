@@ -9,6 +9,11 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+ALTER TYPE public.attendance_status ADD VALUE IF NOT EXISTS 'early_departure';
+ALTER TYPE public.attendance_status ADD VALUE IF NOT EXISTS 'holiday';
+ALTER TYPE public.attendance_status ADD VALUE IF NOT EXISTS 'rest_day';
+ALTER TYPE public.attendance_status ADD VALUE IF NOT EXISTS 'missing_punch';
+
 -- --------------------------------------------------------------------------
 -- 1) Company attendance policy
 -- --------------------------------------------------------------------------

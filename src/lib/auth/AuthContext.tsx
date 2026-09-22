@@ -444,6 +444,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         persistDemoSession(true);
         setIsDemo(true);
+        setIsLoading(false);
       },
       leaveDemo: () => {
         persistDemoSession(false);

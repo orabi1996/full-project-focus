@@ -38,6 +38,7 @@ export const ar = {
   // Navigation Links
   nav: {
     dashboard: "لوحة المتابعة",
+    setup: "تهيئة النظام",
     organization: "المنشأة والهيكل التنظيمي",
     employees: "دليل وملفات الموظفين",
     documents: "مستودع الوثائق والمستندات",

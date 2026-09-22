@@ -57,14 +57,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       ],
     },
     {
-      groupTitle: language === "ar" ? "شؤون الموظفين والهيكل" : "Workforce & Org",
+      groupTitle: language === "ar" ? "شؤون الموظفين والملفات" : "Workforce & Files",
       items: [
-        {
-          id: "organization",
-          label: t.nav.organization,
-          iconName: "corporate_fare",
-          iconSource: "material",
-        },
         {
           id: "employees",
           label: t.nav.employees,
@@ -77,16 +71,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           iconName: "folder_shared",
           iconSource: "material",
         },
-        {
-          id: "rbac",
-          label: t.nav.rbac,
-          iconName: "admin_panel_settings",
-          iconSource: "material",
-        },
       ],
     },
     {
-      groupTitle: language === "ar" ? "الوقت والعمليات اليومية" : "Time & Operations",
+      groupTitle: language === "ar" ? "الوقت والعمليات التشغيلية" : "Time & Operations",
       items: [
         {
           id: "workflow",
@@ -165,7 +153,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       ],
     },
     {
-      groupTitle: language === "ar" ? "البيئة المؤسسية والتكامل" : "Ecosystem & Governance",
+      groupTitle: language === "ar" ? "البيئة المؤسسية والحوكمة" : "Ecosystem & Governance",
       items: [
         {
           id: "assets",
@@ -177,12 +165,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           id: "reports",
           label: t.nav.reports,
           iconName: "analytics",
-          iconSource: "material",
-        },
-        {
-          id: "integrations",
-          label: t.nav.integrations,
-          iconName: "hub",
           iconSource: "material",
         },
         {
@@ -203,6 +185,37 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           iconSource: "material",
           badge: "ESS",
           badgeVariant: "default",
+        },
+      ],
+    },
+    {
+      groupTitle: language === "ar" ? "تهيئة النظام" : "System Setup",
+      items: [
+        {
+          id: "setup",
+          label: t.nav.setup,
+          iconName: "tune",
+          iconSource: "material",
+          badge: "الإعداد",
+          badgeVariant: "outline",
+        },
+        {
+          id: "organization",
+          label: t.nav.organization,
+          iconName: "corporate_fare",
+          iconSource: "material",
+        },
+        {
+          id: "rbac",
+          label: t.nav.rbac,
+          iconName: "admin_panel_settings",
+          iconSource: "material",
+        },
+        {
+          id: "integrations",
+          label: t.nav.integrations,
+          iconName: "hub",
+          iconSource: "material",
         },
       ],
     },
@@ -257,16 +270,17 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
       {/* Navigation List with M3 Pill Indicators & Material Symbols */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 custom-scrollbar">
-        {navGroups.map((group, gIdx) => (
-          <div key={gIdx} className="space-y-1">
-            {!collapsed && (
-              <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1.5">
-                {group.groupTitle}
-              </p>
-            )}
-            {group.items
-              .filter((item) => canAccessModule(currentRole, item.id))
-              .map((item) => {
+        {navGroups.map((group, gIdx) => {
+          const visibleItems = group.items.filter((item) => canAccessModule(currentRole, item.id));
+          if (visibleItems.length === 0) return null;
+          return (
+            <div key={gIdx} className="space-y-1">
+              {!collapsed && (
+                <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1.5">
+                  {group.groupTitle}
+                </p>
+              )}
+              {visibleItems.map((item) => {
                 const itemRoute = MODULE_ROUTE_MAP[item.id] || `/${item.id}`;
                 const isActive =
                   activePath === itemRoute ||
@@ -316,8 +330,9 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   </button>
                 );
               })}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
 
       {/* Footer Status Badge */}

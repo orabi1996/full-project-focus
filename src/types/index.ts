@@ -59,6 +59,7 @@ export interface CompanyProfile {
   logoUrl?: string;
   headquartersAddress: string;
   fiscalYearStartMonth: number;
+  setupStatus?: "incomplete" | "complete" | string;
 }
 
 export interface Subsidiary {

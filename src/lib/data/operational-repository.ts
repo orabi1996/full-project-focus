@@ -396,6 +396,7 @@ export async function fetchOperationalSnapshot(
           logoUrl: companiesResult.data[0].logo_url ?? undefined,
           headquartersAddress: companiesResult.data[0].headquarters_address ?? "",
           fiscalYearStartMonth: companiesResult.data[0].fiscal_year_start_month,
+          setupStatus: companiesResult.data[0].setup_status ?? "incomplete",
         }
       : null,
     subsidiaries: (subsidiariesResult.data ?? []).map((row) => ({

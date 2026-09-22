@@ -38,6 +38,7 @@ export const en = {
   // Navigation Links
   nav: {
     dashboard: "Dashboard",
+    setup: "System Setup",
     organization: "Org Structure",
     employees: "Employee Directory",
     documents: "Document Vault",

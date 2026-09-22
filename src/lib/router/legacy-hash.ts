@@ -1,5 +1,6 @@
 export const MODULE_ROUTE_MAP: Record<string, string> = {
   dashboard: "/dashboard",
+  setup: "/setup",
   organization: "/organization",
   employees: "/employees",
   documents: "/documents",
@@ -23,6 +24,7 @@ export const MODULE_ROUTE_MAP: Record<string, string> = {
 
 export const LEGACY_HASH_MAP: Record<string, string> = {
   "#dashboard": "/dashboard",
+  "#setup": "/setup",
   "#organization": "/organization",
   "#employees": "/employees",
   "#documents": "/documents",

@@ -4,6 +4,7 @@ import { useApp } from "../../lib/context/AppContext";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 import { CommandPalette } from "./CommandPalette";
+import { SetupProgressBanner } from "../setup/SetupProgressBanner";
 import { ViewErrorBoundary } from "../ui/ViewErrorBoundary";
 import { LayoutDashboard, Users, Clock, CheckSquare, Smartphone } from "lucide-react";
 
@@ -62,6 +63,9 @@ export const AppLayout: React.FC = () => {
           onToggleMobileMenu={() => setMobileMenuOpen((open) => !open)}
           onNavigate={handleNavigate}
         />
+
+        {/* Setup Progress Notification Banner for Admins */}
+        <SetupProgressBanner />
 
         {/* Dynamic Page Body: TanStack Router Outlet */}
         <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-muted/15">

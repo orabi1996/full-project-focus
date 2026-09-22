@@ -27,6 +27,7 @@ import { Route as AuthenticatedPerformanceRouteImport } from './routes/_authenti
 import { Route as AuthenticatedRbacRouteImport } from './routes/_authenticated/rbac'
 import { Route as AuthenticatedRecruitmentRouteImport } from './routes/_authenticated/recruitment'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedSetupRouteImport } from './routes/_authenticated/setup'
 import { Route as AuthenticatedShiftsRouteImport } from './routes/_authenticated/shifts'
 import { Route as AuthenticatedWorkflowsRouteImport } from './routes/_authenticated/workflows'
 import { Route as AuthenticatedWorkforceRouteImport } from './routes/_authenticated/workforce'
@@ -129,6 +130,11 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSetupRoute = AuthenticatedSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedShiftsRoute = AuthenticatedShiftsRouteImport.update({
   id: '/shifts',
   path: '/shifts',
@@ -192,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/rbac': typeof AuthenticatedRbacRoute
   '/recruitment': typeof AuthenticatedRecruitmentRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/setup': typeof AuthenticatedSetupRoute
   '/shifts': typeof AuthenticatedShiftsRoute
   '/workflows': typeof AuthenticatedWorkflowsRoute
   '/workforce': typeof AuthenticatedWorkforceRoute
@@ -219,6 +226,7 @@ export interface FileRoutesByTo {
   '/rbac': typeof AuthenticatedRbacRoute
   '/recruitment': typeof AuthenticatedRecruitmentRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/setup': typeof AuthenticatedSetupRoute
   '/shifts': typeof AuthenticatedShiftsRoute
   '/workflows': typeof AuthenticatedWorkflowsRoute
   '/workforce': typeof AuthenticatedWorkforceRoute
@@ -248,6 +256,7 @@ export interface FileRoutesById {
   '/_authenticated/rbac': typeof AuthenticatedRbacRoute
   '/_authenticated/recruitment': typeof AuthenticatedRecruitmentRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/_authenticated/setup': typeof AuthenticatedSetupRoute
   '/_authenticated/shifts': typeof AuthenticatedShiftsRoute
   '/_authenticated/workflows': typeof AuthenticatedWorkflowsRoute
   '/_authenticated/workforce': typeof AuthenticatedWorkforceRoute
@@ -277,6 +286,7 @@ export interface FileRouteTypes {
     | '/rbac'
     | '/recruitment'
     | '/reports'
+    | '/setup'
     | '/shifts'
     | '/workflows'
     | '/workforce'
@@ -304,6 +314,7 @@ export interface FileRouteTypes {
     | '/rbac'
     | '/recruitment'
     | '/reports'
+    | '/setup'
     | '/shifts'
     | '/workflows'
     | '/workforce'
@@ -332,6 +343,7 @@ export interface FileRouteTypes {
     | '/_authenticated/rbac'
     | '/_authenticated/recruitment'
     | '/_authenticated/reports'
+    | '/_authenticated/setup'
     | '/_authenticated/shifts'
     | '/_authenticated/workflows'
     | '/_authenticated/workforce'
@@ -477,6 +489,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/setup': {
+      id: '/_authenticated/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof AuthenticatedSetupRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/shifts': {
       id: '/_authenticated/shifts'
       path: '/shifts'
@@ -552,6 +571,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedRbacRoute: typeof AuthenticatedRbacRoute
   AuthenticatedRecruitmentRoute: typeof AuthenticatedRecruitmentRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
+  AuthenticatedSetupRoute: typeof AuthenticatedSetupRoute
   AuthenticatedShiftsRoute: typeof AuthenticatedShiftsRoute
   AuthenticatedWorkflowsRoute: typeof AuthenticatedWorkflowsRoute
   AuthenticatedWorkforceRoute: typeof AuthenticatedWorkforceRoute
@@ -577,6 +597,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedRbacRoute: AuthenticatedRbacRoute,
   AuthenticatedRecruitmentRoute: AuthenticatedRecruitmentRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
+  AuthenticatedSetupRoute: AuthenticatedSetupRoute,
   AuthenticatedShiftsRoute: AuthenticatedShiftsRoute,
   AuthenticatedWorkflowsRoute: AuthenticatedWorkflowsRoute,
   AuthenticatedWorkforceRoute: AuthenticatedWorkforceRoute,

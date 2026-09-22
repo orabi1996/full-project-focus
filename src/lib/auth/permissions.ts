@@ -15,6 +15,7 @@ const allRoles: UserRole[] = [
 
 export const moduleAccess: Record<string, UserRole[]> = {
   dashboard: allRoles,
+  setup: ["super_admin", "hr_manager"],
   organization: ["super_admin", "hr_manager", "auditor"],
   employees: ["super_admin", "hr_manager"],
   documents: allRoles,
@@ -58,6 +59,7 @@ export const moduleAccess: Record<string, UserRole[]> = {
 };
 
 export const moduleManageAccess: Record<string, UserRole[]> = {
+  setup: ["super_admin", "hr_manager"],
   organization: ["super_admin", "hr_manager"],
   employees: ["super_admin", "hr_manager"],
   documents: ["super_admin", "hr_manager"],

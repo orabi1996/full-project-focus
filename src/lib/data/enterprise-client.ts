@@ -33,6 +33,7 @@ export interface CompanyRow extends Record<string, unknown> {
   timezone: string;
   headquarters_address: string | null;
   fiscal_year_start_month: number;
+  setup_status?: string | null;
   updated_at: string;
   created_at: string;
 }

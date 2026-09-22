@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useApp } from "../../lib/context/AppContext";
 import { useAttendance } from "../../lib/domains/attendance";
+import { useEmployeeDirectory } from "../../lib/domains/employees";
 import { getCompanyMonthBoundaries, getCompanyToday, isValidTimezone } from "../../lib/utils/timezone-dates";
 import { exportToCSV } from "../../lib/utils/export-helpers";
 import { BiometricTerminalPanel } from "./BiometricTerminalPanel";
@@ -45,9 +46,7 @@ import type { OvertimeRecord } from "../../types";
 export const AttendanceView: React.FC = () => {
   const navigate = useNavigate();
   const {
-    employees,
     company,
-    currentUser,
     currentRole,
     punchInOut,
     submitAttendanceCorrection,
@@ -58,8 +57,6 @@ export const AttendanceView: React.FC = () => {
     rejectOvertimeRequest,
     processAttendance,
     openEmployeeProfile,
-    language,
-    t,
     isSaving,
     dataMode,
   } = useApp();
@@ -80,6 +77,11 @@ export const AttendanceView: React.FC = () => {
     timezoneConfigured && companyYear && companyMonth
       ? getCompanyMonthBoundaries(companyYear, companyMonth, company.timezone)
       : { startDate: "", endDate: "" };
+
+  const employeeDirectory = useEmployeeDirectory(
+    { page: 1, pageSize: 100, status: "active", sort: "employee_no_asc" },
+    { enabled: canManageAttendance },
+  );
 
   const {
     attendanceRecords,
@@ -109,8 +111,8 @@ export const AttendanceView: React.FC = () => {
   // Correction Modal State
   const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
   const [correctionDate, setCorrectionDate] = useState(companyToday);
-  const [correctInTime, setCorrectInTime] = useState("08:00");
-  const [correctOutTime, setCorrectOutTime] = useState("17:00");
+  const [correctInTime, setCorrectInTime] = useState("");
+  const [correctOutTime, setCorrectOutTime] = useState("");
   const [correctionReason, setCorrectionReason] = useState("");
 
   // Overtime Modal State
@@ -126,8 +128,8 @@ export const AttendanceView: React.FC = () => {
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
 
   const selectedOtEmployee = useMemo(
-    () => employees.find((e) => e.id === otEmpId),
-    [employees, otEmpId],
+    () => employeeDirectory.items.find((employee) => employee.id === otEmpId),
+    [employeeDirectory.items, otEmpId],
   );
 
   const calculatedOtHours = useMemo(() => {
@@ -171,7 +173,7 @@ export const AttendanceView: React.FC = () => {
   // KPIs — Live mode comes from the server summary; Demo remains derived from Demo Store.
   const totalEmployeesCount =
     attendanceSummary?.totalEmployees ??
-    (dataMode === "demo" ? employees.filter((e) => e.status !== "terminated").length : 0);
+    (dataMode === "demo" ? employeeDirectory.totalCount : 0);
   const presentCount =
     attendanceSummary?.present ??
     attendanceRecords.filter((r) => r.status === "present").length;
@@ -323,7 +325,7 @@ export const AttendanceView: React.FC = () => {
       const ok = await submitOvertimeRequest({
         employeeId: selectedOtEmployee.id,
         employeeNo: selectedOtEmployee.employeeNo,
-        employeeName: `${selectedOtEmployee.firstNameAr} ${selectedOtEmployee.lastNameAr}`,
+        employeeName: selectedOtEmployee.fullName,
         departmentName: selectedOtEmployee.departmentName || "",
         workDate: otDate,
         startTime: otStartTime,
@@ -831,7 +833,7 @@ export const AttendanceView: React.FC = () => {
           </div>
         </TabsContent>
 
-        {/* TAB 2: Overtime Management (المادة 107 من نظام العمل) */}
+        {/* TAB 2: Overtime Management */}
         <TabsContent value="overtime" className="space-y-4">
           <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-border/60 pb-4">
@@ -1135,7 +1137,7 @@ export const AttendanceView: React.FC = () => {
               طلب تصحيح أو تسجيل بصمة منسية
             </DialogTitle>
             <DialogDescription className="text-xs font-medium">
-              سيتم إرسال الطلب مع المبررات إلى مديرك المباشر لاعتماده وتعديل مسير الدوام
+              سيتم إرسال الطلب مع المبررات إلى مسار الاعتماد المعتمد للمنشأة قبل تعديل سجل الحضور
             </DialogDescription>
           </DialogHeader>
 
@@ -1218,9 +1220,9 @@ export const AttendanceView: React.FC = () => {
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
                 <option value="">اختر الموظف</option>
-                {employees.map((emp) => (
+                {employeeDirectory.items.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.firstNameAr} {emp.lastNameAr} ({emp.employeeNo}) — {emp.jobTitleAr}
+                    {emp.fullName} ({emp.employeeNo}){emp.jobTitle ? ` — ${emp.jobTitle}` : ""}
                   </option>
                 ))}
               </select>

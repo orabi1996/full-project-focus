@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
 import { useNavigate } from "@tanstack/react-router";
@@ -27,6 +28,8 @@ import { LeavePoliciesSetupPanel } from "./LeavePoliciesSetupPanel";
 import { AttendancePolicySetupPanel } from "./AttendancePolicySetupPanel";
 import { UserCompanyAccessPanel } from "./UserCompanyAccessPanel";
 import { calculateSetupProgress } from "../../lib/domains/setup/setup-progress";
+import { fetchAttendancePolicyRecord } from "../../lib/data/operational-repository";
+import { queryKeys } from "../../lib/query/query-keys";
 import { toast } from "sonner";
 
 export const SetupDashboard: React.FC = () => {
@@ -46,6 +49,13 @@ export const SetupDashboard: React.FC = () => {
   const canManage = canManageModule(currentRole, "setup");
   const [activeSetupTab, setActiveSetupTab] = useState<string>("overview");
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const attendancePolicyQuery = useQuery({
+    queryKey: queryKeys.attendance.policy(),
+    queryFn: fetchAttendancePolicyRecord,
+    enabled: canManage,
+    staleTime: 30_000,
+  });
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -69,8 +79,9 @@ export const SetupDashboard: React.FC = () => {
       jobPositions,
       shifts,
       leaveTypes,
+      attendancePolicyConfigured: Boolean(attendancePolicyQuery.data?.configured),
     });
-  }, [company, orgUnits, workLocations, costCenters, jobPositions, shifts, leaveTypes]);
+  }, [company, orgUnits, workLocations, costCenters, jobPositions, shifts, leaveTypes, attendancePolicyQuery.data?.configured]);
 
   const companyName = company?.legalNameAr || "الأندلس";
 
@@ -354,8 +365,11 @@ export const SetupDashboard: React.FC = () => {
                       <p className="text-xs text-muted-foreground mt-0.5">GPS • الجداول • الاستثناءات</p>
                     </div>
                   </div>
-                  <Badge variant="secondary" className="rounded-full text-[10px] font-bold">
-                    يتطلب إعداداً صريحاً
+                  <Badge
+                    variant={attendancePolicyQuery.data?.configured ? "default" : "secondary"}
+                    className="rounded-full text-[10px] font-bold"
+                  >
+                    {attendancePolicyQuery.data?.configured ? "مُعرّف" : "يتطلب إعداداً صريحاً"}
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">

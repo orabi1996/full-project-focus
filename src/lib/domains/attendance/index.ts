@@ -18,12 +18,13 @@ import {
   fetchCompanyAttendanceRecordsRecord,
   recordMobileAttendancePunchRecord,
   submitAttendanceCorrectionRecord,
+  fetchScopedOvertimeRecordsRecord,
+  fetchScopedAttendanceCorrectionsRecord,
   type AttendanceRecordItem,
 } from "../../data/operational-repository";
 import { processAttendanceServer } from "../../business/attendance.functions";
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
-import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
 
@@ -86,7 +87,6 @@ function toDailyAttendanceRecord(item: AttendanceRecordItem): DailyAttendanceRec
 export function useAttendance(filters: AttendanceQueryFilters = {}) {
   const { session, isDemo, role } = useAuth();
   const isLive = Boolean(session && !isDemo);
-  const bootstrap = useBootstrapData();
   const demoData = useDemoStore((s) => ({
     attendanceRecords: s.attendanceRecords,
     overtimeRecords: s.overtimeRecords,
@@ -153,31 +153,68 @@ export function useAttendance(filters: AttendanceQueryFilters = {}) {
     staleTime: 30_000,
   });
 
+  const overtimeQuery = useQuery({
+    queryKey: queryKeys.attendance.overtimeList({ fromDate, toDate }),
+    queryFn: () =>
+      fetchScopedOvertimeRecordsRecord({
+        fromDate,
+        toDate,
+      }),
+    enabled: isLive && filters.enabled !== false,
+    staleTime: 30_000,
+  });
+
+  const correctionsQuery = useQuery({
+    queryKey: queryKeys.attendance.correctionList({ fromDate, toDate }),
+    queryFn: () =>
+      fetchScopedAttendanceCorrectionsRecord({
+        fromDate,
+        toDate,
+      }),
+    enabled: isLive && filters.enabled !== false,
+    staleTime: 30_000,
+  });
+
   const liveRecords = (recordsQuery.data?.items ?? []).map(toDailyAttendanceRecord);
 
   return {
     attendanceRecords: isLive ? liveRecords : demoData.attendanceRecords,
-    overtimeRecords: isLive ? bootstrap.overtimeRecords : demoData.overtimeRecords,
+    overtimeRecords: isLive ? overtimeQuery.data ?? [] : demoData.overtimeRecords,
     attendanceCorrections: isLive
-      ? bootstrap.attendanceCorrections
+      ? correctionsQuery.data ?? []
       : demoData.attendanceCorrections,
     attendancePolicy: isLive ? policyQuery.data ?? null : null,
     attendanceSummary: isLive ? summaryQuery.data ?? null : null,
     totalCount: isLive ? recordsQuery.data?.totalCount ?? 0 : demoData.attendanceRecords.length,
     isLoading: isLive
-      ? recordsQuery.isLoading || policyQuery.isLoading || (canReadCompany && summaryQuery.isLoading)
+      ? recordsQuery.isLoading ||
+        policyQuery.isLoading ||
+        overtimeQuery.isLoading ||
+        correctionsQuery.isLoading ||
+        (canReadCompany && summaryQuery.isLoading)
       : false,
     isError: isLive
-      ? recordsQuery.isError || policyQuery.isError || (canReadCompany && summaryQuery.isError)
+      ? recordsQuery.isError ||
+        policyQuery.isError ||
+        overtimeQuery.isError ||
+        correctionsQuery.isError ||
+        (canReadCompany && summaryQuery.isError)
       : false,
     error: isLive
-      ? recordsQuery.error ?? policyQuery.error ?? summaryQuery.error ?? null
+      ? recordsQuery.error ??
+        policyQuery.error ??
+        overtimeQuery.error ??
+        correctionsQuery.error ??
+        summaryQuery.error ??
+        null
       : null,
     refetch: async () => {
       if (!isLive) return;
       await Promise.all([
         recordsQuery.refetch(),
         policyQuery.refetch(),
+        overtimeQuery.refetch(),
+        correctionsQuery.refetch(),
         canReadCompany ? summaryQuery.refetch() : Promise.resolve(),
       ]);
     },

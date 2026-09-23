@@ -308,8 +308,16 @@ CREATE POLICY "file_objects_delete"
 -- STEP 6: Fine-Grained Storage RLS Policies on storage.objects
 -- ---------------------------------------------------------------------------
 
--- Ensure RLS is active on storage.objects
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+-- Ensure RLS is active on storage.objects (safe on managed Supabase)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_tables 
+    WHERE schemaname = 'storage' AND tablename = 'objects' AND tableowner = current_user
+  ) THEN
+    ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+  END IF;
+END $$;
 
 -- 6.1 employee-documents
 DROP POLICY IF EXISTS "storage_employee_docs_select" ON storage.objects;

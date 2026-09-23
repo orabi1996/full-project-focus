@@ -1,15 +1,18 @@
-﻿-- =============================================================================
+-- =============================================================================
 -- Migration: 20260914010000_harden_overtime_delegation_rls_and_atomic_decisions.sql
 -- Purpose:   Security hardening + atomicity for overtime_records and delegation_rules.
---
--- WHAT THIS MIGRATION DOES
--- 1. Drops the insecure USING(true)/WITH CHECK(true) policies added in 20260914000000.
--- 2. Replaces them with ownership- and role-scoped policies.
--- 3. Revokes the over-broad GRANT ALL ... TO authenticated.
--- 4. Adds DB constraints (CHECK, unique index) to both tables.
--- 5. Creates four atomic decision RPCs (approve/reject overtime, approve/reject
---    attendance correction) that run in a single transaction with row-level locks.
 -- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.current_employee_id()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT id FROM public.employees WHERE user_id = auth.uid() LIMIT 1;
+$$;
+GRANT EXECUTE ON FUNCTION public.current_employee_id() TO authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- STEP 1 - Drop insecure policies from 20260914000000

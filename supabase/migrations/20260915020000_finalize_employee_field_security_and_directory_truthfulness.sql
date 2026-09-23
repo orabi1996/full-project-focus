@@ -10,7 +10,25 @@
 -- 7. Fixes get_employee_directory_kpis contract (active_employees, employed workforce, Saudization denominator, HR restriction).
 -- ============================================================================
 
+-- Ensure employee domain ENUMs exist
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'employee_gender') THEN
+    CREATE TYPE public.employee_gender AS ENUM ('male', 'female');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'employee_marital_status') THEN
+    CREATE TYPE public.employee_marital_status AS ENUM ('single', 'married', 'divorced', 'widowed');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'employee_contract_type') THEN
+    CREATE TYPE public.employee_contract_type AS ENUM ('full_time', 'part_time', 'contractor', 'contract', 'seasonal', 'internship');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'employee_work_type') THEN
+    CREATE TYPE public.employee_work_type AS ENUM ('on_site', 'remote', 'hybrid');
+  END IF;
+END $$;
+
 -- 1. Hardened update_employee_hr_profile RPC (Eliminating Cross-Tenant Role Bypass & Adding Compliance Fields)
+DROP FUNCTION IF EXISTS public.update_employee_hr_profile(uuid, text, text, text, text, text, text, text, text, text, date, text, text);
 CREATE OR REPLACE FUNCTION public.update_employee_hr_profile(
   p_employee_id uuid,
   p_first_name_ar text,
@@ -263,12 +281,12 @@ BEGIN
 
   -- 2. Resolve authoritative company from trusted DB functions
   IF p_target_company_id IS NOT NULL THEN
-    IF NOT (v_is_super OR p_target_company_id = auth.current_company_id()) THEN
+    IF NOT (v_is_super OR p_target_company_id = public.current_company_id()) THEN
       RAISE EXCEPTION 'غير مصرح لك بإنشاء موظف في منشأة أخرى.';
     END IF;
     v_company_id := p_target_company_id;
   ELSE
-    v_company_id := auth.current_company_id();
+    v_company_id := public.current_company_id();
   END IF;
 
   IF v_company_id IS NULL THEN
@@ -293,7 +311,7 @@ BEGIN
 
   v_is_financial := v_is_super OR (
     public.current_user_has_any_role(ARRAY['payroll_officer', 'finance_officer'])
-    AND v_company_id = auth.current_company_id()
+    AND v_company_id = public.current_company_id()
   );
 
   IF v_has_financial_input AND NOT v_is_financial THEN
@@ -437,6 +455,8 @@ REVOKE ALL ON FUNCTION public.create_employee FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.create_employee TO authenticated;
 
 -- 4. Enhanced get_employee_directory RPC (Server-Side Gender, Canonical Sorts, and Expiring Docs Quick Filter)
+DROP FUNCTION IF EXISTS public.get_employee_directory(text, text, uuid, uuid, uuid, integer, integer, text);
+DROP FUNCTION IF EXISTS public.get_employee_directory(text, text, uuid, uuid, uuid, integer, integer, text, text, text, text, numeric, numeric);
 CREATE OR REPLACE FUNCTION public.get_employee_directory(
   p_search text DEFAULT NULL,
   p_status text DEFAULT NULL,
@@ -460,7 +480,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_user_id uuid := auth.uid();
-  v_company_id uuid := auth.current_company_id();
+  v_company_id uuid := public.current_company_id();
   v_is_super boolean;
   v_is_hr boolean;
   v_can_view_payroll boolean;
@@ -478,7 +498,7 @@ BEGIN
   v_is_hr := v_is_super OR public.current_user_can_manage_company(v_company_id);
   v_can_view_payroll := v_is_super OR (
     public.current_user_has_any_role(ARRAY['payroll_officer', 'finance_officer'])
-    AND v_company_id = auth.current_company_id()
+    AND v_company_id = public.current_company_id()
   );
   v_can_search_sensitive := v_is_hr;
 
@@ -665,7 +685,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_user_id uuid := auth.uid();
-  v_company_id uuid := auth.current_company_id();
+  v_company_id uuid := public.current_company_id();
   v_is_super boolean;
   v_is_hr boolean;
   v_total_employees integer := 0;
@@ -796,9 +816,9 @@ CREATE POLICY "employee_avatars_controlled_insert" ON storage.objects
     AND (
       public.current_user_has_any_role(ARRAY['super_admin'])
       OR (
-        (storage.foldername(name))[1] = auth.current_company_id()::text
+        (storage.foldername(name))[1] = public.current_company_id()::text
         AND (
-          public.current_user_can_manage_company(auth.current_company_id())
+          public.current_user_can_manage_company(public.current_company_id())
           OR (storage.foldername(name))[2] = public.current_employee_id()::text
         )
       )
@@ -820,8 +840,8 @@ CREATE POLICY "employee_avatars_metadata_read" ON storage.objects
           AND fo.status = 'active'
           AND fo.entity_type = 'employee_avatar'
           AND fo.entity_id = e.id::text
-          AND fo.company_id = auth.current_company_id()
-          AND e.company_id = auth.current_company_id()
+          AND fo.company_id = public.current_company_id()
+          AND e.company_id = public.current_company_id()
       )
     )
   );
@@ -841,7 +861,7 @@ CREATE POLICY "employee_avatars_metadata_update" ON storage.objects
           AND fo.status = 'active'
           AND fo.entity_type = 'employee_avatar'
           AND fo.entity_id = e.id::text
-          AND fo.company_id = auth.current_company_id()
+          AND fo.company_id = public.current_company_id()
           AND (
             public.current_user_can_manage_company(fo.company_id)
             OR fo.employee_id = public.current_employee_id()
@@ -862,7 +882,7 @@ CREATE POLICY "employee_avatars_metadata_delete" ON storage.objects
         JOIN public.employees e ON e.id = fo.employee_id
         WHERE fo.bucket_id = 'employee-avatars'
           AND fo.object_path = storage.objects.name
-          AND fo.company_id = auth.current_company_id()
+          AND fo.company_id = public.current_company_id()
           AND (
             public.current_user_can_manage_company(fo.company_id)
             OR fo.employee_id = public.current_employee_id()
@@ -870,9 +890,9 @@ CREATE POLICY "employee_avatars_metadata_delete" ON storage.objects
       )
       -- Allow deletion of orphan during upload error handling in user's tenant folder
       OR (
-        (storage.foldername(name))[1] = auth.current_company_id()::text
+        (storage.foldername(name))[1] = public.current_company_id()::text
         AND (
-          public.current_user_can_manage_company(auth.current_company_id())
+          public.current_user_can_manage_company(public.current_company_id())
           OR (storage.foldername(name))[2] = public.current_employee_id()::text
         )
       )

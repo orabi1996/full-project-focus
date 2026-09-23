@@ -16,12 +16,8 @@
 -- ---------------------------------------------------------------------------
 -- 1. ENUM & STATUS ALIGNMENT: Add pending_approval to request_status enum
 -- ---------------------------------------------------------------------------
-DO $$
-BEGIN
-  ALTER TYPE public.request_status ADD VALUE IF NOT EXISTS 'pending_approval';
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
-END $$;
+ALTER TYPE public.request_status ADD VALUE IF NOT EXISTS 'pending_approval';
+COMMIT;
 
 -- Migrate existing 'pending' rows to canonical 'pending_approval'
 UPDATE public.requests
@@ -34,8 +30,8 @@ ALTER TABLE public.requests
 
 -- Index for canonical pending_approval queries
 CREATE INDEX IF NOT EXISTS idx_requests_pending_approval
-  ON public.requests (company_id, status, created_at DESC)
-  WHERE status::text = 'pending_approval';
+  ON public.requests (employee_id, status, created_at DESC)
+  WHERE status = 'pending_approval';
 
 -- ---------------------------------------------------------------------------
 -- 2. HELPER: Resolve company timezone safely with fallback

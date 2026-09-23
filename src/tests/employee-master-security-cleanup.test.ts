@@ -108,7 +108,7 @@ describe("Employee Master Final Integrity & Security Cleanup", () => {
       expect(migrationSource).toContain('CREATE POLICY "employee_avatars_metadata_read" ON storage.objects');
       expect(migrationSource).toContain("fo.entity_type = 'employee_avatar'");
       expect(migrationSource).toContain("fo.status = 'active'");
-      expect(migrationSource).toContain("fo.company_id = auth.current_company_id()");
+      expect(migrationSource).toMatch(/fo\.company_id = (?:auth|public)\.current_company_id\(\)/);
     });
   });
 

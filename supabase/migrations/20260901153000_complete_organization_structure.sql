@@ -1,6 +1,21 @@
 -- Complete establishment and organization-structure master data (M02).
 -- Safe to run on projects that already contain the original enterprise tables.
 
+CREATE OR REPLACE FUNCTION public.current_user_is_hr()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = auth.uid()
+      AND role IN ('org_admin', 'hr_manager', 'super_admin')
+  );
+$$;
+GRANT EXECUTE ON FUNCTION public.current_user_is_hr() TO authenticated, service_role;
+
 ALTER TABLE public.companies
   ADD COLUMN IF NOT EXISTS code text,
   ADD COLUMN IF NOT EXISTS entity_type text NOT NULL DEFAULT 'limited_liability',

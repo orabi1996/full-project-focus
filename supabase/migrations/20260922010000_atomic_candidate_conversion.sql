@@ -37,7 +37,7 @@ BEGIN
   SELECT company_id INTO v_company_id FROM public.departments WHERE id = v_job.department_id FOR SHARE;
   IF v_company_id IS NULL OR NOT COALESCE(public.current_user_can_manage_company(v_company_id), false)
      OR (NOT COALESCE(public.current_user_has_any_role(ARRAY['super_admin']), false)
-         AND v_company_id IS DISTINCT FROM auth.current_company_id()) THEN
+         AND v_company_id IS DISTINCT FROM public.current_company_id()) THEN
     RAISE EXCEPTION 'غير مصرح بتحويل المرشح في هذه المنشأة' USING ERRCODE = '42501';
   END IF;
 

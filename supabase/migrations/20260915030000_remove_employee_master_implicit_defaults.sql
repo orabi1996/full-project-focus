@@ -1,4 +1,4 @@
-﻿-- ============================================================================
+-- ============================================================================
 -- Migration: Remove Implicit Employee Master Data Fabrication
 -- Prompt 09 Final Micro-Hotfix
 -- ============================================================================
@@ -79,12 +79,12 @@ BEGIN
 
   -- 2. Resolve authoritative company from trusted DB functions
   IF p_target_company_id IS NOT NULL THEN
-    IF NOT (v_is_super OR p_target_company_id = auth.current_company_id()) THEN
+    IF NOT (v_is_super OR p_target_company_id = public.current_company_id()) THEN
       RAISE EXCEPTION 'غير مصرح لك بإنشاء موظف في منشأة أخرى.';
     END IF;
     v_company_id := p_target_company_id;
   ELSE
-    v_company_id := auth.current_company_id();
+    v_company_id := public.current_company_id();
   END IF;
 
   IF v_company_id IS NULL THEN
@@ -108,7 +108,7 @@ BEGIN
 
   v_is_financial := v_is_super OR (
     public.current_user_has_any_role(ARRAY['payroll_officer', 'finance_officer'])
-    AND v_company_id = auth.current_company_id()
+    AND v_company_id = public.current_company_id()
   );
 
   IF v_has_financial_input AND NOT v_is_financial THEN

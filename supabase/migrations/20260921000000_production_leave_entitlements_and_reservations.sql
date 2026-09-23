@@ -482,7 +482,7 @@ BEGIN
 
   -- 2. Authorization check
   v_is_hr := public.current_user_has_any_role(ARRAY['super_admin', 'org_admin', 'hr_manager'])
-             AND (v_request.company_id = auth.current_company_id() OR public.current_user_has_any_role(ARRAY['super_admin']));
+             AND (v_request.company_id = public.current_company_id() OR public.current_user_has_any_role(ARRAY['super_admin']));
 
   v_is_owner := (v_request.created_by = v_user_id) OR (
     v_request.employee_id = (SELECT id FROM public.employees WHERE user_id = v_user_id)
@@ -663,7 +663,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_user_id uuid := auth.uid();
-  v_company_id uuid := auth.current_company_id();
+  v_company_id uuid := public.current_company_id();
   v_caller_emp_id uuid;
   v_is_hr boolean;
   v_result jsonb;
@@ -913,7 +913,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_user_id uuid := auth.uid();
-  v_company_id uuid := auth.current_company_id();
+  v_company_id uuid := public.current_company_id();
   v_code text;
   v_new_id uuid;
 BEGIN
@@ -1009,7 +1009,7 @@ CREATE POLICY "leave_accrual_runs_select_policy"
 CREATE POLICY "company_holidays_select_policy"
   ON public.company_holidays FOR SELECT TO authenticated
   USING (
-    company_id = auth.current_company_id()
+    company_id = public.current_company_id()
     OR public.current_user_can_manage_company(company_id)
   );
 

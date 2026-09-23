@@ -234,7 +234,7 @@ describe("Production Employee Security, Query Architecture & Storage Integrity H
       expect(migrationSource).toContain('POLICY "employee_avatars_tenant_insert" ON storage.objects');
       expect(migrationSource).toContain('POLICY "employee_avatars_tenant_update" ON storage.objects');
       expect(migrationSource).toContain('POLICY "employee_avatars_tenant_delete" ON storage.objects');
-      expect(migrationSource).toContain("auth.current_company_id()");
+      expect(migrationSource).toMatch(/(?:auth|public)\.current_company_id\(\)/);
     });
 
     it("EmployeeFullProfileView cleans up old storage file on avatar replacement", () => {

@@ -204,7 +204,7 @@ BEGIN
       v_target_emp := v_caller_emp;
       v_resolved_company_id := v_caller_emp.company_id;
     ELSE
-      v_resolved_company_id := COALESCE(p_company_id, auth.current_company_id());
+      v_resolved_company_id := COALESCE(p_company_id, public.current_company_id());
     END IF;
   END IF;
 
@@ -953,6 +953,9 @@ $$;
 -- -----------------------------------------------------------------------------
 -- STEP 7: RPC get_my_leave_balances & get_company_leave_balances (Item 10)
 -- -----------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.get_my_leave_balances(integer);
+DROP FUNCTION IF EXISTS public.get_my_leave_balances(integer, uuid);
+DROP FUNCTION IF EXISTS public.get_my_leave_balances;
 CREATE OR REPLACE FUNCTION public.get_my_leave_balances(
   p_year integer DEFAULT EXTRACT(YEAR FROM CURRENT_DATE)::int,
   p_employee_id uuid DEFAULT NULL
@@ -1042,6 +1045,8 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS public.get_company_leave_balances(integer, uuid);
+DROP FUNCTION IF EXISTS public.get_company_leave_balances;
 CREATE OR REPLACE FUNCTION public.get_company_leave_balances(
   p_year integer DEFAULT EXTRACT(YEAR FROM CURRENT_DATE)::int,
   p_department_id uuid DEFAULT NULL
@@ -1070,7 +1075,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_company_id uuid := auth.current_company_id();
+  v_company_id uuid := public.current_company_id();
 BEGIN
   IF NOT public.current_user_can_manage_company(v_company_id)
      AND NOT public.current_user_has_any_role(ARRAY['super_admin']) THEN
@@ -1111,6 +1116,8 @@ $$;
 -- -----------------------------------------------------------------------------
 -- STEP 8: RPC get_team_leave_calendar (Item 21)
 -- -----------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.get_team_leave_calendar(date, date, uuid);
+DROP FUNCTION IF EXISTS public.get_team_leave_calendar;
 CREATE OR REPLACE FUNCTION public.get_team_leave_calendar(
   p_start_date date,
   p_end_date date,
@@ -1146,7 +1153,7 @@ BEGIN
   END IF;
 
   SELECT * INTO v_caller_emp FROM public.employees WHERE user_id = v_user_id;
-  v_company_id := COALESCE(v_caller_emp.company_id, auth.current_company_id());
+  v_company_id := COALESCE(v_caller_emp.company_id, public.current_company_id());
 
   SELECT * INTO v_company FROM public.companies WHERE id = v_company_id;
 
@@ -1207,7 +1214,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_user_id uuid := auth.uid();
-  v_comp_id uuid := COALESCE(p_company_id, auth.current_company_id());
+  v_comp_id uuid := COALESCE(p_company_id, public.current_company_id());
   v_lt RECORD;
   v_emp RECORD;
   v_bal public.leave_balances%ROWTYPE;
@@ -1361,7 +1368,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_user_id uuid := auth.uid();
-  v_comp_id uuid := COALESCE(p_company_id, auth.current_company_id());
+  v_comp_id uuid := COALESCE(p_company_id, public.current_company_id());
   v_lt RECORD;
   v_b_source RECORD;
   v_b_target public.leave_balances%ROWTYPE;
@@ -1526,7 +1533,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_company_id uuid := COALESCE(p_company_id, auth.current_company_id());
+  v_company_id uuid := COALESCE(p_company_id, public.current_company_id());
   v_code text;
   v_new_id uuid;
   v_jurisdiction text := p_jurisdiction;

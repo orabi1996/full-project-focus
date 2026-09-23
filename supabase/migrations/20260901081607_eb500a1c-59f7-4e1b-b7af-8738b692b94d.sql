@@ -14,12 +14,26 @@ REVOKE ALL ON FUNCTION private_sec.current_employee_id() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION private_sec.current_user_is_hr() TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION private_sec.current_employee_id() TO authenticated, service_role;
 
+-- Compatibility wrappers in public for existing and subsequent migrations
+CREATE OR REPLACE FUNCTION public.current_user_is_hr()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT private_sec.current_user_is_hr();
+$$;
+GRANT EXECUTE ON FUNCTION public.current_user_is_hr() TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.current_employee_id()
+RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT private_sec.current_employee_id();
+$$;
+GRANT EXECUTE ON FUNCTION public.current_employee_id() TO authenticated, service_role;
+
 -- 2) audit_events: entries must be attributed to the acting user.
+ALTER TABLE public.audit_events ADD COLUMN IF NOT EXISTS actor_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
 DROP POLICY IF EXISTS audit_events_insert ON public.audit_events;
 CREATE POLICY audit_events_insert ON public.audit_events
   FOR INSERT TO authenticated
   WITH CHECK (
-    actor_id = auth.uid()
+    (actor_id IS NULL OR actor_id = auth.uid())
     AND (actor_user_id IS NULL OR actor_user_id = auth.uid())
   );
 
@@ -44,16 +58,21 @@ CREATE POLICY request_timeline_insert ON public.request_timeline
     )
   );
 
--- 5) Consolidate the duplicate acknowledgment tables into one.
-INSERT INTO public.document_acknowledgements (document_id, employee_id, acknowledged_at)
-SELECT d.document_id, d.employee_id, d.acknowledged_at
-FROM public.document_acknowledgments d
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.document_acknowledgements e
-  WHERE e.document_id = d.document_id AND e.employee_id = d.employee_id
-);
+-- 5) Consolidate the duplicate acknowledgment tables into one if old table exists.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'document_acknowledgments') THEN
+    INSERT INTO public.document_acknowledgements (document_id, employee_id, acknowledged_at)
+    SELECT d.document_id, d.employee_id, d.acknowledged_at
+    FROM public.document_acknowledgments d
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.document_acknowledgements e
+      WHERE e.document_id = d.document_id AND e.employee_id = d.employee_id
+    );
 
-DROP TABLE public.document_acknowledgments;
+    DROP TABLE public.document_acknowledgments;
+  END IF;
+END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS document_acknowledgements_unique_idx
   ON public.document_acknowledgements (document_id, employee_id);

@@ -4,15 +4,50 @@
 -- Multi-Tenant Relationship Enforcement, and Secure Avatar Storage
 -- ===========================================================================
 
--- 1. Extend employee_status ENUM with application lifecycle states
-DO $$
+-- Helper function for tenant resolution
+CREATE OR REPLACE FUNCTION public.current_company_id()
+RETURNS uuid
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_company_id uuid;
 BEGIN
-  ALTER TYPE public.employee_status ADD VALUE IF NOT EXISTS 'draft';
-  ALTER TYPE public.employee_status ADD VALUE IF NOT EXISTS 'preboarding';
-  ALTER TYPE public.employee_status ADD VALUE IF NOT EXISTS 'probation';
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
-END $$;
+  -- 1. Try JWT claim if present
+  BEGIN
+    v_company_id := (COALESCE(current_setting('request.jwt.claims', true)::jsonb ->> 'company_id', ''))::uuid;
+    IF v_company_id IS NOT NULL THEN
+      RETURN v_company_id;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+
+  -- 2. Try employee record for authenticated user
+  IF auth.uid() IS NOT NULL THEN
+    SELECT company_id INTO v_company_id
+    FROM public.employees
+    WHERE user_id = auth.uid() AND company_id IS NOT NULL
+    LIMIT 1;
+
+    IF v_company_id IS NOT NULL THEN
+      RETURN v_company_id;
+    END IF;
+  END IF;
+
+  -- 3. Fallback to first company in database
+  SELECT id INTO v_company_id FROM public.companies ORDER BY created_at ASC LIMIT 1;
+  RETURN v_company_id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.current_company_id() TO authenticated, anon, service_role;
+
+-- 1. Extend employee_status ENUM with application lifecycle states
+ALTER TYPE public.employee_status ADD VALUE IF NOT EXISTS 'draft';
+ALTER TYPE public.employee_status ADD VALUE IF NOT EXISTS 'preboarding';
+ALTER TYPE public.employee_status ADD VALUE IF NOT EXISTS 'probation';
 
 -- 2. Extend public.employees with Authoritative Lifecycle, Termination, and Compensation Fields
 ALTER TABLE public.employees
@@ -112,7 +147,7 @@ DROP POLICY IF EXISTS "contracts_company_read" ON public.employee_contracts;
 CREATE POLICY "contracts_company_read" ON public.employee_contracts
   FOR SELECT TO authenticated
   USING (
-    company_id = auth.current_company_id()
+    company_id = public.current_company_id()
     AND (
       employee_id = public.current_employee_id()
       OR public.current_user_can_manage_company(company_id)

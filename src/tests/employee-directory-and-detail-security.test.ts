@@ -118,7 +118,7 @@ describe("Prompt 09 Final Narrow Employee Production Hotfix Contract Tests", () 
   describe("2. Trusted Employee Creation RPC & Atomic Number Allocation", () => {
     it("migration creates create_employee RPC with server-side company verification", () => {
       expect(migrationSource).toContain("FUNCTION public.create_employee");
-      expect(migrationSource).toContain("auth.current_company_id()");
+      expect(migrationSource).toMatch(/(?:auth|public)\.current_company_id\(\)/);
       expect(migrationSource).toContain("generate_company_employee_no(v_company_id)");
       expect(migrationSource).toContain("INSERT INTO public.employees");
       expect(migrationSource).toContain("INSERT INTO public.audit_events");
@@ -205,7 +205,7 @@ describe("Prompt 09 Final Narrow Employee Production Hotfix Contract Tests", () 
     it("migration hardens employee-avatars storage RLS checking active file_objects records", () => {
       expect(migrationSource).toContain("public.file_objects");
       expect(migrationSource).toContain("bucket_id = 'employee-avatars'");
-      expect(migrationSource).toContain("auth.current_company_id()");
+      expect(migrationSource).toMatch(/(?:auth|public)\.current_company_id\(\)/);
       expect(migrationSource).toContain("storage.foldername(name)");
     });
 

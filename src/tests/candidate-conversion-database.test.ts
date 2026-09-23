@@ -31,10 +31,11 @@ beforeAll(async () => {
     CREATE ROLE anon; CREATE ROLE authenticated; CREATE SCHEMA auth;
     CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT nullif(current_setting('test.uid', true), '')::uuid $$;
     CREATE FUNCTION auth.current_company_id() RETURNS uuid LANGUAGE sql AS $$ SELECT '${company}'::uuid $$;
+    CREATE FUNCTION public.current_company_id() RETURNS uuid LANGUAGE sql AS $$ SELECT '${company}'::uuid $$;
     CREATE FUNCTION public.current_user_has_any_role(text[]) RETURNS boolean LANGUAGE sql AS $$
       SELECT current_setting('test.role', true) = ANY($1) $$;
     CREATE FUNCTION public.current_user_can_manage_company(uuid) RETURNS boolean LANGUAGE sql AS $$
-      SELECT auth.uid() IS NOT NULL AND $1 = auth.current_company_id() AND current_setting('test.role', true) IN ('hr_manager', 'super_admin') $$;
+      SELECT auth.uid() IS NOT NULL AND $1 = public.current_company_id() AND current_setting('test.role', true) IN ('hr_manager', 'super_admin') $$;
     CREATE TYPE employee_contract_type AS ENUM ('full_time');
     CREATE TYPE employee_work_type AS ENUM ('on_site');
     CREATE TYPE employee_status AS ENUM ('draft');

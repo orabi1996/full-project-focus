@@ -434,7 +434,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_user_id uuid := auth.uid();
-  v_company_id uuid := auth.current_company_id();
+  v_company_id uuid := public.current_company_id();
   v_is_super boolean;
   v_can_search_sensitive boolean;
   v_offset integer;
@@ -559,7 +559,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_user_id uuid := auth.uid();
-  v_company_id uuid := auth.current_company_id();
+  v_company_id uuid := public.current_company_id();
   v_is_super boolean;
   v_can_view_hr boolean;
   v_can_view_payroll boolean;
@@ -698,7 +698,7 @@ CREATE POLICY "employee_avatars_tenant_read" ON storage.objects
     bucket_id = 'employee-avatars'
     AND (
       public.current_user_has_any_role(ARRAY['super_admin'])
-      OR (storage.foldername(name))[1] = auth.current_company_id()::text
+      OR (storage.foldername(name))[1] = public.current_company_id()::text
     )
   );
 
@@ -710,9 +710,9 @@ CREATE POLICY "employee_avatars_tenant_insert" ON storage.objects
     AND (
       public.current_user_has_any_role(ARRAY['super_admin'])
       OR (
-        (storage.foldername(name))[1] = auth.current_company_id()::text
+        (storage.foldername(name))[1] = public.current_company_id()::text
         AND (
-          public.current_user_can_manage_company(auth.current_company_id())
+          public.current_user_can_manage_company(public.current_company_id())
           OR (storage.foldername(name))[2] = public.current_employee_id()::text
         )
       )
@@ -727,9 +727,9 @@ CREATE POLICY "employee_avatars_tenant_update" ON storage.objects
     AND (
       public.current_user_has_any_role(ARRAY['super_admin'])
       OR (
-        (storage.foldername(name))[1] = auth.current_company_id()::text
+        (storage.foldername(name))[1] = public.current_company_id()::text
         AND (
-          public.current_user_can_manage_company(auth.current_company_id())
+          public.current_user_can_manage_company(public.current_company_id())
           OR (storage.foldername(name))[2] = public.current_employee_id()::text
         )
       )
@@ -744,9 +744,9 @@ CREATE POLICY "employee_avatars_tenant_delete" ON storage.objects
     AND (
       public.current_user_has_any_role(ARRAY['super_admin'])
       OR (
-        (storage.foldername(name))[1] = auth.current_company_id()::text
+        (storage.foldername(name))[1] = public.current_company_id()::text
         AND (
-          public.current_user_can_manage_company(auth.current_company_id())
+          public.current_user_can_manage_company(public.current_company_id())
           OR (storage.foldername(name))[2] = public.current_employee_id()::text
         )
       )

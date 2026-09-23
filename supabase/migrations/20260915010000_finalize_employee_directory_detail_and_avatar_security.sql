@@ -125,12 +125,12 @@ BEGIN
 
   -- 2. Resolve authoritative company from trusted DB functions (never browser user_metadata)
   IF p_target_company_id IS NOT NULL THEN
-    IF NOT (v_is_super OR p_target_company_id = auth.current_company_id()) THEN
+    IF NOT (v_is_super OR p_target_company_id = public.current_company_id()) THEN
       RAISE EXCEPTION 'غير مصرح لك بإنشاء موظف في منشأة أخرى.';
     END IF;
     v_company_id := p_target_company_id;
   ELSE
-    v_company_id := auth.current_company_id();
+    v_company_id := public.current_company_id();
   END IF;
 
   IF v_company_id IS NULL THEN
@@ -275,6 +275,7 @@ REVOKE ALL ON FUNCTION public.create_employee FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.create_employee TO authenticated;
 
 -- 3. Field-Minimized, Server-Paginated Employee Directory RPC
+DROP FUNCTION IF EXISTS public.get_employee_directory(text, text, uuid, uuid, uuid, integer, integer, text);
 CREATE OR REPLACE FUNCTION public.get_employee_directory(
   p_search text DEFAULT NULL,
   p_status text DEFAULT NULL,
@@ -297,7 +298,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_user_id uuid := auth.uid();
-  v_company_id uuid := auth.current_company_id();
+  v_company_id uuid := public.current_company_id();
   v_is_super boolean;
   v_is_hr boolean;
   v_can_view_payroll boolean;
@@ -473,7 +474,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_user_id uuid := auth.uid();
-  v_company_id uuid := auth.current_company_id();
+  v_company_id uuid := public.current_company_id();
   v_is_super boolean;
   v_total_employees integer := 0;
   v_saudi_employees integer := 0;
@@ -551,7 +552,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_user_id uuid := auth.uid();
-  v_company_id uuid := auth.current_company_id();
+  v_company_id uuid := public.current_company_id();
   v_is_super boolean;
   v_caller_emp_id uuid;
   v_is_self boolean;
@@ -719,7 +720,7 @@ BEGIN
   -- Strictly require explicit financial permissions (super_admin or payroll/finance officer for company)
   IF NOT (
     v_is_super
-    OR (v_is_financial AND v_emp.company_id = auth.current_company_id())
+    OR (v_is_financial AND v_emp.company_id = public.current_company_id())
   ) THEN
     RAISE EXCEPTION 'غير مصرح لك بتعديل الحساب البنكي للموظف. يتطلب هذا الإجراء صلاحيات مالية معتمدة.';
   END IF;
@@ -788,7 +789,7 @@ BEGIN
   -- Strictly require explicit financial permissions (super_admin or payroll/finance officer for company)
   IF NOT (
     v_is_super
-    OR (v_is_financial AND v_emp.company_id = auth.current_company_id())
+    OR (v_is_financial AND v_emp.company_id = public.current_company_id())
   ) THEN
     RAISE EXCEPTION 'غير مصرح لك بتعديل بيانات الراتب والبدلات للموظف. يتطلب هذا الإجراء صلاحيات مالية معتمدة.';
   END IF;
@@ -846,9 +847,9 @@ CREATE POLICY "employee_avatars_controlled_insert" ON storage.objects
     AND (
       public.current_user_has_any_role(ARRAY['super_admin'])
       OR (
-        (storage.foldername(name))[1] = auth.current_company_id()::text
+        (storage.foldername(name))[1] = public.current_company_id()::text
         AND (
-          public.current_user_can_manage_company(auth.current_company_id())
+          public.current_user_can_manage_company(public.current_company_id())
           OR (storage.foldername(name))[2] = public.current_employee_id()::text
         )
       )
@@ -867,13 +868,13 @@ CREATE POLICY "employee_avatars_metadata_read" ON storage.objects
         WHERE fo.bucket_id = 'employee-avatars'
           AND fo.object_path = storage.objects.name
           AND fo.status = 'active'
-          AND (fo.company_id = auth.current_company_id() OR fo.company_id IS NULL)
+          AND (fo.company_id = public.current_company_id() OR fo.company_id IS NULL)
       )
       -- Allow immediate read during upload phase within user's own tenant folder
       OR (
-        (storage.foldername(name))[1] = auth.current_company_id()::text
+        (storage.foldername(name))[1] = public.current_company_id()::text
         AND (
-          public.current_user_can_manage_company(auth.current_company_id())
+          public.current_user_can_manage_company(public.current_company_id())
           OR (storage.foldername(name))[2] = public.current_employee_id()::text
         )
       )
@@ -892,7 +893,7 @@ CREATE POLICY "employee_avatars_metadata_update" ON storage.objects
         WHERE fo.bucket_id = 'employee-avatars'
           AND fo.object_path = storage.objects.name
           AND fo.status = 'active'
-          AND fo.company_id = auth.current_company_id()
+          AND fo.company_id = public.current_company_id()
           AND (
             public.current_user_can_manage_company(fo.company_id)
             OR fo.employee_id = public.current_employee_id()
@@ -912,7 +913,7 @@ CREATE POLICY "employee_avatars_metadata_delete" ON storage.objects
         SELECT 1 FROM public.file_objects fo
         WHERE fo.bucket_id = 'employee-avatars'
           AND fo.object_path = storage.objects.name
-          AND fo.company_id = auth.current_company_id()
+          AND fo.company_id = public.current_company_id()
           AND (
             public.current_user_can_manage_company(fo.company_id)
             OR fo.employee_id = public.current_employee_id()
@@ -920,9 +921,9 @@ CREATE POLICY "employee_avatars_metadata_delete" ON storage.objects
       )
       -- Allow deletion of orphan during upload error handling
       OR (
-        (storage.foldername(name))[1] = auth.current_company_id()::text
+        (storage.foldername(name))[1] = public.current_company_id()::text
         AND (
-          public.current_user_can_manage_company(auth.current_company_id())
+          public.current_user_can_manage_company(public.current_company_id())
           OR (storage.foldername(name))[2] = public.current_employee_id()::text
         )
       )

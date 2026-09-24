@@ -37,10 +37,7 @@ import type {
   ServiceRequest,
 } from "../../types";
 import { enterpriseSupabase } from "./enterprise-client";
-import { supabase as typedSupabase } from "../../integrations/supabase/client";
-// Some tables/RPCs are not yet in the generated types (pending database updates).
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const supabase = typedSupabase as any;
+import { supabase } from "../../integrations/supabase/client";
 import { uploadSecureFile, rollbackUploadedFile } from "../storage/storage-service";
 import { AppMutationError } from "./reliable-mutation";
 
@@ -1388,7 +1385,7 @@ export async function createExpenseClaimRecord(
 }
 
 export async function markNotificationReadRecord(id: string) {
-  const { error } = await (enterpriseSupabase as any)
+  const { error } = await enterpriseSupabase
     .from("notifications_inbox")
     .update({ is_read: true })
     .eq("id", id);
@@ -1398,7 +1395,7 @@ export async function markNotificationReadRecord(id: string) {
 export async function createOrganizationUnitRecord(
   unit: Omit<OrgUnit, "id" | "employeeCount">,
 ): Promise<OrgUnit> {
-  const { data, error } = await (enterpriseSupabase as any)
+  const { data, error } = await enterpriseSupabase
     .from("departments")
     .insert({
       company_id: unit.companyId || null,
@@ -1443,7 +1440,7 @@ export async function createOrganizationUnitRecord(
 export async function createSubsidiaryRecord(
   subsidiary: Omit<Subsidiary, "id" | "employeeCount">,
 ): Promise<Subsidiary> {
-  const { data, error } = await (enterpriseSupabase as any)
+  const { data, error } = await enterpriseSupabase
     .from("subsidiaries")
     .insert({
       company_id: subsidiary.companyId || null,
@@ -1492,7 +1489,7 @@ export async function createSubsidiaryRecord(
 export async function createWorkLocationRecord(
   location: Omit<WorkLocation, "id">,
 ): Promise<WorkLocation> {
-  const { data, error } = await (enterpriseSupabase as any)
+  const { data, error } = await enterpriseSupabase
     .from("work_locations")
     .insert({
       company_id: location.companyId || null,
@@ -1543,7 +1540,7 @@ export async function createWorkLocationRecord(
 
 export async function updateCompanyRecord(company: CompanyProfile) {
   const targetId = company.id || "a0000000-0000-0000-0000-000000000001";
-  const { data, error } = await (enterpriseSupabase as any)
+  const { data, error } = await enterpriseSupabase
     .from("companies")
     .upsert({
       id: targetId,
@@ -1581,7 +1578,7 @@ export async function updateOrganizationUnitRecord(
   id: string,
   unit: Omit<OrgUnit, "id" | "employeeCount">,
 ): Promise<void> {
-  const { data, error } = await (enterpriseSupabase as any)
+  const { data, error } = await enterpriseSupabase
     .from("departments")
     .update({
       company_id: unit.companyId || null,
@@ -1619,7 +1616,7 @@ export async function updateSubsidiaryRecord(
   id: string,
   subsidiary: Omit<Subsidiary, "id" | "employeeCount">,
 ): Promise<void> {
-  const { data, error } = await (enterpriseSupabase as any)
+  const { data, error } = await enterpriseSupabase
     .from("subsidiaries")
     .update({
       company_id: subsidiary.companyId || null,
@@ -1658,7 +1655,7 @@ export async function updateWorkLocationRecord(
   id: string,
   location: Omit<WorkLocation, "id">,
 ): Promise<void> {
-  const { data, error } = await (enterpriseSupabase as any)
+  const { data, error } = await enterpriseSupabase
     .from("work_locations")
     .update({
       company_id: location.companyId || null,
@@ -2036,7 +2033,7 @@ export async function createShiftRecord(shift: Omit<ShiftDefinition, "id">) {
 }
 
 export async function createPayrollRunRecord(run: PayrollRun) {
-  const { data, error } = await (enterpriseSupabase as any)
+  const { data, error } = await enterpriseSupabase
     .from("payroll_runs")
     .upsert(
       {
@@ -2065,7 +2062,7 @@ export async function createPayrollRunWithDetailsRecord(
   details: EmployeePayrollDetail[],
 ) {
   const runId = await createPayrollRunRecord(run);
-  const { error: deleteError } = await (enterpriseSupabase as any)
+  const { error: deleteError } = await enterpriseSupabase
     .from("payroll_details")
     .delete()
     .eq("payroll_run_id", runId);
@@ -2098,7 +2095,7 @@ export async function createPayrollRunWithDetailsRecord(
 
 export async function updatePayrollRunStatusRecord(id: string, status: PayrollRun["status"]) {
   const now = new Date().toISOString();
-  const { error } = await (enterpriseSupabase as any)
+  const { error } = await enterpriseSupabase
     .from("payroll_runs")
     .update({
       status,
@@ -2233,7 +2230,7 @@ export async function updateCandidateRecord(
   candidateId: string,
   updates: { stage?: CandidateStage; ratingScore?: number },
 ) {
-  const { error } = await (enterpriseSupabase as any)
+  const { error } = await enterpriseSupabase
     .from("candidates")
     .update({
       stage: updates.stage,
@@ -2289,12 +2286,12 @@ export async function assignAssetRecord(assetId: string, employeeId: string) {
 
 export async function returnAssetRecord(assetId: string) {
   const now = new Date().toISOString();
-  const { error: assetError } = await (enterpriseSupabase as any)
+  const { error: assetError } = await enterpriseSupabase
     .from("hardware_assets")
     .update({ assigned_to_employee_id: null, assigned_date: null, status: "available" })
     .eq("id", assetId);
   if (assetError) throw new Error(assetError.message);
-  const { error } = await (enterpriseSupabase as any)
+  const { error } = await enterpriseSupabase
     .from("asset_assignments")
     .update({ returned_at: now })
     .eq("asset_id", assetId)
@@ -2375,7 +2372,7 @@ export async function verifyEmployeeDocumentRecord(
   verifiedBy: string = "مسؤول الموارد البشرية",
   rejectionReason?: string,
 ) {
-  const { data, error } = await (enterpriseSupabase as any)
+  const { data, error } = await enterpriseSupabase
     .from("employee_documents")
     .update({
       status,
@@ -2424,7 +2421,7 @@ export async function createAuditEventRecord(entry: AuditLogEntry) {
 // ============================================================================
 
 export async function fetchDelegationRulesServer(employees: Employee[]): Promise<DelegationRule[]> {
-  const { data, error } = await (enterpriseSupabase as any)
+  const { data, error } = await enterpriseSupabase
     .from("delegation_rules")
     .select("*")
     .order("created_at", { ascending: false });
@@ -2438,7 +2435,7 @@ export async function createDelegationRuleRecord(
   rule: Omit<DelegationRule, "id" | "createdAt" | "status">,
 ): Promise<string> {
   const { data: userData } = await supabase.auth.getUser();
-  const { data, error } = await (enterpriseSupabase as any)
+  const { data, error } = await enterpriseSupabase
     .from("delegation_rules")
     .insert({
       delegator_id: rule.delegatorId,
@@ -2487,7 +2484,7 @@ export async function revokeDelegationRuleRecord(id: string): Promise<void> {
 // ============================================================================
 
 export async function fetchOvertimeRecordsServer(employees: Employee[]): Promise<OvertimeRecord[]> {
-  const { data, error } = await (enterpriseSupabase as any)
+  const { data, error } = await enterpriseSupabase
     .from("overtime_records")
     .select("*")
     .order("created_at", { ascending: false });
@@ -2501,7 +2498,7 @@ export async function createOvertimeRecord(
   record: Omit<OvertimeRecord, "id" | "status" | "createdAt">,
 ): Promise<string> {
   const { data: userData } = await supabase.auth.getUser();
-  const { data, error } = await (enterpriseSupabase as any)
+  const { data, error } = await enterpriseSupabase
     .from("overtime_records")
     .insert({
       employee_id: record.employeeId,
@@ -2578,7 +2575,7 @@ export async function rejectOvertimeRecord(id: string): Promise<void> {
 export async function fetchAttendanceCorrectionsServer(
   employees: Employee[],
 ): Promise<AttendanceCorrectionRequest[]> {
-  const { data, error } = await (enterpriseSupabase as any)
+  const { data, error } = await enterpriseSupabase
     .from("requests")
     .select("*")
     .eq("type", "attendance_fix")

@@ -786,6 +786,7 @@ export interface AttendancePolicy {
   status: "active" | "draft" | "archived";
   jurisdiction?: string | null;
   maxGpsAccuracyMeters?: number | null;
+  gpsAccuracyAction?: "reject" | "flag" | "allow";
   gracePeriodInMinutes: number | null;
   gracePeriodOutMinutes: number | null;
   overtimeRegularMultiplier: number | null;
@@ -835,6 +836,7 @@ export interface AttendancePayrollSnapshot {
   employeeName?: string;
   departmentName?: string;
   totalExpectedDays: number;
+  expectedWorkMinutes: number;
   totalPresentDays: number;
   totalAbsentDays: number;
   totalRestDays: number;
@@ -845,8 +847,10 @@ export interface AttendancePayrollSnapshot {
   regularOvertimeHours: number;
   holidayOvertimeHours: number;
   approvedOvertimeMinutes: number;
+  actualOvertimeMinutes: number;
   payableOvertimeMinutes: number;
   overtimeCategory?: string;
+  overtimeCategories?: Record<string, unknown> | null;
   unexcusedAbsenceDays: number;
   violationsCount: number;
   snapshotHash: string;
@@ -867,7 +871,10 @@ export type AttendanceExceptionType =
   | "unpaired_in"
   | "unpaired_out"
   | "duplicate_in"
-  | "duplicate_out";
+  | "duplicate_out"
+  | "policy_not_configured"
+  | "timezone_not_configured"
+  | "schedule_not_configured";
 
 export interface AttendanceException {
   id: string;

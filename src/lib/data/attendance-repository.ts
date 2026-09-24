@@ -41,6 +41,7 @@ export function mapAttendancePolicy(row: any): AttendancePolicy {
     status: row.status || "active",
     jurisdiction: row.jurisdiction ?? null,
     maxGpsAccuracyMeters: row.max_gps_accuracy_meters != null ? Number(row.max_gps_accuracy_meters) : null,
+    gpsAccuracyAction: (row.gps_accuracy_action as any) || "flag",
     gracePeriodInMinutes: row.grace_period_in_minutes != null ? Number(row.grace_period_in_minutes) : null,
     gracePeriodOutMinutes: row.grace_period_out_minutes != null ? Number(row.grace_period_out_minutes) : null,
     overtimeRegularMultiplier: row.overtime_regular_multiplier != null ? Number(row.overtime_regular_multiplier) : null,
@@ -117,6 +118,7 @@ export function mapAttendancePayrollSnapshot(row: any, employeeMap?: Map<string,
     employeeName: emp?.full_name || "موظف",
     departmentName: emp?.department_name || "عام",
     totalExpectedDays: Number(row.total_expected_days ?? 0),
+    expectedWorkMinutes: Number(row.expected_work_minutes ?? 0),
     totalPresentDays: Number(row.total_present_days ?? 0),
     totalAbsentDays: Number(row.total_absent_days ?? 0),
     totalRestDays: Number(row.total_rest_days ?? 0),
@@ -127,8 +129,10 @@ export function mapAttendancePayrollSnapshot(row: any, employeeMap?: Map<string,
     regularOvertimeHours: Number(row.regular_overtime_hours ?? 0),
     holidayOvertimeHours: Number(row.holiday_overtime_hours ?? 0),
     approvedOvertimeMinutes: Number(row.approved_overtime_minutes ?? 0),
+    actualOvertimeMinutes: Number(row.actual_overtime_minutes ?? 0),
     payableOvertimeMinutes: Number(row.payable_overtime_minutes ?? 0),
     overtimeCategory: row.overtime_category || "standard",
+    overtimeCategories: row.overtime_categories || {},
     unexcusedAbsenceDays: Number(row.unexcused_absence_days ?? 0),
     violationsCount: Number(row.violations_count ?? 0),
     snapshotHash: row.snapshot_hash || "",
@@ -408,6 +412,7 @@ export async function updateAttendancePolicyRecord(
   if (policy.geofenceEnforced !== undefined) payload.geofence_enforced = policy.geofenceEnforced;
   if (policy.geofenceRadiusMeters !== undefined) payload.geofence_radius_meters = policy.geofenceRadiusMeters;
   if (policy.maxGpsAccuracyMeters !== undefined) payload.max_gps_accuracy_meters = policy.maxGpsAccuracyMeters;
+  if (policy.gpsAccuracyAction !== undefined) payload.gps_accuracy_action = policy.gpsAccuracyAction;
   if (policy.autoDeductBreaks !== undefined) payload.auto_deduct_breaks = policy.autoDeductBreaks;
   if (policy.breakDurationMinutes !== undefined) payload.break_duration_minutes = policy.breakDurationMinutes;
   if (policy.maxConsecutiveHoursWithoutBreak !== undefined) payload.max_consecutive_hours_without_break = policy.maxConsecutiveHoursWithoutBreak;
@@ -678,6 +683,15 @@ export async function processAttendanceDayRecord(employeeId: string, businessDat
   });
 
   if (error) throw mapError(error, "تعذر معالجة حضور اليوم للموظف");
+  return data;
+}
+
+export async function processMyAttendanceDayRecord(businessDate?: string): Promise<any> {
+  const { data, error } = await db.rpc("process_my_attendance_day", {
+    p_business_date: businessDate || null,
+  });
+
+  if (error) throw mapError(error, "تعذر معالجة حضور اليوم الذاتي");
   return data;
 }
 

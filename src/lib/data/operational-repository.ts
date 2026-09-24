@@ -37,7 +37,10 @@ import type {
   ServiceRequest,
 } from "../../types";
 import { enterpriseSupabase } from "./enterprise-client";
-import { supabase } from "../../integrations/supabase/client";
+import { supabase as typedSupabase } from "../../integrations/supabase/client";
+// Some tables/RPCs are not yet in the generated types (pending database updates).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabase = typedSupabase as any;
 import { uploadSecureFile, rollbackUploadedFile } from "../storage/storage-service";
 import { AppMutationError } from "./reliable-mutation";
 

@@ -1,6 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../auth/AuthContext";
-import { supabase } from "../../../integrations/supabase/client";
+import { supabase as typedSupabase } from "../../../integrations/supabase/client";
+// Some tables/RPCs are not yet in the generated types (pending database updates).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabase = typedSupabase as any;
 import { queryKeys } from "../../query/query-keys";
 import { demoStore, useDemoStore } from "../demo/demo-store";
 type DemoStore = typeof demoStore;

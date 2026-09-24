@@ -9,7 +9,10 @@
  * - Complete Demo mode isolation
  */
 
-import { supabase } from '../../integrations/supabase/client';
+import { supabase as typedSupabase } from '../../integrations/supabase/client';
+// Some tables/RPCs are not yet in the generated types (pending database updates).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabase = typedSupabase as any;
 import { isDemoModeEnabled } from '../config/runtime-config';
 import {
   FileObject,

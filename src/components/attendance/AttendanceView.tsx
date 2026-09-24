@@ -4,6 +4,14 @@ import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
 import { BiometricTerminalPanel } from "./BiometricTerminalPanel";
 import { BiometricDevicesPanel } from "./BiometricDevicesPanel";
+import { AttendancePoliciesPanel } from "./AttendancePoliciesPanel";
+import { AttendancePeriodsPanel } from "./AttendancePeriodsPanel";
+import { AttendanceExceptionsPanel } from "./AttendanceExceptionsPanel";
+import {
+  useAttendanceRecords,
+  useAttendanceSummary,
+  useAttendanceMutations,
+} from "../../lib/domains/attendance";
 import { IconSymbol } from "../ui/IconSymbol";
 import {
   Clock,
@@ -25,6 +33,7 @@ import {
   Info,
   DollarSign,
   UserCheck,
+  Lock,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -49,7 +58,7 @@ export const AttendanceView: React.FC = () => {
     employees,
     currentUser,
     currentRole,
-    punchInOut,
+    punchInOut: legacyPunchInOut,
     submitAttendanceCorrection,
     approveAttendanceCorrection,
     rejectAttendanceCorrection,
@@ -63,6 +72,11 @@ export const AttendanceView: React.FC = () => {
     isSaving,
   } = useApp();
 
+  const { records: liveAttendanceRecords } = useAttendanceRecords();
+  const { summary: attendanceSummary } = useAttendanceSummary();
+  const attendanceMutations = useAttendanceMutations();
+  const effectiveRecords = liveAttendanceRecords.length > 0 ? liveAttendanceRecords : attendanceRecords;
+
   const canManageAttendance = [
     "super_admin",
     "hr_manager",
@@ -70,9 +84,9 @@ export const AttendanceView: React.FC = () => {
     "operations_manager",
   ].includes(currentRole);
 
-  const [activeTab, setActiveTab] = useState<"timesheet" | "biometric" | "overtime" | "corrections" | "policies">(
-    "timesheet",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "timesheet" | "biometric" | "overtime" | "corrections" | "exceptions" | "periods" | "policies"
+  >("timesheet");
 
   // Filters State
   const [searchTerm, setSearchTerm] = useState("");
@@ -117,7 +131,7 @@ export const AttendanceView: React.FC = () => {
 
   // Filtered Attendance Records
   const filteredRecords = useMemo(() => {
-    return attendanceRecords.filter((rec) => {
+    return effectiveRecords.filter((rec) => {
       const matchesSearch =
         rec.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         rec.employeeNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -127,29 +141,30 @@ export const AttendanceView: React.FC = () => {
         statusFilter === "all" ||
         (statusFilter === "present" && rec.status === "present") ||
         (statusFilter === "late" && rec.status === "late") ||
-        (statusFilter === "absent" && rec.status === "absent");
+        (statusFilter === "absent" && rec.status === "absent") ||
+        (statusFilter === "leave" && rec.status === "leave");
 
       const matchesDept = deptFilter === "all" || rec.departmentName === deptFilter;
 
       return matchesSearch && matchesStatus && matchesDept;
     });
-  }, [attendanceRecords, searchTerm, statusFilter, deptFilter]);
+  }, [effectiveRecords, searchTerm, statusFilter, deptFilter]);
 
   // Unique departments for filter dropdown
   const uniqueDepartments = useMemo(() => {
     const set = new Set<string>();
-    attendanceRecords.forEach((r) => {
+    effectiveRecords.forEach((r) => {
       if (r.departmentName) set.add(r.departmentName);
     });
     return Array.from(set);
-  }, [attendanceRecords]);
+  }, [effectiveRecords]);
 
-  // KPIs
-  const totalEmployeesCount = 120;
-  const presentCount = attendanceRecords.filter((r) => r.status === "present").length + 104;
-  const lateCount = attendanceRecords.filter((r) => r.status === "late").length;
-  const absentCount = attendanceRecords.filter((r) => r.status === "absent").length;
-  const attendanceRate = Number(((presentCount / totalEmployeesCount) * 100).toFixed(1));
+  // Truthful Live KPIs derived from authoritative attendance engine
+  const totalEmployeesCount = attendanceSummary.totalEmployees || employees.length || 1;
+  const presentCount = attendanceSummary.presentCount;
+  const lateCount = attendanceSummary.lateCount;
+  const absentCount = attendanceSummary.absentCount;
+  const attendanceRate = attendanceSummary.attendanceRate;
 
   const totalOvertimeApprovedHours = useMemo(() => {
     return overtimeRecords
@@ -188,23 +203,28 @@ export const AttendanceView: React.FC = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
-          const res = await punchInOut(type, {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          });
+          const res = await attendanceMutations.punchInOut(
+            type,
+            {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            },
+            pos.coords.accuracy,
+          );
           if (res.success) {
             toast.success(
-              `${res.message} • ${res.geofenceValid ? "داخل السياج الجغرافي للمقر" : "خارج النطاق الجغرافي"}`,
+              `${res.message} • ${res.geofenceValid ? "داخل السياج الجغرافي للمقر" : "تنبيه: خارج النطاق الجغرافي"}`,
             );
           }
         },
         async () => {
-          const res = await punchInOut(type);
+          const res = await attendanceMutations.punchInOut(type);
           if (res.success) toast.success(res.message);
         },
+        { enableHighAccuracy: true, timeout: 8000 },
       );
     } else {
-      void punchInOut(type).then((res) => {
+      void attendanceMutations.punchInOut(type).then((res) => {
         if (res.success) toast.success(res.message);
       });
     }
@@ -455,10 +475,10 @@ export const AttendanceView: React.FC = () => {
 
       {/* Main Tabs Hub */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
-        <TabsList className="classera-tabs-strip">
+        <TabsList className="classera-tabs-strip flex-wrap h-auto gap-1">
           <TabsTrigger value="timesheet" className="rounded-xl text-xs font-bold gap-1.5 py-2">
             <Clock className="h-3.5 w-3.5" />
-            سجل الدوام والتايم شيت اليومي
+            سجل الدوام والتايم شيت
           </TabsTrigger>
           <TabsTrigger value="biometric" className="rounded-xl text-xs font-bold gap-1.5 py-2">
             <ShieldCheck className="h-3.5 w-3.5 text-primary" />
@@ -466,7 +486,7 @@ export const AttendanceView: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="overtime" className="rounded-xl text-xs font-bold gap-1.5 py-2">
             <Clock className="h-3.5 w-3.5 text-amber-500" />
-            الساعات والعمل الإضافي (م107)
+            الساعات والإضافي (م107)
             {overtimeRecords.filter((o) => o.status === "pending").length > 0 && (
               <Badge className="mr-1 bg-amber-500 text-white rounded-full text-[10px] h-4 px-1.5">
                 {overtimeRecords.filter((o) => o.status === "pending").length}
@@ -482,9 +502,22 @@ export const AttendanceView: React.FC = () => {
               </Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="exceptions" className="rounded-xl text-xs font-bold gap-1.5 py-2">
+            <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
+            الاستثناءات والمخالفات
+            {attendanceSummary.openExceptionsCount > 0 && (
+              <Badge className="mr-1 bg-rose-500 text-white rounded-full text-[10px] h-4 px-1.5">
+                {attendanceSummary.openExceptionsCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="periods" className="rounded-xl text-xs font-bold gap-1.5 py-2">
+            <Lock className="h-3.5 w-3.5 text-indigo-500" />
+            الإغلاق الشهري والرواتب
+          </TabsTrigger>
           <TabsTrigger value="policies" className="rounded-xl text-xs font-bold gap-1.5 py-2">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-            ضوابط نظام العمل والسياج الجغرافي
+            سياسات الدوام والسياج
           </TabsTrigger>
         </TabsList>
 
@@ -1017,104 +1050,19 @@ export const AttendanceView: React.FC = () => {
           </div>
         </TabsContent>
 
-        {/* TAB 4: Policies, Geofence & Saudi Labor Law Compliance */}
+        {/* TAB: Exceptions & Violations */}
+        <TabsContent value="exceptions" className="space-y-4">
+          <AttendanceExceptionsPanel canManage={canManageAttendance} />
+        </TabsContent>
+
+        {/* TAB: Monthly Periods & Payroll Snapshots */}
+        <TabsContent value="periods" className="space-y-4">
+          <AttendancePeriodsPanel canManage={canManageAttendance} />
+        </TabsContent>
+
+        {/* TAB: Policies & Labor Law Compliance */}
         <TabsContent value="policies" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
-              <div className="flex items-center gap-2 text-primary font-black text-sm">
-                <ShieldCheck className="h-5 w-5 text-emerald-600" />
-                نظام العمل السعودي - ساعات الدوام والعمل الإضافي
-              </div>
-
-              <div className="space-y-3 text-xs leading-relaxed text-muted-foreground">
-                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60">
-                  <span className="font-bold text-foreground block mb-1">
-                    المادة 98 (ساعات العمل الفعلية):
-                  </span>
-                  لا يجوز تشغيل العامل تشغيلاً فعلياً أكثر من 8 ساعات في اليوم الواحد إذا اعتمد صاحب
-                  العمل المعيار اليومي، أو أكثر من 48 ساعة في الأسبوع إذا اعتمد المعيار الأسبوعي.
-                  وتخفض ساعات العمل خلال شهر رمضان للمسلمين بحيث لا تزيد على 6 ساعات يومياً أو 36
-                  ساعة أسبوعياً.
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60">
-                  <span className="font-bold text-foreground block mb-1">
-                    المادة 107 (أجر الساعات الإضافية):
-                  </span>
-                  يجب على صاحب العمل أن يدفع للعامل عن ساعات العمل الإضافية أجراً يوازي أجر الساعة
-                  مضافاً إليه 50% من أجره الأساسي. وإذا كان التشغيل في أيام الأعياد أو العطلات
-                  الأسبوعية، تكون جميع الساعات إضافية بأجر مضاعف.
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60">
-                  <span className="font-bold text-foreground block mb-1">
-                    المادة 101 (فترات الراحة والصلاة):
-                  </span>
-                  لا يعمل العامل أكثر من 5 ساعات متتالية دون فترة للراحة والصلاة وتناول الطعام لا
-                  تقل عن نصف ساعة في المرة الواحدة.
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
-              <div className="flex items-center gap-2 text-primary font-black text-sm">
-                <MapPin className="h-5 w-5 text-indigo-600" />
-                إعدادات السياج الجغرافي GPS وأجهزة الدوام
-              </div>
-
-              <div className="space-y-3 text-xs">
-                <div className="p-4 rounded-2xl border border-border/60 bg-muted/40 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-foreground block">
-                      مقر الرياض - الإدارة العامة
-                    </span>
-                    <span className="text-[11px] text-muted-foreground font-mono">
-                      خط العرض: 24.7136 | خط الطول: 46.6753
-                    </span>
-                  </div>
-                  <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-300 rounded-full text-[10px]">
-                    نطاق 150 متر
-                  </Badge>
-                </div>
-
-                <div className="p-4 rounded-2xl border border-border/60 bg-muted/40 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-foreground block">
-                      فرع جدة والمنطقة الغربية
-                    </span>
-                    <span className="text-[11px] text-muted-foreground font-mono">
-                      خط العرض: 21.5433 | خط الطول: 39.1728
-                    </span>
-                  </div>
-                  <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-300 rounded-full text-[10px]">
-                    نطاق 200 متر
-                  </Badge>
-                </div>
-
-                <div className="p-4 rounded-2xl border border-border/60 bg-muted/40 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-foreground block">
-                      فرع الخبر والمنطقة الشرقية
-                    </span>
-                    <span className="text-[11px] text-muted-foreground font-mono">
-                      خط العرض: 26.2172 | خط الطول: 50.1971
-                    </span>
-                  </div>
-                  <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-300 rounded-full text-[10px]">
-                    نطاق 150 متر
-                  </Badge>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-secondary/50 border border-primary/20 flex items-start gap-2 text-foreground">
-                  <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                  <p className="text-[11px] leading-relaxed">
-                    يتم التحقق من موقع الموظف آلياً عند استخدام تطبيق الجوال؛ في حال كانت البصمة
-                    خارج النطاق، يُسجل الحضور مع إشعار بالخروج عن السياج للمشرف.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <AttendancePoliciesPanel canManage={canManageAttendance} />
         </TabsContent>
 
         {/* TAB: Biometric devices, punches & settlement */}

@@ -25,6 +25,7 @@ import { OrganizationView } from "../organization/OrganizationView";
 import { ShiftDefinitionsSetupPanel } from "./ShiftDefinitionsSetupPanel";
 import { LeavePoliciesSetupPanel } from "./LeavePoliciesSetupPanel";
 import { UserCompanyAccessPanel } from "./UserCompanyAccessPanel";
+import { AttendancePolicySetupPanel } from "./AttendancePolicySetupPanel";
 import { calculateSetupProgress } from "../../lib/domains/setup/setup-progress";
 import { toast } from "sonner";
 
@@ -173,6 +174,9 @@ export const SetupDashboard: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="users" className="rounded-xl text-xs font-bold py-2 px-3.5">
             5. حوكمة ربط المستخدمين
+          </TabsTrigger>
+          <TabsTrigger value="attendance_policy" className="rounded-xl text-xs font-bold py-2 px-3.5">
+            6. سياسات الدوام ونظام العمل
           </TabsTrigger>
         </TabsList>
 
@@ -443,6 +447,11 @@ export const SetupDashboard: React.FC = () => {
         {/* ===================== TAB 6: USERS GOVERNANCE ===================== */}
         <TabsContent value="users" className="pt-4">
           <UserCompanyAccessPanel />
+        </TabsContent>
+
+        {/* ===================== TAB 7: ATTENDANCE POLICIES ===================== */}
+        <TabsContent value="attendance_policy" className="pt-4">
+          <AttendancePolicySetupPanel />
         </TabsContent>
       </Tabs>
     </div>

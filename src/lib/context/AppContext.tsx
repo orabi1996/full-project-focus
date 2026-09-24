@@ -606,7 +606,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addShift: (shift) => shiftMutations.addShift(shift),
 
       // Attendance Mutators
-      punchInOut: (type, coords) => attendanceMutations.punchInOut(type, coords, currentUser.id),
+      punchInOut: (type, coords) => attendanceMutations.punchInOut(type, coords),
       submitAttendanceCorrection: (payload) =>
         attendanceMutations.submitAttendanceCorrection({
           ...payload,

@@ -47,9 +47,32 @@ export const queryKeys = {
   },
   attendance: {
     all: ["attendance"] as const,
-    records: () => [...queryKeys.attendance.all, "records"] as const,
-    overtime: () => [...queryKeys.attendance.all, "overtime"] as const,
-    corrections: () => [...queryKeys.attendance.all, "corrections"] as const,
+    records: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.attendance.all, "records", filters] as const)
+        : ([...queryKeys.attendance.all, "records"] as const),
+    overtime: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.attendance.all, "overtime", filters] as const)
+        : ([...queryKeys.attendance.all, "overtime"] as const),
+    corrections: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.attendance.all, "corrections", filters] as const)
+        : ([...queryKeys.attendance.all, "corrections"] as const),
+    policies: () => [...queryKeys.attendance.all, "policies"] as const,
+    periods: () => [...queryKeys.attendance.all, "periods"] as const,
+    snapshots: (periodId?: string) =>
+      [...queryKeys.attendance.all, "snapshots", periodId ?? "all"] as const,
+    exceptions: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.attendance.all, "exceptions", filters] as const)
+        : ([...queryKeys.attendance.all, "exceptions"] as const),
+    punches: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.attendance.all, "punches", filters] as const)
+        : ([...queryKeys.attendance.all, "punches"] as const),
+    summary: (period?: string) =>
+      [...queryKeys.attendance.all, "summary", period ?? "current"] as const,
   },
   workflow: {
     all: ["workflow"] as const,

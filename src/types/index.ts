@@ -670,9 +670,11 @@ export type AttendanceStatus =
   | "early_departure"
   | "absent"
   | "on_leave"
+  | "leave"
   | "holiday"
   | "rest_day"
-  | "missing_punch";
+  | "missing_punch"
+  | "remote";
 
 export interface ShiftDefinition {
   id: string;
@@ -772,6 +774,142 @@ export interface AttendanceCorrectionRequest {
   submittedAt: string;
   reviewedBy?: string;
   reviewedAt?: string;
+}
+
+export interface AttendancePolicy {
+  id: string;
+  companyId: string;
+  nameAr: string;
+  gracePeriodInMinutes: number;
+  gracePeriodOutMinutes: number;
+  overtimeRegularMultiplier: number;
+  overtimeHolidayMultiplier: number;
+  defaultWorkHoursPerDay: number;
+  ramadanWorkHoursPerDay: number;
+  maxWorkHoursPerWeek: number;
+  ramadanMaxWorkHoursPerWeek: number;
+  geofenceEnforced: boolean;
+  geofenceRadiusMeters: number;
+  autoDeductBreaks: boolean;
+  breakDurationMinutes: number;
+  maxConsecutiveHoursWithoutBreak: number;
+  requireBiometricOrGps: boolean;
+  allowMobilePunch: boolean;
+  overtimePreApprovalRequired: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AttendancePeriod {
+  id: string;
+  companyId: string;
+  periodYear: number;
+  periodMonth: number;
+  fromDate: string;
+  toDate: string;
+  status: "open" | "closing" | "closed" | "reopened";
+  closedBy?: string;
+  closedAt?: string;
+  reopenedBy?: string;
+  reopenedAt?: string;
+  reopenReason?: string;
+  createdAt: string;
+}
+
+export interface AttendancePayrollSnapshot {
+  id: string;
+  companyId: string;
+  periodId: string;
+  employeeId: string;
+  employeeNo?: string;
+  employeeName?: string;
+  departmentName?: string;
+  totalExpectedDays: number;
+  totalPresentDays: number;
+  totalAbsentDays: number;
+  totalRestDays: number;
+  totalLeaveDays: number;
+  totalLateMinutes: number;
+  totalEarlyDepartureMinutes: number;
+  totalWorkedHours: number;
+  regularOvertimeHours: number;
+  holidayOvertimeHours: number;
+  unexcusedAbsenceDays: number;
+  violationsCount: number;
+  snapshotHash: string;
+  createdAt: string;
+}
+
+export interface AttendanceException {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  employeeNo?: string;
+  employeeName?: string;
+  departmentName?: string;
+  workDate: string;
+  exceptionType:
+    | "late_arrival"
+    | "early_departure"
+    | "missing_in"
+    | "missing_out"
+    | "unexcused_absence"
+    | "geofence_breach"
+    | "overtime_without_approval"
+    | "excessive_break";
+  severity: "info" | "warning" | "violation";
+  minutes: number;
+  description: string;
+  resolved: boolean;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  resolutionNote?: string;
+  createdAt: string;
+}
+
+export interface PunchRecord {
+  id: string;
+  companyId?: string;
+  employeeId: string;
+  employeeNo?: string;
+  employeeName?: string;
+  punchTime: string;
+  punchType: "in" | "out";
+  source: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracyMeters?: number | null;
+  distanceFromLocationMeters?: number | null;
+  geofenceValid: boolean;
+  deviceId?: string;
+  approvalStatus: "pending" | "approved" | "rejected";
+  batchId?: string;
+  createdAt: string;
+}
+
+export interface PunchImportBatch {
+  id: string;
+  companyId: string;
+  deviceId?: string;
+  importedBy?: string;
+  totalRecords: number;
+  successfulRecords: number;
+  failedRecords: number;
+  duplicateRecords: number;
+  status: "processing" | "completed" | "failed";
+  errorLog?: Array<{ employee_no?: string; error: string }>;
+  createdAt: string;
+}
+
+export interface AttendanceSummaryKPIs {
+  totalEmployees: number;
+  presentCount: number;
+  lateCount: number;
+  absentCount: number;
+  leaveCount: number;
+  attendanceRate: number;
+  totalOvertimeHours: number;
+  openExceptionsCount: number;
 }
 
 // ----------------------------------------------------------------------------

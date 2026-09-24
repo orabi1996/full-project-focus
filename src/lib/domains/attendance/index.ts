@@ -1,12 +1,33 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import type {
   AttendanceCorrectionRequest,
+  AttendanceException,
+  AttendancePayrollSnapshot,
+  AttendancePeriod,
+  AttendancePolicy,
+  AttendanceSummaryKPIs,
   DailyAttendanceRecord,
   OvertimeRecord,
+  PunchRecord,
 } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
-import { createRequestRecord, recordAttendance } from "../../data/hrms-repository";
+import {
+  fetchAttendanceExceptionsRecord,
+  fetchAttendancePayrollSnapshotsRecord,
+  fetchAttendancePeriodsRecord,
+  fetchAttendancePoliciesRecord,
+  fetchAttendanceRecordsRecord,
+  fetchAttendanceSummaryKPIsRecord,
+  fetchPunchesRecord,
+  recordSelfPunchRecord,
+  resolveAttendanceExceptionRecord,
+  updateAttendancePolicyRecord,
+  closeAttendancePeriodRecord,
+  reopenAttendancePeriodRecord,
+  importBiometricPunchesRecord,
+} from "../../data/attendance-repository";
+import { createRequestRecord } from "../../data/hrms-repository";
 import {
   approveAttendanceCorrectionRecord,
   rejectAttendanceCorrectionRecord,
@@ -17,37 +38,309 @@ import {
 import { processAttendanceServer } from "../../business/attendance.functions";
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
-import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
 
-export function useAttendance() {
+// ----------------------------------------------------------------------------
+// HOOK: Dedicated Attendance Records Query (Replacing Live Bootstrap Authority)
+// ----------------------------------------------------------------------------
+export function useAttendanceRecords(filters?: {
+  fromDate?: string;
+  toDate?: string;
+  employeeId?: string;
+  status?: string;
+}) {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
-  const bootstrap = useBootstrapData();
+  const demoRecords = useDemoStore((s) => s.attendanceRecords);
+
+  const query = useQuery({
+    queryKey: queryKeys.attendance.records(filters),
+    queryFn: () => fetchAttendanceRecordsRecord(filters),
+    enabled: isLive,
+    staleTime: 30 * 1000,
+  });
+
+  if (!isLive) {
+    let filtered = demoRecords;
+    if (filters?.employeeId) {
+      filtered = filtered.filter((r) => r.employeeId === filters.employeeId);
+    }
+    if (filters?.status && filters.status !== "all") {
+      filtered = filtered.filter((r) => r.status === filters.status);
+    }
+    if (filters?.fromDate) {
+      filtered = filtered.filter((r) => r.workDate >= filters.fromDate!);
+    }
+    if (filters?.toDate) {
+      filtered = filtered.filter((r) => r.workDate <= filters.toDate!);
+    }
+    return {
+      records: filtered,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: async () => ({ data: filtered }),
+    };
+  }
+
+  return {
+    records: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// HOOK: Attendance Summary KPIs
+// ----------------------------------------------------------------------------
+export function useAttendanceSummary(dateStr?: string) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+  const demoRecords = useDemoStore((s) => s.attendanceRecords);
+  const demoEmployees = useDemoStore((s) => s.employees);
+  const targetDate = dateStr || new Date().toISOString().slice(0, 10);
+
+  const query = useQuery({
+    queryKey: queryKeys.attendance.summary(targetDate),
+    queryFn: () => fetchAttendanceSummaryKPIsRecord(targetDate),
+    enabled: isLive,
+    staleTime: 30 * 1000,
+  });
+
+  if (!isLive) {
+    const dayRecords = demoRecords.filter((r) => r.workDate === targetDate);
+    const totalEmployees = demoEmployees.length || 10;
+    const presentCount = dayRecords.filter((r) => r.status === "present").length;
+    const lateCount = dayRecords.filter((r) => r.status === "late").length;
+    const leaveCount = dayRecords.filter((r) => r.status === "leave").length;
+    const absentCount = Math.max(0, totalEmployees - presentCount - lateCount - leaveCount);
+    const attendanceRate = totalEmployees > 0 ? Math.round(((presentCount + lateCount) / totalEmployees) * 100) : 0;
+
+    const summary: AttendanceSummaryKPIs = {
+      totalEmployees,
+      presentCount,
+      lateCount,
+      absentCount,
+      leaveCount,
+      attendanceRate,
+      totalOvertimeHours: 6.5,
+      openExceptionsCount: lateCount + absentCount,
+    };
+
+    return {
+      summary,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: async () => ({ data: summary }),
+    };
+  }
+
+  const defaultSummary: AttendanceSummaryKPIs = {
+    totalEmployees: 0,
+    presentCount: 0,
+    lateCount: 0,
+    absentCount: 0,
+    leaveCount: 0,
+    attendanceRate: 0,
+    totalOvertimeHours: 0,
+    openExceptionsCount: 0,
+  };
+
+  return {
+    summary: query.data ?? defaultSummary,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// HOOK: Attendance Policies (Setup & Rules)
+// ----------------------------------------------------------------------------
+export function useAttendancePolicies() {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  const defaultPolicy: AttendancePolicy = {
+    id: "pol-01",
+    companyId: "a0000000-0000-0000-0000-000000000001",
+    nameAr: "سياسة الدوام الرسمية - شركة الأندلس",
+    gracePeriodInMinutes: 15,
+    gracePeriodOutMinutes: 15,
+    overtimeRegularMultiplier: 1.5,
+    overtimeHolidayMultiplier: 2.0,
+    defaultWorkHoursPerDay: 8.0,
+    ramadanWorkHoursPerDay: 6.0,
+    maxWorkHoursPerWeek: 48.0,
+    ramadanMaxWorkHoursPerWeek: 36.0,
+    geofenceEnforced: true,
+    geofenceRadiusMeters: 200,
+    autoDeductBreaks: true,
+    breakDurationMinutes: 60,
+    maxConsecutiveHoursWithoutBreak: 5.0,
+    requireBiometricOrGps: true,
+    allowMobilePunch: true,
+    overtimePreApprovalRequired: true,
+  };
+
+  const query = useQuery({
+    queryKey: queryKeys.attendance.policies(),
+    queryFn: fetchAttendancePoliciesRecord,
+    enabled: isLive,
+    staleTime: 60 * 1000,
+  });
+
+  return {
+    policy: isLive ? query.data ?? defaultPolicy : defaultPolicy,
+    isLoading: isLive ? query.isLoading : false,
+    isError: isLive ? query.isError : false,
+    error: isLive ? query.error : null,
+    refetch: query.refetch,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// HOOK: Attendance Periods
+// ----------------------------------------------------------------------------
+export function useAttendancePeriods() {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  const demoPeriods: AttendancePeriod[] = [
+    {
+      id: "period-2026-09",
+      companyId: "a0000000-0000-0000-0000-000000000001",
+      periodYear: 2026,
+      periodMonth: 9,
+      fromDate: "2026-09-01",
+      toDate: "2026-09-30",
+      status: "open",
+      createdAt: new Date().toISOString(),
+    },
+  ];
+
+  const query = useQuery({
+    queryKey: queryKeys.attendance.periods(),
+    queryFn: fetchAttendancePeriodsRecord,
+    enabled: isLive,
+    staleTime: 60 * 1000,
+  });
+
+  return {
+    periods: isLive ? query.data ?? [] : demoPeriods,
+    isLoading: isLive ? query.isLoading : false,
+    isError: isLive ? query.isError : false,
+    error: isLive ? query.error : null,
+    refetch: query.refetch,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// HOOK: Attendance Payroll Snapshots
+// ----------------------------------------------------------------------------
+export function useAttendancePayrollSnapshots(periodId?: string) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  const query = useQuery({
+    queryKey: queryKeys.attendance.snapshots(periodId),
+    queryFn: () => (periodId ? fetchAttendancePayrollSnapshotsRecord(periodId) : Promise.resolve([])),
+    enabled: isLive && Boolean(periodId),
+    staleTime: 60 * 1000,
+  });
+
+  return {
+    snapshots: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// HOOK: Attendance Exceptions
+// ----------------------------------------------------------------------------
+export function useAttendanceExceptions(filters?: {
+  employeeId?: string;
+  resolved?: boolean;
+  workDate?: string;
+}) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  const query = useQuery({
+    queryKey: queryKeys.attendance.exceptions(filters),
+    queryFn: () => fetchAttendanceExceptionsRecord(filters),
+    enabled: isLive,
+    staleTime: 30 * 1000,
+  });
+
+  return {
+    exceptions: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// HOOK: Punches
+// ----------------------------------------------------------------------------
+export function usePunches(filters?: {
+  date?: string;
+  employeeId?: string;
+  status?: string;
+}) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  const query = useQuery({
+    queryKey: queryKeys.attendance.punches(filters),
+    queryFn: () => fetchPunchesRecord(filters),
+    enabled: isLive,
+    staleTime: 30 * 1000,
+  });
+
+  return {
+    punches: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// LEGACY COMPATIBILITY HOOK: useAttendance
+// ----------------------------------------------------------------------------
+export function useAttendance() {
+  const { records, isLoading, isError, error, refetch } = useAttendanceRecords();
   const demoData = useDemoStore((s) => ({
-    attendanceRecords: s.attendanceRecords,
     overtimeRecords: s.overtimeRecords,
     attendanceCorrections: s.attendanceCorrections,
   }));
 
-  const attendanceRecords = isLive ? bootstrap.attendanceRecords : demoData.attendanceRecords;
-  const overtimeRecords = isLive ? bootstrap.overtimeRecords : demoData.overtimeRecords;
-  const attendanceCorrections = isLive
-    ? bootstrap.attendanceCorrections
-    : demoData.attendanceCorrections;
-
   return {
-    attendanceRecords,
-    overtimeRecords,
-    attendanceCorrections,
-    isLoading: isLive ? bootstrap.isLoading : false,
-    isError: isLive ? bootstrap.isError : false,
-    error: isLive ? bootstrap.error : null,
-    refetch: bootstrap.refreshCoreData,
+    attendanceRecords: records,
+    overtimeRecords: demoData.overtimeRecords,
+    attendanceCorrections: demoData.attendanceCorrections,
+    isLoading,
+    isError,
+    error,
+    refetch,
   };
 }
 
+// ----------------------------------------------------------------------------
+// HOOK: useAttendanceMutations
+// ----------------------------------------------------------------------------
 export function useAttendanceMutations() {
   const { session, isDemo } = useAuth();
   const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
@@ -57,28 +350,29 @@ export function useAttendanceMutations() {
     async (
       type: "in" | "out",
       coords?: { lat: number; lng: number },
-      employeeId?: string,
+      accuracy?: number,
     ): Promise<{ success: boolean; message: string; geofenceValid: boolean }> => {
       const now = new Date();
       const timeStr = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
       const today = now.toISOString().split("T")[0];
-      const empId = employeeId || demoStore.employees[0]?.id || "emp-01";
 
       const mutationRes = await executeReliableMutation<{ success: boolean; message: string; geofenceValid: boolean }>({
         mode,
-        mutationKey: `punch-${empId}-${today}-${type}`,
+        mutationKey: `punch-self-${today}-${type}-${Date.now()}`,
         operation: async () => {
-          await recordAttendance(empId, type, today, timeStr);
+          // Live mode executes server-authoritative punch with server-resolved employee identity
+          const res = await recordSelfPunchRecord(type, coords, accuracy);
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return {
-            success: true,
-            message: `تم تسجيل ${type === "in" ? "الحضور" : "الانصراف"} بنجاح في النظام`,
-            geofenceValid: true,
+            success: res.ok,
+            message: res.message,
+            geofenceValid: res.geofenceValid,
           };
         },
         demoOperation: () => {
-          const emp = demoStore.employees.find((e) => e.id === empId);
+          const emp = demoStore.employees[0];
+          const empId = emp?.id || "emp-01";
           const existingIndex = demoStore.attendanceRecords.findIndex(
             (r) => r.workDate === today && r.employeeId === empId,
           );
@@ -132,6 +426,13 @@ export function useAttendanceMutations() {
             };
           }
         },
+        onCommitted: (res) => {
+          if (res?.geofenceValid) {
+            toast.success(res.message);
+          } else if (res?.message) {
+            toast.warning(res.message);
+          }
+        },
         onRejected: (err) => {
           toast.error(err.message || "تعذر تسجيل البصمة");
         },
@@ -147,7 +448,7 @@ export function useAttendanceMutations() {
 
       return mutationRes.data ?? {
         success: true,
-        message: `تم تسجيل البصمة بنجاح`,
+        message: "تم تسجيل البصمة بنجاح",
         geofenceValid: true,
       };
     },
@@ -409,6 +710,147 @@ export function useAttendanceMutations() {
     [mode, queryClient],
   );
 
+  const updatePolicy = useCallback(
+    async (policy: Partial<AttendancePolicy>): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `update-attendance-policy`,
+        operation: async () => {
+          await updateAttendancePolicyRecord(policy);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.policies() });
+          return true;
+        },
+        demoOperation: () => {
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تم حفظ إعدادات وسياسات الحضور بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر حفظ سياسة الدوام");
+        },
+      });
+
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
+  const closePeriod = useCallback(
+    async (periodId: string): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `close-attendance-period-${periodId}`,
+        operation: async () => {
+          const res = await closeAttendancePeriodRecord(periodId);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.periods() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.snapshots(periodId) });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
+          return res.ok;
+        },
+        demoOperation: () => {
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إغلاق فترة الحضور واعتماد اللقطة الثابتة لمسير الرواتب بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إغلاق فترة الحضور");
+        },
+      });
+
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
+  const reopenPeriod = useCallback(
+    async (periodId: string, reason: string): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `reopen-attendance-period-${periodId}`,
+        operation: async () => {
+          await reopenAttendancePeriodRecord(periodId, reason);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.periods() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
+          return true;
+        },
+        demoOperation: () => {
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تمت إعادة فتح فترة الحضور بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إعادة فتح فترة الحضور");
+        },
+      });
+
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
+  const resolveException = useCallback(
+    async (exceptionId: string, note: string): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `resolve-attendance-exception-${exceptionId}`,
+        operation: async () => {
+          await resolveAttendanceExceptionRecord(exceptionId, note);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.exceptions() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.summary() });
+          return true;
+        },
+        demoOperation: () => {
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تمت معالجة استثناء الدوام بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر معالجة الاستثناء");
+        },
+      });
+
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
+  const importBiometricBatch = useCallback(
+    async (
+      deviceId: string,
+      punches: Array<{ employee_no: string; punch_time: string; punch_type: "in" | "out" }>,
+    ): Promise<boolean> => {
+      const result = await executeReliableMutation<{ message: string }>({
+        mode,
+        mutationKey: `import-biometric-${deviceId}-${Date.now()}`,
+        operation: async () => {
+          const res = await importBiometricPunchesRecord(deviceId, punches);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
+          return {
+            message: `تم استيراد ${res.successful} بصمة بنجاح (${res.duplicates} مكررة، ${res.failed} غير مطابقة)`,
+          };
+        },
+        demoOperation: () => {
+          return {
+            message: `تم استيراد ${punches.length} بصمة بنجاح`,
+          };
+        },
+        onCommitted: (data) => {
+          toast.success(data?.message || "تم استيراد البصمات بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر استيراد البصمات");
+        },
+      });
+
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
   return {
     punchInOut,
     submitAttendanceCorrection,
@@ -418,5 +860,10 @@ export function useAttendanceMutations() {
     approveOvertimeRequest,
     rejectOvertimeRequest,
     processAttendance,
+    updatePolicy,
+    closePeriod,
+    reopenPeriod,
+    resolveException,
+    importBiometricBatch,
   };
 }

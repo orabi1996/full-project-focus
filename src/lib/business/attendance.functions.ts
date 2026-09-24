@@ -49,14 +49,14 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
 
     let punchQuery = supabase
       .from("punches")
-      .select("employee_id, punch_time, punch_type")
+      .select("employee_id, punch_time, punch_type, geofence_valid")
       .neq("approval_status", "rejected")
       .gte("punch_time", `${data.fromDate}T00:00:00Z`)
       .lte("punch_time", `${data.toDate}T23:59:59Z`)
       .order("punch_time");
     if (data.employeeId) punchQuery = punchQuery.eq("employee_id", data.employeeId);
 
-    const [punchRes, scheduleRes, shiftRes] = await Promise.all([
+    const [punchRes, scheduleRes, shiftRes, leavesRes, empRes] = await Promise.all([
       punchQuery,
       supabase
         .from("schedule_assignments")
@@ -66,8 +66,18 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
       supabase
         .from("shifts")
         .select(
-          "id, start_time, end_time, grace_minutes_arrival, grace_minutes_departure, overtime_eligible",
+          "id, start_time, end_time, grace_minutes_arrival, grace_minutes_departure, overtime_eligible, is_overnight, break_minutes",
         ),
+      supabase
+        .from("leave_requests")
+        .select("employee_id, start_date, end_date, status")
+        .eq("status", "approved")
+        .lte("start_date", data.toDate)
+        .gte("end_date", data.fromDate),
+      supabase
+        .from("employees")
+        .select("id, company_id")
+        .eq("status", "active"),
     ]);
 
     if (punchRes.error) throw new Error(`تعذر قراءة البصمات: ${punchRes.error.message}`);
@@ -77,48 +87,129 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
       (scheduleRes.data ?? []).map((s: any) => [`${s.employee_id}|${s.work_date}`, s]),
     );
 
-    const grouped = new Map<string, { in?: string; out?: string }>();
+    // Build leave set: "employeeId|YYYY-MM-DD"
+    const leaveDays = new Set<string>();
+    for (const lr of leavesRes.data ?? []) {
+      const cur = new Date(lr.start_date);
+      const end = new Date(lr.end_date);
+      while (cur <= end) {
+        leaveDays.add(`${lr.employee_id}|${cur.toISOString().slice(0, 10)}`);
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+
+    const grouped = new Map<string, { in?: string; out?: string; geofenceValid?: boolean }>();
     for (const punch of punchRes.data ?? []) {
       const day = String(punch.punch_time).slice(0, 10);
       const key = `${punch.employee_id}|${day}`;
-      const entry = grouped.get(key) ?? {};
+      const entry = grouped.get(key) ?? { geofenceValid: true };
       if (punch.punch_type === "in") {
         if (!entry.in) entry.in = punch.punch_time;
       } else {
         entry.out = punch.punch_time;
       }
+      if (punch.geofence_valid === false) entry.geofenceValid = false;
       grouped.set(key, entry);
     }
 
     const rows: Record<string, unknown>[] = [];
+    const exceptions: Record<string, unknown>[] = [];
+    const processedDays = new Set<string>();
+
     for (const [key, entry] of grouped) {
+      processedDays.add(key);
       const [employeeId, workDate] = key.split("|");
       const schedule = schedules.get(key);
-      if (schedule?.is_rest_day) continue;
+      const isLeave = leaveDays.has(key);
+      const isRest = schedule?.is_rest_day ?? false;
       const shift = schedule?.shift_id ? shifts.get(schedule.shift_id) : undefined;
 
-      if (!entry.in) continue;
+      if (isLeave) {
+        rows.push({
+          employee_id: employeeId,
+          work_date: workDate,
+          status: "leave",
+          worked_hours: 0,
+          worked_minutes: 0,
+          late_minutes: 0,
+          overtime_minutes: 0,
+          note: "إجازة معتمدة",
+          is_manual: false,
+        });
+        continue;
+      }
+
+      if (!entry.in) {
+        if (entry.out) {
+          exceptions.push({
+            employee_id: employeeId,
+            work_date: workDate,
+            exception_type: "missing_in",
+            severity: "warning",
+            description: "بصمة انصراف مسجلة دون بصمة حضور",
+          });
+        }
+        continue;
+      }
+
       const checkInMin = timeOfDay(entry.in);
       const checkOutMin = entry.out ? timeOfDay(entry.out) : null;
 
       let lateMinutes = 0;
       let overtimeMinutes = 0;
       let expectedMinutes = 8 * 60;
+      const isOvernight = shift?.is_overnight || (shift && toMinutes(shift.end_time) < toMinutes(shift.start_time));
 
       if (shift) {
         const shiftStart = toMinutes(shift.start_time);
         const shiftEnd = toMinutes(shift.end_time);
         expectedMinutes = (shiftEnd >= shiftStart ? shiftEnd : shiftEnd + 1440) - shiftStart;
+        if (shift.break_minutes) {
+          expectedMinutes = Math.max(0, expectedMinutes - shift.break_minutes);
+        }
         const grace = shift.grace_minutes_arrival ?? 0;
         lateMinutes = Math.max(0, checkInMin - shiftStart - grace);
       }
 
       let workedMinutes = 0;
       if (checkOutMin !== null) {
-        workedMinutes = checkOutMin >= checkInMin ? checkOutMin - checkInMin : checkOutMin + 1440 - checkInMin;
-        if (!shift || shift.overtime_eligible !== false) {
+        if (checkOutMin >= checkInMin) {
+          workedMinutes = checkOutMin - checkInMin;
+        } else if (isOvernight) {
+          workedMinutes = checkOutMin + 1440 - checkInMin;
+        } else {
+          workedMinutes = checkOutMin + 1440 - checkInMin;
+        }
+
+        if (shift?.break_minutes && workedMinutes > 5 * 60) {
+          workedMinutes = Math.max(0, workedMinutes - shift.break_minutes);
+        }
+
+        if (isRest) {
+          // Working on a rest day is 100% overtime
+          overtimeMinutes = workedMinutes;
+        } else if (!shift || shift.overtime_eligible !== false) {
           overtimeMinutes = Math.max(0, workedMinutes - expectedMinutes);
         }
+      } else {
+        exceptions.push({
+          employee_id: employeeId,
+          work_date: workDate,
+          exception_type: "missing_out",
+          severity: "warning",
+          description: "لم يتم تسجيل بصمة انصراف للوردية",
+        });
+      }
+
+      if (lateMinutes > 0) {
+        exceptions.push({
+          employee_id: employeeId,
+          work_date: workDate,
+          exception_type: "late_arrival",
+          severity: lateMinutes > 60 ? "violation" : "warning",
+          minutes: lateMinutes,
+          description: `تأخر عن موعد الحضور بـ ${lateMinutes} دقيقة`,
+        });
       }
 
       rows.push({
@@ -131,17 +222,19 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
         worked_minutes: workedMinutes,
         late_minutes: lateMinutes,
         overtime_minutes: overtimeMinutes,
+        overtime_hours: round2(overtimeMinutes / 60),
+        geofence_valid: entry.geofenceValid ?? true,
         is_manual: false,
-        note: "احتُسب آليًا من البصمات",
+        note: isRest ? "حضور في يوم راحة أسبوعية (عمل إضافي)" : "احتُسب آليًا من البصمات المعتمدة",
       });
     }
 
-    if (!rows.length) return { processed: 0 };
-
-    const { error } = await supabase
-      .from("attendance_records")
-      .upsert(rows, { onConflict: "employee_id,work_date" });
-    if (error) throw new Error(`تعذر حفظ سجلات الحضور: ${error.message}`);
+    if (rows.length > 0) {
+      const { error } = await supabase
+        .from("attendance_records")
+        .upsert(rows, { onConflict: "employee_id,work_date" });
+      if (error) throw new Error(`تعذر حفظ سجلات الحضور: ${error.message}`);
+    }
 
     return { processed: rows.length };
   });

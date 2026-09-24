@@ -467,4 +467,105 @@ describe("Prompt 12: Production Attendance & Time Engine Contract", () => {
       expect(setupDashboardContent).toContain("attendance_policy");
     });
   });
+
+  describe("9. Prompt 12.1: Attendance Production Integrity & Security Hotfix Contract", () => {
+    const hotfixMigrationPath = path.resolve(
+      __dirname,
+      "../../supabase/migrations/20260924010000_finalize_attendance_integrity_and_tenant_security.sql",
+    );
+    const hotfixMigrationSql = fs.readFileSync(hotfixMigrationPath, "utf-8");
+
+    const policySetupPath = path.resolve(
+      __dirname,
+      "../components/setup/AttendancePolicySetupPanel.tsx",
+    );
+    const policySetupContent = fs.readFileSync(policySetupPath, "utf-8");
+
+    it("verifies hotfix migration removes implicit statutory defaults and adds versioning", () => {
+      expect(hotfixMigrationSql).toContain("ALTER TABLE public.attendance_policies");
+      expect(hotfixMigrationSql).toContain("ALTER COLUMN grace_period_in_minutes DROP DEFAULT");
+      expect(hotfixMigrationSql).toContain("ALTER COLUMN overtime_regular_multiplier DROP DEFAULT");
+      expect(hotfixMigrationSql).toContain("ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1");
+      expect(hotfixMigrationSql).toContain("ADD COLUMN IF NOT EXISTS jurisdiction text");
+      expect(hotfixMigrationSql).toContain("ADD COLUMN IF NOT EXISTS status text");
+      expect(hotfixMigrationSql).toContain("uq_attendance_policies_company_version");
+    });
+
+    it("verifies punch idempotency with client_event_id and unique constraint", () => {
+      expect(hotfixMigrationSql).toContain("ADD COLUMN IF NOT EXISTS client_event_id text");
+      expect(hotfixMigrationSql).toContain("CREATE UNIQUE INDEX IF NOT EXISTS uq_punches_client_event");
+    });
+
+    it("verifies biometric devices master, employee mappings, and raw event staging tables", () => {
+      expect(hotfixMigrationSql).toContain("CREATE TABLE IF NOT EXISTS public.attendance_devices");
+      expect(hotfixMigrationSql).toContain("CREATE TABLE IF NOT EXISTS public.attendance_device_employee_mappings");
+      expect(hotfixMigrationSql).toContain("CREATE TABLE IF NOT EXISTS public.punch_import_raw_events");
+    });
+
+    it("verifies authoritative company timezone resolution RPC and safe fallback", () => {
+      expect(hotfixMigrationSql).toContain("CREATE OR REPLACE FUNCTION public.get_effective_company_timezone");
+      expect(repoContent).toContain("fetchEffectiveCompanyTimezoneRecord");
+      expect(domainContent).toContain("useEffectiveCompanyTimezone");
+    });
+
+    it("verifies multi-punch pairing and leave/holiday integration in process_attendance_day", () => {
+      expect(hotfixMigrationSql).toContain("CREATE OR REPLACE FUNCTION public.process_attendance_day");
+      expect(hotfixMigrationSql).toContain("r.type = 'leave'");
+      expect(hotfixMigrationSql).toContain("company_holidays");
+      expect(hotfixMigrationSql).toContain("duplicate_in");
+    });
+
+    it("verifies versioned immutable payroll snapshot RPC with deterministic SHA-256 seal", () => {
+      expect(hotfixMigrationSql).toContain("CREATE OR REPLACE FUNCTION public.close_attendance_period");
+      expect(hotfixMigrationSql).toContain("encode(sha256(");
+      expect(hotfixMigrationSql).toContain("v_period.company_id::text || '|' ||");
+      expect(hotfixMigrationSql).toContain("v_target_version");
+    });
+
+    it("verifies AttendanceView does not contain speculative fake salary formulas", () => {
+      expect(attendanceViewContent).not.toContain("basicSalary || 6000");
+      expect(attendanceViewContent).not.toContain("basic / 240");
+      expect(attendanceViewContent).not.toContain("calculatedHourlyRate");
+      expect(attendanceViewContent).not.toContain("calculatedOtTotal");
+    });
+
+    it("verifies AttendanceView uses strictly authoritative records without mock fallback", () => {
+      expect(attendanceViewContent).not.toContain("liveAttendanceRecords.length > 0 ? liveAttendanceRecords : attendanceRecords");
+      expect(attendanceViewContent).toContain("const effectiveRecords = liveAttendanceRecords;");
+    });
+
+    it("verifies AttendanceView surfaces policy warning banner when unconfigured", () => {
+      expect(attendanceViewContent).toContain("!attendanceSummary.isPolicyConfigured");
+      expect(attendanceViewContent).toContain("لم يتم إعداد سياسة الحضور والانصراف للمنشأة بعد");
+    });
+
+    it("verifies policy mapper supports null/unconfigured fields and versioning metadata", () => {
+      const rawNullPolicy = {
+        id: "pol-null",
+        company_id: "comp-1",
+        version: 1,
+        status: "active",
+        jurisdiction: "custom",
+        name_ar: "سياسة مخصصة",
+        grace_period_in_minutes: null,
+        overtime_regular_multiplier: null,
+        default_work_hours_per_day: null,
+      };
+
+      const mapped = mapAttendancePolicy(rawNullPolicy);
+      expect(mapped.version).toBe(1);
+      expect(mapped.status).toBe("active");
+      expect(mapped.jurisdiction).toBe("custom");
+      expect(mapped.gracePeriodInMinutes).toBeNull();
+      expect(mapped.overtimeRegularMultiplier).toBeNull();
+      expect(mapped.defaultWorkHoursPerDay).toBeNull();
+    });
+
+    it("verifies multi-jurisdiction presets exist in AttendancePolicySetupPanel", () => {
+      expect(policySetupContent).toContain('jurisdiction: "SA"');
+      expect(policySetupContent).toContain('jurisdiction: "EG"');
+      expect(policySetupContent).toContain('jurisdiction: "QA"');
+      expect(policySetupContent).toContain('"custom"');
+    });
+  });
 });

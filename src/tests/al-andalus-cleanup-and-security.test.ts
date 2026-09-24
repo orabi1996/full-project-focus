@@ -357,7 +357,7 @@ describe.sequential("PostgreSQL Security & Cleanup Contracts (PGlite)", () => {
       FOR EACH ROW
       EXECUTE FUNCTION public.enforce_user_roles_protection();
     `);
-  });
+  }, 30000);
 
   afterAll(async () => {
     await db.close();

@@ -11,6 +11,8 @@ import {
   useAttendanceRecords,
   useAttendanceSummary,
   useAttendanceMutations,
+  useOvertimeRecords,
+  useAttendanceCorrections,
 } from "../../lib/domains/attendance";
 import { IconSymbol } from "../ui/IconSymbol";
 import {
@@ -52,20 +54,9 @@ import type { OvertimeRecord } from "../../types";
 export const AttendanceView: React.FC = () => {
   const navigate = useNavigate();
   const {
-    attendanceRecords,
-    overtimeRecords,
-    attendanceCorrections,
     employees,
     currentUser,
     currentRole,
-    punchInOut: legacyPunchInOut,
-    submitAttendanceCorrection,
-    approveAttendanceCorrection,
-    rejectAttendanceCorrection,
-    submitOvertimeRequest,
-    approveOvertimeRequest,
-    rejectOvertimeRequest,
-    processAttendance,
     openEmployeeProfile,
     language,
     t,
@@ -73,9 +64,11 @@ export const AttendanceView: React.FC = () => {
   } = useApp();
 
   const { records: liveAttendanceRecords } = useAttendanceRecords();
+  const { overtimeRecords } = useOvertimeRecords();
+  const { attendanceCorrections } = useAttendanceCorrections();
   const { summary: attendanceSummary } = useAttendanceSummary();
   const attendanceMutations = useAttendanceMutations();
-  const effectiveRecords = liveAttendanceRecords.length > 0 ? liveAttendanceRecords : attendanceRecords;
+  const effectiveRecords = liveAttendanceRecords;
 
   const canManageAttendance = [
     "super_admin",
@@ -96,13 +89,13 @@ export const AttendanceView: React.FC = () => {
   // Correction Modal State
   const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
   const [correctionDate, setCorrectionDate] = useState(new Date().toISOString().slice(0, 10));
-  const [correctInTime, setCorrectInTime] = useState("08:00");
-  const [correctOutTime, setCorrectOutTime] = useState("17:00");
+  const [correctInTime, setCorrectInTime] = useState("");
+  const [correctOutTime, setCorrectOutTime] = useState("");
   const [correctionReason, setCorrectionReason] = useState("");
 
   // Overtime Modal State
   const [isOvertimeModalOpen, setIsOvertimeModalOpen] = useState(false);
-  const [otEmpId, setOtEmpId] = useState(employees[0]?.id || "");
+  const [otEmpId, setOtEmpId] = useState("");
   const [otDate, setOtDate] = useState(new Date().toISOString().slice(0, 10));
   const [otStartTime, setOtStartTime] = useState("17:00");
   const [otEndTime, setOtEndTime] = useState("20:00");
@@ -115,19 +108,11 @@ export const AttendanceView: React.FC = () => {
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
 
   const selectedOtEmployee = useMemo(
-    () => employees.find((e) => e.id === otEmpId) || employees[0],
+    () => (otEmpId ? employees.find((e) => e.id === otEmpId) || null : null),
     [employees, otEmpId],
   );
 
-  // Hourly rate based on Saudi Labor Law: (Basic Salary / 30 days / 8 hours)
-  const calculatedHourlyRate = useMemo(() => {
-    if (!selectedOtEmployee) return 50;
-    const basic = selectedOtEmployee.basicSalary || 6000;
-    return Number((basic / 240).toFixed(2));
-  }, [selectedOtEmployee]);
-
   const otMultiplier = otRateType === "regular_150" ? 1.5 : 2.0;
-  const calculatedOtTotal = Number((otHours * calculatedHourlyRate * otMultiplier).toFixed(2));
 
   // Filtered Attendance Records
   const filteredRecords = useMemo(() => {
@@ -172,12 +157,6 @@ export const AttendanceView: React.FC = () => {
       .reduce((sum, ot) => sum + ot.hours, 0);
   }, [overtimeRecords]);
 
-  const totalOvertimeApprovedAmount = useMemo(() => {
-    return overtimeRecords
-      .filter((ot) => ot.status === "approved")
-      .reduce((sum, ot) => sum + ot.totalAmount, 0);
-  }, [overtimeRecords]);
-
   const pendingCorrectionsCount = attendanceCorrections.filter(
     (c) => c.status === "pending",
   ).length;
@@ -189,10 +168,7 @@ export const AttendanceView: React.FC = () => {
       const today = new Date();
       const from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
       const to = today.toISOString().slice(0, 10);
-      const ok = await processAttendance(from, to);
-      if (ok) {
-        toast.success("تمت معالجة واحتساب ساعات الحضور الإجمالية والتأخيرات لشهر سبتمبر 2026 بنجاح");
-      }
+      await attendanceMutations.processAttendance(from, to);
     } finally {
       setIsProcessingAttendance(false);
     }
@@ -256,11 +232,12 @@ export const AttendanceView: React.FC = () => {
     if (isSubmittingCorrection) return;
     setIsSubmittingCorrection(true);
     try {
-      const ok = await submitAttendanceCorrection({
+      const ok = await attendanceMutations.submitAttendanceCorrection({
         workDate: correctionDate,
         correctIn: correctInTime,
         correctOut: correctOutTime,
         reason: correctionReason,
+        employeeId: currentUser?.id || employees[0]?.id,
       });
       if (ok) {
         setIsCorrectionModalOpen(false);
@@ -272,6 +249,10 @@ export const AttendanceView: React.FC = () => {
   };
 
   const handleCreateOvertime = async () => {
+    if (!selectedOtEmployee) {
+      toast.error("يرجى اختيار الموظف المكلف بالعمل الإضافي أولاً");
+      return;
+    }
     if (!otReason.trim()) {
       toast.error("يرجى كتابة مبرر ومهمة العمل الإضافي");
       return;
@@ -283,7 +264,7 @@ export const AttendanceView: React.FC = () => {
     if (isSubmittingOvertime) return;
     setIsSubmittingOvertime(true);
     try {
-      const ok = await submitOvertimeRequest({
+      const ok = await attendanceMutations.submitOvertimeRequest({
         employeeId: selectedOtEmployee.id,
         employeeNo: selectedOtEmployee.employeeNo,
         employeeName: `${selectedOtEmployee.firstNameAr} ${selectedOtEmployee.lastNameAr}`,
@@ -295,8 +276,8 @@ export const AttendanceView: React.FC = () => {
         rateMultiplier: otMultiplier,
         rateType: otRateType,
         reason: otReason,
-        hourlyRate: calculatedHourlyRate,
-        totalAmount: calculatedOtTotal,
+        hourlyRate: 0,
+        totalAmount: 0,
       });
       if (ok) {
         setIsOvertimeModalOpen(false);
@@ -311,7 +292,7 @@ export const AttendanceView: React.FC = () => {
     if (activeActionId) return;
     setActiveActionId(id);
     try {
-      await approveAttendanceCorrection(id);
+      await attendanceMutations.approveAttendanceCorrection(id);
     } finally {
       setActiveActionId(null);
     }
@@ -321,7 +302,7 @@ export const AttendanceView: React.FC = () => {
     if (activeActionId) return;
     setActiveActionId(id);
     try {
-      await rejectAttendanceCorrection(id);
+      await attendanceMutations.rejectAttendanceCorrection(id);
     } finally {
       setActiveActionId(null);
     }
@@ -331,7 +312,7 @@ export const AttendanceView: React.FC = () => {
     if (activeActionId) return;
     setActiveActionId(id);
     try {
-      await approveOvertimeRequest(id);
+      await attendanceMutations.approveOvertimeRequest(id);
     } finally {
       setActiveActionId(null);
     }
@@ -341,7 +322,7 @@ export const AttendanceView: React.FC = () => {
     if (activeActionId) return;
     setActiveActionId(id);
     try {
-      await rejectOvertimeRequest(id);
+      await attendanceMutations.rejectOvertimeRequest(id);
     } finally {
       setActiveActionId(null);
     }
@@ -349,6 +330,27 @@ export const AttendanceView: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Attendance Policy Warning Banner if not configured */}
+      {!attendanceSummary.isPolicyConfigured && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl border border-amber-300 bg-amber-500/10 text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
+            <div className="text-xs">
+              <span className="font-bold">تنبيه ضبط النظام: </span>
+              لم يتم إعداد سياسة الحضور والانصراف للمنشأة بعد. يرجى ضبط قواعد وسياسات الدوام من تبويب السياسات أو إعدادات النظام لتفعيل احتساب التأخير وساعات العمل تلقائياً.
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setActiveTab("policies")}
+            className="rounded-full text-xs font-bold shrink-0 border-amber-400 text-amber-800 dark:text-amber-200 hover:bg-amber-500/20"
+          >
+            ضبط السياسة
+          </Button>
+        </div>
+      )}
+
       {/* Header & Quick Punch Actions */}
       <div className="classera-page-header">
         <div>
@@ -364,12 +366,11 @@ export const AttendanceView: React.FC = () => {
               نظام إدارة الحضور والورديات والعمل الإضافي
             </h1>
             <Badge variant="secondary" className="classera-badge-pulse font-bold text-[11px] rounded-full px-3 py-0.5">
-              الامتثال للائحة العمل السعودية
+              الامتثال للائحة والسياسات المعتمدة
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground font-medium mt-1">
-            تسجيل البصمة والموقع الجغرافي GPS، السياج الجغرافي، واحتساب الساعات الإضافية وفق المادة 107 من نظام
-            العمل السعودي
+            تسجيل البصمة والموقع الجغرافي GPS، السياج الجغرافي، وإدارة ساعات العمل والإضافي وفق السياسة المعتمدة للمنشأة
           </p>
         </div>
 
@@ -437,8 +438,8 @@ export const AttendanceView: React.FC = () => {
               {totalOvertimeApprovedHours}{" "}
               <span className="text-xs font-normal text-muted-foreground font-sans">ساعة</span>
             </p>
-            <span className="text-[10px] text-primary font-bold font-tabular-nums">
-              {totalOvertimeApprovedAmount.toLocaleString()} ر.س مخصص شهري
+            <span className="text-[10px] text-primary font-bold">
+              معتمد للترحيل إلى مسير الرواتب
             </span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
@@ -747,13 +748,13 @@ export const AttendanceView: React.FC = () => {
                         colSpan={9}
                         className="text-center py-12 text-muted-foreground font-medium"
                       >
-                        {attendanceRecords.length === 0 ? (
+                        {effectiveRecords.length === 0 ? (
                           <div className="flex flex-col items-center justify-center gap-3 py-4">
                             <div className="h-12 w-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground">
                               <Clock className="h-6 w-6" />
                             </div>
                             <p className="font-bold text-foreground text-sm">
-                              لا توجد سجلات حضور وانصراف بعد بشركة «الأندلس»
+                              لا توجد سجلات حضور وانصراف مسجلة لهذه الفترة
                             </p>
                             <p className="text-xs text-muted-foreground max-w-md">
                               يتم تسجيل الحركات تلقائياً فور قيام الموظفين بالحضور عبر التطبيق الذكي بموقع العمل أو عبر أجهزة البصمة المربوطة.
@@ -781,18 +782,17 @@ export const AttendanceView: React.FC = () => {
           </div>
         </TabsContent>
 
-        {/* TAB 2: Overtime Management (المادة 107 من نظام العمل) */}
+        {/* TAB 2: Overtime Management */}
         <TabsContent value="overtime" className="space-y-4">
           <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-border/60 pb-4">
               <div>
                 <h2 className="text-base font-black text-foreground flex items-center gap-2">
                   <Clock className="h-5 w-5 text-primary" />
-                  محرك احتساب وإدارة العمل الإضافي (Overtime Engine)
+                  محرك إدارة واعتماد العمل الإضافي (Overtime Engine)
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  وفقاً لنظام العمل السعودي: يُحسب أجر الساعة الإضافية بمعدل 150% (ساعة ونصف) وساعات
-                  العطل والأعياد بمعدل 200%.
+                  توثيق واعتماد ساعات العمل الإضافي بحسب نوع اليوم (أيام عمل عادية أو عطلات) وترحيلها لمسير الرواتب.
                 </p>
               </div>
 
@@ -817,9 +817,8 @@ export const AttendanceView: React.FC = () => {
                     <th className="py-3 px-4 text-start">تاريخ العمل الإضافي</th>
                     <th className="py-3 px-4 text-center">الفترة</th>
                     <th className="py-3 px-4 text-center">عدد الساعات</th>
-                    <th className="py-3 px-4 text-center">المعدل النظامي</th>
-                    <th className="py-3 px-4 text-center">أجر الساعة الأساسي</th>
-                    <th className="py-3 px-4 text-center">المستحق المالي الإجمالي</th>
+                    <th className="py-3 px-4 text-center">فئة المعامل النظامي</th>
+                    <th className="py-3 px-4 text-center">حالة الاحتساب المالي</th>
                     <th className="py-3 px-4 text-start">المبرر ومهمة العمل</th>
                     <th className="py-3 px-4 text-center">الحالة</th>
                     <th className="py-3 px-4 text-center">الإجراءات</th>
@@ -852,11 +851,8 @@ export const AttendanceView: React.FC = () => {
                           {ot.rateMultiplier === 1.5 ? "150% (دوام عادي)" : "200% (عطلة/عيد)"}
                         </Badge>
                       </td>
-                      <td className="py-3 px-4 text-center font-mono font-medium">
-                        {ot.hourlyRate} ر.س/س
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono font-black text-emerald-600">
-                        {ot.totalAmount.toLocaleString()} ر.س
+                      <td className="py-3 px-4 text-center font-mono text-[11px] text-muted-foreground">
+                        {ot.totalAmount > 0 ? `${ot.totalAmount.toLocaleString()} ر.س` : "يُحتسب بمسير الرواتب"}
                       </td>
                       <td
                         className="py-3 px-4 max-w-xs truncate text-muted-foreground font-medium"
@@ -1148,10 +1144,10 @@ export const AttendanceView: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="text-base font-black flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
-              تسجيل تكليف بساعات عمل إضافي (م107)
+              تسجيل تكليف بساعات عمل إضافي
             </DialogTitle>
             <DialogDescription className="text-xs font-medium">
-              احتساب مالي فوري وفق الأجر الأساسي ونسبة العمل الإضافي المعتمدة نظاماً
+              توثيق ساعات التكليف الإضافي وفئة المعامل النظامي لترحيلها لمسير الرواتب
             </DialogDescription>
           </DialogHeader>
 
@@ -1163,6 +1159,7 @@ export const AttendanceView: React.FC = () => {
                 onChange={(e) => setOtEmpId(e.target.value)}
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
+                <option value="">-- اختر الموظف المكلف بالعمل الإضافي --</option>
                 {employees.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.firstNameAr} {emp.lastNameAr} ({emp.employeeNo}) — {emp.jobTitleAr}
@@ -1227,20 +1224,21 @@ export const AttendanceView: React.FC = () => {
               </div>
             </div>
 
-            {/* Live Calculation Preview Card */}
+            {/* Overtime Policy Summary Card */}
             <div className="p-3.5 rounded-2xl bg-secondary/60 border border-primary/20 space-y-1.5">
               <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground">أجر الساعة الأساسي:</span>
-                <span className="font-mono font-bold">{calculatedHourlyRate} ر.س</span>
+                <span className="text-muted-foreground">عدد الساعات الإضافية:</span>
+                <span className="font-mono font-bold">{otHours} س</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground">معامل الاحتساب النظامي:</span>
-                <span className="font-bold text-amber-600">{otMultiplier}x</span>
+                <span className="text-muted-foreground">فئة المعامل النظامي:</span>
+                <span className="font-bold text-amber-600">
+                  {otMultiplier}x ({otRateType === "regular_150" ? "يوم عمل عادي" : "عطلة / عيد"})
+                </span>
               </div>
               <div className="flex justify-between items-center text-xs pt-1.5 border-t border-border/60">
-                <span className="font-bold text-foreground">إجمالي المستحق المالي للطلب:</span>
-                <span className="text-sm font-mono font-black text-emerald-600">
-                  {calculatedOtTotal.toLocaleString()} ر.س
+                <span className="text-muted-foreground text-[11px]">
+                  * يتم احتساب وتأكيد المقابل المالي النهائي آلياً ضمن محرك مسير الرواتب بناءً على بنود عقد الموظف وسجل الأجور.
                 </span>
               </div>
             </div>

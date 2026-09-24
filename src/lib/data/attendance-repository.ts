@@ -8,6 +8,10 @@ import type {
   PunchRecord,
   DailyAttendanceRecord,
   AttendanceSummaryKPIs,
+  AttendanceDevice,
+  AttendanceDeviceEmployeeMapping,
+  AttendanceRecordFilters,
+  PaginatedAttendanceRecords,
 } from "../../types";
 import { AppMutationError } from "./reliable-mutation";
 
@@ -31,19 +35,25 @@ export function mapAttendancePolicy(row: any): AttendancePolicy {
     id: row.id,
     companyId: row.company_id,
     nameAr: row.name_ar,
-    gracePeriodInMinutes: Number(row.grace_period_in_minutes ?? 15),
-    gracePeriodOutMinutes: Number(row.grace_period_out_minutes ?? 15),
-    overtimeRegularMultiplier: Number(row.overtime_regular_multiplier ?? 1.5),
-    overtimeHolidayMultiplier: Number(row.overtime_holiday_multiplier ?? 2.0),
-    defaultWorkHoursPerDay: Number(row.default_work_hours_per_day ?? 8.0),
-    ramadanWorkHoursPerDay: Number(row.ramadan_work_hours_per_day ?? 6.0),
-    maxWorkHoursPerWeek: Number(row.max_work_hours_per_week ?? 48.0),
-    ramadanMaxWorkHoursPerWeek: Number(row.ramadan_max_work_hours_per_week ?? 36.0),
+    version: Number(row.version ?? 1),
+    effectiveFrom: row.effective_from || new Date().toISOString().slice(0, 10),
+    effectiveTo: row.effective_to ?? null,
+    status: row.status || "active",
+    jurisdiction: row.jurisdiction ?? null,
+    maxGpsAccuracyMeters: row.max_gps_accuracy_meters != null ? Number(row.max_gps_accuracy_meters) : null,
+    gracePeriodInMinutes: row.grace_period_in_minutes != null ? Number(row.grace_period_in_minutes) : null,
+    gracePeriodOutMinutes: row.grace_period_out_minutes != null ? Number(row.grace_period_out_minutes) : null,
+    overtimeRegularMultiplier: row.overtime_regular_multiplier != null ? Number(row.overtime_regular_multiplier) : null,
+    overtimeHolidayMultiplier: row.overtime_holiday_multiplier != null ? Number(row.overtime_holiday_multiplier) : null,
+    defaultWorkHoursPerDay: row.default_work_hours_per_day != null ? Number(row.default_work_hours_per_day) : null,
+    ramadanWorkHoursPerDay: row.ramadan_work_hours_per_day != null ? Number(row.ramadan_work_hours_per_day) : null,
+    maxWorkHoursPerWeek: row.max_work_hours_per_week != null ? Number(row.max_work_hours_per_week) : null,
+    ramadanMaxWorkHoursPerWeek: row.ramadan_max_work_hours_per_week != null ? Number(row.ramadan_max_work_hours_per_week) : null,
     geofenceEnforced: Boolean(row.geofence_enforced),
-    geofenceRadiusMeters: Number(row.geofence_radius_meters ?? 200),
+    geofenceRadiusMeters: row.geofence_radius_meters != null ? Number(row.geofence_radius_meters) : null,
     autoDeductBreaks: Boolean(row.auto_deduct_breaks),
-    breakDurationMinutes: Number(row.break_duration_minutes ?? 60),
-    maxConsecutiveHoursWithoutBreak: Number(row.max_consecutive_hours_without_break ?? 5.0),
+    breakDurationMinutes: row.break_duration_minutes != null ? Number(row.break_duration_minutes) : null,
+    maxConsecutiveHoursWithoutBreak: row.max_consecutive_hours_without_break != null ? Number(row.max_consecutive_hours_without_break) : null,
     requireBiometricOrGps: Boolean(row.require_biometric_or_gps),
     allowMobilePunch: Boolean(row.allow_mobile_punch),
     overtimePreApprovalRequired: Boolean(row.overtime_pre_approval_required),
@@ -61,6 +71,8 @@ export function mapAttendancePeriod(row: any): AttendancePeriod {
     fromDate: row.from_date,
     toDate: row.to_date,
     status: row.status,
+    version: Number(row.version ?? 1),
+    closingNotes: row.closing_notes ?? null,
     closedBy: row.closed_by,
     closedAt: row.closed_at,
     reopenedBy: row.reopened_by,
@@ -98,6 +110,8 @@ export function mapAttendancePayrollSnapshot(row: any, employeeMap?: Map<string,
     id: row.id,
     companyId: row.company_id,
     periodId: row.period_id,
+    periodVersion: Number(row.period_version ?? 1),
+    snapshotVersion: Number(row.snapshot_version ?? 1),
     employeeId: row.employee_id,
     employeeNo: emp?.employee_no || "",
     employeeName: emp?.full_name || "موظف",
@@ -112,6 +126,9 @@ export function mapAttendancePayrollSnapshot(row: any, employeeMap?: Map<string,
     totalWorkedHours: Number(row.total_worked_hours ?? 0),
     regularOvertimeHours: Number(row.regular_overtime_hours ?? 0),
     holidayOvertimeHours: Number(row.holiday_overtime_hours ?? 0),
+    approvedOvertimeMinutes: Number(row.approved_overtime_minutes ?? 0),
+    payableOvertimeMinutes: Number(row.payable_overtime_minutes ?? 0),
+    overtimeCategory: row.overtime_category || "standard",
     unexcusedAbsenceDays: Number(row.unexcused_absence_days ?? 0),
     violationsCount: Number(row.violations_count ?? 0),
     snapshotHash: row.snapshot_hash || "",
@@ -124,6 +141,7 @@ export function mapPunchRecord(row: any, employeeMap?: Map<string, any>): PunchR
   return {
     id: row.id,
     companyId: row.company_id,
+    clientEventId: row.client_event_id ?? null,
     employeeId: row.employee_id,
     employeeNo: emp?.employee_no || "",
     employeeName: emp?.full_name || "موظف",
@@ -139,6 +157,26 @@ export function mapPunchRecord(row: any, employeeMap?: Map<string, any>): PunchR
     approvalStatus: row.approval_status || "approved",
     batchId: row.batch_id,
     createdAt: row.created_at,
+  };
+}
+
+export function mapAttendanceDevice(row: any): AttendanceDevice {
+  return {
+    id: row.id,
+    companyId: row.company_id,
+    locationId: row.location_id,
+    deviceName: row.device_name || "جهاز بصمة",
+    vendor: row.vendor || "generic",
+    model: row.model,
+    serialNumber: row.serial_number,
+    deviceCode: row.device_code,
+    timezone: row.timezone,
+    status: row.status || "active",
+    lastSeenAt: row.last_seen_at,
+    lastSyncAt: row.last_sync_at,
+    healthStatus: row.health_status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -176,12 +214,20 @@ export async function recordSelfPunchRecord(
   type: "in" | "out",
   coords?: { lat: number; lng: number },
   accuracy?: number,
+  clientEventId?: string,
 ): Promise<{ ok: boolean; punchId: string; geofenceValid: boolean; message: string }> {
+  const generatedEventId =
+    clientEventId ||
+    (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `punch-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
+
   const { data, error } = await db.rpc("record_self_punch", {
     p_punch_type: type,
     p_latitude: coords?.lat ?? null,
     p_longitude: coords?.lng ?? null,
     p_accuracy: accuracy ?? null,
+    p_client_event_id: generatedEventId,
   });
 
   if (error) {
@@ -204,6 +250,7 @@ export async function fetchAttendanceRecordsRecord(filters?: {
   toDate?: string;
   employeeId?: string;
   status?: string;
+  searchTerm?: string;
 }): Promise<DailyAttendanceRecord[]> {
   let query = supabase
     .from("attendance_records")
@@ -237,13 +284,93 @@ export async function fetchAttendanceRecordsRecord(filters?: {
   const { data, error } = await query;
   if (error) throw mapError(error, "تعذر قراءة سجلات الحضور والانصراف");
 
-  return (data ?? []).map((row) => mapDailyAttendanceRecord(row));
+  let records = (data ?? []).map((row) => mapDailyAttendanceRecord(row));
+  if (filters?.searchTerm && filters.searchTerm.trim() !== "") {
+    const s = filters.searchTerm.trim().toLowerCase();
+    records = records.filter(
+      (r) =>
+        r.employeeName.toLowerCase().includes(s) ||
+        r.employeeNo.toLowerCase().includes(s) ||
+        r.departmentName.toLowerCase().includes(s),
+    );
+  }
+  return records;
+}
+
+export async function fetchPaginatedAttendanceRecordsRecord(
+  filters?: AttendanceRecordFilters,
+): Promise<PaginatedAttendanceRecords> {
+  const page = Math.max(1, filters?.page ?? 1);
+  const pageSize = Math.max(1, Math.min(100, filters?.pageSize ?? 20));
+  const fromIndex = (page - 1) * pageSize;
+  const toIndex = fromIndex + pageSize - 1;
+
+  let query = supabase
+    .from("attendance_records")
+    .select(`
+      id,
+      employee_id,
+      work_date,
+      check_in,
+      check_out,
+      status,
+      worked_hours,
+      overtime_hours,
+      late_minutes,
+      early_departure_minutes,
+      punch_source,
+      geofence_valid,
+      violations_count,
+      reviewed_by_payroll,
+      scheduled_in,
+      scheduled_out,
+      employees(id, employee_no, full_name, department_id, work_location_id, departments(name_ar)),
+      shifts(id, name_ar)
+    `, { count: "exact" })
+    .order("work_date", { ascending: false });
+
+  if (filters?.fromDate) query = query.gte("work_date", filters.fromDate);
+  if (filters?.toDate) query = query.lte("work_date", filters.toDate);
+  if (filters?.employeeId) query = query.eq("employee_id", filters.employeeId);
+  if (filters?.shiftId) query = (query as any).eq("shift_id", filters.shiftId);
+  if (filters?.status && filters.status !== "all") {
+    query = query.eq("status", filters.status as any);
+  }
+
+  query = query.range(fromIndex, toIndex);
+
+  const { data, error, count } = await query;
+  if (error) throw mapError(error, "تعذر قراءة سجلات الحضور المصفاة");
+
+  let records = (data ?? []).map((row) => mapDailyAttendanceRecord(row));
+  if (filters?.searchTerm && filters.searchTerm.trim() !== "") {
+    const s = filters.searchTerm.trim().toLowerCase();
+    records = records.filter(
+      (r) =>
+        r.employeeName.toLowerCase().includes(s) ||
+        r.employeeNo.toLowerCase().includes(s) ||
+        r.departmentName.toLowerCase().includes(s),
+    );
+  }
+
+  const totalCount = count ?? records.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+  return {
+    records,
+    totalCount,
+    page,
+    pageSize,
+    totalPages,
+  };
 }
 
 export async function fetchAttendancePoliciesRecord(): Promise<AttendancePolicy | null> {
   const { data, error } = await db
     .from("attendance_policies")
     .select("*")
+    .eq("status", "active")
+    .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -251,14 +378,25 @@ export async function fetchAttendancePoliciesRecord(): Promise<AttendancePolicy 
   return data ? mapAttendancePolicy(data) : null;
 }
 
+export async function fetchAttendancePolicyVersionsRecord(): Promise<AttendancePolicy[]> {
+  const { data, error } = await db
+    .from("attendance_policies")
+    .select("*")
+    .order("version", { ascending: false });
+
+  if (error) throw mapError(error, "تعذر قراءة سجل نسخ سياسات الحضور");
+  return (data ?? []).map(mapAttendancePolicy);
+}
+
 export async function updateAttendancePolicyRecord(
   policy: Partial<AttendancePolicy>,
 ): Promise<AttendancePolicy> {
-  const payload: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  };
+  const payload: Record<string, unknown> = {};
 
+  if (policy.companyId) payload.company_id = policy.companyId;
   if (policy.nameAr !== undefined) payload.name_ar = policy.nameAr;
+  if (policy.jurisdiction !== undefined) payload.jurisdiction = policy.jurisdiction;
+  if (policy.effectiveFrom !== undefined) payload.effective_from = policy.effectiveFrom;
   if (policy.gracePeriodInMinutes !== undefined) payload.grace_period_in_minutes = policy.gracePeriodInMinutes;
   if (policy.gracePeriodOutMinutes !== undefined) payload.grace_period_out_minutes = policy.gracePeriodOutMinutes;
   if (policy.overtimeRegularMultiplier !== undefined) payload.overtime_regular_multiplier = policy.overtimeRegularMultiplier;
@@ -269,6 +407,7 @@ export async function updateAttendancePolicyRecord(
   if (policy.ramadanMaxWorkHoursPerWeek !== undefined) payload.ramadan_max_work_hours_per_week = policy.ramadanMaxWorkHoursPerWeek;
   if (policy.geofenceEnforced !== undefined) payload.geofence_enforced = policy.geofenceEnforced;
   if (policy.geofenceRadiusMeters !== undefined) payload.geofence_radius_meters = policy.geofenceRadiusMeters;
+  if (policy.maxGpsAccuracyMeters !== undefined) payload.max_gps_accuracy_meters = policy.maxGpsAccuracyMeters;
   if (policy.autoDeductBreaks !== undefined) payload.auto_deduct_breaks = policy.autoDeductBreaks;
   if (policy.breakDurationMinutes !== undefined) payload.break_duration_minutes = policy.breakDurationMinutes;
   if (policy.maxConsecutiveHoursWithoutBreak !== undefined) payload.max_consecutive_hours_without_break = policy.maxConsecutiveHoursWithoutBreak;
@@ -276,16 +415,17 @@ export async function updateAttendancePolicyRecord(
   if (policy.allowMobilePunch !== undefined) payload.allow_mobile_punch = policy.allowMobilePunch;
   if (policy.overtimePreApprovalRequired !== undefined) payload.overtime_pre_approval_required = policy.overtimePreApprovalRequired;
 
-  let query = db.from("attendance_policies");
-  let res;
-  if (policy.id) {
-    res = await query.update(payload).eq("id", policy.id).select().single();
-  } else {
-    res = await query.upsert({ ...payload, company_id: policy.companyId }).select().single();
-  }
+  const { data, error } = await db.rpc("save_attendance_policy", {
+    p_policy: payload,
+  });
 
-  if (res.error) throw mapError(res.error, "تعذر حفظ سياسة الدوام");
-  return mapAttendancePolicy(res.data);
+  if (error) throw mapError(error, "تعذر حفظ سياسة الدوام");
+
+  const saved = await fetchAttendancePoliciesRecord();
+  if (!saved) {
+    throw new AppMutationError("تعذر قراءة سياسة الحضور بعد الحفظ", "backend");
+  }
+  return saved;
 }
 
 export async function fetchAttendancePeriodsRecord(): Promise<AttendancePeriod[]> {
@@ -439,31 +579,131 @@ export async function importBiometricPunchesRecord(
 export async function fetchAttendanceSummaryKPIsRecord(dateStr?: string): Promise<AttendanceSummaryKPIs> {
   const targetDate = dateStr || new Date().toISOString().slice(0, 10);
 
-  const [recordsRes, empsRes, otRes, excRes] = await Promise.all([
-    db.from("attendance_records").select("status, late_minutes").eq("work_date", targetDate),
-    db.from("employees").select("id", { count: "exact", head: true }).eq("status", "active"),
-    db.from("overtime_records").select("hours").eq("work_date", targetDate).eq("status", "approved"),
-    db.from("attendance_exceptions").select("id", { count: "exact", head: true }).eq("work_date", targetDate).eq("resolved", false),
-  ]);
+  const { data, error } = await db.rpc("get_attendance_summary_kpis", {
+    p_target_date: targetDate,
+  });
 
-  const totalEmployees = empsRes.count ?? 0;
-  const records = recordsRes.data ?? [];
-  const presentCount = records.filter((r: any) => r.status === "present").length;
-  const lateCount = records.filter((r: any) => r.status === "late" || (r.late_minutes && r.late_minutes > 0)).length;
-  const leaveCount = records.filter((r: any) => r.status === "leave").length;
-  const absentCount = records.filter((r: any) => r.status === "absent").length;
-  const attendanceRate = totalEmployees > 0 ? Math.round(((presentCount + lateCount) / totalEmployees) * 100) : 0;
-  const totalOvertimeHours = (otRes.data ?? []).reduce((acc: number, r: any) => acc + Number(r.hours || 0), 0);
-  const openExceptionsCount = excRes.count ?? 0;
+  if (error) throw mapError(error, "تعذر استرجاع مؤشرات الحضور من الخادم");
 
+  const res = data as any;
   return {
-    totalEmployees,
-    presentCount,
-    lateCount,
-    absentCount,
-    leaveCount,
-    attendanceRate,
-    totalOvertimeHours,
-    openExceptionsCount,
+    totalEmployees: Number(res?.total_employees ?? 0),
+    presentCount: Number(res?.present_count ?? 0),
+    lateCount: Number(res?.late_count ?? 0),
+    absentCount: Number(res?.absent_count ?? 0),
+    leaveCount: Number(res?.leave_count ?? 0),
+    attendanceRate: Number(res?.attendance_rate ?? 0),
+    totalOvertimeHours: Number(res?.total_overtime_hours ?? 0),
+    openExceptionsCount: Number(res?.open_exceptions_count ?? 0),
+    isPolicyConfigured: Boolean(res?.is_policy_configured),
   };
+}
+
+export async function fetchAttendanceDevicesRecord(): Promise<AttendanceDevice[]> {
+  const { data, error } = await db
+    .from("attendance_devices")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw mapError(error, "تعذر قراءة أجهزة البصمة");
+  return (data ?? []).map(mapAttendanceDevice);
+}
+
+export async function createAttendanceDeviceRecord(device: Partial<AttendanceDevice>): Promise<AttendanceDevice> {
+  const { data, error } = await db
+    .from("attendance_devices")
+    .insert({
+      device_name: device.deviceName,
+      vendor: device.vendor || "generic",
+      model: device.model,
+      serial_number: device.serialNumber,
+      device_code: device.deviceCode,
+      location_id: device.locationId,
+      timezone: device.timezone,
+      status: device.status || "active",
+    })
+    .select()
+    .single();
+
+  if (error) throw mapError(error, "تعذر إضافة جهاز البصمة");
+  return mapAttendanceDevice(data);
+}
+
+export async function fetchAttendanceDeviceEmployeeMappingsRecord(deviceId?: string): Promise<AttendanceDeviceEmployeeMapping[]> {
+  let query = db.from("attendance_device_employee_mappings").select("*");
+  if (deviceId) query = query.eq("device_id", deviceId);
+
+  const { data, error } = await query;
+  if (error) throw mapError(error, "تعذر قراءة ربط موظفي أجهزة البصمة");
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    companyId: row.company_id,
+    deviceId: row.device_id,
+    externalUserId: row.external_user_id,
+    employeeId: row.employee_id,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function createAttendanceDeviceEmployeeMappingRecord(
+  deviceId: string,
+  externalUserId: string,
+  employeeId: string,
+): Promise<AttendanceDeviceEmployeeMapping> {
+  const { data, error } = await db
+    .from("attendance_device_employee_mappings")
+    .insert({
+      device_id: deviceId,
+      external_user_id: externalUserId,
+      employee_id: employeeId,
+    })
+    .select()
+    .single();
+
+  if (error) throw mapError(error, "تعذر ربط الموظف بجهاز البصمة");
+  return {
+    id: data.id,
+    companyId: data.company_id,
+    deviceId: data.device_id,
+    externalUserId: data.external_user_id,
+    employeeId: data.employee_id,
+    createdAt: data.created_at,
+  };
+}
+
+export async function processAttendanceDayRecord(employeeId: string, businessDate: string): Promise<any> {
+  const { data, error } = await db.rpc("process_attendance_day", {
+    p_employee_id: employeeId,
+    p_business_date: businessDate,
+  });
+
+  if (error) throw mapError(error, "تعذر معالجة حضور اليوم للموظف");
+  return data;
+}
+
+export async function processAttendanceRangeRecord(
+  fromDate: string,
+  toDate: string,
+  companyId?: string,
+): Promise<{ ok: boolean; processedDays: number }> {
+  const { data, error } = await db.rpc("process_company_attendance_range", {
+    p_from_date: fromDate,
+    p_to_date: toDate,
+    p_company_id: companyId || null,
+  });
+
+  if (error) throw mapError(error, "تعذر معالجة سجلات الحضور للفترة");
+  const res = data as any;
+  return { ok: Boolean(res?.ok), processedDays: Number(res?.processed_days ?? 0) };
+}
+
+export async function fetchEffectiveCompanyTimezoneRecord(companyId?: string): Promise<string> {
+  const { data, error } = await db.rpc("get_effective_company_timezone", {
+    p_company_id: companyId || null,
+  });
+
+  if (error) {
+    return "Asia/Riyadh";
+  }
+  return (data as string) || "Asia/Riyadh";
 }

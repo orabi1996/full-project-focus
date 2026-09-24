@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import type {
   AttendanceCorrectionRequest,
   AttendanceException,
@@ -10,6 +11,10 @@ import type {
   DailyAttendanceRecord,
   OvertimeRecord,
   PunchRecord,
+  AttendanceDevice,
+  AttendanceDeviceEmployeeMapping,
+  AttendanceRecordFilters,
+  PaginatedAttendanceRecords,
 } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
 import {
@@ -17,8 +22,14 @@ import {
   fetchAttendancePayrollSnapshotsRecord,
   fetchAttendancePeriodsRecord,
   fetchAttendancePoliciesRecord,
+  fetchAttendancePolicyVersionsRecord,
   fetchAttendanceRecordsRecord,
+  fetchPaginatedAttendanceRecordsRecord,
   fetchAttendanceSummaryKPIsRecord,
+  fetchAttendanceDevicesRecord,
+  fetchAttendanceDeviceEmployeeMappingsRecord,
+  createAttendanceDeviceRecord,
+  createAttendanceDeviceEmployeeMappingRecord,
   fetchPunchesRecord,
   recordSelfPunchRecord,
   resolveAttendanceExceptionRecord,
@@ -26,6 +37,9 @@ import {
   closeAttendancePeriodRecord,
   reopenAttendancePeriodRecord,
   importBiometricPunchesRecord,
+  processAttendanceRangeRecord,
+  processAttendanceDayRecord,
+  fetchEffectiveCompanyTimezoneRecord,
 } from "../../data/attendance-repository";
 import { createRequestRecord } from "../../data/hrms-repository";
 import {
@@ -49,6 +63,7 @@ export function useAttendanceRecords(filters?: {
   toDate?: string;
   employeeId?: string;
   status?: string;
+  searchTerm?: string;
 }) {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
@@ -75,6 +90,15 @@ export function useAttendanceRecords(filters?: {
     if (filters?.toDate) {
       filtered = filtered.filter((r) => r.workDate <= filters.toDate!);
     }
+    if (filters?.searchTerm) {
+      const term = filters.searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (r) =>
+          r.employeeName.toLowerCase().includes(term) ||
+          r.employeeNo.toLowerCase().includes(term) ||
+          r.departmentName.toLowerCase().includes(term),
+      );
+    }
     return {
       records: filtered,
       isLoading: false,
@@ -86,6 +110,77 @@ export function useAttendanceRecords(filters?: {
 
   return {
     records: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// HOOK: Server-Paginated Attendance Records
+// ----------------------------------------------------------------------------
+export function usePaginatedAttendanceRecords(filters?: AttendanceRecordFilters) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+  const demoRecords = useDemoStore((s) => s.attendanceRecords);
+
+  const query = useQuery({
+    queryKey: [...queryKeys.attendance.records(filters as any), "paginated", filters?.page, filters?.pageSize],
+    queryFn: () => fetchPaginatedAttendanceRecordsRecord(filters),
+    enabled: isLive,
+    staleTime: 30 * 1000,
+  });
+
+  if (!isLive) {
+    let filtered = demoRecords;
+    if (filters?.employeeId) {
+      filtered = filtered.filter((r) => r.employeeId === filters.employeeId);
+    }
+    if (filters?.status && filters.status !== "all") {
+      filtered = filtered.filter((r) => r.status === filters.status);
+    }
+    if (filters?.fromDate) {
+      filtered = filtered.filter((r) => r.workDate >= filters.fromDate!);
+    }
+    if (filters?.toDate) {
+      filtered = filtered.filter((r) => r.workDate <= filters.toDate!);
+    }
+    if (filters?.searchTerm) {
+      const term = filters.searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (r) =>
+          r.employeeName.toLowerCase().includes(term) ||
+          r.employeeNo.toLowerCase().includes(term) ||
+          r.departmentName.toLowerCase().includes(term),
+      );
+    }
+
+    const page = filters?.page || 1;
+    const pageSize = filters?.pageSize || 20;
+    const totalCount = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const paginatedRecords = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+    return {
+      records: paginatedRecords,
+      totalCount,
+      page,
+      pageSize,
+      totalPages,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: async () => ({ data: { records: paginatedRecords, totalCount, page, pageSize, totalPages } }),
+    };
+  }
+
+  return {
+    records: query.data?.records ?? [],
+    totalCount: query.data?.totalCount ?? 0,
+    page: query.data?.page ?? (filters?.page || 1),
+    pageSize: query.data?.pageSize ?? (filters?.pageSize || 20),
+    totalPages: query.data?.totalPages ?? 1,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,
@@ -128,6 +223,7 @@ export function useAttendanceSummary(dateStr?: string) {
       attendanceRate,
       totalOvertimeHours: 6.5,
       openExceptionsCount: lateCount + absentCount,
+      isPolicyConfigured: true,
     };
 
     return {
@@ -148,6 +244,7 @@ export function useAttendanceSummary(dateStr?: string) {
     attendanceRate: 0,
     totalOvertimeHours: 0,
     openExceptionsCount: 0,
+    isPolicyConfigured: false,
   };
 
   return {
@@ -166,10 +263,16 @@ export function useAttendancePolicies() {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
 
-  const defaultPolicy: AttendancePolicy = {
-    id: "pol-01",
-    companyId: "a0000000-0000-0000-0000-000000000001",
-    nameAr: "سياسة الدوام الرسمية - شركة الأندلس",
+  const demoPolicy: AttendancePolicy = {
+    id: "pol-demo-01",
+    companyId: "demo-company",
+    nameAr: "سياسة الدوام الافتراضية",
+    version: 1,
+    effectiveFrom: "2026-01-01",
+    effectiveTo: null,
+    status: "active",
+    jurisdiction: "SA",
+    maxGpsAccuracyMeters: 100,
     gracePeriodInMinutes: 15,
     gracePeriodOutMinutes: 15,
     overtimeRegularMultiplier: 1.5,
@@ -196,10 +299,79 @@ export function useAttendancePolicies() {
   });
 
   return {
-    policy: isLive ? query.data ?? defaultPolicy : defaultPolicy,
+    policy: isLive ? (query.data ?? null) : demoPolicy,
     isLoading: isLive ? query.isLoading : false,
     isError: isLive ? query.isError : false,
     error: isLive ? query.error : null,
+    refetch: query.refetch,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// HOOK: Attendance Policy Versions (Auditing / History)
+// ----------------------------------------------------------------------------
+export function useAttendancePolicyVersions() {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  const query = useQuery({
+    queryKey: [...queryKeys.attendance.policies(), "versions"],
+    queryFn: fetchAttendancePolicyVersionsRecord,
+    enabled: isLive,
+    staleTime: 60 * 1000,
+  });
+
+  return {
+    versions: isLive ? (query.data ?? []) : [],
+    isLoading: isLive ? query.isLoading : false,
+    isError: isLive ? query.isError : false,
+    error: isLive ? query.error : null,
+    refetch: query.refetch,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// HOOK: Attendance Devices
+// ----------------------------------------------------------------------------
+export function useAttendanceDevices() {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  const query = useQuery({
+    queryKey: [...queryKeys.attendance.all, "devices"],
+    queryFn: fetchAttendanceDevicesRecord,
+    enabled: isLive,
+    staleTime: 60 * 1000,
+  });
+
+  return {
+    devices: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// HOOK: Attendance Device Employee Mappings
+// ----------------------------------------------------------------------------
+export function useAttendanceDeviceEmployeeMappings(deviceId?: string) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  const query = useQuery({
+    queryKey: [...queryKeys.attendance.all, "device-mappings", deviceId],
+    queryFn: () => fetchAttendanceDeviceEmployeeMappingsRecord(deviceId),
+    enabled: isLive,
+    staleTime: 60 * 1000,
+  });
+
+  return {
+    mappings: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
     refetch: query.refetch,
   };
 }
@@ -214,12 +386,13 @@ export function useAttendancePeriods() {
   const demoPeriods: AttendancePeriod[] = [
     {
       id: "period-2026-09",
-      companyId: "a0000000-0000-0000-0000-000000000001",
+      companyId: "demo-company",
       periodYear: 2026,
       periodMonth: 9,
       fromDate: "2026-09-01",
       toDate: "2026-09-30",
       status: "open",
+      version: 1,
       createdAt: new Date().toISOString(),
     },
   ];
@@ -318,6 +491,121 @@ export function usePunches(filters?: {
 }
 
 // ----------------------------------------------------------------------------
+// HOOK: Overtime Records
+// ----------------------------------------------------------------------------
+export function useOvertimeRecords(filters?: { employeeId?: string; status?: string }) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+  const demoOvertime = useDemoStore((s) => s.overtimeRecords);
+
+  const query = useQuery({
+    queryKey: queryKeys.attendance.overtime(filters),
+    queryFn: async () => {
+      let q = supabase
+        .from("overtime_records")
+        .select(`
+          *,
+          employees(id, employee_no, full_name, departments(name_ar))
+        `)
+        .order("created_at", { ascending: false });
+
+      if (filters?.employeeId) q = q.eq("employee_id", filters.employeeId);
+      if (filters?.status && filters.status !== "all") q = q.eq("status", filters.status);
+
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []).map((row: any): OvertimeRecord => ({
+        id: row.id,
+        employeeId: row.employee_id,
+        employeeNo: row.employees?.employee_no || "",
+        employeeName: row.employees?.full_name || "موظف",
+        departmentName: row.employees?.departments?.name_ar || "عام",
+        workDate: row.work_date,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        hours: Number(row.hours ?? 0),
+        rateMultiplier: Number(row.rate_multiplier ?? 1.5),
+        rateType: row.rate_type || "regular_150",
+        reason: row.reason || "",
+        hourlyRate: Number(row.hourly_rate ?? 0),
+        totalAmount: Number(row.total_amount ?? 0),
+        status: row.status,
+        createdAt: row.created_at,
+      }));
+    },
+    enabled: isLive,
+    staleTime: 30 * 1000,
+  });
+
+  return {
+    overtimeRecords: isLive ? (query.data ?? []) : demoOvertime,
+    isLoading: isLive ? query.isLoading : false,
+    isError: isLive ? query.isError : false,
+    error: isLive ? query.error : null,
+    refetch: query.refetch,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// HOOK: Attendance Corrections
+// ----------------------------------------------------------------------------
+export function useAttendanceCorrections(filters?: { employeeId?: string; status?: string }) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+  const demoCorrections = useDemoStore((s) => s.attendanceCorrections);
+
+  const query = useQuery({
+    queryKey: queryKeys.attendance.corrections(filters),
+    queryFn: async () => {
+      let q = supabase
+        .from("requests")
+        .select(`
+          *,
+          employees(id, employee_no, full_name, departments(name_ar))
+        `)
+        .in("type", ["attendance_correction", "attendance_fix"] as any)
+        .order("created_at", { ascending: false });
+
+      if (filters?.employeeId) q = q.eq("employee_id", filters.employeeId);
+      if (filters?.status && filters.status !== "all") q = q.eq("status", filters.status as any);
+
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []).map((row: any): AttendanceCorrectionRequest => {
+        const payload = (row.payload ?? {}) as any;
+        return {
+          id: row.id,
+          employeeId: row.employee_id,
+          employeeNo: row.employees?.employee_no || "",
+          employeeName: row.employees?.full_name || "موظف",
+          departmentName: row.employees?.departments?.name_ar || "عام",
+          workDate: payload.workDate || row.created_at.slice(0, 10),
+          originalIn: payload.originalIn || "",
+          originalOut: payload.originalOut || "",
+          correctInTime: payload.correctInTime || payload.correctIn || "",
+          correctOutTime: payload.correctOutTime || payload.correctOut || "",
+          reason: payload.reason || "",
+          status: row.status,
+          submittedAt: row.created_at,
+          reviewedBy: row.reviewed_by,
+          reviewedAt: row.reviewed_at,
+        };
+      });
+    },
+    enabled: isLive,
+    staleTime: 30 * 1000,
+  });
+
+  return {
+    attendanceCorrections: isLive ? (query.data ?? []) : demoCorrections,
+    isLoading: isLive ? query.isLoading : false,
+    isError: isLive ? query.isError : false,
+    error: isLive ? query.error : null,
+    refetch: query.refetch,
+  };
+}
+
+// ----------------------------------------------------------------------------
 // LEGACY COMPATIBILITY HOOK: useAttendance
 // ----------------------------------------------------------------------------
 export function useAttendance() {
@@ -351,17 +639,23 @@ export function useAttendanceMutations() {
       type: "in" | "out",
       coords?: { lat: number; lng: number },
       accuracy?: number,
+      clientEventId?: string,
     ): Promise<{ success: boolean; message: string; geofenceValid: boolean }> => {
       const now = new Date();
       const timeStr = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
       const today = now.toISOString().split("T")[0];
+      const eventId =
+        clientEventId ||
+        (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `punch-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
 
       const mutationRes = await executeReliableMutation<{ success: boolean; message: string; geofenceValid: boolean }>({
         mode,
-        mutationKey: `punch-self-${today}-${type}-${Date.now()}`,
+        mutationKey: `punch-self-${today}-${type}-${eventId}`,
         operation: async () => {
-          // Live mode executes server-authoritative punch with server-resolved employee identity
-          const res = await recordSelfPunchRecord(type, coords, accuracy);
+          // Live mode executes server-authoritative punch with server-resolved employee identity and client event idempotency
+          const res = await recordSelfPunchRecord(type, coords, accuracy, eventId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return {
@@ -463,7 +757,11 @@ export function useAttendanceMutations() {
       reason: string;
       employeeId?: string;
     }): Promise<boolean> => {
-      const empId = payload.employeeId || demoStore.employees[0]?.id || "emp-01";
+      const empId = payload.employeeId || (mode === "demo" ? demoStore.employees[0]?.id || "emp-01" : "");
+      if (!empId) {
+        toast.error("يرجى تحديد الموظف المطلوب لتقديم طلب التصحيح");
+        return false;
+      }
       const emp = demoStore.employees.find((e) => e.id === empId);
 
       const newCorrection: AttendanceCorrectionRequest = {
@@ -473,10 +771,10 @@ export function useAttendanceMutations() {
         employeeName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "موظف",
         departmentName: emp?.departmentName || "عام",
         workDate: payload.workDate,
-        originalIn: "08:00",
-        originalOut: "17:00",
-        correctInTime: payload.correctIn || "08:00",
-        correctOutTime: payload.correctOut || "17:00",
+        originalIn: "",
+        originalOut: "",
+        correctInTime: payload.correctIn || "",
+        correctOutTime: payload.correctOut || "",
         reason: payload.reason,
         status: "pending",
         submittedAt: new Date().toISOString(),
@@ -514,6 +812,8 @@ export function useAttendanceMutations() {
     },
     [mode, queryClient],
   );
+
+
 
   const approveAttendanceCorrection = useCallback(
     async (id: string): Promise<boolean> => {
@@ -689,7 +989,7 @@ export function useAttendanceMutations() {
         mode,
         mutationKey: `process-attendance-${fromDate}-${toDate}`,
         operation: async () => {
-          await processAttendanceServer({ data: { fromDate, toDate } });
+          await processAttendanceRangeRecord(fromDate, toDate);
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
@@ -865,5 +1165,25 @@ export function useAttendanceMutations() {
     reopenPeriod,
     resolveException,
     importBiometricBatch,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// HOOK: Company Timezone Resolution
+// ----------------------------------------------------------------------------
+export function useEffectiveCompanyTimezone(companyId?: string) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  const query = useQuery({
+    queryKey: [...queryKeys.attendance.all, "effective-timezone", companyId],
+    queryFn: () => fetchEffectiveCompanyTimezoneRecord(companyId),
+    enabled: isLive,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  return {
+    timezone: query.data ?? "Asia/Riyadh",
+    isLoading: query.isLoading,
   };
 }

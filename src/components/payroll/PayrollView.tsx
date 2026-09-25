@@ -899,7 +899,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
       {/* MODAL 1: Run Payroll Setup */}
       <Dialog open={isRunModalOpen} onOpenChange={setIsRunModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+        <DialogContent className="max-w-md rounded-3xl p-6 overflow-y-auto max-h-[90vh] border border-border/80 shadow-2xl">
           <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
           <DialogHeader className="pt-1">
             <DialogTitle className="text-base font-black flex items-center gap-2">
@@ -988,7 +988,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
           open={!!selectedPayslipEmployee}
           onOpenChange={() => setSelectedPayslipEmployee(null)}
         >
-          <DialogContent className="max-w-lg rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+          <DialogContent className="max-w-lg rounded-3xl p-6 overflow-y-auto max-h-[90vh] border border-border/80 shadow-2xl">
             <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
             <div className="border-b border-border/60 pb-4 text-center space-y-2 pt-1">
               <div className="flex justify-center mb-1">
@@ -1124,7 +1124,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
       {/* MODAL 3: Loan Request Modal */}
       <Dialog open={isLoanModalOpen} onOpenChange={setIsLoanModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+        <DialogContent className="max-w-md rounded-3xl p-6 overflow-y-auto max-h-[90vh] border border-border/80 shadow-2xl">
           <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
           <DialogHeader className="pt-1">
             <DialogTitle className="text-base font-black flex items-center gap-2">
@@ -1204,7 +1204,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
           open={!!selectedSettlementForClearance}
           onOpenChange={() => setSelectedSettlementForClearance(null)}
         >
-          <DialogContent className="max-w-xl rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+          <DialogContent className="max-w-xl rounded-3xl p-6 overflow-y-auto max-h-[90vh] border border-border/80 shadow-2xl">
             <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
             <div className="border-b border-border/60 pb-4 text-center space-y-2 pt-1">
               <div className="flex justify-center mb-1">
@@ -1309,7 +1309,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
       {/* MODAL 5: EOSB Settlement Calculator Modal */}
       <Dialog open={isSettlementModalOpen} onOpenChange={setIsSettlementModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+        <DialogContent className="max-w-md rounded-3xl p-6 overflow-y-auto max-h-[90vh] border border-border/80 shadow-2xl">
           <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
           <DialogHeader className="pt-1">
             <DialogTitle className="text-base font-black flex items-center gap-2">

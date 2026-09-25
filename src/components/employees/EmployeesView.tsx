@@ -1563,7 +1563,7 @@ export const EmployeesView: React.FC = () => {
 
       {/* 3-Step Add Employee Wizard Modal (Classera Pulse Executive) */}
       <Dialog open={isAddWizardOpen} onOpenChange={setIsAddWizardOpen}>
-        <DialogContent className="max-w-3xl rounded-3xl p-6 md:p-8 border border-border/80 shadow-2xl relative overflow-y-auto max-h-[92vh]">
+        <DialogContent className="max-w-3xl rounded-3xl p-6 md:p-8 border border-border/80 shadow-2xl overflow-y-auto max-h-[92vh]">
           {/* Top Accent Gradient Bar */}
           <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
 

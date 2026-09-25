@@ -221,7 +221,7 @@ export const EmployeeProfileModal: React.FC = () => {
         open={!!activeEmployeeModalId}
         onOpenChange={(open) => !open && closeEmployeeProfile()}
       >
-        <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto rounded-3xl p-6 shadow-2xl border-border/80 relative">
+        <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto rounded-3xl p-6 shadow-2xl border-border/80">
           {/* Top Accent Gradient Bar */}
           <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
 

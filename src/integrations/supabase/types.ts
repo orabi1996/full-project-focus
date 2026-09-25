@@ -1239,43 +1239,70 @@ export type Database = {
         Row: {
           archived_at: string | null
           bucket_id: string
+          company_id: string | null
           content_type: string | null
           created_at: string
           created_by: string | null
           deleted_at: string | null
+          employee_id: string | null
+          entity_id: string | null
+          entity_type: string | null
           id: string
+          malware_status: string
+          metadata: Json | null
           object_path: string
+          original_filename: string | null
           replaces_file_id: string | null
+          safe_filename: string | null
           size_bytes: number | null
           status: string
+          uploaded_by: string | null
           version: number
         }
         Insert: {
           archived_at?: string | null
           bucket_id: string
+          company_id?: string | null
           content_type?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
+          employee_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
           id?: string
+          malware_status?: string
+          metadata?: Json | null
           object_path: string
+          original_filename?: string | null
           replaces_file_id?: string | null
+          safe_filename?: string | null
           size_bytes?: number | null
           status?: string
+          uploaded_by?: string | null
           version?: number
         }
         Update: {
           archived_at?: string | null
           bucket_id?: string
+          company_id?: string | null
           content_type?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
+          employee_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
           id?: string
+          malware_status?: string
+          metadata?: Json | null
           object_path?: string
+          original_filename?: string | null
           replaces_file_id?: string | null
+          safe_filename?: string | null
           size_bytes?: number | null
           status?: string
+          uploaded_by?: string | null
           version?: number
         }
         Relationships: []
@@ -2917,6 +2944,15 @@ export type Database = {
       archive_file_object: { Args: { p_file_id: string }; Returns: Json }
       finalize_file_replacement: {
         Args: { p_new_file_id: string; p_previous_file_id: string }
+        Returns: Json
+      }
+      get_dashboard_attendance_trend: {
+        Args: { p_anchor_date: string; p_days: number }
+        Returns: Json
+      }
+      get_dashboard_integration_health: { Args: never; Returns: Json }
+      get_dashboard_summary: {
+        Args: { p_end_date: string; p_start_date: string }
         Returns: Json
       }
       has_role: {

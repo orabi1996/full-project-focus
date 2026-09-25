@@ -15,6 +15,13 @@
       "when": 1790345855266,
       "tag": "0001_add_file_objects_and_journal_status",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790345887205,
+      "tag": "0002_extend_file_objects_and_dashboard_rpcs",
+      "breakpoints": true
     }
   ]
 }

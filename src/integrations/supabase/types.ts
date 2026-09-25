@@ -533,11 +533,15 @@ export type Database = {
           body_ar: string | null
           category: string
           created_at: string
+          department_id: string | null
           expiry_date: string | null
+          file_id: string | null
           file_url: string
           id: string
           requires_ack: boolean | null
           requires_acknowledgment: boolean
+          status: string
+          subsidiary_id: string | null
           title: string | null
           title_ar: string
           title_en: string
@@ -549,11 +553,15 @@ export type Database = {
           body_ar?: string | null
           category: string
           created_at?: string
+          department_id?: string | null
           expiry_date?: string | null
+          file_id?: string | null
           file_url: string
           id?: string
           requires_ack?: boolean | null
           requires_acknowledgment?: boolean
+          status?: string
+          subsidiary_id?: string | null
           title?: string | null
           title_ar: string
           title_en: string
@@ -565,11 +573,15 @@ export type Database = {
           body_ar?: string | null
           category?: string
           created_at?: string
+          department_id?: string | null
           expiry_date?: string | null
+          file_id?: string | null
           file_url?: string
           id?: string
           requires_ack?: boolean | null
           requires_acknowledgment?: boolean
+          status?: string
+          subsidiary_id?: string | null
           title?: string | null
           title_ar?: string
           title_en?: string
@@ -577,6 +589,60 @@ export type Database = {
           visibility_scope?: string
         }
         Relationships: []
+      }
+      delegation_rules: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          delegate_id: string
+          delegator_id: string
+          end_date: string
+          id: string
+          reason: string
+          scope: string
+          start_date: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          delegate_id: string
+          delegator_id: string
+          end_date: string
+          id?: string
+          reason?: string
+          scope?: string
+          start_date: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          delegate_id?: string
+          delegator_id?: string
+          end_date?: string
+          id?: string
+          reason?: string
+          scope?: string
+          start_date?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delegation_rules_delegate_id_fkey"
+            columns: ["delegate_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delegation_rules_delegator_id_fkey"
+            columns: ["delegator_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       departments: {
         Row: {
@@ -677,40 +743,82 @@ export type Database = {
       }
       employee_documents: {
         Row: {
+          confidentiality: string
           created_at: string
           created_by: string | null
           doc_number: string | null
           doc_type: string
+          document_number: string | null
+          document_type: string | null
           employee_id: string
           expires_at: string | null
+          expiry_date: string | null
+          file_id: string | null
           file_url: string | null
           id: string
+          issue_date: string | null
           issued_at: string | null
+          issuing_authority: string | null
           notes: string | null
+          rejection_reason: string | null
+          status: string
+          title_ar: string | null
+          title_en: string | null
+          verified_at: string | null
+          verified_by: string | null
+          visibility: string
         }
         Insert: {
+          confidentiality?: string
           created_at?: string
           created_by?: string | null
           doc_number?: string | null
           doc_type: string
+          document_number?: string | null
+          document_type?: string | null
           employee_id: string
           expires_at?: string | null
+          expiry_date?: string | null
+          file_id?: string | null
           file_url?: string | null
           id?: string
+          issue_date?: string | null
           issued_at?: string | null
+          issuing_authority?: string | null
           notes?: string | null
+          rejection_reason?: string | null
+          status?: string
+          title_ar?: string | null
+          title_en?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          visibility?: string
         }
         Update: {
+          confidentiality?: string
           created_at?: string
           created_by?: string | null
           doc_number?: string | null
           doc_type?: string
+          document_number?: string | null
+          document_type?: string | null
           employee_id?: string
           expires_at?: string | null
+          expiry_date?: string | null
+          file_id?: string | null
           file_url?: string | null
           id?: string
+          issue_date?: string | null
           issued_at?: string | null
+          issuing_authority?: string | null
           notes?: string | null
+          rejection_reason?: string | null
+          status?: string
+          title_ar?: string | null
+          title_en?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          visibility?: string
         }
         Relationships: [
           {
@@ -1577,6 +1685,71 @@ export type Database = {
           value?: Json | null
         }
         Relationships: []
+      }
+      overtime_records: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          employee_id: string
+          end_time: string
+          hourly_rate: number
+          hours: number
+          id: string
+          rate_multiplier: number
+          rate_type: string
+          reason: string
+          start_time: string
+          status: string
+          total_amount: number
+          work_date: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          employee_id: string
+          end_time?: string
+          hourly_rate?: number
+          hours?: number
+          id?: string
+          rate_multiplier?: number
+          rate_type?: string
+          reason?: string
+          start_time?: string
+          status?: string
+          total_amount?: number
+          work_date: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          employee_id?: string
+          end_time?: string
+          hourly_rate?: number
+          hours?: number
+          id?: string
+          rate_multiplier?: number
+          rate_type?: string
+          reason?: string
+          start_time?: string
+          status?: string
+          total_amount?: number
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "overtime_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payroll_details: {
         Row: {
@@ -2684,6 +2857,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_attendance_correction: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
+      approve_overtime_request: {
+        Args: { p_overtime_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2692,6 +2873,18 @@ export type Database = {
         Returns: boolean
       }
       is_hr: { Args: { _user_id: string }; Returns: boolean }
+      reject_attendance_correction: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
+      reject_overtime_request: {
+        Args: { p_overtime_id: string }
+        Returns: Json
+      }
+      revoke_delegation_rule: {
+        Args: { p_delegation_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role:

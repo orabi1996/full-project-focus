@@ -60,7 +60,8 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
       punchQuery,
       supabase
         .from("schedule_assignments")
-        .select("employee_id, shift_id, work_date, is_rest_day")
+        .select("employee_id, shift_id, work_date, is_rest_day, status, roster_version")
+        .eq("status", "published")
         .gte("work_date", data.fromDate)
         .lte("work_date", data.toDate),
       supabase
@@ -416,9 +417,12 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
 
   const { data: schedule } = await supabase
     .from("schedule_assignments")
-    .select("shift_id, is_rest_day")
+    .select("shift_id, is_rest_day, status, roster_version")
     .eq("employee_id", employeeId)
     .eq("work_date", day)
+    .eq("status", "published")
+    .order("roster_version", { ascending: false })
+    .limit(1)
     .maybeSingle();
   let shift: any = null;
   if (schedule?.shift_id) {

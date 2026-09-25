@@ -679,9 +679,9 @@ export type AttendanceStatus =
 
 export interface WorkweekConfig {
   weekendDays: number[]; // e.g. [5, 6] (Friday = 5, Saturday = 6)
-  maxConsecutiveWorkDays: number; // e.g. 6
-  minWeeklyRestHours: number; // e.g. 24 or 36
-  defaultDailyHours: number; // e.g. 8
+  maxConsecutiveWorkDays?: number; // e.g. 6
+  minWeeklyRestHours?: number; // e.g. 24 or 36
+  defaultDailyHours?: number; // e.g. 8
 }
 
 export type ShiftType = "fixed" | "flexible" | "split" | "overnight";
@@ -778,10 +778,12 @@ export interface RosterTemplate {
   companyId: string;
   name: string;
   description?: string;
-  patternType: "weekly" | "rotating" | "custom";
+  templateType?: "weekly" | "rotating" | "custom";
+  patternType?: "weekly" | "rotating" | "custom";
   cycleDays: number;
-  templateData: Record<string, any>;
-  isActive: boolean;
+  pattern?: any;
+  templateData?: Record<string, any>;
+  isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -790,8 +792,10 @@ export interface RotationPattern {
   id: string;
   companyId: string;
   name: string;
+  description?: string;
   cycleDays: number;
-  patternSequence: { day: number; shiftId: string | null; isRestDay: boolean }[];
+  pattern?: { day: number; shiftId: string | null; isRestDay: boolean }[];
+  patternSequence?: { day: number; shiftId: string | null; isRestDay: boolean }[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -799,12 +803,17 @@ export interface RotationPattern {
 export interface RosterCoverageRequirement {
   id: string;
   companyId: string;
-  rosterPeriodId: string;
+  rosterPeriodId?: string;
+  name?: string;
+  workLocationId?: string | null;
   departmentId?: string | null;
+  jobPositionId?: string | null;
   shiftId?: string | null;
-  dayOfWeek: number; // 0-6 (0=Sunday, 1=Monday, ... 5=Friday, 6=Saturday)
-  minStaff: number;
+  dayOfWeek?: number | null; // 0-6 (0=Sunday, 1=Monday, ... 5=Friday, 6=Saturday)
+  minHeadcount?: number;
+  minStaff?: number;
   maxStaff?: number | null;
+  isMandatory?: boolean;
   createdAt?: string;
 }
 
@@ -834,6 +843,9 @@ export interface RosterException {
 }
 
 export type ShiftSwapStatus =
+  | "draft"
+  | "submitted"
+  | "pending_approval"
   | "pending"
   | "peer_accepted"
   | "peer_rejected"
@@ -845,13 +857,17 @@ export interface ShiftSwapRequest {
   id: string;
   companyId: string;
   requesterId: string;
+  requesterEmployeeId?: string;
   requesterAssignmentId: string;
   targetEmployeeId: string;
   targetAssignmentId: string;
   reason?: string | null;
   status: ShiftSwapStatus;
+  reviewedBy?: string | null;
   approvedBy?: string | null;
+  reviewNotes?: string | null;
   approvalNotes?: string | null;
+  reviewedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
   requesterName?: string;

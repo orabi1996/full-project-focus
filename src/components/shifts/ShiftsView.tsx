@@ -25,10 +25,16 @@ import {
   Split,
   Sliders,
   ShieldCheck,
+  FileDiff,
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { toast } from "sonner";
 import {
@@ -39,8 +45,18 @@ import {
   useRosterExceptions,
   useShiftSwapRequests,
   useRosterMutations,
+  useRosterCoverageRequirements,
+  useCoverageMutations,
 } from "../../lib/domains/shifts";
-import type { ShiftDefinition, ScheduleAssignment, Employee, ShiftSwapRequest } from "../../types";
+import { useEmployeeDirectory } from "../../lib/domains/employees";
+import type {
+  ShiftDefinition,
+  ScheduleAssignment,
+  Employee,
+  EmployeeDirectoryItem,
+  ShiftSwapRequest,
+  RosterCoverageRequirement,
+} from "../../types";
 import { ShiftDefinitionModal } from "./ShiftDefinitionModal";
 import { CreateRosterPeriodModal } from "./CreateRosterPeriodModal";
 import { AssignShiftModal } from "./AssignShiftModal";
@@ -49,7 +65,7 @@ import { WorkweekConfigCard } from "./WorkweekConfigCard";
 
 export const ShiftsView: React.FC = () => {
   const navigate = useNavigate();
-  const { company, employees, openEmployeeProfile, currentRole, language, t } = useApp();
+  const { company, openEmployeeProfile, currentRole, language, t } = useApp();
   const canManage = canManageModule(currentRole, "shifts");
 
   const companyId = company?.id;
@@ -76,8 +92,43 @@ export const ShiftsView: React.FC = () => {
 
   const { exceptions, refetch: refetchExceptions } = useRosterExceptions(effectivePeriodId);
   const { swapRequests, refetch: refetchSwaps } = useShiftSwapRequests({ companyId });
-  const { checkConflicts, publish, copyPeriod, resolveException, approveSwap, rejectSwap } =
-    useRosterMutations(companyId);
+  const {
+    checkConflicts,
+    publish,
+    copyPeriod,
+    createAmendment,
+    resolveException,
+    approveSwap,
+    rejectSwap,
+  } = useRosterMutations(companyId);
+
+  // Coverage Data Hooks
+  const { requirements: coverageRequirements, refetch: refetchCoverage } = useRosterCoverageRequirements(
+    companyId,
+    effectivePeriodId,
+  );
+  const { saveRequirement, removeRequirement } = useCoverageMutations(companyId);
+
+  // Employee Directory Hook with pagination & filters
+  const [rosterSearch, setRosterSearch] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [rosterPage, setRosterPage] = useState(1);
+  const pageSize = 50;
+
+  const { data: directoryData, isLoading: directoryLoading } = useEmployeeDirectory(
+    {
+      page: rosterPage,
+      pageSize,
+      search: rosterSearch.trim() || undefined,
+      departmentId: departmentFilter !== "all" ? departmentFilter : undefined,
+      status: "active",
+    },
+    { enabled: Boolean(companyId) },
+  );
+
+  const rosterEmployees: EmployeeDirectoryItem[] = directoryData?.items ?? [];
+  const totalEmployees = directoryData?.totalCount ?? rosterEmployees.length;
+  const totalPages = Math.ceil(totalEmployees / pageSize) || 1;
 
   // Tab State
   const [activeTab, setActiveTab] = useState("definitions");
@@ -88,7 +139,7 @@ export const ShiftsView: React.FC = () => {
   const [isCreatePeriodOpen, setIsCreatePeriodOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{
-    employee: Employee | null;
+    employee: EmployeeDirectoryItem | null;
     date: string;
     currentAssignment: ScheduleAssignment | null;
   }>({ employee: null, date: "", currentAssignment: null });
@@ -97,13 +148,19 @@ export const ShiftsView: React.FC = () => {
   // Filters
   const [shiftFilter, setShiftFilter] = useState<"all" | "active" | "archived">("active");
   const [shiftSearch, setShiftSearch] = useState("");
-  const [rosterSearch, setRosterSearch] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState("all");
   const [swapStatusFilter, setSwapStatusFilter] = useState<string>("all");
 
   // Action states
   const [isPublishing, setIsPublishing] = useState(false);
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
+  const [isCreatingAmendment, setIsCreatingAmendment] = useState(false);
+
+  // New Coverage Requirement Modal State
+  const [isAddCoverageOpen, setIsAddCoverageOpen] = useState(false);
+  const [coverageShiftId, setCoverageShiftId] = useState("");
+  const [coverageDayOfWeek, setCoverageDayOfWeek] = useState<number | "all">("all");
+  const [coverageMinHeadcount, setCoverageMinHeadcount] = useState(1);
+  const [coverageIsMandatory, setCoverageIsMandatory] = useState(true);
 
   // Filtered shifts
   const filteredShifts = useMemo(() => {
@@ -119,18 +176,23 @@ export const ShiftsView: React.FC = () => {
     });
   }, [shifts, shiftFilter, shiftSearch]);
 
-  // Generate days array for current period
+  // Generate days array for current period safely without UTC drift
   const periodDays = useMemo(() => {
     if (!activePeriod?.startDate || !activePeriod?.endDate) return [];
     const days: { dateStr: string; dayName: string; dayIndex: number }[] = [];
-    const start = new Date(activePeriod.startDate);
-    const end = new Date(activePeriod.endDate);
+    const [sY, sM, sD] = activePeriod.startDate.split("-").map(Number);
+    const [eY, eM, eD] = activePeriod.endDate.split("-").map(Number);
+    const start = new Date(sY, sM - 1, sD, 12, 0, 0);
+    const end = new Date(eY, eM - 1, eD, 12, 0, 0);
 
     const arabicDays = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
     const cur = new Date(start);
-    while (cur <= end && days.length < 31) {
-      const dateStr = cur.toISOString().substring(0, 10);
+    while (cur <= end && days.length < 62) {
+      const y = cur.getFullYear();
+      const m = String(cur.getMonth() + 1).padStart(2, "0");
+      const d = String(cur.getDate()).padStart(2, "0");
+      const dateStr = `${y}-${m}-${d}`;
       days.push({
         dateStr,
         dayName: arabicDays[cur.getDay()],
@@ -140,27 +202,6 @@ export const ShiftsView: React.FC = () => {
     }
     return days;
   }, [activePeriod]);
-
-  // Filtered employees for roster
-  const departments = useMemo(() => {
-    const set = new Set<string>();
-    employees.forEach((e) => {
-      if (e.departmentName) set.add(e.departmentName);
-    });
-    return Array.from(set);
-  }, [employees]);
-
-  const filteredEmployees = useMemo(() => {
-    return employees.filter((emp) => {
-      const matchDept = departmentFilter === "all" || emp.departmentName === departmentFilter;
-      const fullName = `${emp.firstNameAr || ""} ${emp.lastNameAr || ""}`.toLowerCase();
-      const matchSearch =
-        !rosterSearch ||
-        fullName.includes(rosterSearch.toLowerCase()) ||
-        emp.employeeNo.toLowerCase().includes(rosterSearch.toLowerCase());
-      return matchDept && matchSearch;
-    });
-  }, [employees, departmentFilter, rosterSearch]);
 
   // Lookup assignments by employeeId + date
   const assignmentMap = useMemo(() => {
@@ -196,11 +237,33 @@ export const ShiftsView: React.FC = () => {
     }
   };
 
+  // Create Amendment Handler (V+1)
+  const handleCreateAmendment = async () => {
+    if (!activePeriod) return;
+    setIsCreatingAmendment(true);
+    try {
+      const res = await createAmendment(activePeriod.id, `تعديل للنسخة v${activePeriod.version}`);
+      if (res && res.ok && res.newRosterPeriodId) {
+        setSelectedPeriodId(res.newRosterPeriodId);
+        refetchPeriods();
+        refetchAssignments();
+      }
+    } finally {
+      setIsCreatingAmendment(false);
+    }
+  };
+
   // Cell Click in Grid
-  const handleCellClick = (employee: Employee, dateStr: string) => {
+  const handleCellClick = (employee: EmployeeDirectoryItem, dateStr: string) => {
     if (!canManage) return;
     if (activePeriod?.status === "locked") {
       toast.error("فترة الجدولة مقفلة ولا يمكن تعديل إسناداتها");
+      return;
+    }
+    if (activePeriod?.status === "published") {
+      toast.error(
+        "هذا الجدول معتمد ومنشور رسمياً ومحمي من التعديل المباشر. يرجى الضغط على «إنشاء مسودة تعديل (V+1)» لإجراء التعديلات.",
+      );
       return;
     }
     const current = assignmentMap.get(`${employee.id}_${dateStr}`) || null;
@@ -215,8 +278,10 @@ export const ShiftsView: React.FC = () => {
   // Copy Period Handler
   const handleCopyPeriod = async () => {
     if (!activePeriod) return;
-    const start = new Date(activePeriod.startDate);
-    const end = new Date(activePeriod.endDate);
+    const [sY, sM, sD] = activePeriod.startDate.split("-").map(Number);
+    const [eY, eM, eD] = activePeriod.endDate.split("-").map(Number);
+    const start = new Date(sY, sM - 1, sD, 12, 0, 0);
+    const end = new Date(eY, eM - 1, eD, 12, 0, 0);
     const durationDays = Math.round((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
 
     const newStart = new Date(end);
@@ -224,12 +289,39 @@ export const ShiftsView: React.FC = () => {
     const newEnd = new Date(newStart);
     newEnd.setDate(newStart.getDate() + durationDays - 1);
 
-    const newStartStr = newStart.toISOString().substring(0, 10);
-    const newEndStr = newEnd.toISOString().substring(0, 10);
+    const sYear = newStart.getFullYear();
+    const sMonth = String(newStart.getMonth() + 1).padStart(2, "0");
+    const sDate = String(newStart.getDate()).padStart(2, "0");
+    const newStartStr = `${sYear}-${sMonth}-${sDate}`;
+
+    const eYear = newEnd.getFullYear();
+    const eMonth = String(newEnd.getMonth() + 1).padStart(2, "0");
+    const eDate = String(newEnd.getDate()).padStart(2, "0");
+    const newEndStr = `${eYear}-${eMonth}-${eDate}`;
+
     const newName = `جدول العمل (${newStartStr} إلى ${newEndStr})`;
 
     await copyPeriod(activePeriod.id, newStartStr, newEndStr, newName);
     refetchPeriods();
+  };
+
+  // Save Coverage Requirement Handler
+  const handleSaveCoverage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!coverageShiftId) {
+      toast.error("يرجى اختيار الوردية");
+      return;
+    }
+    await saveRequirement({
+      companyId,
+      rosterPeriodId: effectivePeriodId,
+      shiftId: coverageShiftId,
+      dayOfWeek: coverageDayOfWeek === "all" ? undefined : Number(coverageDayOfWeek),
+      minHeadcount: Number(coverageMinHeadcount) || 1,
+      isMandatory: coverageIsMandatory,
+    });
+    setIsAddCoverageOpen(false);
+    refetchCoverage();
   };
 
   return (
@@ -250,11 +342,11 @@ export const ShiftsView: React.FC = () => {
                   variant="outline"
                   className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5"
                 >
-                  محرك معتمد ومطابق لنظام العمل
+                  محرك معتمد للمنشأة
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                إدارة الورديات وجداول العمل التفاعلية لشركة «{companyName}» مع الفحص الذاتي للتعارضات والنشر التلقائي
+                إدارة الورديات وجداول العمل لشركة «{companyName}» مع الفحص التلقائي للتعارضات وحماية ثبات الجداول
               </p>
             </div>
           </div>
@@ -319,7 +411,7 @@ export const ShiftsView: React.FC = () => {
               }`}
             >
               {activePeriod?.status === "published"
-                ? "منشور ومعتمد رسمياً"
+                ? "منشور ومعتمد رسمي"
                 : activePeriod?.status === "locked"
                   ? "مقفلة (أرشيف)"
                   : "مسودة غير منشورة"}
@@ -363,12 +455,15 @@ export const ShiftsView: React.FC = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-        <TabsList className="classera-tabs-strip max-w-lg">
+        <TabsList className="classera-tabs-strip max-w-2xl flex-wrap">
           <TabsTrigger value="definitions" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
             {t.attendance.shiftsManagement} ({shifts.length})
           </TabsTrigger>
           <TabsTrigger value="scheduler" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
-            جدولة الورديات الفعلية (Roster Grid)
+            جدولة الورديات (Roster Grid)
+          </TabsTrigger>
+          <TabsTrigger value="coverage" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
+            متطلبات التغطية ({coverageRequirements.length})
           </TabsTrigger>
           <TabsTrigger value="swaps" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
             طلبات التبديل ({swapRequests.length})
@@ -447,7 +542,7 @@ export const ShiftsView: React.FC = () => {
                 </div>
                 <p className="font-bold text-foreground text-sm">لم يتم العثور على ورديات مطابقة</p>
                 <p className="text-xs text-muted-foreground max-w-md">
-                  يمكنك تعريف وردية دوام جديدة وتحديد ساعات الحضور والانصراف وقواعد الراحة الإلزامية.
+                  يمكنك تعريف وردية دوام جديدة وتحديد ساعات الحضور والانصراف وقواعد الراحة.
                 </p>
                 {canManage && (
                   <Button
@@ -527,7 +622,7 @@ export const ShiftsView: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground font-sans">فترة العمل:</span>
                       <span className="font-bold text-foreground">
-                        {sh.startTime} - {sh.endTime}
+                        {sh.startTime || "—"} - {sh.endTime || "—"}
                       </span>
                     </div>
 
@@ -550,14 +645,16 @@ export const ShiftsView: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground font-sans">سماح حضور / انصراف:</span>
                       <span className="font-bold text-emerald-600">
-                        +{sh.graceMinutesArrival} د / +{sh.graceMinutesDeparture} د
+                        +{sh.graceMinutesArrival ?? 0} د / +{sh.graceMinutesDeparture ?? 0} د
                       </span>
                     </div>
 
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground font-sans">راحة إلزامية بعدها:</span>
-                      <span className="font-bold text-foreground">{sh.minRestHoursAfter ?? 11} ساعة</span>
-                    </div>
+                    {sh.minRestHoursAfter != null && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground font-sans">راحة بعد الوردية:</span>
+                        <span className="font-bold text-foreground">{sh.minRestHoursAfter} ساعة</span>
+                      </div>
+                    )}
                   </div>
 
                   {canManage && (
@@ -615,7 +712,7 @@ export const ShiftsView: React.FC = () => {
                   >
                     {periods.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name} ({p.startDate} إلى {p.endDate}) - {p.status === "published" ? "منشور" : "مسودة"}
+                        {p.name} ({p.startDate} إلى {p.endDate}) - {p.status === "published" ? "منشور" : "مسودة"} (v{p.version})
                       </option>
                     ))}
                     {periods.length === 0 && <option value="">لا توجد فترات جدولة معرفة</option>}
@@ -641,6 +738,11 @@ export const ShiftsView: React.FC = () => {
                           : "مسودة قيد التعديل"}
                     </Badge>
                     <span className="text-xs text-muted-foreground font-mono">نسخة v{activePeriod.version}</span>
+                    {activePeriod.timezone && (
+                      <Badge variant="secondary" className="text-[10px] font-mono">
+                        {activePeriod.timezone}
+                      </Badge>
+                    )}
                   </div>
                 )}
               </div>
@@ -669,18 +771,58 @@ export const ShiftsView: React.FC = () => {
                     تكرار الفترة للأسبوع القادم
                   </Button>
 
-                  <Button
-                    size="sm"
-                    onClick={handlePublish}
-                    disabled={isPublishing || !activePeriod || activePeriod.status === "locked"}
-                    className="classera-btn-primary rounded-xl text-xs font-bold gap-1.5 h-9 px-4 shadow-xs"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    {isPublishing ? "جاري النشر..." : "نشر واعتماد الجدول رسمياً"}
-                  </Button>
+                  {/* Amendment button when period is published */}
+                  {activePeriod?.status === "published" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCreateAmendment}
+                      disabled={isCreatingAmendment}
+                      className="rounded-xl text-xs font-bold gap-1.5 h-9 px-3.5 border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+                    >
+                      <FileDiff className="h-3.5 w-3.5" />
+                      {isCreatingAmendment ? "جاري تجهيز المسودة..." : `إنشاء مسودة تعديل (v${activePeriod.version + 1})`}
+                    </Button>
+                  )}
+
+                  {activePeriod?.status === "draft" && (
+                    <Button
+                      size="sm"
+                      onClick={handlePublish}
+                      disabled={isPublishing || !activePeriod}
+                      className="classera-btn-primary rounded-xl text-xs font-bold gap-1.5 h-9 px-4 shadow-xs"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {isPublishing ? "جاري النشر..." : "نشر واعتماد الجدول رسمياً"}
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
+
+            {/* Immutability Banner for Published Roster */}
+            {activePeriod?.status === "published" && (
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+                  <Lock className="h-4 w-4 shrink-0" />
+                  <span>
+                    هذا الجدول معتمد ومنشور رسمي لوحدة الحضور والانصراف. خلايا الجدول محمية من التعديل المباشر
+                    للحفاظ على سلامة البصمات وسجلات التدقيق.
+                  </span>
+                </div>
+                {canManage && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCreateAmendment}
+                    disabled={isCreatingAmendment}
+                    className="h-8 text-xs font-bold rounded-xl border-emerald-500/40 bg-card hover:bg-emerald-50 shrink-0"
+                  >
+                    فتح تعديل رسمي
+                  </Button>
+                )}
+              </div>
+            )}
 
             {/* Exceptions / Conflicts Alert Box */}
             {exceptions.filter((e) => !e.resolved).length > 0 && (
@@ -693,7 +835,7 @@ export const ShiftsView: React.FC = () => {
                     </span>
                   </div>
                   <Badge variant="destructive" className="text-[10px] rounded-full">
-                    مخالفات نظامية
+                    تنبيهات حرجة
                   </Badge>
                 </div>
                 <div className="divide-y divide-destructive/15 text-xs max-h-40 overflow-y-auto space-y-1.5 pt-1">
@@ -707,7 +849,7 @@ export const ShiftsView: React.FC = () => {
                             size="sm"
                             variant="ghost"
                             onClick={async () => {
-                              await resolveException(ex.id, effectivePeriodId);
+                              await resolveException(ex.id, "تسوية يدوية معتمدة من المشرف", effectivePeriodId);
                               refetchExceptions();
                             }}
                             className="h-6 text-[10px] text-muted-foreground hover:text-foreground"
@@ -728,23 +870,14 @@ export const ShiftsView: React.FC = () => {
                   <Search className="absolute right-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     value={rosterSearch}
-                    onChange={(e) => setRosterSearch(e.target.value)}
-                    placeholder="بحث عن موظف..."
+                    onChange={(e) => {
+                      setRosterSearch(e.target.value);
+                      setRosterPage(1);
+                    }}
+                    placeholder="بحث في دليل الموظفين..."
                     className="pr-9 h-8 text-xs"
                   />
                 </div>
-                <select
-                  value={departmentFilter}
-                  onChange={(e) => setDepartmentFilter(e.target.value)}
-                  className="rounded-xl border border-input bg-background px-3 py-1.5 text-xs"
-                >
-                  <option value="all">كافة الأقسام</option>
-                  {departments.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -759,15 +892,13 @@ export const ShiftsView: React.FC = () => {
               <table className="w-full text-xs">
                 <thead className="border-b border-border/70 bg-muted/40 font-bold text-muted-foreground">
                   <tr>
-                    <th className="py-3 px-4 text-start min-w-[180px] sticky right-0 bg-muted/40 z-10">
-                      الموظف ({filteredEmployees.length})
+                    <th className="py-3 px-4 text-start min-w-[200px] sticky right-0 bg-muted/40 z-10">
+                      دليل الموظفين ({totalEmployees})
                     </th>
                     {periodDays.map((d) => (
                       <th
                         key={d.dateStr}
-                        className={`py-2 px-2 text-center min-w-[120px] ${
-                          d.dayIndex === 5 || d.dayIndex === 6 ? "bg-muted/60" : ""
-                        }`}
+                        className="py-2 px-2 text-center min-w-[120px]"
                       >
                         <div className="font-bold text-foreground">{d.dayName}</div>
                         <div className="text-[10px] font-mono text-muted-foreground">{d.dateStr.slice(5)}</div>
@@ -776,19 +907,25 @@ export const ShiftsView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {filteredEmployees.length === 0 ? (
+                  {directoryLoading ? (
                     <tr>
                       <td colSpan={periodDays.length + 1} className="py-12 text-center text-muted-foreground">
-                        لم يتم العثور على موظفين في هذا القسم أو الفلتر.
+                        جاري تحميل سجلات دليل الموظفين...
+                      </td>
+                    </tr>
+                  ) : rosterEmployees.length === 0 ? (
+                    <tr>
+                      <td colSpan={periodDays.length + 1} className="py-12 text-center text-muted-foreground">
+                        لم يتم العثور على موظفين في دليل المنشأة وفق معايير البحث.
                       </td>
                     </tr>
                   ) : (
-                    filteredEmployees.map((emp) => (
+                    rosterEmployees.map((emp) => (
                       <tr key={emp.id} className="hover:bg-muted/20 transition-colors group">
                         <td className="py-3 px-4 whitespace-nowrap sticky right-0 bg-card group-hover:bg-muted/20 z-10 border-e border-border/60">
                           <button
                             type="button"
-                            onClick={() => openEmployeeProfile(emp)}
+                            onClick={() => openEmployeeProfile?.(emp as any)}
                             className="font-bold text-foreground group-hover:text-primary hover:underline cursor-pointer text-start block"
                           >
                             {emp.firstNameAr} {emp.lastNameAr}
@@ -807,8 +944,10 @@ export const ShiftsView: React.FC = () => {
                               key={d.dateStr}
                               onClick={() => handleCellClick(emp, d.dateStr)}
                               className={`py-2 px-1 text-center transition-all ${
-                                canManage ? "cursor-pointer hover:bg-primary/5" : ""
-                              } ${d.dayIndex === 5 || d.dayIndex === 6 ? "bg-muted/10" : ""}`}
+                                canManage && activePeriod?.status !== "published" && activePeriod?.status !== "locked"
+                                  ? "cursor-pointer hover:bg-primary/5"
+                                  : ""
+                              }`}
                             >
                               {assignment ? (
                                 isRest ? (
@@ -843,11 +982,142 @@ export const ShiftsView: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2 text-xs">
+                <span className="text-muted-foreground">
+                  عرض صفحة {rosterPage} من {totalPages} (إجمالي {totalEmployees} موظف)
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setRosterPage((p) => Math.max(1, p - 1))}
+                    disabled={rosterPage <= 1}
+                    className="h-8 px-2.5 text-xs rounded-xl"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                    السابق
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setRosterPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={rosterPage >= totalPages}
+                    className="h-8 px-2.5 text-xs rounded-xl"
+                  >
+                    التالي
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
 
         {/* ========================================================================= */}
-        {/* TAB 3: Shift Swaps */}
+        {/* TAB 3: Operational Coverage Requirements */}
+        {/* ========================================================================= */}
+        <TabsContent value="coverage" className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card p-3 rounded-2xl border border-border/80 shadow-xs">
+            <div>
+              <h3 className="text-xs font-bold text-foreground">
+                متطلبات التغطية التشغيلية (Headcount Coverage Rules)
+              </h3>
+              <p className="text-[11px] text-muted-foreground">
+                تحديد الحد الأدنى لعدد الكوادر المطلوبة لكل وردية لضمان استمرارية الأعمال وعدم نقص الكادر.
+              </p>
+            </div>
+
+            {canManage && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setCoverageShiftId(shifts[0]?.id || "");
+                  setIsAddCoverageOpen(true);
+                }}
+                className="classera-btn-primary text-xs font-bold rounded-xl h-9 px-4 gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                إضافة متطلب تغطية
+              </Button>
+            )}
+          </div>
+
+          {coverageRequirements.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-border/80 bg-card p-12 text-center">
+              <div className="flex flex-col items-center justify-center gap-3">
+                <div className="h-14 w-14 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+                  <Users className="h-7 w-7" />
+                </div>
+                <p className="font-bold text-foreground text-sm">لا توجد متطلبات تغطية تشغيلية محددة</p>
+                <p className="text-xs text-muted-foreground max-w-md">
+                  يمكنك تحديد الحد الأدنى من الكوادر المطلوبة لكل وردية أو يوم عمل، وتوليد تنبيهات تلقائية في حال النقص.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {coverageRequirements.map((req) => {
+                const shiftObj = shifts.find((s) => s.id === req.shiftId);
+                const dayLabels = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+                return (
+                  <div
+                    key={req.id}
+                    className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs space-y-2 relative"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-foreground">
+                        {shiftObj?.nameAr || "وردية العمل"}
+                      </span>
+                      {req.isMandatory ? (
+                        <Badge variant="destructive" className="text-[10px] rounded-full">
+                          إلزامي
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-[10px] rounded-full">
+                          توجيهي
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-xs space-y-1 text-muted-foreground">
+                      <div>
+                        الحد الأدنى المطلوب:{" "}
+                        <span className="font-bold font-mono text-foreground">{req.minHeadcount} موظف</span>
+                      </div>
+                      <div>
+                        اليوم المقرر:{" "}
+                        <span className="font-bold text-foreground">
+                          {req.dayOfWeek != null ? dayLabels[req.dayOfWeek] : "كافة الأيام"}
+                        </span>
+                      </div>
+                    </div>
+                    {canManage && (
+                      <div className="pt-2 border-t flex justify-end">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={async () => {
+                            await removeRequirement(req.id);
+                            refetchCoverage();
+                          }}
+                          className="h-7 text-xs text-destructive hover:bg-destructive/10 rounded-lg px-2"
+                        >
+                          <Trash2 className="h-3 w-3 me-1" />
+                          حذف
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ========================================================================= */}
+        {/* TAB 4: Shift Swaps */}
         {/* ========================================================================= */}
         <TabsContent value="swaps" className="space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card p-3 rounded-2xl border border-border/80 shadow-xs">
@@ -882,7 +1152,7 @@ export const ShiftsView: React.FC = () => {
                 </div>
                 <p className="font-bold text-foreground text-sm">لا توجد طلبات تبديل ورديات مسجلة</p>
                 <p className="text-xs text-muted-foreground max-w-md">
-                  يمكن للموظفين أو المشرفين إرسال طلبات تبديل الورديات واعتمادها رسمياً مع تعديل الجدول آلياً.
+                  يمكن للموظفين أو المشرفين إرسال طلبات تبديل الورديات واعتمادها رسمياً مع تحديث الجدول آلياً.
                 </p>
               </div>
             </div>
@@ -958,7 +1228,7 @@ export const ShiftsView: React.FC = () => {
                             size="sm"
                             variant="destructive"
                             onClick={async () => {
-                              await rejectSwap(req.id);
+                              await rejectSwap(req.id, "تم رفض الطلب بواسطة الإدارة");
                               refetchSwaps();
                             }}
                             className="rounded-xl text-xs font-bold h-8 px-3"
@@ -975,7 +1245,7 @@ export const ShiftsView: React.FC = () => {
         </TabsContent>
 
         {/* ========================================================================= */}
-        {/* TAB 4: Workweek Policy */}
+        {/* TAB 5: Workweek Policy */}
         {/* ========================================================================= */}
         <TabsContent value="policy" className="space-y-4">
           <WorkweekConfigCard companyId={companyId} canManage={canManage} />
@@ -1048,13 +1318,104 @@ export const ShiftsView: React.FC = () => {
       <CreateShiftSwapModal
         open={isSwapModalOpen}
         onOpenChange={setIsSwapModalOpen}
-        employees={employees}
+        employees={rosterEmployees}
         assignments={assignments}
         companyId={companyId}
         onSuccess={() => {
           refetchSwaps();
         }}
       />
+
+      {/* Add Coverage Requirement Modal */}
+      {isAddCoverageOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border/80 rounded-3xl p-6 max-w-md w-full shadow-xl space-y-4">
+            <h3 className="text-sm font-black text-foreground">إضافة متطلب تغطية تشغيلية</h3>
+            <form onSubmit={handleSaveCoverage} className="space-y-3">
+              <div>
+                <Label className="text-xs font-bold">الوردية المستهدفة *</Label>
+                <select
+                  value={coverageShiftId}
+                  onChange={(e) => setCoverageShiftId(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                  required
+                >
+                  <option value="">اختر وردية...</option>
+                  {shifts
+                    .filter((s) => s.status !== "archived")
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nameAr} ({s.code})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold">اليوم المحدد</Label>
+                <select
+                  value={coverageDayOfWeek}
+                  onChange={(e) =>
+                    setCoverageDayOfWeek(e.target.value === "all" ? "all" : Number(e.target.value))
+                  }
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                >
+                  <option value="all">كافة أيام الأسبوع</option>
+                  <option value="0">الأحد</option>
+                  <option value="1">الإثنين</option>
+                  <option value="2">الثلاثاء</option>
+                  <option value="3">الأربعاء</option>
+                  <option value="4">الخميس</option>
+                  <option value="5">الجمعة</option>
+                  <option value="6">السبت</option>
+                </select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold">الحد الأدنى لعدد الكوادر *</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={coverageMinHeadcount}
+                  onChange={(e) => setCoverageMinHeadcount(Number(e.target.value))}
+                  className="mt-1 text-xs"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/20">
+                <span className="text-xs font-bold">هل النقص يعتبر مخالفة حرجة؟</span>
+                <input
+                  type="checkbox"
+                  checked={coverageIsMandatory}
+                  onChange={(e) => setCoverageIsMandatory(e.target.checked)}
+                  className="h-4 w-4 rounded accent-primary cursor-pointer"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsAddCoverageOpen(false)}
+                  className="text-xs rounded-xl"
+                >
+                  إلغاء
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="classera-btn-primary text-xs font-bold rounded-xl"
+                >
+                  حفظ المتطلب
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

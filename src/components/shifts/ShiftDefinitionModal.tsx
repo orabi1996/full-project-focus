@@ -10,9 +10,8 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { Badge } from "../ui/badge";
 import { Switch } from "../ui/switch";
-import { Clock, CalendarCheck, ShieldAlert, Sparkles, Moon, Sun, Split, Sliders } from "lucide-react";
+import { Clock, CalendarCheck, ShieldAlert, Moon, Sun, Split, Sliders } from "lucide-react";
 import type { ShiftDefinition, ShiftType, ShiftBreakType } from "../../types";
 import { useShiftMutations } from "../../lib/domains/shifts";
 import { toast } from "sonner";
@@ -45,25 +44,25 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
   const isEditing = Boolean(initialShift);
   const { addShift, updateShift, getNewShiftCode } = useShiftMutations(companyId);
 
-  // Form State
+  // Form State - Truthful, zero hidden defaults
   const [code, setCode] = useState("");
   const [nameAr, setNameAr] = useState("");
   const [nameEn, setNameEn] = useState("");
   const [color, setColor] = useState("#0284c7");
   const [shiftType, setShiftType] = useState<ShiftType>("fixed");
-  const [startTime, setStartTime] = useState("08:00");
-  const [endTime, setEndTime] = useState("17:00");
-  const [flexibleHours, setFlexibleHours] = useState(8);
-  const [splitSecondStartTime, setSplitSecondStartTime] = useState("16:00");
-  const [splitSecondEndTime, setSplitSecondEndTime] = useState("20:00");
-  const [graceArrival, setGraceArrival] = useState(15);
-  const [graceDeparture, setGraceDeparture] = useState(15);
-  const [overtimeEligible, setOvertimeEligible] = useState(true);
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [flexibleHours, setFlexibleHours] = useState<number | "">("");
+  const [splitSecondStartTime, setSplitSecondStartTime] = useState("");
+  const [splitSecondEndTime, setSplitSecondEndTime] = useState("");
+  const [graceArrival, setGraceArrival] = useState<number | "">(0);
+  const [graceDeparture, setGraceDeparture] = useState<number | "">(0);
+  const [overtimeEligible, setOvertimeEligible] = useState(false);
   const [allowSinglePunch, setAllowSinglePunch] = useState(false);
   const [breakType, setBreakType] = useState<ShiftBreakType>("none");
   const [autoDeductBreaks, setAutoDeductBreaks] = useState(false);
-  const [minRestHoursAfter, setMinRestHoursAfter] = useState(11);
-  const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().substring(0, 10));
+  const [minRestHoursAfter, setMinRestHoursAfter] = useState<number | "">("");
+  const [effectiveFrom, setEffectiveFrom] = useState("");
   const [effectiveTo, setEffectiveTo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -76,39 +75,39 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
         setNameEn(initialShift.nameEn || "");
         setColor(initialShift.color || "#0284c7");
         setShiftType(initialShift.type || "fixed");
-        setStartTime(initialShift.startTime || "08:00");
-        setEndTime(initialShift.endTime || "17:00");
-        setFlexibleHours(initialShift.flexibleHours ?? 8);
-        setSplitSecondStartTime(initialShift.splitSecondStartTime || "16:00");
-        setSplitSecondEndTime(initialShift.splitSecondEndTime || "20:00");
-        setGraceArrival(initialShift.graceMinutesArrival ?? 15);
-        setGraceDeparture(initialShift.graceMinutesDeparture ?? 15);
+        setStartTime(initialShift.startTime || "");
+        setEndTime(initialShift.endTime || "");
+        setFlexibleHours(initialShift.flexibleHours ?? "");
+        setSplitSecondStartTime(initialShift.splitSecondStartTime || "");
+        setSplitSecondEndTime(initialShift.splitSecondEndTime || "");
+        setGraceArrival(initialShift.graceMinutesArrival ?? 0);
+        setGraceDeparture(initialShift.graceMinutesDeparture ?? 0);
         setOvertimeEligible(Boolean(initialShift.overtimeEligible));
         setAllowSinglePunch(Boolean(initialShift.allowSinglePunch));
         setBreakType(initialShift.breakType || "none");
         setAutoDeductBreaks(Boolean(initialShift.autoDeductBreaks));
-        setMinRestHoursAfter(initialShift.minRestHoursAfter ?? 11);
-        setEffectiveFrom(initialShift.effectiveFrom || new Date().toISOString().substring(0, 10));
+        setMinRestHoursAfter(initialShift.minRestHoursAfter ?? "");
+        setEffectiveFrom(initialShift.effectiveFrom || "");
         setEffectiveTo(initialShift.effectiveTo || "");
       } else {
-        // Reset defaults and generate code
+        // Reset to clear state
         setNameAr("");
         setNameEn("");
         setColor("#0284c7");
         setShiftType("fixed");
-        setStartTime("08:00");
-        setEndTime("17:00");
-        setFlexibleHours(8);
-        setSplitSecondStartTime("16:00");
-        setSplitSecondEndTime("20:00");
-        setGraceArrival(15);
-        setGraceDeparture(15);
-        setOvertimeEligible(true);
+        setStartTime("");
+        setEndTime("");
+        setFlexibleHours("");
+        setSplitSecondStartTime("");
+        setSplitSecondEndTime("");
+        setGraceArrival(0);
+        setGraceDeparture(0);
+        setOvertimeEligible(false);
         setAllowSinglePunch(false);
         setBreakType("none");
         setAutoDeductBreaks(false);
-        setMinRestHoursAfter(11);
-        setEffectiveFrom(new Date().toISOString().substring(0, 10));
+        setMinRestHoursAfter("");
+        setEffectiveFrom("");
         setEffectiveTo("");
 
         getNewShiftCode().then((newCode) => {
@@ -125,8 +124,19 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
       return;
     }
 
-    if (shiftType === "overnight" && startTime <= endTime) {
-      toast.warning("تنبيه: الوردية الليلية عادة ما تبدأ في المساء وتنتهي في صباح اليوم التالي");
+    if (!code.trim()) {
+      toast.error("يرجى إدخال كود الوردية");
+      return;
+    }
+
+    if (shiftType !== "flexible" && (!startTime || !endTime)) {
+      toast.error("يرجى تحديد وقت بداية ونهاية الوردية");
+      return;
+    }
+
+    if (shiftType === "flexible" && (flexibleHours === "" || Number(flexibleHours) <= 0)) {
+      toast.error("يرجى تحديد عدد الساعات الإلزامية للوردية المرنة");
+      return;
     }
 
     if (shiftType === "split") {
@@ -142,21 +152,21 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
         companyId,
         code: code.trim(),
         nameAr: nameAr.trim(),
-        nameEn: (nameEn.trim() || nameAr.trim()),
+        nameEn: nameEn.trim() || nameAr.trim(),
         color,
         type: shiftType,
-        startTime,
-        endTime,
-        flexibleHours: shiftType === "flexible" ? Number(flexibleHours) : undefined,
+        startTime: startTime || undefined,
+        endTime: endTime || undefined,
+        flexibleHours: shiftType === "flexible" && flexibleHours !== "" ? Number(flexibleHours) : undefined,
         splitSecondStartTime: shiftType === "split" ? splitSecondStartTime : undefined,
         splitSecondEndTime: shiftType === "split" ? splitSecondEndTime : undefined,
-        graceMinutesArrival: Number(graceArrival),
-        graceMinutesDeparture: Number(graceDeparture),
+        graceMinutesArrival: graceArrival !== "" ? Number(graceArrival) : 0,
+        graceMinutesDeparture: graceDeparture !== "" ? Number(graceDeparture) : 0,
         overtimeEligible,
         allowSinglePunch,
         breakType,
         autoDeductBreaks,
-        minRestHoursAfter: Number(minRestHoursAfter),
+        minRestHoursAfter: minRestHoursAfter !== "" ? Number(minRestHoursAfter) : undefined,
         effectiveFrom: effectiveFrom || undefined,
         effectiveTo: effectiveTo || undefined,
       };
@@ -188,7 +198,7 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
           <DialogDescription className="text-xs text-muted-foreground">
             {isEditing
               ? "سيتم حفظ التعديلات وإصدار نسخة جديدة من الوردية لضمان سلامة السجلات السابقة"
-              : "تحديد معايير الوردية، مواعيد الدخول والانصراف، فترات السماح وقواعد الراحة الإلزامية"}
+              : "تحديد معايير الوردية، مواعيد الدخول والانصراف، فترات السماح وقواعد الراحة"}
           </DialogDescription>
         </DialogHeader>
 
@@ -196,7 +206,7 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
           {/* Shift Code & Name */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <Label className="text-xs font-bold">كود الوردية</Label>
+              <Label className="text-xs font-bold">كود الوردية *</Label>
               <Input
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
@@ -319,33 +329,33 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs font-bold">
-                  {shiftType === "split" ? "بداية الفترة الأولى" : "وقت الحضور الرسمي"}
+                  {shiftType === "split" ? "بداية الفترة الأولى *" : "وقت الحضور الرسمي *"}
                 </Label>
                 <Input
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
                   className="mt-1 font-mono text-xs"
-                  required
+                  required={shiftType !== "flexible"}
                 />
               </div>
               <div>
                 <Label className="text-xs font-bold">
-                  {shiftType === "split" ? "نهاية الفترة الأولى" : "وقت الانصراف الرسمي"}
+                  {shiftType === "split" ? "نهاية الفترة الأولى *" : "وقت الانصراف الرسمي *"}
                 </Label>
                 <Input
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                   className="mt-1 font-mono text-xs"
-                  required
+                  required={shiftType !== "flexible"}
                 />
               </div>
             </div>
 
             {shiftType === "flexible" && (
               <div className="p-3 bg-primary/5 rounded-xl border border-primary/20 space-y-2">
-                <Label className="text-xs font-bold text-primary">عدد الساعات الإلزامية المطلوب إنجازها</Label>
+                <Label className="text-xs font-bold text-primary">عدد الساعات الإلزامية المطلوب إنجازها *</Label>
                 <div className="flex items-center gap-3">
                   <Input
                     type="number"
@@ -353,11 +363,13 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
                     max={16}
                     step={0.5}
                     value={flexibleHours}
-                    onChange={(e) => setFlexibleHours(Number(e.target.value))}
+                    onChange={(e) => setFlexibleHours(e.target.value === "" ? "" : Number(e.target.value))}
                     className="max-w-[120px] text-xs font-bold"
+                    placeholder="مثال: 8"
+                    required
                   />
                   <span className="text-xs text-muted-foreground">
-                    ساعات عمل مطلوبة بين نطاق ({startTime} - {endTime})
+                    ساعات عمل مطلوبة خلال اليوم
                   </span>
                 </div>
               </div>
@@ -365,7 +377,7 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
 
             {shiftType === "split" && (
               <div className="p-3 bg-amber-500/5 rounded-xl border border-amber-500/20 space-y-3">
-                <p className="text-xs font-bold text-amber-700">الفترة الثانية (بعد الراحة المقررة)</p>
+                <p className="text-xs font-bold text-amber-700">الفترة الثانية (بعد الراحة المقررة) *</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs font-bold">بداية الفترة الثانية</Label>
@@ -395,7 +407,7 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
               <div className="p-3 bg-indigo-500/5 rounded-xl border border-indigo-500/20 flex items-center gap-2">
                 <Moon className="h-4 w-4 text-indigo-600 shrink-0" />
                 <span className="text-xs text-indigo-700 font-medium">
-                  الوردية الليلية تمتد عبر منتصف الليل ويتم ربط بصماتها آلياً بيوم بداية الوردية وفق سياسات نظام العمل.
+                  الوردية الليلية تمتد عبر منتصف الليل ويتم ربط بصماتها آلياً بيوم بداية الوردية.
                 </span>
               </div>
             )}
@@ -410,8 +422,9 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
                 min={0}
                 max={120}
                 value={graceArrival}
-                onChange={(e) => setGraceArrival(Number(e.target.value))}
+                onChange={(e) => setGraceArrival(e.target.value === "" ? "" : Number(e.target.value))}
                 className="mt-1 text-xs"
+                placeholder="0"
               />
               <span className="text-[10px] text-muted-foreground">لا يُحتسب تأخير إذا كان ضمن هذا النطاق</span>
             </div>
@@ -422,18 +435,19 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
                 min={0}
                 max={120}
                 value={graceDeparture}
-                onChange={(e) => setGraceDeparture(Number(e.target.value))}
+                onChange={(e) => setGraceDeparture(e.target.value === "" ? "" : Number(e.target.value))}
                 className="mt-1 text-xs"
+                placeholder="0"
               />
               <span className="text-[10px] text-muted-foreground">لا يُحتسب خروج مبكر إذا كان ضمن هذا النطاق</span>
             </div>
           </div>
 
-          {/* Saudi Labor Law & Rest Rules */}
+          {/* Rest Rules & Policy */}
           <div className="border rounded-2xl p-4 bg-card space-y-4">
             <h4 className="text-xs font-black flex items-center gap-2 text-foreground">
               <ShieldAlert className="h-4 w-4 text-primary" />
-              قواعد فترات الراحة ونظام العمل
+              قواعد فترات الراحة وسياسة المنشأة
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -451,16 +465,17 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
               </div>
 
               <div>
-                <Label className="text-xs font-bold">الحد الأدنى لساعات الراحة بعدها</Label>
+                <Label className="text-xs font-bold">الحد الأدنى لساعات الراحة بعدها (اختياري)</Label>
                 <Input
                   type="number"
-                  min={8}
-                  max={24}
+                  min={0}
+                  max={48}
                   value={minRestHoursAfter}
-                  onChange={(e) => setMinRestHoursAfter(Number(e.target.value))}
+                  onChange={(e) => setMinRestHoursAfter(e.target.value === "" ? "" : Number(e.target.value))}
+                  placeholder="بحسب سياسة المنشأة"
                   className="mt-1 text-xs font-mono"
                 />
-                <span className="text-[10px] text-muted-foreground">افتراضياً 11 ساعة نظامية بين ورديتين</span>
+                <span className="text-[10px] text-muted-foreground">اتركه فارغاً إذا لم تكن هناك قيود خاصة</span>
               </div>
 
               <div>

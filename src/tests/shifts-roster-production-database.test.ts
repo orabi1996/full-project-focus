@@ -98,6 +98,22 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
         role public.app_role NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS public.user_company_access (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid NOT NULL,
+        company_id uuid NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS public.leaves (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        company_id uuid REFERENCES public.companies(id),
+        employee_id uuid REFERENCES public.employees(id),
+        start_date date NOT NULL,
+        end_date date NOT NULL,
+        status text NOT NULL DEFAULT 'approved',
+        created_at timestamptz DEFAULT now()
+      );
+
       CREATE OR REPLACE FUNCTION public.current_company_id()
       RETURNS uuid LANGUAGE sql STABLE AS $$
         SELECT COALESCE(
@@ -222,6 +238,11 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
     const migrationPath = path.resolve(__dirname, "../../supabase/migrations/20260925000000_production_shifts_rosters_engine.sql");
     const migrationSql = fs.readFileSync(migrationPath, "utf-8");
     await db.exec(migrationSql);
+
+    // 2.1 Load and Apply Migration 20260925010000_finalize_shifts_rosters_integrity.sql
+    const migration2Path = path.resolve(__dirname, "../../supabase/migrations/20260925010000_finalize_shifts_rosters_integrity.sql");
+    const migration2Sql = fs.readFileSync(migration2Path, "utf-8");
+    await db.exec(migration2Sql);
 
     // 3. Seed Companies, Employees, Users, and Roles
     await db.exec(`
@@ -781,6 +802,208 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
       const swap = await db.query<any>(`SELECT * FROM public.shift_swap_requests WHERE id = '${swapId}';`);
       expect(swap.rows[0].status).toBe("approved");
       expect(swap.rows[0].review_notes).toBe("معتمد من الموارد البشرية");
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // SUITE 7: Prompt 13.1 Production Integrity Hotfix Validations
+  // --------------------------------------------------------------------------
+  describe("Suite 7: Prompt 13.1 Production Integrity Hotfix Validations", () => {
+    let publishedRosterId: string;
+    let publishedAssignId: string;
+    let customShiftId: string;
+
+    beforeAll(async () => {
+      await asUser(userHrA);
+
+      // Create a test shift with custom rest hours (14 hours)
+      const s = await db.query<any>(`
+        INSERT INTO public.shifts (
+          company_id, code, name_ar, name_en, type, start_time, end_time, min_rest_hours_after
+        ) VALUES (
+          '${companyA}', 'SH-14H', 'وردية راحة خاصة', 'Custom Rest', 'fixed', '08:00', '16:00', 14
+        ) RETURNING id;
+      `);
+      customShiftId = s.rows[0].id;
+
+      // Create a roster period and assignments
+      const r = await db.query<any>(`
+        INSERT INTO public.roster_periods (company_id, name, period_start, period_end, status, timezone)
+        VALUES ('${companyA}', 'فترة اختبار التعديل والثبات', '2026-12-01', '2026-12-07', 'draft', 'Asia/Riyadh')
+        RETURNING id;
+      `);
+      publishedRosterId = r.rows[0].id;
+
+      const a = await db.query<any>(`
+        INSERT INTO public.schedule_assignments (
+          company_id, employee_id, roster_period_id, work_date, shift_id, shift_name_ar, is_rest_day, status
+        ) VALUES (
+          '${companyA}', '${empId1A}', '${publishedRosterId}', '2026-12-01', '${customShiftId}', 'وردية راحة خاصة', false, 'draft'
+        ) RETURNING id;
+      `);
+      publishedAssignId = a.rows[0].id;
+
+      // Seed a swap request in companyA
+      const sw = await db.query<any>(`
+        INSERT INTO public.shift_swap_requests (
+          company_id, requester_employee_id, requester_assignment_id, target_employee_id, target_assignment_id, reason, status
+        ) VALUES (
+          '${companyA}', '${empId1A}', '${publishedAssignId}', '${empId2A}', '${publishedAssignId}', 'ظرف عائلي', 'pending_approval'
+        ) RETURNING id;
+      `);
+      const testSwapId = sw.rows[0].id;
+
+      // Publish the roster
+      await db.query(`SELECT public.publish_roster('${publishedRosterId}'::uuid);`);
+
+      (globalThis as any).testSwapId = testSwapId;
+    });
+
+    it("Rule 1 & 2: Non-admin employees are strictly blocked from administrative RPCs", async () => {
+      await asUser(userEmp1A); // Normal employee
+      const testSwapId = (globalThis as any).testSwapId;
+
+      // Attempt create_shift_definition
+      await expect(
+        db.query(`
+          SELECT public.create_shift_definition(jsonb_build_object(
+            'company_id', '${companyA}'::text,
+            'code', 'SH-HACK',
+            'name_ar', 'محاولة غير مصرح بها',
+            'type', 'fixed',
+            'start_time', '08:00',
+            'end_time', '16:00'
+          ));
+        `)
+      ).rejects.toThrow(/غير مصرح/);
+
+      // Attempt publish_roster
+      await expect(
+        db.query(`SELECT public.publish_roster('${publishedRosterId}'::uuid);`)
+      ).rejects.toThrow(/غير مصرح/);
+
+      // Attempt approve_shift_swap
+      await expect(
+        db.query(`SELECT public.approve_shift_swap('${testSwapId}'::uuid);`)
+      ).rejects.toThrow(/غير مصرح/);
+
+      // Attempt save_workweek_config
+      await expect(
+        db.query(`SELECT public.save_workweek_config('${companyA}'::uuid, '{"weekend_days": [5,6]}'::jsonb);`)
+      ).rejects.toThrow(/غير مصرح/);
+    });
+
+    it("Rule 12: Published schedule assignments are immutable against direct mutations", async () => {
+      await asUser(userHrA);
+
+      // Direct UPDATE on published assignment is blocked by trigger trg_prevent_published_assignment_mutation
+      await expect(
+        db.exec(`
+          UPDATE public.schedule_assignments
+          SET shift_name_ar = 'تعديل غير مسموح'
+          WHERE id = '${publishedAssignId}';
+        `)
+      ).rejects.toThrow(/لا يمكن تعديل أو حذف إسنادات جدول معتمد/);
+
+      // Direct DELETE on published assignment is blocked
+      await expect(
+        db.exec(`
+          DELETE FROM public.schedule_assignments
+          WHERE id = '${publishedAssignId}';
+        `)
+      ).rejects.toThrow(/لا يمكن تعديل أو حذف إسنادات جدول معتمد/);
+    });
+
+    it("Rule 13: Controlled Amendment generates genuine Version+1 roster draft with copied assignments", async () => {
+      await asUser(userHrA);
+
+      const amendRes = await db.query<{ create_roster_amendment: any }>(`
+        SELECT public.create_roster_amendment('${publishedRosterId}'::uuid, 'تعديل رسمي للجدول');
+      `);
+
+      const amend = amendRes.rows[0].create_roster_amendment;
+      expect(amend.ok).toBe(true);
+      expect(amend.version).toBe(2);
+      expect(amend.status).toBe("draft");
+      expect(amend.copied_assignments_count).toBeGreaterThanOrEqual(1);
+
+      const newPeriodId = amend.id;
+
+      // In the new draft, assignments have draft status and can be edited
+      const draftAssignments = await db.query<any>(`
+        SELECT * FROM public.schedule_assignments WHERE roster_period_id = '${newPeriodId}';
+      `);
+      expect(draftAssignments.rows.length).toBeGreaterThanOrEqual(1);
+      expect(draftAssignments.rows[0].status).toBe("draft");
+      expect(draftAssignments.rows[0].roster_version).toBe(2);
+
+      // Editing the draft assignment via set_roster_assignment succeeds
+      const updateDraft = await db.query<{ set_roster_assignment: any }>(`
+        SELECT public.set_roster_assignment(jsonb_build_object(
+          'id', '${draftAssignments.rows[0].id}',
+          'company_id', '${companyA}'::text,
+          'roster_period_id', '${newPeriodId}'::text,
+          'employee_id', '${empId1A}'::text,
+          'work_date', '2026-12-01',
+          'shift_id', '${customShiftId}',
+          'shift_name_ar', 'تعديل في المسودة',
+          'is_rest_day', false
+        ));
+      `);
+      expect(updateDraft.rows[0].set_roster_assignment.ok).toBe(true);
+    });
+
+    it("Rule 4, 6 & 18: Conflict engine detects canonical leave collision and dynamic rest/streak rules", async () => {
+      await asUser(userHrA);
+
+      // Create period for conflict check
+      const r = await db.query<any>(`
+        INSERT INTO public.roster_periods (company_id, name, period_start, period_end, status)
+        VALUES ('${companyA}', 'فترة فحص الإجازة', '2026-12-10', '2026-12-16', 'draft')
+        RETURNING id;
+      `);
+      const testRosterId = r.rows[0].id;
+
+      // Seed canonical leave in leave_requests
+      await db.exec(`
+        INSERT INTO public.leave_requests (company_id, employee_id, start_date, end_date, status)
+        VALUES ('${companyA}', '${empId1A}', '2026-12-11', '2026-12-12', 'approved');
+      `);
+
+      // Assign work on the leave day (2026-12-11)
+      await db.exec(`
+        INSERT INTO public.schedule_assignments (
+          company_id, employee_id, roster_period_id, work_date, shift_id, shift_name_ar, is_rest_day, status
+        ) VALUES (
+          '${companyA}', '${empId1A}', '${testRosterId}', '2026-12-11', '${customShiftId}', 'دوام متعارض مع إجازة', false, 'draft'
+        );
+      `);
+
+      // Configure company workweek with max 4 consecutive days
+      await db.query(`
+        SELECT public.save_workweek_config('${companyA}'::uuid, jsonb_build_object(
+          'weekend_days', jsonb_build_array(5),
+          'max_consecutive_work_days', 4,
+          'min_weekly_rest_hours', 24,
+          'default_daily_hours', 8
+        ));
+      `);
+
+      const conflictRes = await db.query<{ detect_roster_conflicts: any }>(`
+        SELECT public.detect_roster_conflicts('${testRosterId}'::uuid);
+      `);
+
+      const conflicts = conflictRes.rows[0].detect_roster_conflicts;
+      expect(conflicts.conflict_count).toBeGreaterThanOrEqual(1);
+
+      // Verify leave conflict recorded
+      const leaveExceptions = await db.query<any>(`
+        SELECT * FROM public.roster_exceptions
+        WHERE roster_period_id = '${testRosterId}' AND exception_type = 'leave_conflict';
+      `);
+      expect(leaveExceptions.rows.length).toBeGreaterThanOrEqual(1);
+      expect(leaveExceptions.rows[0].severity).toBe("blocking");
+      expect(leaveExceptions.rows[0].message).toContain("إجازة رسمية معتمدة");
     });
   });
 });

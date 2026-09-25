@@ -55,23 +55,23 @@ export function mapShiftDefinition(row: any, segments: ShiftSegment[] = []): Shi
     nameAr: row.name_ar,
     nameEn: row.name_en || row.name_ar,
     color: row.color || "#0284c7",
-    type: row.type || "fixed",
+    type: row.type,
     startTime: (row.start_time || "").substring(0, 5),
     endTime: (row.end_time || "").substring(0, 5),
     flexibleHours: row.flexible_hours != null ? Number(row.flexible_hours) : undefined,
     splitSecondStartTime: row.split_second_start_time ? row.split_second_start_time.substring(0, 5) : undefined,
     splitSecondEndTime: row.split_second_end_time ? row.split_second_end_time.substring(0, 5) : undefined,
-    graceMinutesArrival: Number(row.grace_minutes_arrival ?? 15),
-    graceMinutesDeparture: Number(row.grace_minutes_departure ?? 15),
+    graceMinutesArrival: row.grace_minutes_arrival != null ? Number(row.grace_minutes_arrival) : 0,
+    graceMinutesDeparture: row.grace_minutes_departure != null ? Number(row.grace_minutes_departure) : 0,
     allowSinglePunch: Boolean(row.allow_single_punch),
     overtimeEligible: Boolean(row.overtime_eligible),
     version: Number(row.version ?? 1),
     status: row.status || "active",
     effectiveFrom: row.effective_from || undefined,
     effectiveTo: row.effective_to || undefined,
-    breakType: row.break_type || "none",
+    breakType: row.break_type || "unpaid",
     autoDeductBreaks: Boolean(row.auto_deduct_breaks),
-    minRestHoursAfter: row.min_rest_hours_after != null ? Number(row.min_rest_hours_after) : 11,
+    minRestHoursAfter: row.min_rest_hours_after != null ? Number(row.min_rest_hours_after) : undefined,
     createdBy: row.created_by || undefined,
     segments: segments.length > 0 ? segments : undefined,
   };
@@ -84,7 +84,7 @@ export function mapRosterPeriod(row: any): RosterPeriod {
     name: row.name,
     startDate: row.period_start || row.start_date || "",
     endDate: row.period_end || row.end_date || "",
-    timezone: row.timezone || "Asia/Riyadh",
+    timezone: row.timezone || "",
     status: row.status || "draft",
     version: Number(row.version ?? 1),
     publishedAt: row.published_at || null,
@@ -138,17 +138,24 @@ export function mapRosterException(row: any): RosterException {
 }
 
 export function mapShiftSwapRequest(row: any): ShiftSwapRequest {
+  const reqId = row.requester_employee_id || row.requester_id || "";
+  const revBy = row.reviewed_by || row.approved_by || null;
+  const revNotes = row.review_notes || row.approval_notes || null;
   return {
     id: row.id,
     companyId: row.company_id,
-    requesterId: row.requester_id,
+    requesterId: reqId,
+    requesterEmployeeId: reqId,
     requesterAssignmentId: row.requester_assignment_id,
     targetEmployeeId: row.target_employee_id,
     targetAssignmentId: row.target_assignment_id,
     reason: row.reason || null,
     status: row.status,
-    approvedBy: row.approved_by || null,
-    approvalNotes: row.approval_notes || null,
+    reviewedBy: revBy,
+    approvedBy: revBy,
+    reviewNotes: revNotes,
+    approvalNotes: revNotes,
+    reviewedAt: row.reviewed_at || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     requesterName: row.requester
@@ -165,14 +172,18 @@ export function mapShiftSwapRequest(row: any): ShiftSwapRequest {
 }
 
 export function mapRosterTemplate(row: any): RosterTemplate {
+  const tType = row.template_type || row.pattern_type || "weekly";
+  const pat = row.pattern || row.template_data || {};
   return {
     id: row.id,
     companyId: row.company_id,
     name: row.name,
     description: row.description || undefined,
-    patternType: row.pattern_type || "weekly",
+    templateType: tType,
+    patternType: tType,
     cycleDays: Number(row.cycle_days ?? 7),
-    templateData: row.template_data || {},
+    pattern: pat,
+    templateData: pat,
     isActive: Boolean(row.is_active),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -180,27 +191,36 @@ export function mapRosterTemplate(row: any): RosterTemplate {
 }
 
 export function mapRotationPattern(row: any): RotationPattern {
+  const pat = row.pattern || row.pattern_sequence || [];
   return {
     id: row.id,
     companyId: row.company_id,
     name: row.name,
+    description: row.description || undefined,
     cycleDays: Number(row.cycle_days ?? 7),
-    patternSequence: row.pattern_sequence || [],
+    pattern: pat,
+    patternSequence: pat,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
 export function mapRosterCoverageRequirement(row: any): RosterCoverageRequirement {
+  const minCount = Number(row.min_headcount ?? row.min_staff ?? 1);
   return {
     id: row.id,
     companyId: row.company_id,
-    rosterPeriodId: row.roster_period_id,
+    rosterPeriodId: row.roster_period_id ?? undefined,
+    name: row.name || "معيار التغطية",
+    workLocationId: row.work_location_id ?? null,
     departmentId: row.department_id ?? null,
+    jobPositionId: row.job_position_id ?? null,
     shiftId: row.shift_id ?? null,
-    dayOfWeek: Number(row.day_of_week ?? 0),
-    minStaff: Number(row.min_staff ?? 1),
+    dayOfWeek: row.day_of_week != null ? Number(row.day_of_week) : null,
+    minHeadcount: minCount,
+    minStaff: minCount,
     maxStaff: row.max_staff != null ? Number(row.max_staff) : null,
+    isMandatory: Boolean(row.is_mandatory),
     createdAt: row.created_at,
   };
 }
@@ -266,21 +286,21 @@ export async function createShiftDefinition(
     name_ar: payload.nameAr,
     name_en: payload.nameEn || payload.nameAr,
     color: payload.color || "#0284c7",
-    type: payload.type || "fixed",
+    type: payload.type,
     start_time: payload.startTime,
     end_time: payload.endTime,
     flexible_hours: payload.flexibleHours ?? null,
     split_second_start_time: payload.splitSecondStartTime ?? null,
     split_second_end_time: payload.splitSecondEndTime ?? null,
-    grace_minutes_arrival: payload.graceMinutesArrival ?? 15,
-    grace_minutes_departure: payload.graceMinutesDeparture ?? 15,
+    grace_minutes_arrival: payload.graceMinutesArrival ?? 0,
+    grace_minutes_departure: payload.graceMinutesDeparture ?? 0,
     allow_single_punch: Boolean(payload.allowSinglePunch),
     overtime_eligible: Boolean(payload.overtimeEligible),
     effective_from: payload.effectiveFrom || null,
     effective_to: payload.effectiveTo || null,
-    break_type: payload.breakType || "none",
-    auto_deduct_breaks: Boolean(payload.autoDeductBreaks),
-    min_rest_hours_after: payload.minRestHoursAfter ?? 11,
+    break_type: payload.breakType || null,
+    auto_deduct_breaks: payload.autoDeductBreaks != null ? Boolean(payload.autoDeductBreaks) : null,
+    min_rest_hours_after: payload.minRestHoursAfter ?? null,
     segments: (payload.segments || []).map((seg, idx) => ({
       segment_order: seg.segmentOrder ?? idx + 1,
       start_time: seg.startTime,
@@ -296,7 +316,8 @@ export async function createShiftDefinition(
   });
 
   if (error) throw mapError(error, "تعذر إنشاء تعريف الوردية");
-  return fetchShiftDefinitionById(data);
+  const shiftId = typeof data === "object" && data !== null ? data.id : String(data);
+  return fetchShiftDefinitionById(shiftId);
 }
 
 export async function updateShiftDefinition(
@@ -340,7 +361,8 @@ export async function updateShiftDefinition(
   });
 
   if (error) throw mapError(error, "تعذر تحديث تعريف الوردية");
-  return fetchShiftDefinitionById(data);
+  const updatedId = typeof data === "object" && data !== null ? data.id : String(data);
+  return fetchShiftDefinitionById(updatedId);
 }
 
 export async function archiveShiftDefinition(shiftId: string): Promise<boolean> {
@@ -349,7 +371,8 @@ export async function archiveShiftDefinition(shiftId: string): Promise<boolean> 
   });
 
   if (error) throw mapError(error, "تعذر أرشفة تعريف الوردية");
-  return Boolean(data);
+  const res = data as any;
+  return Boolean(res?.ok && res?.status === "archived");
 }
 
 // ----------------------------------------------------------------------------
@@ -394,47 +417,32 @@ export async function createRosterPeriod(
   const payload = {
     company_id: period.companyId,
     name: period.name,
-    period_start: period.startDate,
-    period_end: period.endDate,
-    timezone: period.timezone || "Asia/Riyadh",
-    status: period.status || "draft",
+    startDate: period.startDate,
+    endDate: period.endDate,
+    timezone: period.timezone,
     notes: period.notes || null,
   };
 
-  const { data, error } = await db
-    .from("roster_periods")
-    .insert(payload)
-    .select()
-    .single();
+  const { data, error } = await db.rpc("create_roster_period", {
+    p_payload: payload,
+  });
 
   if (error) throw mapError(error, "تعذر إنشاء فترة جدولة جديدة");
-  return mapRosterPeriod(data);
+  const createdId = typeof data === "object" && data !== null ? data.id : String(data);
+  return fetchRosterPeriodById(createdId);
 }
 
 export async function updateRosterPeriod(
   id: string,
   updates: Partial<RosterPeriod>,
 ): Promise<RosterPeriod> {
-  const payload: Record<string, any> = {
-    updated_at: new Date().toISOString(),
-  };
-
-  if (updates.name !== undefined) payload.name = updates.name;
-  if (updates.startDate !== undefined) payload.period_start = updates.startDate;
-  if (updates.endDate !== undefined) payload.period_end = updates.endDate;
-  if (updates.timezone !== undefined) payload.timezone = updates.timezone;
-  if (updates.status !== undefined) payload.status = updates.status;
-  if (updates.notes !== undefined) payload.notes = updates.notes;
-
-  const { data, error } = await db
-    .from("roster_periods")
-    .update(payload)
-    .eq("id", id)
-    .select()
-    .single();
+  const { error } = await db.rpc("update_roster_period", {
+    p_roster_id: id,
+    p_payload: updates,
+  });
 
   if (error) throw mapError(error, "تعذر تحديث فترة الجدولة");
-  return mapRosterPeriod(data);
+  return fetchRosterPeriodById(id);
 }
 
 // ----------------------------------------------------------------------------
@@ -482,68 +490,67 @@ export async function fetchScheduleAssignments(
 export async function upsertScheduleAssignment(
   assignment: Partial<ScheduleAssignment>,
 ): Promise<ScheduleAssignment> {
-  const payload: Record<string, any> = {
+  const payload = {
+    company_id: assignment.companyId,
+    roster_period_id: assignment.rosterPeriodId,
     employee_id: assignment.employeeId,
     work_date: assignment.date,
     shift_id: assignment.shiftId,
-    shift_name_ar: assignment.shiftNameAr,
-    shift_color: assignment.shiftColor,
     is_rest_day: Boolean(assignment.isRestDay),
-    status: assignment.status || "draft",
-    roster_version: assignment.rosterVersion ?? 1,
-    shift_version: assignment.shiftVersion ?? 1,
+    work_location_id: assignment.workLocationId ?? null,
+    source: assignment.source || "manual",
+    notes: assignment.notes ?? null,
   };
 
-  if (assignment.companyId) payload.company_id = assignment.companyId;
-  if (assignment.rosterPeriodId) payload.roster_period_id = assignment.rosterPeriodId;
-  if (assignment.workLocationId !== undefined) payload.work_location_id = assignment.workLocationId;
-  if (assignment.source) payload.source = assignment.source;
-  if (assignment.notes !== undefined) payload.notes = assignment.notes;
-
-  const { data, error } = await db
-    .from("schedule_assignments")
-    .upsert(payload, {
-      onConflict: "employee_id,work_date,roster_version",
-    })
-    .select()
-    .single();
+  const { data, error } = await db.rpc("set_roster_assignment", {
+    p_payload: payload,
+  });
 
   if (error) throw mapError(error, "تعذر حفظ إسناد الوردية");
-  return mapScheduleAssignment(data);
+  const asgId = typeof data === "object" && data !== null ? data.id : String(data);
+  const { data: asgRow, error: fetchErr } = await db
+    .from("schedule_assignments")
+    .select("*")
+    .eq("id", asgId)
+    .single();
+  if (fetchErr || !asgRow) {
+    return mapScheduleAssignment({ ...payload, id: asgId, status: "draft" });
+  }
+  return mapScheduleAssignment(asgRow);
 }
 
 export async function batchUpsertScheduleAssignments(
   assignments: Partial<ScheduleAssignment>[],
 ): Promise<void> {
-  if (assignments.length === 0) return;
-
-  const rows = assignments.map((a) => ({
-    company_id: a.companyId,
-    employee_id: a.employeeId,
-    roster_period_id: a.rosterPeriodId,
-    roster_version: a.rosterVersion ?? 1,
-    work_date: a.date,
-    shift_id: a.shiftId,
-    shift_version: a.shiftVersion ?? 1,
-    shift_name_ar: a.shiftNameAr,
-    shift_color: a.shiftColor,
-    work_location_id: a.workLocationId ?? null,
-    is_rest_day: Boolean(a.isRestDay),
-    status: a.status || "draft",
-    source: a.source || "direct",
-    notes: a.notes ?? null,
-  }));
-
-  const { error } = await db.from("schedule_assignments").upsert(rows, {
-    onConflict: "employee_id,work_date,roster_version",
-  });
-
-  if (error) throw mapError(error, "تعذر حفظ حزمة إسنادات الورديات");
+  for (const a of assignments) {
+    await upsertScheduleAssignment(a);
+  }
 }
 
 export async function deleteScheduleAssignment(id: string): Promise<void> {
-  const { error } = await db.from("schedule_assignments").delete().eq("id", id);
+  const { error } = await db.rpc("delete_roster_assignment", {
+    p_assignment_id: id,
+  });
   if (error) throw mapError(error, "تعذر حذف إسناد الوردية");
+}
+
+export async function createRosterAmendment(
+  rosterPeriodId: string,
+  reason?: string,
+): Promise<{ ok: boolean; newRosterPeriodId: string; newVersion: number; message: string }> {
+  const { data, error } = await db.rpc("create_roster_amendment", {
+    p_roster_period_id: rosterPeriodId,
+    p_reason: reason || "ملحق تعديل رسمي لجدول العمل",
+  });
+
+  if (error) throw mapError(error, "تعذر إنشاء ملحق تعديل لجدول العمل");
+  const res = data as any;
+  return {
+    ok: Boolean(res?.ok),
+    newRosterPeriodId: String(res?.new_roster_period_id || ""),
+    newVersion: Number(res?.new_version ?? 1),
+    message: String(res?.message || "تم إنشاء مسودة ملحق التعديل بنجاح"),
+  };
 }
 
 // ----------------------------------------------------------------------------
@@ -647,14 +654,14 @@ export async function fetchRosterExceptions(
   return ((data as any[]) || []).map(mapRosterException);
 }
 
-export async function resolveRosterException(exceptionId: string): Promise<void> {
-  const { error } = await db
-    .from("roster_exceptions")
-    .update({
-      resolved: true,
-      resolved_at: new Date().toISOString(),
-    })
-    .eq("id", exceptionId);
+export async function resolveRosterException(
+  exceptionId: string,
+  resolutionNote?: string,
+): Promise<void> {
+  const { error } = await db.rpc("resolve_roster_exception", {
+    p_exception_id: exceptionId,
+    p_resolution_note: resolutionNote || "تمت معالجة التعارض واعتماده",
+  });
 
   if (error) throw mapError(error, "تعذر تحديث حالة التعارض");
 }
@@ -695,11 +702,12 @@ export async function fetchShiftSwapRequests(
 export async function createShiftSwapRequest(
   payload: Partial<ShiftSwapRequest>,
 ): Promise<ShiftSwapRequest> {
+  const reqEmpId = payload.requesterEmployeeId || payload.requesterId;
   const { data, error } = await db
     .from("shift_swap_requests")
     .insert({
       company_id: payload.companyId,
-      requester_employee_id: payload.requesterId,
+      requester_employee_id: reqEmpId,
       requester_assignment_id: payload.requesterAssignmentId,
       target_employee_id: payload.targetEmployeeId,
       target_assignment_id: payload.targetAssignmentId,
@@ -734,15 +742,10 @@ export async function rejectShiftSwap(
   swapRequestId: string,
   notes?: string,
 ): Promise<void> {
-  const { error } = await db
-    .from("shift_swap_requests")
-    .update({
-      status: "rejected",
-      review_notes: notes || null,
-      reviewed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", swapRequestId);
+  const { error } = await db.rpc("reject_shift_swap", {
+    p_swap_request_id: swapRequestId,
+    p_reason: notes || "تم رفض طلب التبادل",
+  });
 
   if (error) throw mapError(error, "تعذر رفض طلب تبديل الوردية");
 }
@@ -751,15 +754,8 @@ export async function rejectShiftSwap(
 // Workweek Configuration (companies.workweek_config)
 // ----------------------------------------------------------------------------
 
-export const DEFAULT_WORKWEEK_CONFIG: WorkweekConfig = {
-  weekendDays: [5, 6], // Friday & Saturday
-  maxConsecutiveWorkDays: 6,
-  minWeeklyRestHours: 24,
-  defaultDailyHours: 8,
-};
-
-export async function fetchCompanyWorkweek(companyId?: string): Promise<WorkweekConfig> {
-  if (!companyId) return DEFAULT_WORKWEEK_CONFIG;
+export async function fetchCompanyWorkweek(companyId?: string): Promise<WorkweekConfig | null> {
+  if (!companyId) return null;
 
   const { data, error } = await db
     .from("companies")
@@ -768,15 +764,23 @@ export async function fetchCompanyWorkweek(companyId?: string): Promise<Workweek
     .single();
 
   if (error || !data?.workweek_config) {
-    return DEFAULT_WORKWEEK_CONFIG;
+    return null;
   }
 
   const cfg = data.workweek_config as any;
+  const rawWeekends = Array.isArray(cfg.weekendDays)
+    ? cfg.weekendDays
+    : Array.isArray(cfg.weekend_days)
+    ? cfg.weekend_days
+    : Array.isArray(cfg.rest_days)
+    ? cfg.rest_days
+    : [];
+
   return {
-    weekendDays: Array.isArray(cfg.weekendDays) ? cfg.weekendDays : DEFAULT_WORKWEEK_CONFIG.weekendDays,
-    maxConsecutiveWorkDays: Number(cfg.maxConsecutiveWorkDays ?? DEFAULT_WORKWEEK_CONFIG.maxConsecutiveWorkDays),
-    minWeeklyRestHours: Number(cfg.minWeeklyRestHours ?? DEFAULT_WORKWEEK_CONFIG.minWeeklyRestHours),
-    defaultDailyHours: Number(cfg.defaultDailyHours ?? DEFAULT_WORKWEEK_CONFIG.defaultDailyHours),
+    weekendDays: rawWeekends,
+    maxConsecutiveWorkDays: Number(cfg.maxConsecutiveWorkDays ?? cfg.max_consecutive_work_days ?? 0),
+    minWeeklyRestHours: Number(cfg.minWeeklyRestHours ?? cfg.min_weekly_rest_hours ?? 0),
+    defaultDailyHours: Number(cfg.defaultDailyHours ?? cfg.default_daily_hours ?? 0),
   };
 }
 
@@ -784,13 +788,10 @@ export async function updateCompanyWorkweek(
   companyId: string,
   config: WorkweekConfig,
 ): Promise<void> {
-  const { error } = await db
-    .from("companies")
-    .update({
-      workweek_config: config,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", companyId);
+  const { error } = await db.rpc("save_workweek_config", {
+    p_company_id: companyId,
+    p_config: config,
+  });
 
   if (error) throw mapError(error, "تعذر تحديث إعدادات أسبوع العمل");
 }
@@ -809,6 +810,33 @@ export async function fetchRosterTemplates(companyId?: string): Promise<RosterTe
   return ((data as any[]) || []).map(mapRosterTemplate);
 }
 
+export async function saveRosterTemplate(
+  template: Partial<RosterTemplate>,
+): Promise<RosterTemplate> {
+  const payload: Record<string, any> = {
+    company_id: template.companyId,
+    name: template.name,
+    description: template.description ?? null,
+    cycle_days: template.cycleDays ?? 7,
+    pattern: template.pattern || template.templateData || {},
+  };
+
+  let res;
+  if (template.id) {
+    res = await db.from("roster_templates").update(payload).eq("id", template.id).select().single();
+  } else {
+    res = await db.from("roster_templates").insert(payload).select().single();
+  }
+
+  if (res.error) throw mapError(res.error, "تعذر حفظ قالب الجدول");
+  return mapRosterTemplate(res.data);
+}
+
+export async function deleteRosterTemplate(id: string): Promise<void> {
+  const { error } = await db.from("roster_templates").delete().eq("id", id);
+  if (error) throw mapError(error, "تعذر حذف قالب الجدول");
+}
+
 export async function fetchRotationPatterns(companyId?: string): Promise<RotationPattern[]> {
   let query = db.from("rotation_patterns").select("*").order("name");
   if (companyId) {
@@ -817,4 +845,103 @@ export async function fetchRotationPatterns(companyId?: string): Promise<Rotatio
   const { data, error } = await query;
   if (error) throw mapError(error, "تعذر استرجاع نماذج الدوران");
   return ((data as any[]) || []).map(mapRotationPattern);
+}
+
+export async function saveRotationPattern(
+  pattern: Partial<RotationPattern>,
+): Promise<RotationPattern> {
+  const payload: Record<string, any> = {
+    company_id: pattern.companyId,
+    name: pattern.name,
+    description: pattern.description ?? null,
+    cycle_days: pattern.cycleDays ?? 7,
+    pattern: pattern.pattern || pattern.patternSequence || [],
+  };
+
+  let res;
+  if (pattern.id) {
+    res = await db.from("rotation_patterns").update(payload).eq("id", pattern.id).select().single();
+  } else {
+    res = await db.from("rotation_patterns").insert(payload).select().single();
+  }
+
+  if (res.error) throw mapError(res.error, "تعذر حفظ نموذج الدوران");
+  return mapRotationPattern(res.data);
+}
+
+export async function deleteRotationPattern(id: string): Promise<void> {
+  const { error } = await db.from("rotation_patterns").delete().eq("id", id);
+  if (error) throw mapError(error, "تعذر حذف نموذج الدوران");
+}
+
+export async function generateRosterFromTemplate(
+  rosterPeriodId: string,
+  templateId: string,
+  employeeIds: string[],
+): Promise<{ ok: boolean; createdCount: number; skippedCount: number; message: string }> {
+  const { data, error } = await db.rpc("generate_roster_from_template", {
+    p_roster_period_id: rosterPeriodId,
+    p_template_id: templateId,
+    p_employee_ids: employeeIds,
+  });
+
+  if (error) throw mapError(error, "تعذر تطبيق قالب الجدول");
+  const res = data as any;
+  return {
+    ok: Boolean(res?.ok),
+    createdCount: Number(res?.created_count ?? 0),
+    skippedCount: Number(res?.skipped_count ?? 0),
+    message: String(res?.message || ""),
+  };
+}
+
+// ----------------------------------------------------------------------------
+// Roster Coverage Requirements
+// ----------------------------------------------------------------------------
+
+export async function fetchRosterCoverageRequirements(
+  companyId?: string,
+  rosterPeriodId?: string,
+): Promise<RosterCoverageRequirement[]> {
+  let query = db.from("roster_coverage_requirements").select("*").order("day_of_week");
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
+  if (rosterPeriodId) {
+    query = query.eq("roster_period_id", rosterPeriodId);
+  }
+  const { data, error } = await query;
+  if (error) throw mapError(error, "تعذر استرجاع معايير تغطية الجدول");
+  return ((data as any[]) || []).map(mapRosterCoverageRequirement);
+}
+
+export async function saveRosterCoverageRequirement(
+  req: Partial<RosterCoverageRequirement>,
+): Promise<RosterCoverageRequirement> {
+  const payload: Record<string, any> = {
+    company_id: req.companyId,
+    name: req.name || "معيار تغطية وردية",
+    work_location_id: req.workLocationId ?? null,
+    department_id: req.departmentId ?? null,
+    job_position_id: req.jobPositionId ?? null,
+    shift_id: req.shiftId ?? null,
+    day_of_week: req.dayOfWeek ?? null,
+    min_headcount: req.minHeadcount ?? req.minStaff ?? 1,
+    is_mandatory: Boolean(req.isMandatory),
+  };
+
+  let res;
+  if (req.id) {
+    res = await db.from("roster_coverage_requirements").update(payload).eq("id", req.id).select().single();
+  } else {
+    res = await db.from("roster_coverage_requirements").insert(payload).select().single();
+  }
+
+  if (res.error) throw mapError(res.error, "تعذر حفظ معيار التغطية");
+  return mapRosterCoverageRequirement(res.data);
+}
+
+export async function deleteRosterCoverageRequirement(id: string): Promise<void> {
+  const { error } = await db.from("roster_coverage_requirements").delete().eq("id", id);
+  if (error) throw mapError(error, "تعذر حذف معيار التغطية");
 }

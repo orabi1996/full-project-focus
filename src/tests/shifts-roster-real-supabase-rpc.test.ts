@@ -71,4 +71,43 @@ describe("Prompt 13: Live Supabase Remote RPC & Schema Verification", () => {
     expect(error).not.toBeNull();
     expect(error?.message).toMatch(/فترة الجدولة الأصلية غير موجودة|غير مصرح/);
   });
+
+  it("Real RPC create_roster_amendment rejects non-existent or unauthenticated roster period", async () => {
+    const { data, error } = await supabase.rpc("create_roster_amendment", {
+      p_roster_period_id: "00000000-0000-0000-0000-000000000000",
+      p_reason: "تعديل تجريبي",
+    });
+
+    expect(data).toBeNull();
+    expect(error).not.toBeNull();
+    expect(error?.message).toMatch(/فترة الجدولة الأصلية غير موجودة|غير مصرح|Could not find the function/);
+  });
+
+  it("Real RPC save_workweek_config rejects unauthenticated or invalid payload", async () => {
+    const { data, error } = await supabase.rpc("save_workweek_config", {
+      p_company_id: "00000000-0000-0000-0000-000000000000",
+      p_config: { weekend_days: [5, 6], max_consecutive_work_days: 6, min_weekly_rest_hours: 24, default_daily_hours: 8 },
+    });
+
+    expect(data).toBeNull();
+    expect(error).not.toBeNull();
+    expect(error?.message).toMatch(/غير مصرح|معرف المنشأة|Could not find the function/);
+  });
+
+  it("Real RPC create_shift_definition rejects unauthenticated client creation", async () => {
+    const { data, error } = await supabase.rpc("create_shift_definition", {
+      p_payload: {
+        company_id: "00000000-0000-0000-0000-000000000000",
+        code: "SH-TEST",
+        name_ar: "وردية غير مصرح بها",
+        type: "fixed",
+        start_time: "08:00",
+        end_time: "16:00",
+      },
+    });
+
+    expect(data).toBeNull();
+    expect(error).not.toBeNull();
+    expect(error?.message).toMatch(/غير مصرح|تعذر التعرف|violates foreign key constraint|Could not find the function/);
+  });
 });

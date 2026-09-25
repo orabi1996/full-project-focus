@@ -12,14 +12,14 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Clock, Calendar, Check, Moon, Trash2 } from "lucide-react";
-import type { ShiftDefinition, ScheduleAssignment, Employee } from "../../types";
+import type { ShiftDefinition, ScheduleAssignment, Employee, EmployeeDirectoryItem } from "../../types";
 import { useRosterMutations } from "../../lib/domains/shifts";
 import { toast } from "sonner";
 
 interface AssignShiftModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  employee: Employee | null;
+  employee: Employee | EmployeeDirectoryItem | null;
   date: string;
   currentAssignment?: ScheduleAssignment | null;
   shifts: ShiftDefinition[];

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,8 +10,9 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { Calendar, Layers } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { useRosterMutations } from "../../lib/domains/shifts";
+import { useApp } from "../../lib/context/AppContext";
 import { toast } from "sonner";
 
 interface CreateRosterPeriodModalProps {
@@ -27,21 +28,26 @@ export const CreateRosterPeriodModal: React.FC<CreateRosterPeriodModalProps> = (
   companyId,
   onSuccess,
 }) => {
+  const { company } = useApp();
   const { createPeriod } = useRosterMutations(companyId);
 
-  // Defaults: upcoming week (Sunday to Thursday or Saturday)
-  const today = new Date();
-  const nextSunday = new Date(today);
-  nextSunday.setDate(today.getDate() + ((7 - today.getDay()) % 7 || 7));
-  const nextSaturday = new Date(nextSunday);
-  nextSaturday.setDate(nextSunday.getDate() + 6);
-
-  const [name, setName] = useState(`جدول العمل - ${nextSunday.toISOString().substring(0, 10)}`);
-  const [startDate, setStartDate] = useState(nextSunday.toISOString().substring(0, 10));
-  const [endDate, setEndDate] = useState(nextSaturday.toISOString().substring(0, 10));
-  const [timezone, setTimezone] = useState("Asia/Riyadh");
+  const [name, setName] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [timezone, setTimezone] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setStartDate("");
+      setEndDate("");
+      setNotes("");
+      const resolvedTz = company?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      setTimezone(resolvedTz);
+    }
+  }, [open, company?.timezone]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,8 +55,16 @@ export const CreateRosterPeriodModal: React.FC<CreateRosterPeriodModalProps> = (
       toast.error("يرجى إدخال اسم فترة الجدولة");
       return;
     }
+    if (!startDate || !endDate) {
+      toast.error("يرجى تحديد تاريخ بداية ونهاية الفترة");
+      return;
+    }
     if (startDate > endDate) {
       toast.error("تاريخ البداية يجب أن يكون قبل أو يساوي تاريخ النهاية");
+      return;
+    }
+    if (!timezone.trim()) {
+      toast.error("يرجى تحديد المنطقة الزمنية المعتمدة للفترة");
       return;
     }
 
@@ -61,7 +75,7 @@ export const CreateRosterPeriodModal: React.FC<CreateRosterPeriodModalProps> = (
         name: name.trim(),
         startDate,
         endDate,
-        timezone,
+        timezone: timezone.trim(),
         notes: notes.trim() || undefined,
         status: "draft",
       });
@@ -84,7 +98,7 @@ export const CreateRosterPeriodModal: React.FC<CreateRosterPeriodModalProps> = (
             إنشاء فترة جدولة عمل جديدة (Roster Period)
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            فترة الجدولة تحدد نطاق تواريخ توزيع الورديات على موظفي المنشأة وتكون مسودة حتى اعتمادها ونشرها رسمياً.
+            فترة الجدولة تحدد نطاق تواريخ توزيع الورديات وتكون مسودة حتى اعتمادها ونشرها رسمياً.
           </DialogDescription>
         </DialogHeader>
 
@@ -94,7 +108,7 @@ export const CreateRosterPeriodModal: React.FC<CreateRosterPeriodModalProps> = (
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="مثال: جدول الأسبوع الأول - أكتوبر 2026"
+              placeholder="مثال: جدول شهر أكتوبر 2026"
               className="mt-1 text-xs"
               required
             />
@@ -124,14 +138,17 @@ export const CreateRosterPeriodModal: React.FC<CreateRosterPeriodModalProps> = (
           </div>
 
           <div>
-            <Label className="text-xs font-bold">المنطقة الزمنية المعتمدة</Label>
+            <Label className="text-xs font-bold">المنطقة الزمنية المعتمدة *</Label>
             <Input
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
               className="mt-1 text-xs font-mono"
-              placeholder="Asia/Riyadh"
+              placeholder="مثال: Asia/Riyadh أو UTC"
               required
             />
+            <span className="text-[10px] text-muted-foreground mt-1 block">
+              تُستخرج تلقائياً من بيانات المنشأة المسجلة أو إعدادات النظام الحالية.
+            </span>
           </div>
 
           <div>

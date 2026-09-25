@@ -7,6 +7,9 @@ import type {
   RosterException,
   ShiftSwapRequest,
   WorkweekConfig,
+  RosterTemplate,
+  RotationPattern,
+  RosterCoverageRequirement,
 } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
 import {
@@ -20,6 +23,7 @@ import {
   fetchRosterPeriodById,
   createRosterPeriod,
   updateRosterPeriod,
+  createRosterAmendment,
   fetchScheduleAssignments,
   upsertScheduleAssignment,
   batchUpsertScheduleAssignments,
@@ -35,7 +39,16 @@ import {
   rejectShiftSwap,
   fetchCompanyWorkweek,
   updateCompanyWorkweek,
-  DEFAULT_WORKWEEK_CONFIG,
+  fetchRosterTemplates,
+  saveRosterTemplate,
+  deleteRosterTemplate,
+  fetchRotationPatterns,
+  saveRotationPattern,
+  deleteRotationPattern,
+  generateRosterFromTemplate,
+  fetchRosterCoverageRequirements,
+  saveRosterCoverageRequirement,
+  deleteRosterCoverageRequirement,
 } from "../../data/shifts-repository";
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
@@ -123,13 +136,13 @@ export function useShiftMutations(companyId?: string) {
             nameEn: shift.nameEn || shift.nameAr || "",
             color: shift.color || "#0284c7",
             type: shift.type || "fixed",
-            startTime: shift.startTime || "08:00",
+            startTime: shift.startTime || "09:00",
             endTime: shift.endTime || "17:00",
             flexibleHours: shift.flexibleHours,
             splitSecondStartTime: shift.splitSecondStartTime,
             splitSecondEndTime: shift.splitSecondEndTime,
-            graceMinutesArrival: shift.graceMinutesArrival ?? 15,
-            graceMinutesDeparture: shift.graceMinutesDeparture ?? 15,
+            graceMinutesArrival: shift.graceMinutesArrival ?? 0,
+            graceMinutesDeparture: shift.graceMinutesDeparture ?? 0,
             allowSinglePunch: Boolean(shift.allowSinglePunch),
             overtimeEligible: Boolean(shift.overtimeEligible),
             version: 1,
@@ -138,7 +151,7 @@ export function useShiftMutations(companyId?: string) {
             effectiveTo: shift.effectiveTo,
             breakType: shift.breakType || "none",
             autoDeductBreaks: Boolean(shift.autoDeductBreaks),
-            minRestHoursAfter: shift.minRestHoursAfter ?? 11,
+            minRestHoursAfter: shift.minRestHoursAfter ?? undefined,
             segments: shift.segments,
           };
           demoStore.shifts = [...demoStore.shifts, newShift];
@@ -360,7 +373,7 @@ export function useCompanyWorkweek(companyId?: string) {
   });
 
   return {
-    workweek: query.data ?? DEFAULT_WORKWEEK_CONFIG,
+    workweek: query.data ?? null,
     isLoading: isLive ? query.isLoading : false,
     isError: isLive ? query.isError : false,
     error: query.error,
@@ -397,7 +410,7 @@ export function useRosterMutations(companyId?: string) {
             name: period.name || "فترة جديدة",
             startDate: period.startDate || new Date().toISOString().substring(0, 10),
             endDate: period.endDate || new Date().toISOString().substring(0, 10),
-            timezone: period.timezone || "Asia/Riyadh",
+            timezone: period.timezone || "UTC",
             status: "draft",
             version: 1,
             publishedAt: null,
@@ -442,6 +455,38 @@ export function useRosterMutations(companyId?: string) {
       return result.ok;
     },
     [mode, queryClient],
+  );
+
+  const createAmendment = useCallback(
+    async (
+      rosterPeriodId: string,
+      notes?: string,
+    ): Promise<{ ok: boolean; newRosterPeriodId: string; newVersion: number; message: string } | null> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `amendment-roster-${rosterPeriodId}`,
+        operation: async () => {
+          const res = await createRosterAmendment(rosterPeriodId, notes);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all });
+          return res;
+        },
+        demoOperation: () => ({
+          ok: true,
+          newRosterPeriodId: `roster-${Date.now()}`,
+          newVersion: 2,
+          message: "تم إنشاء مسودة تعديل جديدة للجدول (V+1) بنجاح",
+        }),
+        onCommitted: () => {
+          toast.success("تم إنشاء مسودة تعديل جديدة للجدول (V+1) بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إنشاء مسودة التعديل");
+        },
+      });
+
+      return result.data ?? null;
+    },
+    [mode, companyId, queryClient],
   );
 
   const saveAssignment = useCallback(
@@ -604,12 +649,12 @@ export function useRosterMutations(companyId?: string) {
   );
 
   const resolveException = useCallback(
-    async (exceptionId: string, rosterPeriodId?: string): Promise<boolean> => {
+    async (exceptionId: string, notes?: string, rosterPeriodId?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
         mutationKey: `resolve-exception-${exceptionId}`,
         operation: async () => {
-          await resolveRosterException(exceptionId);
+          await resolveRosterException(exceptionId, notes);
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.exceptions(rosterPeriodId) });
           return true;
         },
@@ -631,7 +676,7 @@ export function useRosterMutations(companyId?: string) {
     async (payload: Partial<ShiftSwapRequest>): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `swap-request-${payload.requesterId}-${Date.now()}`,
+        mutationKey: `swap-request-${payload.requesterEmployeeId || payload.requesterId}-${Date.now()}`,
         operation: async () => {
           await createShiftSwapRequest({
             ...payload,
@@ -731,9 +776,47 @@ export function useRosterMutations(companyId?: string) {
     [mode, companyId, queryClient],
   );
 
+  const generateFromTemplate = useCallback(
+    async (params: {
+      rosterPeriodId: string;
+      templateId?: string;
+      rotationPatternId?: string;
+      employeeIds: string[];
+      startDate: string;
+      endDate: string;
+    }): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `generate-template-${params.rosterPeriodId}`,
+        operation: async () => {
+          const templateOrRotationId = params.templateId || params.rotationPatternId || "";
+          const res = await generateRosterFromTemplate(params.rosterPeriodId, templateOrRotationId, params.employeeIds);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.assignments() });
+          return res;
+        },
+        demoOperation: () => ({
+          ok: true,
+          createdCount: params.employeeIds.length * 7,
+          skippedCount: 0,
+          message: "تم توليد الورديات بنجاح",
+        }),
+        onCommitted: (data) => {
+          toast.success(`تم توليد ${data?.createdCount ?? 0} إسناد وردية بنجاح`);
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر توليد الورديات من القالب/النمط");
+        },
+      });
+
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
   return {
     createPeriod,
     updatePeriod,
+    createAmendment,
     saveAssignment,
     batchSaveAssignments,
     removeAssignment,
@@ -745,5 +828,270 @@ export function useRosterMutations(companyId?: string) {
     approveSwap,
     rejectSwap,
     saveWorkweek,
+    generateFromTemplate,
   };
+}
+
+// ----------------------------------------------------------------------------
+// Roster Templates Queries & Mutations
+// ----------------------------------------------------------------------------
+
+export function useRosterTemplates(companyId?: string) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  const query = useQuery({
+    queryKey: queryKeys.shifts.templates(),
+    queryFn: () => fetchRosterTemplates(companyId),
+    enabled: isLive,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  return {
+    templates: query.data ?? [],
+    isLoading: isLive ? query.isLoading : false,
+    isError: isLive ? query.isError : false,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+export function useTemplateMutations(companyId?: string) {
+  const { session, isDemo } = useAuth();
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
+  const queryClient = useQueryClient();
+
+  const saveTemplate = useCallback(
+    async (template: Partial<RosterTemplate>): Promise<RosterTemplate | null> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `save-template-${template.name || Date.now()}`,
+        operation: async () => {
+          const res = await saveRosterTemplate({
+            ...template,
+            companyId: template.companyId || companyId,
+          });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.templates() });
+          return res;
+        },
+        demoOperation: () => ({
+          id: `tpl-${Date.now()}`,
+          companyId: companyId || "demo-co",
+          name: template.name || "قالب ورديات",
+          templateType: template.templateType || "weekly",
+          pattern: template.pattern || [],
+          isActive: true,
+        } as RosterTemplate),
+        onCommitted: () => {
+          toast.success("تم حفظ قالب جدول الورديات بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر حفظ قالب جدول الورديات");
+        },
+      });
+      return result.data ?? null;
+    },
+    [mode, companyId, queryClient],
+  );
+
+  const removeTemplate = useCallback(
+    async (id: string): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `delete-template-${id}`,
+        operation: async () => {
+          await deleteRosterTemplate(id);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.templates() });
+          return true;
+        },
+        demoOperation: () => true,
+        onCommitted: () => {
+          toast.success("تم حذف القالب بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر حذف القالب");
+        },
+      });
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
+  return { saveTemplate, removeTemplate };
+}
+
+// ----------------------------------------------------------------------------
+// Rotation Patterns Queries & Mutations
+// ----------------------------------------------------------------------------
+
+export function useRotationPatterns(companyId?: string) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  const query = useQuery({
+    queryKey: queryKeys.shifts.rotations(),
+    queryFn: () => fetchRotationPatterns(companyId),
+    enabled: isLive,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  return {
+    patterns: query.data ?? [],
+    isLoading: isLive ? query.isLoading : false,
+    isError: isLive ? query.isError : false,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+export function useRotationMutations(companyId?: string) {
+  const { session, isDemo } = useAuth();
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
+  const queryClient = useQueryClient();
+
+  const savePattern = useCallback(
+    async (pattern: Partial<RotationPattern>): Promise<RotationPattern | null> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `save-rotation-${pattern.name || Date.now()}`,
+        operation: async () => {
+          const res = await saveRotationPattern({
+            ...pattern,
+            companyId: pattern.companyId || companyId,
+          });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.rotations() });
+          return res;
+        },
+        demoOperation: () => ({
+          id: `rot-${Date.now()}`,
+          companyId: companyId || "demo-co",
+          name: pattern.name || "نمط تدوير",
+          cycleDays: pattern.cycleDays || 7,
+          pattern: pattern.pattern || [],
+          patternSequence: pattern.patternSequence,
+        } as RotationPattern),
+        onCommitted: () => {
+          toast.success("تم حفظ نمط التدوير بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر حفظ نمط التدوير");
+        },
+      });
+      return result.data ?? null;
+    },
+    [mode, companyId, queryClient],
+  );
+
+  const removePattern = useCallback(
+    async (id: string): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `delete-rotation-${id}`,
+        operation: async () => {
+          await deleteRotationPattern(id);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.rotations() });
+          return true;
+        },
+        demoOperation: () => true,
+        onCommitted: () => {
+          toast.success("تم حذف نمط التدوير بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر حذف نمط التدوير");
+        },
+      });
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
+  return { savePattern, removePattern };
+}
+
+// ----------------------------------------------------------------------------
+// Roster Coverage Requirements Queries & Mutations
+// ----------------------------------------------------------------------------
+
+export function useRosterCoverageRequirements(companyId?: string, rosterPeriodId?: string) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  const query = useQuery({
+    queryKey: rosterPeriodId ? queryKeys.shifts.coverage(rosterPeriodId) : [...queryKeys.shifts.all, "coverage", "all"],
+    queryFn: () => fetchRosterCoverageRequirements(companyId, rosterPeriodId),
+    enabled: isLive,
+    staleTime: 1000 * 60 * 2,
+  });
+
+  return {
+    requirements: query.data ?? [],
+    isLoading: isLive ? query.isLoading : false,
+    isError: isLive ? query.isError : false,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+export function useCoverageMutations(companyId?: string) {
+  const { session, isDemo } = useAuth();
+  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
+  const queryClient = useQueryClient();
+
+  const saveRequirement = useCallback(
+    async (req: Partial<RosterCoverageRequirement>): Promise<RosterCoverageRequirement | null> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `save-coverage-${req.id || Date.now()}`,
+        operation: async () => {
+          const res = await saveRosterCoverageRequirement({
+            ...req,
+            companyId: req.companyId || companyId,
+          });
+          await queryClient.invalidateQueries({ queryKey: [...queryKeys.shifts.all, "coverage"] });
+          return res;
+        },
+        demoOperation: () => ({
+          id: `cov-${Date.now()}`,
+          companyId: companyId || "demo-co",
+          rosterPeriodId: req.rosterPeriodId,
+          shiftId: req.shiftId || "",
+          minHeadcount: req.minHeadcount || 1,
+          isMandatory: req.isMandatory ?? true,
+        } as RosterCoverageRequirement),
+        onCommitted: () => {
+          toast.success("تم حفظ متطلبات التغطية التشغيلية بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر حفظ متطلبات التغطية");
+        },
+      });
+      return result.data ?? null;
+    },
+    [mode, companyId, queryClient],
+  );
+
+  const removeRequirement = useCallback(
+    async (id: string): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `delete-coverage-${id}`,
+        operation: async () => {
+          await deleteRosterCoverageRequirement(id);
+          await queryClient.invalidateQueries({ queryKey: [...queryKeys.shifts.all, "coverage"] });
+          return true;
+        },
+        demoOperation: () => true,
+        onCommitted: () => {
+          toast.success("تم حذف متطلب التغطية");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر حذف متطلب التغطية");
+        },
+      });
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
+  return { saveRequirement, removeRequirement };
 }

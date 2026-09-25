@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { Calendar, Save, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Calendar, Save, ShieldCheck } from "lucide-react";
 import type { WorkweekConfig } from "../../types";
 import { useCompanyWorkweek, useRosterMutations } from "../../lib/domains/shifts";
 
@@ -28,18 +28,19 @@ export const WorkweekConfigCard: React.FC<WorkweekConfigCardProps> = ({
   const { workweek, isLoading } = useCompanyWorkweek(companyId);
   const { saveWorkweek } = useRosterMutations(companyId);
 
-  const [weekendDays, setWeekendDays] = useState<number[]>([5, 6]);
-  const [maxConsecutiveWorkDays, setMaxConsecutiveWorkDays] = useState(6);
-  const [minWeeklyRestHours, setMinWeeklyRestHours] = useState(24);
-  const [defaultDailyHours, setDefaultDailyHours] = useState(8);
+  // Initialize without hardcoded Friday/Saturday
+  const [weekendDays, setWeekendDays] = useState<number[]>([]);
+  const [maxConsecutiveWorkDays, setMaxConsecutiveWorkDays] = useState<number | "">("");
+  const [minWeeklyRestHours, setMinWeeklyRestHours] = useState<number | "">("");
+  const [defaultDailyHours, setDefaultDailyHours] = useState<number | "">("");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (workweek) {
-      setWeekendDays(workweek.weekendDays || [5, 6]);
-      setMaxConsecutiveWorkDays(workweek.maxConsecutiveWorkDays ?? 6);
-      setMinWeeklyRestHours(workweek.minWeeklyRestHours ?? 24);
-      setDefaultDailyHours(workweek.defaultDailyHours ?? 8);
+      setWeekendDays(workweek.weekendDays || []);
+      setMaxConsecutiveWorkDays(workweek.maxConsecutiveWorkDays ?? "");
+      setMinWeeklyRestHours(workweek.minWeeklyRestHours ?? "");
+      setDefaultDailyHours(workweek.defaultDailyHours ?? "");
     }
   }, [workweek]);
 
@@ -55,9 +56,9 @@ export const WorkweekConfigCard: React.FC<WorkweekConfigCardProps> = ({
     try {
       await saveWorkweek({
         weekendDays,
-        maxConsecutiveWorkDays: Number(maxConsecutiveWorkDays),
-        minWeeklyRestHours: Number(minWeeklyRestHours),
-        defaultDailyHours: Number(defaultDailyHours),
+        maxConsecutiveWorkDays: maxConsecutiveWorkDays !== "" ? Number(maxConsecutiveWorkDays) : undefined,
+        minWeeklyRestHours: minWeeklyRestHours !== "" ? Number(minWeeklyRestHours) : undefined,
+        defaultDailyHours: defaultDailyHours !== "" ? Number(defaultDailyHours) : undefined,
       });
     } finally {
       setIsSaving(false);
@@ -70,10 +71,10 @@ export const WorkweekConfigCard: React.FC<WorkweekConfigCardProps> = ({
         <div>
           <h3 className="text-sm font-black text-foreground flex items-center gap-2">
             <Calendar className="h-4 w-4 text-primary" />
-            سياسة أسبوع العمل وأيام العطلات الرسمية (Workweek & Rest Policy)
+            قواعد أسبوع العمل الخاصة بالمنشأة (Workweek & Rest Policy)
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            تحديد أيام الراحة الأسبوعية وقواعد نظام العمل السعودي لاحتساب أيام العمل والراحة تلقائياً في الجداول.
+            تحديد أيام الراحة الأسبوعية المعتمدة للمنشأة والحدود التشغيلية لاحتساب أيام العمل والراحة في الجداول.
           </p>
         </div>
 
@@ -90,10 +91,24 @@ export const WorkweekConfigCard: React.FC<WorkweekConfigCardProps> = ({
         )}
       </div>
 
+      {!isLoading && !workweek && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1">
+            <p className="font-bold text-amber-800 dark:text-amber-400">
+              لم يتم تكوين سياسة أسبوع العمل للمنشأة بعد
+            </p>
+            <p className="text-muted-foreground">
+              يرجى تحديد أيام الراحة الأسبوعية والحدود التشغيلية أدناه وحفظها لتطبيقها عند توليد وفحص جداول العمل.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
         {/* Weekend Days Selection */}
         <div>
-          <Label className="text-xs font-bold block mb-2">أيام الراحة الأسبوعية الثابتة للمنشأة</Label>
+          <Label className="text-xs font-bold block mb-2">أيام الراحة الأسبوعية المعتمدة للمنشأة</Label>
           <div className="flex flex-wrap gap-2">
             {DAYS.map((d) => {
               const isSelected = weekendDays.includes(d.value);
@@ -115,11 +130,11 @@ export const WorkweekConfigCard: React.FC<WorkweekConfigCardProps> = ({
             })}
           </div>
           <span className="text-[10px] text-muted-foreground block mt-1.5">
-            الأيام المحددة يتم اعتبارها أيام راحة (Off Days) افتراضية عند توزيع الورديات في الجداول.
+            الأيام المحددة يتم اعتبارها أيام راحة (Off Days) للمنشأة عند جدولة وتوزيع الورديات.
           </span>
         </div>
 
-        {/* Regulatory Thresholds */}
+        {/* Operating Thresholds */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
           <div className="p-3.5 bg-muted/20 rounded-2xl border border-border/60 space-y-1.5">
             <Label className="text-xs font-bold">أقصى أيام عمل متتالية</Label>
@@ -128,12 +143,13 @@ export const WorkweekConfigCard: React.FC<WorkweekConfigCardProps> = ({
               min={1}
               max={14}
               value={maxConsecutiveWorkDays}
-              onChange={(e) => setMaxConsecutiveWorkDays(Number(e.target.value))}
+              onChange={(e) => setMaxConsecutiveWorkDays(e.target.value === "" ? "" : Number(e.target.value))}
               disabled={!canManage}
+              placeholder="مثال: 6"
               className="text-xs font-mono"
             />
             <span className="text-[10px] text-muted-foreground block">
-              نظام العمل: لا يجوز تشغيل العامل أكثر من 6 أيام متتالية دون راحة أسبوعية.
+              الحد الأقصى لأيام العمل المتتالية المسموح بها للموظف قبل وجوب يوم راحة.
             </span>
           </div>
 
@@ -141,15 +157,16 @@ export const WorkweekConfigCard: React.FC<WorkweekConfigCardProps> = ({
             <Label className="text-xs font-bold">الحد الأدنى لساعات الراحة الأسبوعية</Label>
             <Input
               type="number"
-              min={24}
-              max={48}
+              min={12}
+              max={72}
               value={minWeeklyRestHours}
-              onChange={(e) => setMinWeeklyRestHours(Number(e.target.value))}
+              onChange={(e) => setMinWeeklyRestHours(e.target.value === "" ? "" : Number(e.target.value))}
               disabled={!canManage}
+              placeholder="مثال: 24"
               className="text-xs font-mono"
             />
             <span className="text-[10px] text-muted-foreground block">
-              المادة 104: راحة أسبوعية بأجر كامل لا تقل عن 24 ساعة متتالية.
+              الحد الأدنى من الساعات المتتالية للراحة الأسبوعية المقررة.
             </span>
           </div>
 
@@ -157,15 +174,16 @@ export const WorkweekConfigCard: React.FC<WorkweekConfigCardProps> = ({
             <Label className="text-xs font-bold">ساعات العمل اليومية القياسية</Label>
             <Input
               type="number"
-              min={4}
-              max={12}
+              min={1}
+              max={16}
               value={defaultDailyHours}
-              onChange={(e) => setDefaultDailyHours(Number(e.target.value))}
+              onChange={(e) => setDefaultDailyHours(e.target.value === "" ? "" : Number(e.target.value))}
               disabled={!canManage}
+              placeholder="مثال: 8"
               className="text-xs font-mono"
             />
             <span className="text-[10px] text-muted-foreground block">
-              المادة 98: 8 ساعات عمل يومياً في الأيام العادية (أو 48 ساعة أسبوعياً).
+              عدد ساعات العمل المعتمدة لاحتساب الدوام اليومي القياسي.
             </span>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,15 +10,16 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { ArrowLeftRight, UserCheck } from "lucide-react";
-import type { Employee, ScheduleAssignment, ShiftSwapRequest } from "../../types";
+import { ArrowLeftRight } from "lucide-react";
+import type { ScheduleAssignment, Employee, EmployeeDirectoryItem } from "../../types";
 import { useRosterMutations } from "../../lib/domains/shifts";
+import { useApp } from "../../lib/context/AppContext";
 import { toast } from "sonner";
 
 interface CreateShiftSwapModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  employees: Employee[];
+  employees: (Employee | EmployeeDirectoryItem)[];
   assignments: ScheduleAssignment[];
   companyId?: string;
   onSuccess?: () => void;
@@ -32,6 +33,7 @@ export const CreateShiftSwapModal: React.FC<CreateShiftSwapModalProps> = ({
   companyId,
   onSuccess,
 }) => {
+  const { currentUser, currentRole } = useApp();
   const { createSwap } = useRosterMutations(companyId);
 
   const [requesterId, setRequesterId] = useState("");
@@ -40,6 +42,20 @@ export const CreateShiftSwapModal: React.FC<CreateShiftSwapModalProps> = ({
   const [targetAssignmentId, setTargetAssignmentId] = useState("");
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      if (currentUser?.id && currentRole === "employee") {
+        setRequesterId(currentUser.id);
+      } else {
+        setRequesterId("");
+      }
+      setRequesterAssignmentId("");
+      setTargetEmployeeId("");
+      setTargetAssignmentId("");
+      setReason("");
+    }
+  }, [open, currentUser?.id, currentRole]);
 
   const requesterAssignments = assignments.filter((a) => a.employeeId === requesterId && !a.isRestDay);
   const targetAssignments = assignments.filter((a) => a.employeeId === targetEmployeeId && !a.isRestDay);
@@ -63,6 +79,7 @@ export const CreateShiftSwapModal: React.FC<CreateShiftSwapModalProps> = ({
     try {
       const ok = await createSwap({
         companyId,
+        requesterEmployeeId: requesterId,
         requesterId,
         requesterAssignmentId,
         targetEmployeeId,
@@ -89,7 +106,7 @@ export const CreateShiftSwapModal: React.FC<CreateShiftSwapModalProps> = ({
             تقديم طلب تبديل وردية بين موظفين
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            إرسال طلب تبديل جدول العمل لمراجعة الزميل واعتماد الإدارة دون الإخلال بساعات العمل النظامية.
+            إرسال طلب تبديل جدول العمل لمراجعة الزميل واعتماد الإدارة دون الإخلال بسلامة الجداول.
           </DialogDescription>
         </DialogHeader>
 

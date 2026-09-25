@@ -374,7 +374,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
       {/* MODAL 1: Quick Leave Request */}
       <Dialog open={isQuickLeaveModalOpen} onOpenChange={setIsQuickLeaveModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-y-auto max-h-[90vh] border border-border/80 shadow-2xl">
           <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
           <DialogHeader className="pt-1">
             <DialogTitle className="text-base font-black flex items-center gap-2">
@@ -460,7 +460,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
       {/* MODAL 2: Quick Punch Regularization */}
       <Dialog open={isPunchCorrectionModalOpen} onOpenChange={setIsPunchCorrectionModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-y-auto max-h-[90vh] border border-border/80 shadow-2xl">
           <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
           <DialogHeader className="pt-1">
             <DialogTitle className="text-base font-black flex items-center gap-2">
@@ -532,7 +532,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
 
       {/* MODAL 3: Salary Certificate Modal */}
       <Dialog open={isCertificateModalOpen} onOpenChange={setIsCertificateModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+        <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-y-auto max-h-[90vh] border border-border/80 shadow-2xl">
           <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
           <DialogHeader className="pt-1">
             <DialogTitle className="text-base font-black flex items-center gap-2">
@@ -587,7 +587,7 @@ export const EssMobileView: React.FC<{ onNavigate: (tabId: string) => void }> = 
       {/* MODAL 4: Mobile Payslip Modal with Overtime & Print */}
       {myPayroll && (
         <Dialog open={isPayslipModalOpen} onOpenChange={setIsPayslipModalOpen}>
-          <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-hidden border border-border/80 shadow-2xl">
+          <DialogContent className="max-w-md rounded-3xl p-6 relative overflow-y-auto max-h-[90vh] border border-border/80 shadow-2xl">
             <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
             <DialogHeader className="pt-1">
               <DialogTitle className="text-base font-black flex items-center gap-2">

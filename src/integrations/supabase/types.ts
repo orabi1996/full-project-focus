@@ -1235,6 +1235,51 @@ export type Database = {
           },
         ]
       }
+      file_objects: {
+        Row: {
+          archived_at: string | null
+          bucket_id: string
+          content_type: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          object_path: string
+          replaces_file_id: string | null
+          size_bytes: number | null
+          status: string
+          version: number
+        }
+        Insert: {
+          archived_at?: string | null
+          bucket_id: string
+          content_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          object_path: string
+          replaces_file_id?: string | null
+          size_bytes?: number | null
+          status?: string
+          version?: number
+        }
+        Update: {
+          archived_at?: string | null
+          bucket_id?: string
+          content_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          object_path?: string
+          replaces_file_id?: string | null
+          size_bytes?: number | null
+          status?: string
+          version?: number
+        }
+        Relationships: []
+      }
       hardware_assets: {
         Row: {
           asset_tag: string
@@ -2865,6 +2910,15 @@ export type Database = {
         Args: { p_overtime_id: string }
         Returns: Json
       }
+      archive_business_document: {
+        Args: { p_document_id: string; p_document_type: string }
+        Returns: Json
+      }
+      archive_file_object: { Args: { p_file_id: string }; Returns: Json }
+      finalize_file_replacement: {
+        Args: { p_new_file_id: string; p_previous_file_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2873,6 +2927,10 @@ export type Database = {
         Returns: boolean
       }
       is_hr: { Args: { _user_id: string }; Returns: boolean }
+      log_file_download_access: {
+        Args: { p_access_type: string; p_file_id: string }
+        Returns: Json
+      }
       reject_attendance_correction: {
         Args: { p_request_id: string }
         Returns: Json

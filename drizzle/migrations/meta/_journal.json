@@ -8,6 +8,13 @@
       "when": 1790345812676,
       "tag": "0000_add_delegation_overtime_and_document_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790345855266,
+      "tag": "0001_add_file_objects_and_journal_status",
+      "breakpoints": true
     }
   ]
 }

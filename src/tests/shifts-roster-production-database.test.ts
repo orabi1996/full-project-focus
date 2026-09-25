@@ -13,11 +13,15 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
   const userHrA = "11111111-aaaa-aaaa-aaaa-111111111111";
   const userEmp1A = "22222222-aaaa-aaaa-aaaa-222222222222";
   const userEmp2A = "33333333-aaaa-aaaa-aaaa-333333333333";
+  const userMgrA = "55555555-aaaa-aaaa-aaaa-555555555555";
   const userHrB = "44444444-bbbb-bbbb-bbbb-444444444444";
+  const userEmpB = "66666666-bbbb-bbbb-bbbb-666666666666";
 
+  const empIdMgrA = "e0000000-0000-0000-0000-000000000004";
   const empId1A = "e0000000-0000-0000-0000-000000000001";
   const empId2A = "e0000000-0000-0000-0000-000000000002";
   const empId1B = "e0000000-0000-0000-0000-000000000003";
+  const empIdEmpB = "e0000000-0000-0000-0000-000000000005";
 
   // Helper to switch caller in PGlite session
   async function asUser(userId: string | null, role: string = "authenticated") {
@@ -45,6 +49,11 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
       CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql AS $$
         SELECT COALESCE(nullif(current_setting('test.auth_role', true), ''), 'authenticated')
       $$;
+
+      GRANT USAGE ON SCHEMA auth TO authenticated, anon, service_role;
+      GRANT SELECT ON ALL TABLES IN SCHEMA auth TO authenticated, anon, service_role;
+      GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO authenticated, anon, service_role;
+      GRANT USAGE ON SCHEMA public TO authenticated, anon, service_role;
 
       DO $$ BEGIN
         CREATE TYPE public.app_role AS ENUM (
@@ -249,13 +258,20 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
     const migration3Sql = fs.readFileSync(migration3Path, "utf-8");
     await db.exec(migration3Sql);
 
+    // 2.3 Load and Apply Migration 20260925030000_finalize_authoritative_roster_security.sql
+    const migration4Path = path.resolve(__dirname, "../../supabase/migrations/20260925030000_finalize_authoritative_roster_security.sql");
+    const migration4Sql = fs.readFileSync(migration4Path, "utf-8");
+    await db.exec(migration4Sql);
+
     // 3. Seed Companies, Employees, Users, and Roles
     await db.exec(`
       INSERT INTO auth.users (id, email) VALUES
         ('${userHrA}', 'hr_a@andalus.sa'),
         ('${userEmp1A}', 'emp1_a@andalus.sa'),
         ('${userEmp2A}', 'emp2_a@andalus.sa'),
-        ('${userHrB}', 'hr_b@other.sa')
+        ('${userMgrA}', 'mgr_a@andalus.sa'),
+        ('${userHrB}', 'hr_b@other.sa'),
+        ('${userEmpB}', 'emp_b@other.sa')
       ON CONFLICT DO NOTHING;
 
       INSERT INTO public.companies (id, legal_name_ar, timezone) VALUES
@@ -263,17 +279,21 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
         ('${companyB}', 'شركة النور للمقاولات', 'Asia/Riyadh')
       ON CONFLICT DO NOTHING;
 
-      INSERT INTO public.employees (id, user_id, company_id, employee_no, first_name_ar, last_name_ar) VALUES
-        ('${empId1A}', '${userEmp1A}', '${companyA}', 'EMP-001', 'أحمد', 'السعيد'),
-        ('${empId2A}', '${userEmp2A}', '${companyA}', 'EMP-002', 'محمد', 'العلي'),
-        ('${empId1B}', '${userHrB}', '${companyB}', 'EMP-901', 'خالد', 'الغامدي')
+      INSERT INTO public.employees (id, user_id, company_id, manager_id, employee_no, first_name_ar, last_name_ar) VALUES
+        ('${empIdMgrA}', '${userMgrA}', '${companyA}', NULL, 'MGR-001', 'سعد', 'المدير'),
+        ('${empId1A}', '${userEmp1A}', '${companyA}', '${empIdMgrA}', 'EMP-001', 'أحمد', 'السعيد'),
+        ('${empId2A}', '${userEmp2A}', '${companyA}', NULL, 'EMP-002', 'محمد', 'العلي'),
+        ('${empId1B}', '${userHrB}', '${companyB}', NULL, 'EMP-901', 'خالد', 'الغامدي'),
+        ('${empIdEmpB}', '${userEmpB}', '${companyB}', NULL, 'EMP-902', 'ياسر', 'الشهري')
       ON CONFLICT DO NOTHING;
 
       INSERT INTO public.employee_roles (user_id, company_id, role) VALUES
         ('${userHrA}', '${companyA}', 'hr_manager'),
+        ('${userMgrA}', '${companyA}', 'line_manager'),
         ('${userEmp1A}', '${companyA}', 'employee'),
         ('${userEmp2A}', '${companyA}', 'employee'),
-        ('${userHrB}', '${companyB}', 'hr_manager')
+        ('${userHrB}', '${companyB}', 'hr_manager'),
+        ('${userEmpB}', '${companyB}', 'employee')
       ON CONFLICT DO NOTHING;
     `);
   }, 60000);
@@ -1168,7 +1188,7 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
           INSERT INTO public.roster_periods (company_id, name, period_start, period_end, status, timezone, version)
           VALUES ('${companyA}', 'جدول منشور مكرر غير مسموح', '2026-11-15', '2026-11-21', 'published', 'Asia/Riyadh', 99);
         `)
-      ).rejects.toThrow(/uq_roster_periods_single_published_per_range|unique/i);
+      ).rejects.toThrow(/uq_roster_periods_single_published_per_range|unique|فترات جداول عمل منشورة متداخلة/i);
     });
 
     it("8.3: Deterministic Effective Published Schedule view and RPC return V2 and ignore superseded V1", async () => {
@@ -1404,6 +1424,229 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
           ));
         `)
       ).rejects.toThrow(/effective_from.*إلزامي/);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // SUITE 9: Prompt 13.3 Security & Authoritative Schedule Closure
+  // --------------------------------------------------------------------------
+  describe("Suite 9: Prompt 13.3 Security & Authoritative Schedule Closure", () => {
+    let p9ShiftId: string;
+    let p9Roster1Id: string;
+    let p9Roster2Id: string;
+
+    beforeAll(async () => {
+      await asUser(userHrA);
+
+      // Create a test shift
+      const sRes = await db.query<any>(`
+        SELECT public.create_shift_definition(jsonb_build_object(
+          'company_id', '${companyA}'::text,
+          'code', 'SH-P9',
+          'name_ar', 'وردية أمن الإغلاق',
+          'type', 'fixed',
+          'effective_from', '2026-01-01',
+          'start_time', '08:00',
+          'end_time', '16:00',
+          'grace_minutes_arrival', 15,
+          'grace_minutes_departure', 15,
+          'overtime_eligible', true
+        ));
+      `);
+      p9ShiftId = sRes.rows[0].create_shift_definition.id;
+
+      // Create Roster 1: 2027-01-01 to 2027-01-10
+      const rpRes = await db.query<any>(`
+        INSERT INTO public.roster_periods (company_id, name, period_start, period_end, status, version)
+        VALUES ('${companyA}', 'فترة يناير الأولى', '2027-01-01', '2027-01-10', 'draft', 1)
+        RETURNING id;
+      `);
+      p9Roster1Id = rpRes.rows[0].id;
+
+      // Assign to empId1A for 2027-01-02
+      await db.exec(`
+        INSERT INTO public.schedule_assignments (company_id, roster_period_id, roster_version, employee_id, work_date, shift_id, status)
+        VALUES ('${companyA}', '${p9Roster1Id}', 1, '${empId1A}', '2027-01-02', '${p9ShiftId}', 'draft');
+      `);
+
+      // Publish Roster 1
+      await db.query(`SELECT public.publish_roster('${p9Roster1Id}'::uuid);`);
+    });
+
+    it("9.1: Cross-tenant schedule query rejection with 42501", async () => {
+      await asUser(userHrA);
+
+      // Company A user queries schedule for Company B employee
+      await expect(
+        db.query(`
+          SELECT public.get_effective_published_schedule('${empIdEmpB}'::uuid, '2027-01-02'::date);
+        `)
+      ).rejects.toThrow(/غير مصرح.*لا يمكنك الاطلاع على جدول موظف تابع لمنشأة أخرى/);
+    });
+
+    it("9.2: Employee cannot query peer schedule (42501), but can query own schedule", async () => {
+      // 1. Employee 1 queries Peer Employee 2 schedule -> Denied
+      await asUser(userEmp1A);
+      await expect(
+        db.query(`
+          SELECT public.get_effective_published_schedule('${empId2A}'::uuid, '2027-01-02'::date);
+        `)
+      ).rejects.toThrow(/غير مصرح.*ليس لديك صلاحية للاطلاع على جدول هذا الموظف/);
+
+      // 2. Employee 1 queries Own schedule -> Allowed
+      const ownRes = await db.query<any>(`
+        SELECT public.get_effective_published_schedule('${empId1A}'::uuid, '2027-01-02'::date);
+      `);
+      const sched = ownRes.rows[0].get_effective_published_schedule;
+      expect(sched).not.toBeNull();
+      expect(sched.shift_code).toBe("SH-P9");
+      expect(sched.work_date).toBe("2027-01-02");
+    });
+
+    it("9.3: Line manager can query direct reports, but cannot query other employees (42501)", async () => {
+      await asUser(userMgrA);
+
+      // 1. Manager queries direct report (empId1A) -> Allowed
+      const reportRes = await db.query<any>(`
+        SELECT public.get_effective_published_schedule('${empId1A}'::uuid, '2027-01-02'::date);
+      `);
+      expect(reportRes.rows[0].get_effective_published_schedule).not.toBeNull();
+
+      // 2. Manager queries non-direct report (empId2A) -> Denied
+      await expect(
+        db.query(`
+          SELECT public.get_effective_published_schedule('${empId2A}'::uuid, '2027-01-02'::date);
+        `)
+      ).rejects.toThrow(/غير مصرح.*ليس لديك صلاحية للاطلاع على جدول هذا الموظف/);
+    });
+
+    it("9.4: Overlapping published rosters blocked by trigger and publish_roster", async () => {
+      await asUser(userHrA);
+
+      // Create overlapping roster: 2027-01-05 to 2027-01-15 (overlaps with 2027-01-01 to 2027-01-10)
+      const rpRes = await db.query<any>(`
+        INSERT INTO public.roster_periods (company_id, name, period_start, period_end, status, version)
+        VALUES ('${companyA}', 'فترة يناير المتداخلة', '2027-01-05', '2027-01-15', 'draft', 1)
+        RETURNING id;
+      `);
+      p9Roster2Id = rpRes.rows[0].id;
+
+      // 1. Attempt to publish via RPC -> Rejected with overlap explanation
+      await expect(
+        db.query(`SELECT public.publish_roster('${p9Roster2Id}'::uuid);`)
+      ).rejects.toThrow(/يمنع تداخل فترات الجداول المنشورة للمنشأة الواحدة/);
+
+      // 2. Attempt direct table update to published -> Rejected by database trigger
+      await expect(
+        db.query(`
+          UPDATE public.roster_periods SET status = 'published' WHERE id = '${p9Roster2Id}';
+        `)
+      ).rejects.toThrow(/لا يمكن وجود فترات جداول عمل منشورة متداخلة لنفس المنشأة/);
+    });
+
+    it("9.5: Legitimate amendment (same range) supersedes V1 atomically and publishes V2", async () => {
+      await asUser(userHrA);
+
+      // Create legitimate amendment for Roster 1 (exact same date range 2027-01-01 to 2027-01-10)
+      const amendRes = await db.query<any>(`
+        SELECT public.create_roster_amendment('${p9Roster1Id}'::uuid, 'تحديث ورديات يناير');
+      `);
+      const v2RosterId = amendRes.rows[0].create_roster_amendment.id || amendRes.rows[0].create_roster_amendment.new_roster_period_id;
+      expect(v2RosterId).toBeDefined();
+
+      // Publish V2 -> Should atomically supersede V1 and succeed
+      const pubRes = await db.query<any>(`
+        SELECT public.publish_roster('${v2RosterId}'::uuid);
+      `);
+      expect(pubRes.rows[0].publish_roster.ok).toBe(true);
+      expect(pubRes.rows[0].publish_roster.version).toBe(2);
+      expect(pubRes.rows[0].publish_roster.superseded_period_id).toBe(p9Roster1Id);
+
+      // Verify V1 is superseded and V2 is published
+      const v1Check = await db.query<any>(`SELECT status FROM public.roster_periods WHERE id = '${p9Roster1Id}';`);
+      expect(v1Check.rows[0].status).toBe("superseded");
+
+      const v2Check = await db.query<any>(`SELECT status FROM public.roster_periods WHERE id = '${v2RosterId}';`);
+      expect(v2Check.rows[0].status).toBe("published");
+    });
+
+    it("9.6: Cardinality guard triggers authoritative_schedule_integrity_error if duplicate schedules exist", async () => {
+      await asUser(userHrA);
+
+      // Create a secondary published roster period via trigger bypass to simulate an integrity anomaly
+      await db.exec(`ALTER TABLE public.roster_periods DISABLE TRIGGER trg_prevent_overlapping_published_rosters;`);
+
+      const dupePeriod = await db.query<any>(`
+        INSERT INTO public.roster_periods (company_id, name, period_start, period_end, status, version)
+        VALUES ('${companyA}', 'فترة مكررة تجريبية', '2027-01-02', '2027-01-08', 'published', 99)
+        RETURNING id;
+      `);
+      const dupePeriodId = dupePeriod.rows[0].id;
+
+      await db.exec(`
+        INSERT INTO public.schedule_assignments (company_id, roster_period_id, roster_version, employee_id, work_date, shift_id, status)
+        VALUES ('${companyA}', '${dupePeriodId}', 99, '${empId1A}', '2027-01-02', '${p9ShiftId}', 'published');
+      `);
+
+      await db.exec(`ALTER TABLE public.roster_periods ENABLE TRIGGER trg_prevent_overlapping_published_rosters;`);
+
+      // Querying should raise authoritative_schedule_integrity_error (P0001)
+      await expect(
+        db.query(`
+          SELECT public.get_effective_published_schedule('${empId1A}'::uuid, '2027-01-02'::date);
+        `)
+      ).rejects.toThrow(/authoritative_schedule_integrity_error/);
+
+      // Clean up the anomaly
+      await db.exec(`
+        SELECT set_config('roster.allow_published_mutation', 'on', true);
+        DELETE FROM public.schedule_assignments WHERE roster_period_id = '${dupePeriodId}';
+        DELETE FROM public.roster_periods WHERE id = '${dupePeriodId}';
+        SELECT set_config('roster.allow_published_mutation', 'off', true);
+      `);
+    });
+
+    it("9.7: View security invoker: Company A authenticated user receives 0 rows for Company B", async () => {
+      // 1. As Company B HR, insert a published schedule in Company B
+      await asUser(userHrB);
+      const bRoster = await db.query<any>(`
+        INSERT INTO public.roster_periods (company_id, name, period_start, period_end, status, version)
+        VALUES ('${companyB}', 'فترة شركة النور', '2027-01-01', '2027-01-07', 'published', 1)
+        RETURNING id;
+      `);
+      const bRosterId = bRoster.rows[0].id;
+
+      await db.exec(`
+        INSERT INTO public.schedule_assignments (company_id, roster_period_id, roster_version, employee_id, work_date, status)
+        VALUES ('${companyB}', '${bRosterId}', 1, '${empIdEmpB}', '2027-01-03', 'published');
+      `);
+
+      // 2. As Company A employee, query view under role authenticated
+      await asUser(userEmp1A);
+      await db.exec("SET ROLE authenticated;");
+
+      const viewQuery = await db.query<any>(`
+        SELECT * FROM public.vw_effective_published_schedules WHERE company_id = '${companyB}'::uuid;
+      `);
+      expect(viewQuery.rows.length).toBe(0);
+
+      // 3. As Company A employee, query view for peer employee in Company A
+      const peerQuery = await db.query<any>(`
+        SELECT * FROM public.vw_effective_published_schedules WHERE employee_id = '${empId2A}'::uuid;
+      `);
+      expect(peerQuery.rows.length).toBe(0);
+
+      await db.exec("RESET ROLE;");
+    });
+
+    it("9.8: Unconfigured schedule date returns NULL and does not fabricate schedule data", async () => {
+      await asUser(userEmp1A);
+
+      // Querying date without schedule returns null
+      const res = await db.query<any>(`
+        SELECT public.get_effective_published_schedule('${empId1A}'::uuid, '2027-01-30'::date);
+      `);
+      expect(res.rows[0].get_effective_published_schedule).toBeNull();
     });
   });
 });

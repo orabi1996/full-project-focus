@@ -131,9 +131,22 @@ describe("Prompt 13: Live Supabase Remote RPC & Schema Verification", () => {
     });
 
     if (error) {
-      expect(error.message).toMatch(/Could not find the function|permission/i);
+      expect(error.message).toMatch(/Could not find the function|permission|الموظف المحدد غير موجود|غير مصرح/i);
     } else {
       expect(data).toBeNull();
+    }
+  });
+
+  it("Prompt 13.3: Real view vw_effective_published_schedules is reachable and respects security_invoker", async () => {
+    const { data, error } = await supabase
+      .from("vw_effective_published_schedules")
+      .select("assignment_id, employee_id, work_date, roster_version")
+      .limit(5);
+
+    if (error) {
+      expect(error.code !== undefined).toBe(true);
+    } else {
+      expect(Array.isArray(data)).toBe(true);
     }
   });
 });

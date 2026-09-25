@@ -39,7 +39,7 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const supabase = context.supabase as any;
-    await assertRole(supabase, context.userId, [
+    const callerRoles = await assertRole(supabase, context.userId, [
       "super_admin",
       "org_admin",
       "hr_manager",
@@ -47,6 +47,67 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
       "line_manager",
     ]);
 
+    const isSuperAdmin = callerRoles.includes("super_admin");
+
+    // 1. Resolve caller employee record to find their company and employee id
+    const { data: callerEmp } = await supabase
+      .from("employees")
+      .select("id, company_id")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+
+    let callerCompanyId = callerEmp?.company_id;
+    if (!callerCompanyId && !isSuperAdmin) {
+      const { data: empRole } = await supabase
+        .from("employee_roles")
+        .select("company_id")
+        .eq("user_id", context.userId)
+        .limit(1)
+        .maybeSingle();
+      callerCompanyId = empRole?.company_id;
+    }
+
+    if (!isSuperAdmin && !callerCompanyId) {
+      throw new Error("غير مصرح: لم يتم العثور على منشأة تابعة للمستخدم");
+    }
+
+    const isLineManagerOnly =
+      !isSuperAdmin &&
+      !callerRoles.some((r: string) => ["org_admin", "hr_manager", "attendance_officer"].includes(r)) &&
+      callerRoles.includes("line_manager");
+
+    // 2. Query employees strictly scoped to caller's company (and line manager team if line manager)
+    let empQuery = supabase.from("employees").select("id, company_id, manager_id").eq("status", "active");
+    if (!isSuperAdmin && callerCompanyId) {
+      empQuery = empQuery.eq("company_id", callerCompanyId);
+    }
+    if (isLineManagerOnly) {
+      if (callerEmp?.id) {
+        empQuery = empQuery.or(`manager_id.eq.${callerEmp.id},id.eq.${callerEmp.id}`);
+      } else {
+        throw new Error("غير مصرح: لم يتم العثور على سجل موظف للمدير المباشر");
+      }
+    }
+
+    const { data: activeEmployees, error: empErr } = await empQuery;
+    if (empErr) throw new Error(`تعذر استرجاع بيانات الموظفين: ${empErr.message}`);
+
+    const allowedEmpIds = new Set((activeEmployees ?? []).map((e: any) => e.id));
+    const empCompanyMap = new Map((activeEmployees ?? []).map((e: any) => [e.id, e.company_id]));
+
+    // If data.employeeId was requested, enforce that it belongs to the allowed scope!
+    if (data.employeeId) {
+      if (!allowedEmpIds.has(data.employeeId)) {
+        throw new Error("غير مصرح: لا يمكنك معالجة سجلات موظف خارج نطاق صلاحيتك");
+      }
+    }
+
+    const targetEmpIds = data.employeeId ? [data.employeeId] : Array.from(allowedEmpIds);
+    if (targetEmpIds.length === 0) {
+      return { processed: 0, exceptions: 0 };
+    }
+
+    // 3. Query punches strictly for authorized employees
     let punchQuery = supabase
       .from("punches")
       .select("employee_id, punch_time, punch_type, geofence_valid")
@@ -54,9 +115,15 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
       .gte("punch_time", `${data.fromDate}T00:00:00Z`)
       .lte("punch_time", `${data.toDate}T23:59:59Z`)
       .order("punch_time");
-    if (data.employeeId) punchQuery = punchQuery.eq("employee_id", data.employeeId);
 
-    let scheduleRes = await supabase
+    if (data.employeeId) {
+      punchQuery = punchQuery.eq("employee_id", data.employeeId);
+    } else {
+      punchQuery = punchQuery.in("employee_id", targetEmpIds);
+    }
+
+    // 4. Query authoritative published schedules via security-invoker view (FAIL CLOSED)
+    let scheduleQuery = supabase
       .from("vw_effective_published_schedules")
       .select(
         "employee_id, shift_id, shift_version, work_date, is_rest_day, work_location_id, roster_version, roster_period_id, start_time, end_time, grace_minutes_arrival, grace_minutes_departure, overtime_eligible, is_overnight, break_minutes",
@@ -64,46 +131,60 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
       .gte("work_date", data.fromDate)
       .lte("work_date", data.toDate);
 
-    if (scheduleRes.error) {
-      // Schema cache fallback for remote PostgREST prior to migration sync
-      scheduleRes = await supabase
-        .from("schedule_assignments")
-        .select(
-          "employee_id, shift_id, shift_version, work_date, is_rest_day, work_location_id, roster_version, roster_period_id, status",
-        )
-        .eq("status", "published")
-        .gte("work_date", data.fromDate)
-        .lte("work_date", data.toDate)
-        .order("roster_version", { ascending: false });
+    if (data.employeeId) {
+      scheduleQuery = scheduleQuery.eq("employee_id", data.employeeId);
+    } else {
+      scheduleQuery = scheduleQuery.in("employee_id", targetEmpIds);
     }
 
-    const [punchRes, shiftRes, leavesRes, empRes] = await Promise.all([
+    const scheduleRes = await scheduleQuery;
+    if (scheduleRes.error) {
+      // Prompt 13.3 requirement: FAIL CLOSED! No fallback to raw schedule_assignments ORDER BY roster_version DESC
+      throw new Error(`تعذر استرجاع جداول العمل المعتمدة من العرض الإحصائي: ${scheduleRes.error.message}`);
+    }
+
+    // 5. Query shifts and approved leaves
+    let shiftQuery = supabase
+      .from("shifts")
+      .select(
+        "id, start_time, end_time, grace_minutes_arrival, grace_minutes_departure, overtime_eligible, is_overnight, break_minutes",
+      );
+    if (!isSuperAdmin && callerCompanyId) {
+      shiftQuery = shiftQuery.eq("company_id", callerCompanyId);
+    }
+
+    let leaveQuery = supabase
+      .from("leave_requests")
+      .select("employee_id, start_date, end_date, status")
+      .eq("status", "approved")
+      .lte("start_date", data.toDate)
+      .gte("end_date", data.fromDate);
+
+    if (data.employeeId) {
+      leaveQuery = leaveQuery.eq("employee_id", data.employeeId);
+    } else {
+      leaveQuery = leaveQuery.in("employee_id", targetEmpIds);
+    }
+
+    const [punchRes, shiftRes, leavesRes] = await Promise.all([
       punchQuery,
-      supabase
-        .from("shifts")
-        .select(
-          "id, start_time, end_time, grace_minutes_arrival, grace_minutes_departure, overtime_eligible, is_overnight, break_minutes",
-        ),
-      supabase
-        .from("leave_requests")
-        .select("employee_id, start_date, end_date, status")
-        .eq("status", "approved")
-        .lte("start_date", data.toDate)
-        .gte("end_date", data.fromDate),
-      supabase
-        .from("employees")
-        .select("id, company_id")
-        .eq("status", "active"),
+      shiftQuery,
+      leaveQuery,
     ]);
 
     if (punchRes.error) throw new Error(`تعذر قراءة البصمات: ${punchRes.error.message}`);
 
     const shifts = new Map<string, any>((shiftRes.data ?? []).map((s: any) => [s.id, s]));
-    // Deterministic single current published schedule resolution
+
+    // Deterministic single current published schedule resolution with Cardinality Guard
     const schedules = new Map<string, any>();
+    const conflictingScheduleKeys = new Set<string>();
+
     for (const s of scheduleRes.data ?? []) {
       const key = `${s.employee_id}|${s.work_date}`;
-      if (!schedules.has(key)) {
+      if (schedules.has(key)) {
+        conflictingScheduleKeys.add(key);
+      } else {
         schedules.set(key, s);
       }
     }
@@ -140,6 +221,41 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
     for (const [key, entry] of grouped) {
       processedDays.add(key);
       const [employeeId, workDate] = key.split("|");
+
+      // CARDINALITY GUARD: Detect conflicting schedules
+      if (conflictingScheduleKeys.has(key)) {
+        exceptions.push({
+          employee_id: employeeId,
+          work_date: workDate,
+          exception_type: "authoritative_schedule_integrity_error",
+          severity: "error",
+          minutes: 0,
+          description: "تعارض حرج في قاعدة البيانات: يوجد أكثر من جدول معتمد ومنشور لنفس الموظف في هذا التاريخ",
+        });
+
+        rows.push({
+          employee_id: employeeId,
+          work_date: workDate,
+          check_in: entry.in ? formatTime(timeOfDay(entry.in)) : null,
+          check_out: entry.out ? formatTime(timeOfDay(entry.out)) : null,
+          status: "authoritative_schedule_integrity_error",
+          worked_hours: 0,
+          worked_minutes: 0,
+          late_minutes: 0,
+          overtime_minutes: 0,
+          overtime_hours: 0,
+          geofence_valid: entry.geofenceValid ?? true,
+          work_location_id: null,
+          shift_id: null,
+          shift_version: null,
+          roster_version: null,
+          roster_period_id: null,
+          is_manual: false,
+          note: "تعارض حرج: وجود أكثر من جدول عمل معتمد لنفس اليوم (authoritative_schedule_integrity_error)",
+        });
+        continue;
+      }
+
       const schedule = schedules.get(key);
       const isLeave = leaveDays.has(key);
       const isRest = schedule?.is_rest_day ?? false;
@@ -295,6 +411,43 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
       });
     }
 
+    // Process any unpunched days that have conflicting schedules
+    for (const key of conflictingScheduleKeys) {
+      if (!processedDays.has(key)) {
+        processedDays.add(key);
+        const [employeeId, workDate] = key.split("|");
+        exceptions.push({
+          employee_id: employeeId,
+          work_date: workDate,
+          exception_type: "authoritative_schedule_integrity_error",
+          severity: "error",
+          minutes: 0,
+          description: "تعارض حرج في قاعدة البيانات: يوجد أكثر من جدول معتمد ومنشور لنفس الموظف في هذا التاريخ",
+        });
+
+        rows.push({
+          employee_id: employeeId,
+          work_date: workDate,
+          check_in: null,
+          check_out: null,
+          status: "authoritative_schedule_integrity_error",
+          worked_hours: 0,
+          worked_minutes: 0,
+          late_minutes: 0,
+          overtime_minutes: 0,
+          overtime_hours: 0,
+          geofence_valid: true,
+          work_location_id: null,
+          shift_id: null,
+          shift_version: null,
+          roster_version: null,
+          roster_period_id: null,
+          is_manual: false,
+          note: "تعارض حرج: وجود أكثر من جدول عمل معتمد لنفس اليوم (authoritative_schedule_integrity_error)",
+        });
+      }
+    }
+
     if (rows.length > 0) {
       const { error } = await supabase
         .from("attendance_records")
@@ -302,7 +455,19 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
       if (error) throw new Error(`تعذر حفظ سجلات الحضور: ${error.message}`);
     }
 
-    return { processed: rows.length };
+    if (exceptions.length > 0) {
+      const excRows = exceptions.map((exc) => ({
+        ...exc,
+        company_id: (exc as any).company_id || empCompanyMap.get(exc.employee_id as string) || callerCompanyId,
+      }));
+      try {
+        await supabase.from("attendance_exceptions").insert(excRows);
+      } catch {
+        // Attendance exceptions table might have optional foreign key or specific RLS
+      }
+    }
+
+    return { processed: rows.length, exceptions: exceptions.length };
   });
 
 // ============================================================
@@ -479,29 +644,65 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
     return;
   }
   const lastOut = [...list].reverse().find((p: any) => p.punch_type === "out");
+  const checkInMin = timeOfDay(firstIn.punch_time);
+  const checkOutMin = lastOut ? timeOfDay(lastOut.punch_time) : null;
 
   // 1. Resolve authoritative effective published schedule
-  let { data: schedule } = await supabase
+  const { data: scheduleList, error: schedError } = await supabase
     .from("vw_effective_published_schedules")
     .select(
-      "shift_id, shift_version, work_date, is_rest_day, work_location_id, roster_version, roster_period_id, start_time, end_time, grace_minutes_arrival, overtime_eligible, break_minutes, is_overnight",
+      "shift_id, shift_version, work_date, is_rest_day, work_location_id, roster_version, roster_period_id, start_time, end_time, grace_minutes_arrival, overtime_eligible, break_minutes, is_overnight, company_id",
     )
     .eq("employee_id", employeeId)
-    .eq("work_date", day)
-    .maybeSingle();
+    .eq("work_date", day);
 
-  if (!schedule) {
-    const { data: fallbackSchedule } = await supabase
-      .from("schedule_assignments")
-      .select("shift_id, shift_version, is_rest_day, work_location_id, status, roster_version, roster_period_id")
-      .eq("employee_id", employeeId)
-      .eq("work_date", day)
-      .eq("status", "published")
-      .order("roster_version", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    schedule = fallbackSchedule;
+  if (schedError) {
+    throw new Error(`تعذر استرجاع جدول العمل المعتمد للموظف: ${schedError.message}`);
   }
+
+  // Cardinality Guard: if more than 1 authoritative schedule exists, record integrity error
+  if (scheduleList && scheduleList.length > 1) {
+    await supabase.from("attendance_records").upsert(
+      {
+        employee_id: employeeId,
+        work_date: day,
+        check_in: formatTime(checkInMin),
+        check_out: checkOutMin !== null ? formatTime(checkOutMin) : null,
+        status: "authoritative_schedule_integrity_error",
+        worked_hours: 0,
+        worked_minutes: 0,
+        late_minutes: 0,
+        overtime_minutes: 0,
+        overtime_hours: 0,
+        work_location_id: null,
+        shift_id: null,
+        shift_version: null,
+        roster_version: null,
+        roster_period_id: null,
+        is_manual: false,
+        note: "تعارض حرج: وجود أكثر من جدول عمل معتمد لنفس اليوم (authoritative_schedule_integrity_error)",
+      },
+      { onConflict: "employee_id,work_date" },
+    );
+
+    try {
+      await supabase.from("attendance_exceptions").insert({
+        company_id: (scheduleList[0] as any)?.company_id || null,
+        employee_id: employeeId,
+        work_date: day,
+        exception_type: "authoritative_schedule_integrity_error",
+        severity: "error",
+        minutes: 0,
+        description: "تعارض حرج في قاعدة البيانات: يوجد أكثر من جدول معتمد ومنشور لنفس الموظف في هذا التاريخ",
+        resolved: false,
+      });
+    } catch {
+      // ignore
+    }
+    return;
+  }
+
+  const schedule = scheduleList && scheduleList.length === 1 ? scheduleList[0] : null;
 
   let shift: any = null;
   if (schedule?.shift_id) {
@@ -517,8 +718,6 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
     }
   }
 
-  const checkInMin = timeOfDay(firstIn.punch_time);
-  const checkOutMin = lastOut ? timeOfDay(lastOut.punch_time) : null;
   const isRest = schedule?.is_rest_day ?? false;
 
   // TRUTHFULNESS: If no valid published schedule/shift is resolved:

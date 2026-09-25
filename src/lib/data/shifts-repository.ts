@@ -1005,6 +1005,17 @@ export async function fetchEffectivePublishedSchedule(
     p_work_date: workDate,
   });
 
+  if (error) {
+    if (
+      error.code === "42501" ||
+      error.code === "P0001" ||
+      error.message?.includes("غير مصرح") ||
+      error.message?.includes("authoritative_schedule_integrity_error")
+    ) {
+      throw mapError(error, "تعذر استرجاع جدول العمل المعتمد");
+    }
+  }
+
   if (!error && data) {
     const d = data as any;
     return {
@@ -1034,16 +1045,29 @@ export async function fetchEffectivePublishedSchedule(
     };
   }
 
-  // Fallback to view
+  if (!error && data === null) {
+    return null;
+  }
+
+  // Fallback to view (respects security_invoker RLS)
   const { data: viewData, error: viewError } = await db
     .from("vw_effective_published_schedules")
     .select("*")
     .eq("employee_id", employeeId)
-    .eq("work_date", workDate)
-    .maybeSingle();
+    .eq("work_date", workDate);
 
-  if (viewError || !viewData) return null;
-  const v = viewData as any;
+  if (viewError) {
+    throw mapError(viewError, "تعذر استرجاع جدول العمل المعتمد من العرض الإحصائي");
+  }
+
+  if (!viewData || viewData.length === 0) return null;
+  if (viewData.length > 1) {
+    throw new Error(
+      "authoritative_schedule_integrity_error: تعارض حرج: يوجد أكثر من جدول معتمد ومنشور لنفس الموظف في هذا التاريخ"
+    );
+  }
+
+  const v = viewData[0] as any;
   return {
     assignmentId: v.assignment_id,
     companyId: v.company_id,

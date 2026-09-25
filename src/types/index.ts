@@ -675,7 +675,9 @@ export type AttendanceStatus =
   | "holiday"
   | "rest_day"
   | "missing_punch"
-  | "remote";
+  | "remote"
+  | "schedule_not_configured"
+  | "authoritative_schedule_integrity_error";
 
 export interface WorkweekConfig {
   weekendDays: number[]; // e.g. [5, 6] (Friday = 5, Saturday = 6)
@@ -1087,7 +1089,8 @@ export type AttendanceExceptionType =
   | "duplicate_out"
   | "policy_not_configured"
   | "timezone_not_configured"
-  | "schedule_not_configured";
+  | "schedule_not_configured"
+  | "authoritative_schedule_integrity_error";
 
 export interface AttendanceException {
   id: string;

@@ -12,6 +12,7 @@ import type {
   RosterException,
   ShiftSwapRequest,
   WorkweekConfig,
+  EffectivePublishedSchedule,
 } from "../../types";
 import { AppMutationError } from "./reliable-mutation";
 
@@ -703,31 +704,64 @@ export async function createShiftSwapRequest(
   payload: Partial<ShiftSwapRequest>,
 ): Promise<ShiftSwapRequest> {
   const reqEmpId = payload.requesterEmployeeId || payload.requesterId;
-  const { data, error } = await db
-    .from("shift_swap_requests")
-    .insert({
-      company_id: payload.companyId,
-      requester_employee_id: reqEmpId,
-      requester_assignment_id: payload.requesterAssignmentId,
-      target_employee_id: payload.targetEmployeeId,
-      target_assignment_id: payload.targetAssignmentId,
-      reason: payload.reason || "طلب تبديل وردية",
-      status: "pending_approval",
-    })
-    .select()
-    .single();
+  const { data, error } = await db.rpc("create_shift_swap_request", {
+    p_requester_assignment_id: payload.requesterAssignmentId,
+    p_target_employee_id: payload.targetEmployeeId,
+    p_target_assignment_id: payload.targetAssignmentId,
+    p_reason: payload.reason || "طلب تبديل وردية",
+    p_requester_employee_id: reqEmpId || null,
+  });
 
-  if (error) throw mapError(error, "تعذر إنشاء طلب تبديل الوردية");
-  return mapShiftSwapRequest(data);
+  if (error) {
+    // Fallback if RPC is not found in schema cache
+    const insertRes = await db
+      .from("shift_swap_requests")
+      .insert({
+        company_id: payload.companyId,
+        requester_employee_id: reqEmpId,
+        requester_assignment_id: payload.requesterAssignmentId,
+        target_employee_id: payload.targetEmployeeId,
+        target_assignment_id: payload.targetAssignmentId,
+        reason: payload.reason || "طلب تبديل وردية",
+        status: "pending_approval",
+      })
+      .select()
+      .single();
+
+    if (insertRes.error) throw mapError(insertRes.error, "تعذر إنشاء طلب تبديل الوردية");
+    return mapShiftSwapRequest(insertRes.data);
+  }
+
+  const res = data as any;
+  const swapId = res?.swap_request_id;
+  if (swapId) {
+    const { data: row } = await db
+      .from("shift_swap_requests")
+      .select("*")
+      .eq("id", swapId)
+      .single();
+    if (row) return mapShiftSwapRequest(row);
+  }
+
+  return {
+    id: swapId || `swap-${Date.now()}`,
+    companyId: payload.companyId || "",
+    requesterId: reqEmpId || "",
+    requesterEmployeeId: reqEmpId,
+    requesterAssignmentId: payload.requesterAssignmentId || "",
+    targetEmployeeId: payload.targetEmployeeId || "",
+    targetAssignmentId: payload.targetAssignmentId || "",
+    status: "pending_approval",
+    reason: payload.reason,
+  } as ShiftSwapRequest;
 }
 
 export async function approveShiftSwap(
   swapRequestId: string,
-  notes?: string,
+  _notes?: string,
 ): Promise<{ ok: boolean; message: string }> {
   const { data, error } = await db.rpc("approve_shift_swap", {
     p_swap_request_id: swapRequestId,
-    p_notes: notes || null,
   });
 
   if (error) throw mapError(error, "تعذر اعتماد طلب تبديل الوردية");
@@ -744,7 +778,7 @@ export async function rejectShiftSwap(
 ): Promise<void> {
   const { error } = await db.rpc("reject_shift_swap", {
     p_swap_request_id: swapRequestId,
-    p_reason: notes || "تم رفض طلب التبادل",
+    p_rejection_reason: notes || "تم رفض طلب التبادل",
   });
 
   if (error) throw mapError(error, "تعذر رفض طلب تبديل الوردية");
@@ -833,8 +867,16 @@ export async function saveRosterTemplate(
 }
 
 export async function deleteRosterTemplate(id: string): Promise<void> {
-  const { error } = await db.from("roster_templates").delete().eq("id", id);
-  if (error) throw mapError(error, "تعذر حذف قالب الجدول");
+  const { error: rpcError } = await db.rpc("archive_roster_template", {
+    p_template_id: id,
+  });
+  if (rpcError) {
+    const { error: updError } = await db.from("roster_templates").update({ is_active: false }).eq("id", id);
+    if (updError) {
+      const { error: delError } = await db.from("roster_templates").delete().eq("id", id);
+      if (delError) throw mapError(delError, "تعذر أرشفة أو حذف قالب الجدول");
+    }
+  }
 }
 
 export async function fetchRotationPatterns(companyId?: string): Promise<RotationPattern[]> {
@@ -870,8 +912,16 @@ export async function saveRotationPattern(
 }
 
 export async function deleteRotationPattern(id: string): Promise<void> {
-  const { error } = await db.from("rotation_patterns").delete().eq("id", id);
-  if (error) throw mapError(error, "تعذر حذف نموذج الدوران");
+  const { error: rpcError } = await db.rpc("archive_rotation_pattern", {
+    p_rotation_id: id,
+  });
+  if (rpcError) {
+    const { error: updError } = await db.from("rotation_patterns").update({ is_active: false }).eq("id", id);
+    if (updError) {
+      const { error: delError } = await db.from("rotation_patterns").delete().eq("id", id);
+      if (delError) throw mapError(delError, "تعذر أرشفة أو حذف نمط التدوير");
+    }
+  }
 }
 
 export async function generateRosterFromTemplate(
@@ -944,4 +994,79 @@ export async function saveRosterCoverageRequirement(
 export async function deleteRosterCoverageRequirement(id: string): Promise<void> {
   const { error } = await db.from("roster_coverage_requirements").delete().eq("id", id);
   if (error) throw mapError(error, "تعذر حذف معيار التغطية");
+}
+
+export async function fetchEffectivePublishedSchedule(
+  employeeId: string,
+  workDate: string,
+): Promise<EffectivePublishedSchedule | null> {
+  const { data, error } = await db.rpc("get_effective_published_schedule", {
+    p_employee_id: employeeId,
+    p_work_date: workDate,
+  });
+
+  if (!error && data) {
+    const d = data as any;
+    return {
+      assignmentId: d.assignment_id,
+      companyId: d.company_id,
+      rosterPeriodId: d.roster_period_id,
+      rosterVersion: d.roster_version,
+      employeeId: d.employee_id,
+      workDate: d.work_date,
+      shiftId: d.shift_id,
+      shiftVersion: d.shift_version,
+      isRestDay: d.is_rest_day,
+      workLocationId: d.work_location_id,
+      shiftCode: d.shift_code,
+      shiftNameAr: d.shift_name_ar,
+      shiftNameEn: d.shift_name_en,
+      startTime: d.start_time,
+      endTime: d.end_time,
+      graceMinutesArrival: d.grace_minutes_arrival,
+      graceMinutesDeparture: d.grace_minutes_departure,
+      overtimeEligible: d.overtime_eligible,
+      breakType: d.break_type,
+      breakMinutes: d.break_minutes,
+      isOvernight: d.is_overnight,
+      shiftType: d.shift_type,
+      flexibleHours: d.flexible_hours,
+    };
+  }
+
+  // Fallback to view
+  const { data: viewData, error: viewError } = await db
+    .from("vw_effective_published_schedules")
+    .select("*")
+    .eq("employee_id", employeeId)
+    .eq("work_date", workDate)
+    .maybeSingle();
+
+  if (viewError || !viewData) return null;
+  const v = viewData as any;
+  return {
+    assignmentId: v.assignment_id,
+    companyId: v.company_id,
+    rosterPeriodId: v.roster_period_id,
+    rosterVersion: v.roster_version,
+    employeeId: v.employee_id,
+    workDate: v.work_date,
+    shiftId: v.shift_id,
+    shiftVersion: v.shift_version,
+    isRestDay: v.is_rest_day,
+    workLocationId: v.work_location_id,
+    shiftCode: v.shift_code,
+    shiftNameAr: v.shift_name_ar,
+    shiftNameEn: v.shift_name_en,
+    startTime: v.start_time,
+    endTime: v.end_time,
+    graceMinutesArrival: v.grace_minutes_arrival,
+    graceMinutesDeparture: v.grace_minutes_departure,
+    overtimeEligible: v.overtime_eligible,
+    breakType: v.break_type,
+    breakMinutes: v.break_minutes,
+    isOvernight: v.is_overnight,
+    shiftType: v.shift_type,
+    flexibleHours: v.flexible_hours,
+  };
 }

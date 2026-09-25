@@ -732,6 +732,7 @@ export type RosterPeriodStatus =
   | "validation_failed"
   | "ready"
   | "published"
+  | "superseded"
   | "locked"
   | "archived";
 
@@ -771,6 +772,32 @@ export interface ScheduleAssignment {
   createdBy?: string;
   publishedAt?: string;
   notes?: string;
+}
+
+export interface EffectivePublishedSchedule {
+  assignmentId: string;
+  companyId: string;
+  rosterPeriodId: string;
+  rosterVersion: number;
+  employeeId: string;
+  workDate: string;
+  shiftId: string | null;
+  shiftVersion: number;
+  isRestDay: boolean;
+  workLocationId?: string | null;
+  shiftCode?: string | null;
+  shiftNameAr?: string | null;
+  shiftNameEn?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  graceMinutesArrival?: number;
+  graceMinutesDeparture?: number;
+  overtimeEligible?: boolean;
+  breakType?: string;
+  breakMinutes?: number;
+  isOvernight?: boolean;
+  shiftType?: string;
+  flexibleHours?: number | null;
 }
 
 export interface RosterTemplate {

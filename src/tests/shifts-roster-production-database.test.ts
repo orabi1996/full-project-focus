@@ -244,6 +244,11 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
     const migration2Sql = fs.readFileSync(migration2Path, "utf-8");
     await db.exec(migration2Sql);
 
+    // 2.2 Load and Apply Migration 20260925020000_close_shifts_rosters_version_and_swap_security.sql
+    const migration3Path = path.resolve(__dirname, "../../supabase/migrations/20260925020000_close_shifts_rosters_version_and_swap_security.sql");
+    const migration3Sql = fs.readFileSync(migration3Path, "utf-8");
+    await db.exec(migration3Sql);
+
     // 3. Seed Companies, Employees, Users, and Roles
     await db.exec(`
       INSERT INTO auth.users (id, email) VALUES
@@ -305,6 +310,7 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
           'name_ar', 'وردية ثابتة صباحية',
           'name_en', 'Morning Fixed',
           'type', 'fixed',
+          'effective_from', '2026-01-01',
           'start_time', '08:00',
           'end_time', '17:00',
           'grace_minutes_arrival', 15,
@@ -334,6 +340,7 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
           'name_ar', 'الوردية الليلية المتداخلة',
           'name_en', 'Overnight Shift',
           'type', 'overnight',
+          'effective_from', '2026-01-01',
           'start_time', '22:00',
           'end_time', '06:00',
           'grace_minutes_arrival', 15,
@@ -366,6 +373,7 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
           'name_ar', 'وردية فترتين (مقسمة)',
           'name_en', 'Split Shift',
           'type', 'split',
+          'effective_from', '2026-01-01',
           'start_time', '08:00',
           'end_time', '12:00',
           'split_second_start_time', '16:00',
@@ -435,6 +443,7 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
           'code', 'SH-TEMP',
           'name_ar', 'وردية مؤقتة',
           'type', 'fixed',
+          'effective_from', '2026-01-01',
           'start_time', '09:00',
           'end_time', '15:00'
         ));
@@ -1004,6 +1013,397 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
       expect(leaveExceptions.rows.length).toBeGreaterThanOrEqual(1);
       expect(leaveExceptions.rows[0].severity).toBe("blocking");
       expect(leaveExceptions.rows[0].message).toContain("إجازة رسمية معتمدة");
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // SUITE 8: Prompt 13.2 Final Shifts & Rosters Closure Validations
+  // --------------------------------------------------------------------------
+  describe("Suite 8: Prompt 13.2 Final Shifts & Rosters Closure Validations", () => {
+    let s8Shift1: string;
+    let s8Shift2: string;
+    let s8RosterV1: string;
+    let s8RosterV2: string;
+    let s8AssignV1Emp1: string;
+    let s8AssignV1Emp2: string;
+
+    beforeAll(async () => {
+      await asUser(userHrA);
+
+      // Create two shifts with explicit effective_from
+      const s1 = await db.query<any>(`
+        SELECT public.create_shift_definition(jsonb_build_object(
+          'company_id', '${companyA}'::text,
+          'code', 'S8-SH1',
+          'name_ar', 'وردية الإغلاق 1',
+          'name_en', 'Closure Shift 1',
+          'type', 'fixed',
+          'effective_from', '2026-11-01',
+          'start_time', '08:00',
+          'end_time', '16:00',
+          'grace_minutes_arrival', 15,
+          'grace_minutes_departure', 15
+        ));
+      `);
+      s8Shift1 = s1.rows[0].create_shift_definition.shift_id;
+
+      const s2 = await db.query<any>(`
+        SELECT public.create_shift_definition(jsonb_build_object(
+          'company_id', '${companyA}'::text,
+          'code', 'S8-SH2',
+          'name_ar', 'وردية الإغلاق 2',
+          'name_en', 'Closure Shift 2',
+          'type', 'fixed',
+          'effective_from', '2026-11-01',
+          'start_time', '16:00',
+          'end_time', '00:00',
+          'grace_minutes_arrival', 15,
+          'grace_minutes_departure', 15
+        ));
+      `);
+      s8Shift2 = s2.rows[0].create_shift_definition.shift_id;
+
+      // Create Roster Period V1 for companyA: 2026-11-15 to 2026-11-21
+      const r1 = await db.query<any>(`
+        INSERT INTO public.roster_periods (company_id, name, period_start, period_end, status, timezone, version)
+        VALUES ('${companyA}', 'جدول الإغلاق V1', '2026-11-15', '2026-11-21', 'draft', 'Asia/Riyadh', 1)
+        RETURNING id;
+      `);
+      s8RosterV1 = r1.rows[0].id;
+
+      // Assign employee 1 and employee 2
+      const a1 = await db.query<any>(`
+        INSERT INTO public.schedule_assignments (
+          company_id, roster_period_id, employee_id, work_date, shift_id, shift_name_ar, is_rest_day, status
+        ) VALUES (
+          '${companyA}', '${s8RosterV1}', '${empId1A}', '2026-11-16', '${s8Shift1}', 'وردية الإغلاق 1', false, 'draft'
+        ) RETURNING id;
+      `);
+      s8AssignV1Emp1 = a1.rows[0].id;
+
+      const a2 = await db.query<any>(`
+        INSERT INTO public.schedule_assignments (
+          company_id, roster_period_id, employee_id, work_date, shift_id, shift_name_ar, is_rest_day, status
+        ) VALUES (
+          '${companyA}', '${s8RosterV1}', '${empId2A}', '2026-11-16', '${s8Shift2}', 'وردية الإغلاق 2', false, 'draft'
+        ) RETURNING id;
+      `);
+      s8AssignV1Emp2 = a2.rows[0].id;
+
+      // Publish V1
+      await db.query(`SELECT public.publish_roster('${s8RosterV1}'::uuid);`);
+    });
+
+    it("8.1: Publishing V(N+1) amendment automatically supersedes V(N) atomically and flags attendance reprocess", async () => {
+      await asUser(userHrA);
+
+      // Verify V1 is published
+      const v1Before = await db.query<any>(`SELECT status, version FROM public.roster_periods WHERE id = '${s8RosterV1}';`);
+      expect(v1Before.rows[0].status).toBe("published");
+      expect(v1Before.rows[0].version).toBe(1);
+
+      // Create an attendance record for empId1A on 2026-11-16
+      await db.exec(`
+        INSERT INTO public.attendance_records (
+          company_id, employee_id, shift_id, work_date, status, attendance_reprocess_required, reprocess_status
+        ) VALUES (
+          '${companyA}', '${empId1A}', '${s8Shift1}', '2026-11-16', 'present', false, 'normal'
+        );
+      `);
+
+      // Create amendment (V2 draft)
+      const amendRes = await db.query<any>(`
+        SELECT public.create_roster_amendment('${s8RosterV1}'::uuid, 'تعديل وردية الموظف 1');
+      `);
+      s8RosterV2 = amendRes.rows[0].create_roster_amendment.id || amendRes.rows[0].create_roster_amendment.new_roster_period_id;
+      expect(s8RosterV2).toBeTruthy();
+
+      const v2Check = await db.query<any>(`SELECT status, version FROM public.roster_periods WHERE id = '${s8RosterV2}';`);
+      expect(v2Check.rows[0].status).toBe("draft");
+      expect(v2Check.rows[0].version).toBe(2);
+
+      // Modify assignment in V2 for empId1A: change to s8Shift2
+      await db.exec(`
+        UPDATE public.schedule_assignments
+        SET shift_id = '${s8Shift2}', shift_name_ar = 'وردية الإغلاق 2 (معدلة)'
+        WHERE roster_period_id = '${s8RosterV2}' AND employee_id = '${empId1A}' AND work_date = '2026-11-16';
+      `);
+
+      // Publish V2
+      const pubV2 = await db.query<any>(`
+        SELECT public.publish_roster('${s8RosterV2}'::uuid);
+      `);
+      expect(pubV2.rows[0].publish_roster.ok).toBe(true);
+      expect(pubV2.rows[0].publish_roster.superseded_version).toBe(1);
+
+      // Verify V1 is superseded
+      const v1After = await db.query<any>(`SELECT status, version FROM public.roster_periods WHERE id = '${s8RosterV1}';`);
+      expect(v1After.rows[0].status).toBe("superseded");
+
+      // Verify V2 is published
+      const v2After = await db.query<any>(`SELECT status, version FROM public.roster_periods WHERE id = '${s8RosterV2}';`);
+      expect(v2After.rows[0].status).toBe("published");
+
+      // Verify V1 assignments still exist immutable
+      const v1Assigns = await db.query<any>(`
+        SELECT count(*) as count FROM public.schedule_assignments WHERE roster_period_id = '${s8RosterV1}';
+      `);
+      expect(Number(v1Assigns.rows[0].count)).toBe(2);
+
+      // Verify attendance record on modified date was flagged for reprocess
+      const attRecord = await db.query<any>(`
+        SELECT attendance_reprocess_required, reprocess_status FROM public.attendance_records
+        WHERE company_id = '${companyA}' AND employee_id = '${empId1A}' AND work_date = '2026-11-16';
+      `);
+      expect(attRecord.rows[0].attendance_reprocess_required).toBe(true);
+      expect(attRecord.rows[0].reprocess_status).toBe("attendance_reprocess_required");
+    });
+
+    it("8.2: Partial unique index prevents multiple published rosters for same company and date range", async () => {
+      await asUser(userHrA);
+
+      // Attempt to insert another published roster for the same company and date range (2026-11-15 to 2026-11-21)
+      await expect(
+        db.query(`
+          INSERT INTO public.roster_periods (company_id, name, period_start, period_end, status, timezone, version)
+          VALUES ('${companyA}', 'جدول منشور مكرر غير مسموح', '2026-11-15', '2026-11-21', 'published', 'Asia/Riyadh', 99);
+        `)
+      ).rejects.toThrow(/uq_roster_periods_single_published_per_range|unique/i);
+    });
+
+    it("8.3: Deterministic Effective Published Schedule view and RPC return V2 and ignore superseded V1", async () => {
+      // Query view for empId1A on 2026-11-16
+      const viewRes = await db.query<any>(`
+        SELECT * FROM public.vw_effective_published_schedules
+        WHERE employee_id = '${empId1A}' AND work_date = '2026-11-16';
+      `);
+      expect(viewRes.rows.length).toBe(1);
+      expect(viewRes.rows[0].roster_period_id).toBe(s8RosterV2);
+      expect(viewRes.rows[0].shift_id).toBe(s8Shift2);
+      expect(viewRes.rows[0].roster_version).toBe(2);
+
+      // Call RPC get_effective_published_schedule
+      const rpcRes = await db.query<any>(`
+        SELECT public.get_effective_published_schedule('${empId1A}'::uuid, '2026-11-16'::date);
+      `);
+      const sched = rpcRes.rows[0].get_effective_published_schedule;
+      expect(sched).not.toBeNull();
+      expect(sched.roster_period_id).toBe(s8RosterV2);
+      expect(sched.shift_id).toBe(s8Shift2);
+      expect(sched.roster_version).toBe(2);
+    });
+
+    it("8.4: Direct table mutation of shift_swap_requests status to approved is blocked by trigger", async () => {
+      await asUser(userEmp1A);
+
+      // Get V2 assignment IDs
+      const v2Assigns = await db.query<any>(`
+        SELECT id, employee_id FROM public.schedule_assignments
+        WHERE roster_period_id = '${s8RosterV2}' AND work_date = '2026-11-16';
+      `);
+      const asg1 = v2Assigns.rows.find((r: any) => r.employee_id === empId1A)?.id;
+      const asg2 = v2Assigns.rows.find((r: any) => r.employee_id === empId2A)?.id;
+
+      // Create swap request via RPC
+      const swapRes = await db.query<any>(`
+        SELECT public.create_shift_swap_request(
+          '${asg1}'::uuid,
+          '${empId2A}'::uuid,
+          '${asg2}'::uuid,
+          'طلب تبادل وردية نظامي'
+        );
+      `);
+      const swapId = swapRes.rows[0].create_shift_swap_request.swap_request_id;
+      expect(swapId).toBeTruthy();
+
+      // Attempt direct UPDATE to approved by employee
+      await expect(
+        db.query(`
+          UPDATE public.shift_swap_requests
+          SET status = 'approved'
+          WHERE id = '${swapId}';
+        `)
+      ).rejects.toThrow();
+    });
+
+    it("8.5: Controlled RPC create_shift_swap_request validates ownership and rejects self/cross-company swap", async () => {
+      await asUser(userEmp1A);
+
+      const v2Assigns = await db.query<any>(`
+        SELECT id, employee_id FROM public.schedule_assignments
+        WHERE roster_period_id = '${s8RosterV2}' AND work_date = '2026-11-16';
+      `);
+      const asg1 = v2Assigns.rows.find((r: any) => r.employee_id === empId1A)?.id;
+
+      // 1. Self swap attempt
+      await expect(
+        db.query(`
+          SELECT public.create_shift_swap_request(
+            '${asg1}'::uuid,
+            '${empId1A}'::uuid,
+            '${asg1}'::uuid,
+            'تبادل مع النفس'
+          );
+        `)
+      ).rejects.toThrow(/نفس الموظف/);
+
+      // 2. Cross-company swap attempt (empId1B belongs to companyB)
+      await expect(
+        db.query(`
+          SELECT public.create_shift_swap_request(
+            '${asg1}'::uuid,
+            '${empId1B}'::uuid,
+            '${asg1}'::uuid,
+            'تبادل بين منشآت'
+          );
+        `)
+      ).rejects.toThrow(/منشآت مختلفة|لا تخص|إسناد/);
+    });
+
+    it("8.6: approve_shift_swap revalidates tenure, leave collisions, attendance locks, and swaps atomically", async () => {
+      await asUser(userHrA);
+
+      // Create swap request
+      const v2Assigns = await db.query<any>(`
+        SELECT id, employee_id, shift_id FROM public.schedule_assignments
+        WHERE roster_period_id = '${s8RosterV2}' AND work_date = '2026-11-16';
+      `);
+      const asg1 = v2Assigns.rows.find((r: any) => r.employee_id === empId1A);
+      const asg2 = v2Assigns.rows.find((r: any) => r.employee_id === empId2A);
+
+      const swapRes = await db.query<any>(`
+        SELECT public.create_shift_swap_request(
+          '${asg1.id}'::uuid,
+          '${empId2A}'::uuid,
+          '${asg2.id}'::uuid,
+          'طلب تبادل للاعتماد',
+          '${empId1A}'::uuid
+        );
+      `);
+      const swapId = swapRes.rows[0].create_shift_swap_request.swap_request_id;
+
+      // Requester cannot approve their own swap request
+      await asUser(userEmp1A);
+      await expect(
+        db.query(`SELECT public.approve_shift_swap('${swapId}'::uuid);`)
+      ).rejects.toThrow(/غير مصرح/);
+
+      // Simulate leave collision: target has approved leave on 2026-11-16
+      await asUser(userHrA);
+      await db.exec(`
+        INSERT INTO public.leave_requests (company_id, employee_id, start_date, end_date, status)
+        VALUES ('${companyA}', '${empId2A}', '2026-11-16', '2026-11-16', 'approved');
+      `);
+
+      // Approval should fail due to leave conflict
+      await expect(
+        db.query(`SELECT public.approve_shift_swap('${swapId}'::uuid);`)
+      ).rejects.toThrow(/إجازة معتمدة/);
+
+      // Remove leave collision
+      await db.exec(`
+        DELETE FROM public.leave_requests
+        WHERE employee_id = '${empId2A}' AND start_date = '2026-11-16';
+      `);
+
+      // Now HR approves
+      const appRes = await db.query<any>(`
+        SELECT public.approve_shift_swap('${swapId}'::uuid);
+      `);
+      expect(appRes.rows[0].approve_shift_swap.ok).toBe(true);
+
+      // Verify assignments swapped atomically
+      const asg1After = await db.query<any>(`SELECT shift_id, source FROM public.schedule_assignments WHERE id = '${asg1.id}';`);
+      const asg2After = await db.query<any>(`SELECT shift_id, source FROM public.schedule_assignments WHERE id = '${asg2.id}';`);
+
+      expect(asg1After.rows[0].shift_id).toBe(asg2.shift_id);
+      expect(asg1After.rows[0].source).toBe("swap");
+      expect(asg2After.rows[0].shift_id).toBe(asg1.shift_id);
+      expect(asg2After.rows[0].source).toBe("swap");
+    });
+
+    it("8.7: Template generation validates company employee membership, tenure bounds, and non-archived shifts", async () => {
+      await asUser(userHrA);
+
+      // Create a roster template
+      const tpl = await db.query<any>(`
+        INSERT INTO public.roster_templates (company_id, name, pattern, cycle_days, is_active)
+        VALUES (
+          '${companyA}',
+          'قالب إغلاق تجريبي',
+          jsonb_build_array(
+            jsonb_build_object('day_index', 0, 'shift_id', '${s8Shift1}', 'is_rest_day', false),
+            jsonb_build_object('day_index', 1, 'shift_id', '${s8Shift2}', 'is_rest_day', false)
+          ),
+          2,
+          true
+        ) RETURNING id;
+      `);
+      const tplId = tpl.rows[0].id;
+
+      // Create draft roster period: 2026-11-22 to 2026-11-28
+      const rp = await db.query<any>(`
+        INSERT INTO public.roster_periods (company_id, name, period_start, period_end, status, timezone)
+        VALUES ('${companyA}', 'جدول توليد القالب', '2026-11-22', '2026-11-28', 'draft', 'Asia/Riyadh')
+        RETURNING id;
+      `);
+      const rpId = rp.rows[0].id;
+
+      // Cross-company employee attempt should fail
+      await expect(
+        db.query(`
+          SELECT public.generate_roster_from_template(
+            '${rpId}'::uuid,
+            '${tplId}'::uuid,
+            ARRAY['${empId1B}'::uuid]
+          );
+        `)
+      ).rejects.toThrow(/لا ينتمي/);
+
+      // Valid company employee succeeds
+      const genRes = await db.query<any>(`
+        SELECT public.generate_roster_from_template(
+          '${rpId}'::uuid,
+          '${tplId}'::uuid,
+          ARRAY['${empId1A}'::uuid]
+        );
+      `);
+      expect(genRes.rows[0].generate_roster_from_template.ok).toBe(true);
+      expect(genRes.rows[0].generate_roster_from_template.created_count).toBeGreaterThan(0);
+
+      // Archive template safely
+      const archRes = await db.query<any>(`
+        SELECT public.archive_roster_template('${tplId}'::uuid);
+      `);
+      expect(archRes.rows[0].archive_roster_template.ok).toBe(true);
+
+      // Generating from archived template fails
+      await expect(
+        db.query(`
+          SELECT public.generate_roster_from_template(
+            '${rpId}'::uuid,
+            '${tplId}'::uuid,
+            ARRAY['${empId1A}'::uuid]
+          );
+        `)
+      ).rejects.toThrow(/محذوف أو غير نشط/);
+    });
+
+    it("8.8: create_shift_definition strictly requires effective_from (zero CURRENT_DATE fallback)", async () => {
+      await asUser(userHrA);
+
+      await expect(
+        db.query(`
+          SELECT public.create_shift_definition(jsonb_build_object(
+            'company_id', '${companyA}'::text,
+            'code', 'SH-NO-EFF',
+            'name_ar', 'وردية بدون تاريخ سريان',
+            'type', 'fixed',
+            'start_time', '08:00',
+            'end_time', '16:00'
+          ));
+        `)
+      ).rejects.toThrow(/effective_from.*إلزامي/);
     });
   });
 });

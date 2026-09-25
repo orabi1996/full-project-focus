@@ -146,6 +146,11 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
       }
     }
 
+    if (!effectiveFrom) {
+      toast.error("يرجى تحديد تاريخ سريان الوردية (تاريخ البدء)");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const payload: Partial<ShiftDefinition> = {
@@ -479,12 +484,13 @@ export const ShiftDefinitionModal: React.FC<ShiftDefinitionModalProps> = ({
               </div>
 
               <div>
-                <Label className="text-xs font-bold">سريان الوردية من تاريخ</Label>
+                <Label className="text-xs font-bold">سريان الوردية من تاريخ *</Label>
                 <Input
                   type="date"
                   value={effectiveFrom}
                   onChange={(e) => setEffectiveFrom(e.target.value)}
                   className="mt-1 text-xs"
+                  required
                 />
               </div>
             </div>

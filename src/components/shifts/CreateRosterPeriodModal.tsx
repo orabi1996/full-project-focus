@@ -10,7 +10,7 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { Calendar } from "lucide-react";
+import { Calendar, AlertCircle } from "lucide-react";
 import { useRosterMutations } from "../../lib/domains/shifts";
 import { useApp } from "../../lib/context/AppContext";
 import { toast } from "sonner";
@@ -44,13 +44,18 @@ export const CreateRosterPeriodModal: React.FC<CreateRosterPeriodModalProps> = (
       setStartDate("");
       setEndDate("");
       setNotes("");
-      const resolvedTz = company?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-      setTimezone(resolvedTz);
+      setTimezone(company?.timezone || "");
     }
   }, [open, company?.timezone]);
 
+  const hasCompanyTimezone = Boolean(company?.timezone?.trim());
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!hasCompanyTimezone) {
+      toast.error("يرجى ضبط المنطقة الزمنية للمنشأة من إعدادات الشركة أولاً.");
+      return;
+    }
     if (!name.trim()) {
       toast.error("يرجى إدخال اسم فترة الجدولة");
       return;
@@ -63,10 +68,6 @@ export const CreateRosterPeriodModal: React.FC<CreateRosterPeriodModalProps> = (
       toast.error("تاريخ البداية يجب أن يكون قبل أو يساوي تاريخ النهاية");
       return;
     }
-    if (!timezone.trim()) {
-      toast.error("يرجى تحديد المنطقة الزمنية المعتمدة للفترة");
-      return;
-    }
 
     setIsSubmitting(true);
     try {
@@ -75,7 +76,7 @@ export const CreateRosterPeriodModal: React.FC<CreateRosterPeriodModalProps> = (
         name: name.trim(),
         startDate,
         endDate,
-        timezone: timezone.trim(),
+        timezone: company!.timezone.trim(),
         notes: notes.trim() || undefined,
         status: "draft",
       });
@@ -101,6 +102,13 @@ export const CreateRosterPeriodModal: React.FC<CreateRosterPeriodModalProps> = (
             فترة الجدولة تحدد نطاق تواريخ توزيع الورديات وتكون مسودة حتى اعتمادها ونشرها رسمياً.
           </DialogDescription>
         </DialogHeader>
+
+        {!hasCompanyTimezone && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive font-medium flex items-center gap-2 mt-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>يرجى ضبط المنطقة الزمنية للمنشأة من إعدادات الشركة أولاً.</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <div>
@@ -138,16 +146,15 @@ export const CreateRosterPeriodModal: React.FC<CreateRosterPeriodModalProps> = (
           </div>
 
           <div>
-            <Label className="text-xs font-bold">المنطقة الزمنية المعتمدة *</Label>
+            <Label className="text-xs font-bold">المنطقة الزمنية للمنشأة (معتمدة رسمياً) *</Label>
             <Input
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-              className="mt-1 text-xs font-mono"
-              placeholder="مثال: Asia/Riyadh أو UTC"
-              required
+              value={timezone || "غير محددة في إعدادات المنشأة"}
+              readOnly
+              disabled
+              className="mt-1 text-xs font-mono bg-muted/50 cursor-not-allowed"
             />
             <span className="text-[10px] text-muted-foreground mt-1 block">
-              تُستخرج تلقائياً من بيانات المنشأة المسجلة أو إعدادات النظام الحالية.
+              تُستخرج حصراً من إعدادات المنشأة الرسمية لضمان الدقة والامتثال.
             </span>
           </div>
 

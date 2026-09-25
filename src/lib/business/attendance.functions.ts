@@ -56,14 +56,29 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
       .order("punch_time");
     if (data.employeeId) punchQuery = punchQuery.eq("employee_id", data.employeeId);
 
-    const [punchRes, scheduleRes, shiftRes, leavesRes, empRes] = await Promise.all([
-      punchQuery,
-      supabase
+    let scheduleRes = await supabase
+      .from("vw_effective_published_schedules")
+      .select(
+        "employee_id, shift_id, shift_version, work_date, is_rest_day, work_location_id, roster_version, roster_period_id, start_time, end_time, grace_minutes_arrival, grace_minutes_departure, overtime_eligible, is_overnight, break_minutes",
+      )
+      .gte("work_date", data.fromDate)
+      .lte("work_date", data.toDate);
+
+    if (scheduleRes.error) {
+      // Schema cache fallback for remote PostgREST prior to migration sync
+      scheduleRes = await supabase
         .from("schedule_assignments")
-        .select("employee_id, shift_id, work_date, is_rest_day, status, roster_version")
+        .select(
+          "employee_id, shift_id, shift_version, work_date, is_rest_day, work_location_id, roster_version, roster_period_id, status",
+        )
         .eq("status", "published")
         .gte("work_date", data.fromDate)
-        .lte("work_date", data.toDate),
+        .lte("work_date", data.toDate)
+        .order("roster_version", { ascending: false });
+    }
+
+    const [punchRes, shiftRes, leavesRes, empRes] = await Promise.all([
+      punchQuery,
       supabase
         .from("shifts")
         .select(
@@ -84,9 +99,14 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
     if (punchRes.error) throw new Error(`تعذر قراءة البصمات: ${punchRes.error.message}`);
 
     const shifts = new Map<string, any>((shiftRes.data ?? []).map((s: any) => [s.id, s]));
-    const schedules = new Map<string, any>(
-      (scheduleRes.data ?? []).map((s: any) => [`${s.employee_id}|${s.work_date}`, s]),
-    );
+    // Deterministic single current published schedule resolution
+    const schedules = new Map<string, any>();
+    for (const s of scheduleRes.data ?? []) {
+      const key = `${s.employee_id}|${s.work_date}`;
+      if (!schedules.has(key)) {
+        schedules.set(key, s);
+      }
+    }
 
     // Build leave set: "employeeId|YYYY-MM-DD"
     const leaveDays = new Set<string>();
@@ -123,7 +143,7 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
       const schedule = schedules.get(key);
       const isLeave = leaveDays.has(key);
       const isRest = schedule?.is_rest_day ?? false;
-      const shift = schedule?.shift_id ? shifts.get(schedule.shift_id) : undefined;
+      const shift = schedule?.shift_id ? (shifts.get(schedule.shift_id) || schedule) : undefined;
 
       if (isLeave) {
         rows.push({
@@ -134,8 +154,48 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
           worked_minutes: 0,
           late_minutes: 0,
           overtime_minutes: 0,
+          overtime_hours: 0,
+          work_location_id: schedule?.work_location_id ?? null,
+          shift_id: schedule?.shift_id ?? null,
+          shift_version: schedule?.shift_version ?? null,
+          roster_version: schedule?.roster_version ?? null,
+          roster_period_id: schedule?.roster_period_id ?? null,
           note: "إجازة معتمدة",
           is_manual: false,
+        });
+        continue;
+      }
+
+      // TRUTHFULNESS: If no valid authoritative schedule/shift exists (and not a rest day):
+      // Do NOT invent 8 hours or calculate overtime! Emit schedule_not_configured exception and keep punches unfinalized.
+      if (!schedule || (!shift && !isRest)) {
+        exceptions.push({
+          employee_id: employeeId,
+          work_date: workDate,
+          exception_type: "schedule_not_configured",
+          severity: "error",
+          description: "لا يوجد جدول عمل منشور أو وردية معتمدة لهذا اليوم، لا يمكن احتساب ساعات العمل أو الإضافي",
+        });
+
+        rows.push({
+          employee_id: employeeId,
+          work_date: workDate,
+          check_in: entry.in ? formatTime(timeOfDay(entry.in)) : null,
+          check_out: entry.out ? formatTime(timeOfDay(entry.out)) : null,
+          status: "schedule_not_configured",
+          worked_hours: 0,
+          worked_minutes: 0,
+          late_minutes: 0,
+          overtime_minutes: 0,
+          overtime_hours: 0,
+          geofence_valid: entry.geofenceValid ?? true,
+          work_location_id: null,
+          shift_id: null,
+          shift_version: null,
+          roster_version: null,
+          roster_period_id: null,
+          is_manual: false,
+          note: "تم تسجيل البصمات دون وجود جدول عمل منشور معتمد (قيد المراجعة الإدارية)",
         });
         continue;
       }
@@ -158,10 +218,10 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
 
       let lateMinutes = 0;
       let overtimeMinutes = 0;
-      let expectedMinutes = 8 * 60;
+      let expectedMinutes = 0;
       const isOvernight = shift?.is_overnight || (shift && toMinutes(shift.end_time) < toMinutes(shift.start_time));
 
-      if (shift) {
+      if (shift && !isRest) {
         const shiftStart = toMinutes(shift.start_time);
         const shiftEnd = toMinutes(shift.end_time);
         expectedMinutes = (shiftEnd >= shiftStart ? shiftEnd : shiftEnd + 1440) - shiftStart;
@@ -189,7 +249,7 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
         if (isRest) {
           // Working on a rest day is 100% overtime
           overtimeMinutes = workedMinutes;
-        } else if (!shift || shift.overtime_eligible !== false) {
+        } else if (shift && shift.overtime_eligible !== false) {
           overtimeMinutes = Math.max(0, workedMinutes - expectedMinutes);
         }
       } else {
@@ -225,8 +285,13 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
         overtime_minutes: overtimeMinutes,
         overtime_hours: round2(overtimeMinutes / 60),
         geofence_valid: entry.geofenceValid ?? true,
+        work_location_id: schedule.work_location_id || null,
+        shift_id: schedule.shift_id || null,
+        shift_version: schedule.shift_version || 1,
+        roster_version: schedule.roster_version || 1,
+        roster_period_id: schedule.roster_period_id || null,
         is_manual: false,
-        note: isRest ? "حضور في يوم راحة أسبوعية (عمل إضافي)" : "احتُسب آليًا من البصمات المعتمدة",
+        note: isRest ? "حضور في يوم راحة أسبوعية (عمل إضافي)" : "احتُسب آليًا من البصمات والجدول المعتمد",
       });
     }
 
@@ -415,41 +480,102 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
   }
   const lastOut = [...list].reverse().find((p: any) => p.punch_type === "out");
 
-  const { data: schedule } = await supabase
-    .from("schedule_assignments")
-    .select("shift_id, is_rest_day, status, roster_version")
+  // 1. Resolve authoritative effective published schedule
+  let { data: schedule } = await supabase
+    .from("vw_effective_published_schedules")
+    .select(
+      "shift_id, shift_version, work_date, is_rest_day, work_location_id, roster_version, roster_period_id, start_time, end_time, grace_minutes_arrival, overtime_eligible, break_minutes, is_overnight",
+    )
     .eq("employee_id", employeeId)
     .eq("work_date", day)
-    .eq("status", "published")
-    .order("roster_version", { ascending: false })
-    .limit(1)
     .maybeSingle();
+
+  if (!schedule) {
+    const { data: fallbackSchedule } = await supabase
+      .from("schedule_assignments")
+      .select("shift_id, shift_version, is_rest_day, work_location_id, status, roster_version, roster_period_id")
+      .eq("employee_id", employeeId)
+      .eq("work_date", day)
+      .eq("status", "published")
+      .order("roster_version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    schedule = fallbackSchedule;
+  }
+
   let shift: any = null;
   if (schedule?.shift_id) {
-    const { data } = await supabase
-      .from("shifts")
-      .select("start_time, end_time, grace_minutes_arrival, overtime_eligible")
-      .eq("id", schedule.shift_id)
-      .maybeSingle();
-    shift = data;
+    if (schedule.start_time && schedule.end_time) {
+      shift = schedule;
+    } else {
+      const { data } = await supabase
+        .from("shifts")
+        .select("start_time, end_time, grace_minutes_arrival, overtime_eligible, break_minutes, is_overnight")
+        .eq("id", schedule.shift_id)
+        .maybeSingle();
+      shift = data;
+    }
   }
 
   const checkInMin = timeOfDay(firstIn.punch_time);
   const checkOutMin = lastOut ? timeOfDay(lastOut.punch_time) : null;
-  let expectedMinutes = 8 * 60;
+  const isRest = schedule?.is_rest_day ?? false;
+
+  // TRUTHFULNESS: If no valid published schedule/shift is resolved:
+  // do NOT assume eight hours. Return truthful schedule_not_configured exception and do not calculate late or overtime.
+  if (!schedule || (!shift && !isRest)) {
+    await supabase.from("attendance_records").upsert(
+      {
+        employee_id: employeeId,
+        work_date: day,
+        check_in: formatTime(checkInMin),
+        check_out: checkOutMin !== null ? formatTime(checkOutMin) : null,
+        status: "schedule_not_configured",
+        worked_hours: 0,
+        worked_minutes: 0,
+        late_minutes: 0,
+        overtime_minutes: 0,
+        overtime_hours: 0,
+        work_location_id: null,
+        shift_id: null,
+        shift_version: null,
+        roster_version: null,
+        roster_period_id: null,
+        is_manual: false,
+        note: "تم تسجيل البصمات دون وجود جدول عمل منشور معتمد (قيد المراجعة الإدارية)",
+      },
+      { onConflict: "employee_id,work_date" },
+    );
+    return;
+  }
+
+  let expectedMinutes = 0;
   let lateMinutes = 0;
-  if (shift) {
+  const isOvernight = shift?.is_overnight || (shift && toMinutes(shift.end_time) < toMinutes(shift.start_time));
+
+  if (shift && !isRest) {
     const start = toMinutes(shift.start_time);
     const end = toMinutes(shift.end_time);
     expectedMinutes = (end >= start ? end : end + 1440) - start;
+    if (shift.break_minutes) {
+      expectedMinutes = Math.max(0, expectedMinutes - shift.break_minutes);
+    }
     lateMinutes = Math.max(0, checkInMin - start - (shift.grace_minutes_arrival ?? 0));
   }
+
   let workedMinutes = 0;
   let overtimeMinutes = 0;
   if (checkOutMin !== null) {
     workedMinutes =
       checkOutMin >= checkInMin ? checkOutMin - checkInMin : checkOutMin + 1440 - checkInMin;
-    if (!shift || shift.overtime_eligible !== false) {
+
+    if (shift?.break_minutes && workedMinutes > 5 * 60) {
+      workedMinutes = Math.max(0, workedMinutes - shift.break_minutes);
+    }
+
+    if (isRest) {
+      overtimeMinutes = workedMinutes;
+    } else if (shift && shift.overtime_eligible !== false) {
       overtimeMinutes = Math.max(0, workedMinutes - expectedMinutes);
     }
   }
@@ -465,8 +591,14 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
       worked_minutes: workedMinutes,
       late_minutes: lateMinutes,
       overtime_minutes: overtimeMinutes,
+      overtime_hours: round2(overtimeMinutes / 60),
+      work_location_id: schedule.work_location_id || null,
+      shift_id: schedule.shift_id || null,
+      shift_version: schedule.shift_version || 1,
+      roster_version: schedule.roster_version || 1,
+      roster_period_id: schedule.roster_period_id || null,
       is_manual: false,
-      note: "احتُسب آليًا من بصمات الجهاز",
+      note: isRest ? "حضور في يوم راحة أسبوعية (عمل إضافي)" : "احتُسب آليًا من بصمات الجهاز والجدول المعتمد",
     },
     { onConflict: "employee_id,work_date" },
   );

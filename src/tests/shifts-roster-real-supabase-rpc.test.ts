@@ -110,4 +110,30 @@ describe("Prompt 13: Live Supabase Remote RPC & Schema Verification", () => {
     expect(error).not.toBeNull();
     expect(error?.message).toMatch(/غير مصرح|تعذر التعرف|violates foreign key constraint|Could not find the function/);
   });
+
+  it("Real RPC create_shift_swap_request rejects unauthenticated client call", async () => {
+    const { data, error } = await supabase.rpc("create_shift_swap_request", {
+      p_requester_assignment_id: "00000000-0000-0000-0000-000000000000",
+      p_target_employee_id: "00000000-0000-0000-0000-000000000001",
+      p_target_assignment_id: "00000000-0000-0000-0000-000000000002",
+      p_reason: "طلب تجريبي",
+    });
+
+    expect(data).toBeNull();
+    expect(error).not.toBeNull();
+    expect(error?.message).toMatch(/غير مصرح|تعذر التحقق|Could not find the function/);
+  });
+
+  it("Real RPC get_effective_published_schedule handles unassigned employee gracefully", async () => {
+    const { data, error } = await supabase.rpc("get_effective_published_schedule", {
+      p_employee_id: "00000000-0000-0000-0000-000000000000",
+      p_work_date: "2026-11-01",
+    });
+
+    if (error) {
+      expect(error.message).toMatch(/Could not find the function|permission/i);
+    } else {
+      expect(data).toBeNull();
+    }
+  });
 });

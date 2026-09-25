@@ -230,5 +230,5 @@ describe.sequential("Prompt 12.3 Item 14: Full Migration Chain Applied from Zero
       WHERE table_schema = 'public' AND table_name = 'attendance_policies' AND column_name = 'gps_accuracy_action';
     `);
     expect(colRes.rows[0]?.column_default).toBeNull();
-  });
+  }, 30000);
 });

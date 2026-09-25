@@ -2013,23 +2013,8 @@ export async function deleteApprovalChainRecord(id: string) {
 }
 
 export async function createShiftRecord(shift: Omit<ShiftDefinition, "id">) {
-  const { error } = await enterpriseSupabase.from("shifts").insert({
-    code: shift.code,
-    name_ar: shift.nameAr,
-    name_en: shift.nameEn,
-    color: shift.color,
-    type: shift.type,
-    start_time: shift.startTime,
-    end_time: shift.endTime,
-    grace_minutes_arrival: shift.graceMinutesArrival,
-    grace_minutes_departure: shift.graceMinutesDeparture,
-    flexible_hours: shift.flexibleHours ?? null,
-    split_second_start_time: shift.splitSecondStartTime ?? null,
-    split_second_end_time: shift.splitSecondEndTime ?? null,
-    allow_single_punch: shift.allowSinglePunch,
-    overtime_eligible: shift.overtimeEligible,
-  });
-  if (error) throw new Error(error.message);
+  const { createShiftDefinition } = await import("./shifts-repository");
+  await createShiftDefinition(shift);
 }
 
 export async function createPayrollRunRecord(run: PayrollRun) {

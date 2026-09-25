@@ -29,10 +29,12 @@ describe("truthful workflow UI contracts", () => {
 
   it("waits for shift and performance writes before closing their dialogs", () => {
     const shifts = source("src/components/shifts/ShiftsView.tsx");
+    const shiftModal = source("src/components/shifts/ShiftDefinitionModal.tsx");
     const performance = source("src/components/performance/PerformanceView.tsx");
 
-    expect(shifts).toContain("const created = await addShift");
-    expect(shifts).toContain("if (!created) return");
+    expect(shifts).toContain("ShiftDefinitionModal");
+    expect(shiftModal).toContain("await addShift");
+    expect(shiftModal).toContain("await updateShift");
     expect(performance).toContain("const saved = await addEvaluation");
     expect(performance).toContain("const created = await addPerformanceCycle");
   });
@@ -42,7 +44,7 @@ describe("truthful workflow UI contracts", () => {
 
     expect(shifts).not.toContain("تم ربط واختبار الاتصال بجهاز البصمة");
     expect(shifts).not.toContain("تم استيراد ومعالجة 450 حركة بصمة خام");
-    expect(shifts).toContain("بيانات توضيحية غير متصلة");
+    expect(shifts).toContain("المرجع الحصري المعتمد لمحرك الحضور والانصراف");
   });
 
   it("persists evaluation criteria and feedback", () => {

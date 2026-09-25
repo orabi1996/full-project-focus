@@ -103,6 +103,33 @@ export const queryKeys = {
   },
   shifts: {
     all: ["shifts"] as const,
+    definitions: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.shifts.all, "definitions", filters] as const)
+        : ([...queryKeys.shifts.all, "definitions"] as const),
+    definition: (id: string) => [...queryKeys.shifts.all, "definition", id] as const,
+    rosters: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.shifts.all, "rosters", filters] as const)
+        : ([...queryKeys.shifts.all, "rosters"] as const),
+    roster: (id: string) => [...queryKeys.shifts.all, "roster", id] as const,
+    assignments: (rosterPeriodId?: string, filters?: Record<string, unknown>) =>
+      [...queryKeys.shifts.all, "assignments", rosterPeriodId ?? "all", filters ?? {}] as const,
+    mySchedule: (startDate: string, endDate: string) =>
+      [...queryKeys.shifts.all, "mySchedule", startDate, endDate] as const,
+    teamSchedule: (departmentId?: string, startDate?: string, endDate?: string) =>
+      [...queryKeys.shifts.all, "teamSchedule", departmentId ?? "all", startDate ?? "", endDate ?? ""] as const,
+    templates: () => [...queryKeys.shifts.all, "templates"] as const,
+    rotations: () => [...queryKeys.shifts.all, "rotations"] as const,
+    exceptions: (rosterPeriodId?: string) =>
+      [...queryKeys.shifts.all, "exceptions", rosterPeriodId ?? "all"] as const,
+    coverage: (rosterPeriodId: string) =>
+      [...queryKeys.shifts.all, "coverage", rosterPeriodId] as const,
+    swapRequests: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.shifts.all, "swapRequests", filters] as const)
+        : ([...queryKeys.shifts.all, "swapRequests"] as const),
+    workweek: () => [...queryKeys.shifts.all, "workweek"] as const,
   },
   expenses: {
     all: ["expenses"] as const,

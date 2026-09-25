@@ -60,6 +60,7 @@ export interface CompanyProfile {
   headquartersAddress: string;
   fiscalYearStartMonth: number;
   setupStatus?: "incomplete" | "complete" | string;
+  workweekConfig?: WorkweekConfig;
 }
 
 export interface Subsidiary {
@@ -676,13 +677,36 @@ export type AttendanceStatus =
   | "missing_punch"
   | "remote";
 
+export interface WorkweekConfig {
+  weekendDays: number[]; // e.g. [5, 6] (Friday = 5, Saturday = 6)
+  maxConsecutiveWorkDays: number; // e.g. 6
+  minWeeklyRestHours: number; // e.g. 24 or 36
+  defaultDailyHours: number; // e.g. 8
+}
+
+export type ShiftType = "fixed" | "flexible" | "split" | "overnight";
+export type ShiftStatus = "draft" | "active" | "archived";
+export type ShiftBreakType = "paid" | "unpaid" | "none";
+
+export interface ShiftSegment {
+  id?: string;
+  shiftId?: string;
+  segmentOrder: number;
+  startTime: string; // "HH:mm"
+  endTime: string; // "HH:mm"
+  segmentType: "work" | "break";
+  isOvernight: boolean;
+  paid: boolean;
+}
+
 export interface ShiftDefinition {
   id: string;
+  companyId?: string;
   code: string;
   nameAr: string;
   nameEn: string;
   color: string;
-  type: "fixed" | "flexible" | "split";
+  type: ShiftType;
   startTime: string; // "09:00"
   endTime: string; // "17:00"
   flexibleHours?: number; // 8 hours
@@ -692,17 +716,162 @@ export interface ShiftDefinition {
   graceMinutesDeparture: number; // 15 mins
   allowSinglePunch: boolean;
   overtimeEligible: boolean;
+  version?: number;
+  status?: ShiftStatus;
+  effectiveFrom?: string;
+  effectiveTo?: string;
+  breakType?: ShiftBreakType;
+  autoDeductBreaks?: boolean;
+  minRestHoursAfter?: number;
+  createdBy?: string;
+  segments?: ShiftSegment[];
+}
+
+export type RosterPeriodStatus =
+  | "draft"
+  | "validation_failed"
+  | "ready"
+  | "published"
+  | "locked"
+  | "archived";
+
+export interface RosterPeriod {
+  id: string;
+  companyId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  timezone: string;
+  status: RosterPeriodStatus;
+  version: number;
+  publishedAt?: string | null;
+  publishedBy?: string | null;
+  lockedAt?: string | null;
+  createdBy?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ScheduleAssignment {
   id: string;
+  companyId?: string;
   employeeId: string;
+  rosterPeriodId?: string;
+  rosterVersion?: number;
   date: string;
   shiftId: string;
+  shiftVersion?: number;
   shiftNameAr: string;
   shiftColor: string;
+  workLocationId?: string | null;
   isRestDay: boolean;
   status: "draft" | "published";
+  source?: "direct" | "template" | "rotation" | "swap" | "copy";
+  createdBy?: string;
+  publishedAt?: string;
+  notes?: string;
+}
+
+export interface RosterTemplate {
+  id: string;
+  companyId: string;
+  name: string;
+  description?: string;
+  patternType: "weekly" | "rotating" | "custom";
+  cycleDays: number;
+  templateData: Record<string, any>;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RotationPattern {
+  id: string;
+  companyId: string;
+  name: string;
+  cycleDays: number;
+  patternSequence: { day: number; shiftId: string | null; isRestDay: boolean }[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RosterCoverageRequirement {
+  id: string;
+  companyId: string;
+  rosterPeriodId: string;
+  departmentId?: string | null;
+  shiftId?: string | null;
+  dayOfWeek: number; // 0-6 (0=Sunday, 1=Monday, ... 5=Friday, 6=Saturday)
+  minStaff: number;
+  maxStaff?: number | null;
+  createdAt?: string;
+}
+
+export type RosterExceptionSeverity = "info" | "warning" | "error" | "fatal";
+export type RosterExceptionType =
+  | "overlap"
+  | "insufficient_rest"
+  | "excess_hours"
+  | "under_staffed"
+  | "unassigned_shift"
+  | "contract_breach";
+
+export interface RosterException {
+  id: string;
+  companyId: string;
+  rosterPeriodId: string;
+  assignmentId?: string | null;
+  employeeId?: string | null;
+  exceptionType: RosterExceptionType;
+  severity: RosterExceptionSeverity;
+  message: string;
+  conflictDetails?: Record<string, any>;
+  resolved: boolean;
+  resolvedBy?: string | null;
+  resolvedAt?: string | null;
+  createdAt?: string;
+}
+
+export type ShiftSwapStatus =
+  | "pending"
+  | "peer_accepted"
+  | "peer_rejected"
+  | "approved"
+  | "rejected"
+  | "cancelled";
+
+export interface ShiftSwapRequest {
+  id: string;
+  companyId: string;
+  requesterId: string;
+  requesterAssignmentId: string;
+  targetEmployeeId: string;
+  targetAssignmentId: string;
+  reason?: string | null;
+  status: ShiftSwapStatus;
+  approvedBy?: string | null;
+  approvalNotes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  requesterName?: string;
+  targetEmployeeName?: string;
+  requesterDate?: string;
+  targetDate?: string;
+  requesterShiftName?: string;
+  targetShiftName?: string;
+}
+
+export interface RosterAuditLog {
+  id: string;
+  companyId: string;
+  rosterPeriodId?: string | null;
+  actorId?: string | null;
+  action: string;
+  entityType: string;
+  entityId?: string | null;
+  diffSummary?: Record<string, any>;
+  createdAt: string;
 }
 
 export interface DailyAttendanceRecord {

@@ -847,6 +847,7 @@ export interface AttendancePayrollSnapshot {
   regularOvertimeHours: number;
   holidayOvertimeHours: number;
   approvedOvertimeMinutes: number;
+  requestedOvertimeMinutes?: number;
   actualOvertimeMinutes: number;
   payableOvertimeMinutes: number;
   overtimeCategory?: string;

@@ -1183,7 +1183,8 @@ export function useEffectiveCompanyTimezone(companyId?: string) {
   });
 
   return {
-    timezone: query.data ?? "Asia/Riyadh",
+    timezone: query.data ?? null,
     isLoading: query.isLoading,
+    error: query.error,
   };
 }

@@ -36,12 +36,12 @@ export function mapAttendancePolicy(row: any): AttendancePolicy {
     companyId: row.company_id,
     nameAr: row.name_ar,
     version: Number(row.version ?? 1),
-    effectiveFrom: row.effective_from || new Date().toISOString().slice(0, 10),
+    effectiveFrom: row.effective_from || "",
     effectiveTo: row.effective_to ?? null,
     status: row.status || "active",
     jurisdiction: row.jurisdiction ?? null,
     maxGpsAccuracyMeters: row.max_gps_accuracy_meters != null ? Number(row.max_gps_accuracy_meters) : null,
-    gpsAccuracyAction: (row.gps_accuracy_action as any) || "flag",
+    gpsAccuracyAction: (row.gps_accuracy_action as any) ?? null,
     gracePeriodInMinutes: row.grace_period_in_minutes != null ? Number(row.grace_period_in_minutes) : null,
     gracePeriodOutMinutes: row.grace_period_out_minutes != null ? Number(row.grace_period_out_minutes) : null,
     overtimeRegularMultiplier: row.overtime_regular_multiplier != null ? Number(row.overtime_regular_multiplier) : null,
@@ -129,6 +129,7 @@ export function mapAttendancePayrollSnapshot(row: any, employeeMap?: Map<string,
     regularOvertimeHours: Number(row.regular_overtime_hours ?? 0),
     holidayOvertimeHours: Number(row.holiday_overtime_hours ?? 0),
     approvedOvertimeMinutes: Number(row.approved_overtime_minutes ?? 0),
+    requestedOvertimeMinutes: Number(row.requested_overtime_minutes ?? 0),
     actualOvertimeMinutes: Number(row.actual_overtime_minutes ?? 0),
     payableOvertimeMinutes: Number(row.payable_overtime_minutes ?? 0),
     overtimeCategory: row.overtime_category || "standard",
@@ -712,12 +713,18 @@ export async function processAttendanceRangeRecord(
 }
 
 export async function fetchEffectiveCompanyTimezoneRecord(companyId?: string): Promise<string> {
+  if (!companyId) {
+    throw new Error("لم يتم تحديد معرّف المنشأة لاسترجاع المنطقة الزمنية.");
+  }
   const { data, error } = await db.rpc("get_effective_company_timezone", {
-    p_company_id: companyId || null,
+    p_company_id: companyId,
   });
 
   if (error) {
-    return "Asia/Riyadh";
+    throw new Error(error.message || "لم يتم ضبط المنطقة الزمنية للمنشأة. يرجى إعداد المنطقة الزمنية في ملف المنشأة أولاً.");
   }
-  return (data as string) || "Asia/Riyadh";
+  if (!data || typeof data !== "string") {
+    throw new Error("لم يتم ضبط المنطقة الزمنية للمنشأة. يرجى إعداد المنطقة الزمنية في ملف المنشأة أولاً.");
+  }
+  return data;
 }

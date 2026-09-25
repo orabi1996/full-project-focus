@@ -1,7 +1,7 @@
 import { PGlite } from "@electric-sql/pglite";
 import { describe, expect, it, beforeAll } from "vitest";
 
-describe.sequential("Prompt 12.2: Attendance Engine Database Verification (PGlite)", () => {
+describe.sequential("PGlite Integration Test — Prompt 12 Attendance Engine Database Verification", () => {
   const db = new PGlite();
 
   // Test UUIDs
@@ -359,8 +359,19 @@ describe.sequential("Prompt 12.2: Attendance Engine Database Verification (PGlit
 
       CREATE OR REPLACE FUNCTION public.get_effective_company_timezone(p_company_id uuid)
       RETURNS text
-      LANGUAGE sql STABLE AS $$
-        SELECT COALESCE(timezone, 'Asia/Riyadh') FROM public.companies WHERE id = p_company_id
+      LANGUAGE plpgsql STABLE AS $$
+      DECLARE
+        v_tz text;
+      BEGIN
+        IF p_company_id IS NULL THEN
+          RAISE EXCEPTION 'معرف الشركة غير محدد.' USING ERRCODE = '22023';
+        END IF;
+        SELECT timezone INTO v_tz FROM public.companies WHERE id = p_company_id;
+        IF v_tz IS NULL OR trim(v_tz) = '' THEN
+          RAISE EXCEPTION 'لم يتم ضبط المنطقة الزمنية للمنشأة.' USING ERRCODE = '22023';
+        END IF;
+        RETURN v_tz;
+      END;
       $$;
     `);
 
@@ -473,9 +484,11 @@ describe.sequential("Prompt 12.2: Attendance Engine Database Verification (PGlit
         END IF;
         v_overtime_pre_approval_required := (p_policy->>'overtime_pre_approval_required')::boolean;
 
-        v_gps_accuracy_action := COALESCE(p_policy->>'gps_accuracy_action', 'flag');
-        IF v_gps_accuracy_action NOT IN ('reject', 'flag', 'allow') THEN
-          RAISE EXCEPTION 'إجراء دقة GPS غير صالح: يجب أن يكون reject أو flag أو allow.' USING ERRCODE = '22023';
+        v_gps_accuracy_action := p_policy->>'gps_accuracy_action';
+        IF v_allow_mobile_punch IS TRUE OR (p_policy ? 'max_gps_accuracy_meters' AND (p_policy->>'max_gps_accuracy_meters') IS NOT NULL) THEN
+          IF v_gps_accuracy_action IS NULL OR v_gps_accuracy_action NOT IN ('reject', 'flag', 'allow') THEN
+            RAISE EXCEPTION 'يجب تحديد إجراء دقة نظام تحديد المواقع (gps_accuracy_action) صراحة (reject, flag, allow).' USING ERRCODE = '22023';
+          END IF;
         END IF;
 
         v_max_gps_acc := (p_policy->>'max_gps_accuracy_meters')::integer;
@@ -797,6 +810,101 @@ describe.sequential("Prompt 12.2: Attendance Engine Database Verification (PGlit
       END;
       $$;
 
+      -- calculate_shift_expected_minutes
+      CREATE OR REPLACE FUNCTION public.calculate_shift_expected_minutes(p_shift_id uuid)
+      RETURNS integer LANGUAGE plpgsql STABLE AS $$
+      DECLARE
+        v_shift public.shifts%ROWTYPE;
+        v_seg1 integer;
+        v_seg2 integer;
+        v_duration integer;
+      BEGIN
+        IF p_shift_id IS NULL THEN
+          RAISE EXCEPTION 'معرف الوردية غير محدد.' USING ERRCODE = '22023';
+        END IF;
+
+        SELECT * INTO v_shift FROM public.shifts WHERE id = p_shift_id;
+        IF NOT FOUND THEN
+          RAISE EXCEPTION 'الوردية المحددة غير موجودة (معرف: %).', p_shift_id USING ERRCODE = '22023';
+        END IF;
+
+        IF v_shift.type = 'fixed' THEN
+          IF v_shift.start_time IS NULL OR v_shift.end_time IS NULL THEN
+            RAISE EXCEPTION 'الوردية الثابتة (%) تفتقر لوقت البداية أو النهاية.', v_shift.name_ar USING ERRCODE = '22023';
+          END IF;
+
+          IF v_shift.is_overnight IS TRUE THEN
+            v_duration := round(EXTRACT(EPOCH FROM (('2000-01-02 ' || v_shift.end_time)::timestamp - ('2000-01-01 ' || v_shift.start_time)::timestamp)) / 60.0)::integer;
+          ELSE
+            v_duration := round(EXTRACT(EPOCH FROM (('2000-01-01 ' || v_shift.end_time)::timestamp - ('2000-01-01 ' || v_shift.start_time)::timestamp)) / 60.0)::integer;
+          END IF;
+
+          v_duration := GREATEST(0, v_duration - COALESCE(v_shift.break_minutes, 0));
+          RETURN v_duration;
+
+        ELSIF v_shift.type = 'overnight' THEN
+          IF v_shift.start_time IS NULL OR v_shift.end_time IS NULL THEN
+            RAISE EXCEPTION 'الوردية الليلية (%) تفتقر لوقت البداية أو النهاية.', v_shift.name_ar USING ERRCODE = '22023';
+          END IF;
+
+          v_duration := round(EXTRACT(EPOCH FROM (('2000-01-02 ' || v_shift.end_time)::timestamp - ('2000-01-01 ' || v_shift.start_time)::timestamp)) / 60.0)::integer;
+          v_duration := GREATEST(0, v_duration - COALESCE(v_shift.break_minutes, 0));
+          RETURN v_duration;
+
+        ELSIF v_shift.type = 'flexible' THEN
+          IF v_shift.flexible_hours IS NULL OR v_shift.flexible_hours <= 0 THEN
+            RAISE EXCEPTION 'الوردية المرنة (%) تفتقر لعدد الساعات المرنة المطلوبة (flexible_hours).', v_shift.name_ar USING ERRCODE = '22023';
+          END IF;
+
+          RETURN round(v_shift.flexible_hours * 60.0)::integer;
+
+        ELSIF v_shift.type = 'split' THEN
+          IF v_shift.start_time IS NULL OR v_shift.end_time IS NULL OR
+             v_shift.split_second_start_time IS NULL OR v_shift.split_second_end_time IS NULL THEN
+            RAISE EXCEPTION 'وردية الدوام المجزأ (%) تفتقر لأوقات بداية أو نهاية الفترتين.', v_shift.name_ar USING ERRCODE = '22023';
+          END IF;
+
+          v_seg1 := round(EXTRACT(EPOCH FROM (('2000-01-01 ' || v_shift.end_time)::timestamp - ('2000-01-01 ' || v_shift.start_time)::timestamp)) / 60.0)::integer;
+          v_seg2 := round(EXTRACT(EPOCH FROM (('2000-01-01 ' || v_shift.split_second_end_time)::timestamp - ('2000-01-01 ' || v_shift.split_second_start_time)::timestamp)) / 60.0)::integer;
+
+          v_duration := GREATEST(0, (v_seg1 + v_seg2) - COALESCE(v_shift.break_minutes, 0));
+          RETURN v_duration;
+
+        ELSE
+          RAISE EXCEPTION 'نوع الوردية غير مدعوم أو غير مكتمل الإعداد (%: %).', v_shift.name_ar, v_shift.type USING ERRCODE = '22023';
+        END IF;
+      END;
+      $$;
+
+      -- validate_period_shifts
+      CREATE OR REPLACE FUNCTION public.validate_period_shifts(p_period_id uuid)
+      RETURNS void LANGUAGE plpgsql STABLE AS $$
+      DECLARE
+        v_period public.attendance_periods%ROWTYPE;
+        v_rec record;
+        v_expected_mins integer;
+      BEGIN
+        SELECT * INTO v_period FROM public.attendance_periods WHERE id = p_period_id;
+        IF NOT FOUND THEN
+          RAISE EXCEPTION 'فترة الحضور المحددة غير موجودة.' USING ERRCODE = '22023';
+        END IF;
+
+        FOR v_rec IN (
+          SELECT DISTINCT s.id AS shift_id, s.name_ar, s.type
+          FROM public.schedule_assignments sa
+          JOIN public.shifts s ON s.id = sa.shift_id
+          WHERE sa.company_id = v_period.company_id
+            AND sa.work_date BETWEEN v_period.from_date AND v_period.to_date
+            AND sa.is_rest_day IS NOT TRUE
+        ) LOOP
+          v_expected_mins := public.calculate_shift_expected_minutes(v_rec.shift_id);
+          IF v_expected_mins <= 0 THEN
+            RAISE EXCEPTION 'الوردية (%) المجدولة خلال الفترة تحسب 0 دقيقة عمل، يرجى مراجعة إعدادات الوردية.', v_rec.name_ar USING ERRCODE = '22023';
+          END IF;
+        END LOOP;
+      END;
+      $$;
+
       -- close_attendance_period
       CREATE OR REPLACE FUNCTION public.close_attendance_period(p_period_id uuid)
       RETURNS jsonb LANGUAGE plpgsql AS $$
@@ -810,6 +918,12 @@ describe.sequential("Prompt 12.2: Attendance Engine Database Verification (PGlit
         v_snapshot_count integer := 0;
         v_expected_workdays integer;
         v_expected_work_minutes integer;
+        v_rest_days integer;
+        v_requested_ot_mins integer;
+        v_approved_ot_mins integer;
+        v_actual_ot_mins integer;
+        v_payable_ot_mins integer;
+        v_policy public.attendance_policies%ROWTYPE;
       BEGIN
         SELECT * INTO v_period FROM public.attendance_periods WHERE id = p_period_id;
         IF v_period.id IS NULL THEN
@@ -840,6 +954,11 @@ describe.sequential("Prompt 12.2: Attendance Engine Database Verification (PGlit
           RAISE EXCEPTION 'لا يمكن إغلاق الفترة: لا توجد سياسة دوام معتمدة وسارية للمنشأة تغطي هذه الفترة.' USING ERRCODE = '22023';
         END IF;
 
+        -- Timezone check
+        IF public.get_effective_company_timezone(v_period.company_id) IS NULL THEN
+          RAISE EXCEPTION 'لا يمكن إغلاق الفترة: المنطقة الزمنية للمنشأة غير مهيأة.' USING ERRCODE = '22023';
+        END IF;
+
         -- Missing schedule check
         SELECT count(DISTINCT e.id) INTO v_missing_schedule_cnt FROM public.employees e
         WHERE e.company_id = v_period.company_id AND e.status = 'active'
@@ -852,9 +971,19 @@ describe.sequential("Prompt 12.2: Attendance Engine Database Verification (PGlit
           RAISE EXCEPTION 'لا يمكن إغلاق الفترة: يوجد % موظف ليس لديهم جدول دوام معتمد ومنشور خلال هذه الفترة.', v_missing_schedule_cnt USING ERRCODE = '22023';
         END IF;
 
+        -- Validate all shifts used in the period
+        PERFORM public.validate_period_shifts(p_period_id);
+
+        -- Active policy
+        SELECT * INTO v_policy
+        FROM public.attendance_policies
+        WHERE company_id = v_period.company_id AND status = 'active'
+        ORDER BY version DESC LIMIT 1;
+
         -- Snapshot generation
-        FOR v_emp IN (SELECT id AS employee_id, full_name FROM public.employees WHERE company_id = v_period.company_id AND status = 'active') LOOP
-          SELECT count(*), COALESCE(sum(480), 0)
+        FOR v_emp IN (SELECT id AS employee_id, full_name, hire_date, exit_date FROM public.employees WHERE company_id = v_period.company_id AND status = 'active') LOOP
+          -- Expected workdays & minutes from actual shift calculation (NO 480-MIN FALLBACK!)
+          SELECT count(*), COALESCE(sum(public.calculate_shift_expected_minutes(sa.shift_id)), 0)
           INTO v_expected_workdays, v_expected_work_minutes
           FROM public.schedule_assignments sa
           WHERE sa.employee_id = v_emp.employee_id
@@ -865,19 +994,55 @@ describe.sequential("Prompt 12.2: Attendance Engine Database Verification (PGlit
             RAISE EXCEPTION 'لا يمكن إغلاق الفترة لأن جدول الدوام غير منشور أو غير صالح للموظف % (معرف: %).', v_emp.full_name, v_emp.employee_id USING ERRCODE = '22023';
           END IF;
 
+          -- Truthful Rest Days: explicit count of rest day assignments
+          SELECT count(*) INTO v_rest_days
+          FROM public.schedule_assignments sa
+          WHERE sa.employee_id = v_emp.employee_id
+            AND sa.work_date BETWEEN v_period.from_date AND v_period.to_date
+            AND sa.is_rest_day IS TRUE
+            AND (v_emp.hire_date IS NULL OR sa.work_date >= v_emp.hire_date)
+            AND (v_emp.exit_date IS NULL OR sa.work_date <= v_emp.exit_date);
+
+          -- Overtime calculations
+          SELECT
+            COALESCE(sum(round(hours * 60)), 0),
+            COALESCE(sum(round(hours * 60)) FILTER (WHERE status = 'approved'), 0)
+          INTO v_requested_ot_mins, v_approved_ot_mins
+          FROM public.overtime_records
+          WHERE employee_id = v_emp.employee_id
+            AND work_date BETWEEN v_period.from_date AND v_period.to_date;
+
+          SELECT COALESCE(sum(
+            GREATEST(0, ar.worked_minutes - COALESCE(public.calculate_shift_expected_minutes(ar.shift_id), 0))
+          ), 0) INTO v_actual_ot_mins
+          FROM public.attendance_records ar
+          WHERE ar.employee_id = v_emp.employee_id
+            AND ar.work_date BETWEEN v_period.from_date AND v_period.to_date
+            AND ar.shift_id IS NOT NULL;
+
+          IF v_policy.overtime_pre_approval_required IS TRUE THEN
+            IF v_actual_ot_mins > 0 THEN
+              v_payable_ot_mins := LEAST(v_approved_ot_mins, v_actual_ot_mins);
+            ELSE
+              v_payable_ot_mins := v_approved_ot_mins;
+            END IF;
+          ELSE
+            v_payable_ot_mins := v_actual_ot_mins;
+          END IF;
+
           INSERT INTO public.attendance_payroll_snapshots (
             company_id, period_id, period_version, snapshot_version, employee_id,
             total_expected_days, expected_work_minutes, total_present_days, total_absent_days,
             total_rest_days, total_leave_days, total_late_minutes, total_early_departure_minutes,
             total_worked_hours, regular_overtime_hours, holiday_overtime_hours,
-            approved_overtime_minutes, actual_overtime_minutes, payable_overtime_minutes,
+            requested_overtime_minutes, approved_overtime_minutes, actual_overtime_minutes, payable_overtime_minutes,
             overtime_categories, snapshot_hash
           ) VALUES (
             v_period.company_id, v_period.id, v_period.version, 1, v_emp.employee_id,
             v_expected_workdays, v_expected_work_minutes, v_expected_workdays, 0,
-            0, 0, 0, 0,
+            v_rest_days, 0, 0, 0,
             (v_expected_work_minutes / 60.0), 0, 0,
-            0, 0, 0,
+            v_requested_ot_mins, v_approved_ot_mins, v_actual_ot_mins, v_payable_ot_mins,
             '{"standard_minutes": 0, "holiday_or_rest_minutes": 0}'::jsonb,
             encode(sha256('hash_seed'::bytea), 'hex')
           );
@@ -1198,6 +1363,7 @@ describe.sequential("Prompt 12.2: Attendance Engine Database Verification (PGlit
         require_biometric_or_gps: true,
         allow_mobile_punch: true,
         overtime_pre_approval_required: true,
+        gps_accuracy_action: "reject",
       });
 
       // Existing policy on company A has effective_from = 2026-09-01
@@ -1213,4 +1379,94 @@ describe.sequential("Prompt 12.2: Attendance Engine Database Verification (PGlit
       ).rejects.toThrow(/تداخل زمني/);
     });
   });
+
+  describe("Item 5 & 6: Shift Expected Minutes & Split Shift Truthfulness", () => {
+    const splitShiftId = "f0000000-0000-0000-0000-000000000010";
+    const overnightShiftId = "f0000000-0000-0000-0000-000000000020";
+    const flexibleShiftId = "f0000000-0000-0000-0000-000000000030";
+    const incompleteShiftId = "f0000000-0000-0000-0000-000000000040";
+
+    beforeAll(async () => {
+      await db.exec(`
+        ALTER TABLE public.shifts ALTER COLUMN end_time DROP NOT NULL;
+
+        -- Split shift: 08:00 to 12:00 (240m) + 16:00 to 20:00 (240m) - 60m break = 420m (7 hours)
+        INSERT INTO public.shifts (id, company_id, name_ar, type, start_time, end_time, split_second_start_time, split_second_end_time, break_minutes)
+        VALUES ('${splitShiftId}', '${companyA}', 'وردية مجزأة', 'split', '08:00:00', '12:00:00', '16:00:00', '20:00:00', 60);
+
+        -- Overnight shift: 22:00 to 06:00 (480m) - 30m break = 450m
+        INSERT INTO public.shifts (id, company_id, name_ar, type, start_time, end_time, is_overnight, break_minutes)
+        VALUES ('${overnightShiftId}', '${companyA}', 'وردية ليلية', 'overnight', '22:00:00', '06:00:00', true, 30);
+
+        -- Flexible shift: 7.5 hours = 450m
+        INSERT INTO public.shifts (id, company_id, name_ar, type, flexible_hours)
+        VALUES ('${flexibleShiftId}', '${companyA}', 'وردية مرنة', 'flexible', 7.5);
+
+        -- Incomplete fixed shift: missing end_time
+        INSERT INTO public.shifts (id, company_id, name_ar, type, start_time, end_time)
+        VALUES ('${incompleteShiftId}', '${companyA}', 'وردية ناقصة', 'fixed', '08:00:00', null);
+      `);
+    });
+
+    it("calculates split shift minutes truthfully: seg1 + seg2 - break", async () => {
+      const res = await db.query(`SELECT public.calculate_shift_expected_minutes('${splitShiftId}') AS mins;`);
+      expect(Number((res.rows[0] as any).mins)).toBe(420);
+    });
+
+    it("calculates overnight shift minutes correctly across midnight", async () => {
+      const res = await db.query(`SELECT public.calculate_shift_expected_minutes('${overnightShiftId}') AS mins;`);
+      expect(Number((res.rows[0] as any).mins)).toBe(450);
+    });
+
+    it("calculates flexible shift minutes based on flexible_hours * 60", async () => {
+      const res = await db.query(`SELECT public.calculate_shift_expected_minutes('${flexibleShiftId}') AS mins;`);
+      expect(Number((res.rows[0] as any).mins)).toBe(450);
+    });
+
+    it("blocks incomplete shift with missing end_time with error code 22023 without 480 fallback", async () => {
+      await expect(
+        db.query(`SELECT public.calculate_shift_expected_minutes('${incompleteShiftId}');`)
+      ).rejects.toThrow(/تفتقر لوقت البداية أو النهاية/);
+    });
+  });
+
+  describe("Item 1 & 19: Timezone Truthfulness & Zero Fabrication", () => {
+    const noTzCompanyId = "a0000000-0000-0000-0000-000000000099";
+
+    beforeAll(async () => {
+      await db.exec(`
+        INSERT INTO public.companies (id, legal_name_ar, timezone)
+        VALUES ('${noTzCompanyId}', 'شركة بدون منطقة زمنية', null);
+      `);
+    });
+
+    it("throws configuration error when company timezone is missing and NEVER fabricates Asia/Riyadh", async () => {
+      await expect(
+        db.query(`SELECT public.get_effective_company_timezone('${noTzCompanyId}');`)
+      ).rejects.toThrow(/لم يتم ضبط المنطقة الزمنية للمنشأة/);
+    });
+  });
+
+  describe("Item 2: Explicit GPS Accuracy Action (No 'flag' default)", () => {
+    it("fails saving policy when gps_accuracy_action is omitted and mobile punch is true", async () => {
+      await asUser(userHrA);
+
+      const payload = JSON.stringify({
+        company_id: companyA,
+        name_ar: "سياسة بدون إجراء GPS",
+        effective_from: "2026-11-01",
+        geofence_enforced: true,
+        auto_deduct_breaks: true,
+        require_biometric_or_gps: true,
+        allow_mobile_punch: true,
+        overtime_pre_approval_required: true,
+        // gps_accuracy_action intentionally omitted
+      });
+
+      await expect(
+        db.query(`SELECT public.save_attendance_policy('${payload}'::jsonb);`)
+      ).rejects.toThrow(/يجب تحديد إجراء دقة نظام تحديد المواقع \(gps_accuracy_action\) صراحة/);
+    });
+  });
 });
+

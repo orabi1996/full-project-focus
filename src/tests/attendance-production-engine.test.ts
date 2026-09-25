@@ -87,6 +87,12 @@ describe("Prompt 12 & 12.2: Production Attendance & Time Engine Final Contract",
   );
   const hotfix122Sql = fs.readFileSync(hotfix122Path, "utf-8");
 
+  const hotfix123Path = path.resolve(
+    __dirname,
+    "../../supabase/migrations/20260924030000_close_attendance_truthfulness_gaps.sql",
+  );
+  const hotfix123Sql = fs.readFileSync(hotfix123Path, "utf-8");
+
   const repoPath = path.resolve(__dirname, "../lib/data/attendance-repository.ts");
   const repoContent = fs.readFileSync(repoPath, "utf-8");
 
@@ -447,6 +453,80 @@ describe("Prompt 12 & 12.2: Production Attendance & Time Engine Final Contract",
     it("repository exports safe processMyAttendanceDayRecord RPC helper", () => {
       expect(repoContent).toContain("export async function processMyAttendanceDayRecord");
       expect(repoContent).toContain('await db.rpc("process_my_attendance_day"');
+    });
+  });
+
+  describe("11. Prompt 12.3 Truthfulness and Zero-Fabrication Regression Guards", () => {
+    it("Item 1 & 19: verifies repository never falls back to Asia/Riyadh", () => {
+      expect(repoContent).not.toContain('return "Asia/Riyadh"');
+      expect(repoContent).not.toContain('|| "Asia/Riyadh"');
+      expect(repoContent).toContain("لم يتم ضبط المنطقة الزمنية للمنشأة");
+    });
+
+    it("Item 1 & 19: verifies domain timezone hook never falls back to Asia/Riyadh", () => {
+      expect(domainContent).not.toContain('?? "Asia/Riyadh"');
+      expect(domainContent).toContain("timezone: query.data ?? null");
+    });
+
+    it("Item 2: verifies GPS accuracy action default is dropped and never defaulted to flag in mapper or save RPC", () => {
+      expect(hotfix123Sql).toContain("ALTER COLUMN gps_accuracy_action DROP DEFAULT");
+      expect(repoContent).not.toContain('(row.gps_accuracy_action as any) || "flag"');
+      expect(repoContent).toContain("(row.gps_accuracy_action as any) ?? null");
+      expect(hotfix123Sql).not.toContain("COALESCE(p_policy->>'gps_accuracy_action', 'flag')");
+    });
+
+    it("Item 3: verifies UI does not visually imply selected booleans with ?? true", () => {
+      expect(policySetupContent).not.toContain("checked={form.geofenceEnforced ?? true}");
+      expect(policySetupContent).not.toContain("checked={form.allowMobilePunch ?? true}");
+      expect(policySetupContent).not.toContain("checked={form.overtimePreApprovalRequired ?? true}");
+      expect(policySetupContent).toContain("TriStateToggle");
+    });
+
+    it("Item 4: verifies UI does not auto-fill effectiveFrom with browser UTC date", () => {
+      expect(policySetupContent).not.toContain("new Date().toISOString().slice(0, 10)");
+    });
+
+    it("Item 5: verifies close_attendance_period does NOT contain 480-minute fallback", () => {
+      expect(hotfix123Sql).toContain("calculate_shift_expected_minutes");
+      expect(hotfix123Sql).not.toContain("ELSE 480");
+      expect(hotfix123Sql).toContain("validate_period_shifts");
+    });
+
+    it("Item 6: verifies split shift expected minutes are calculated as seg1 + seg2 - break", () => {
+      expect(hotfix123Sql).toContain("ELSIF v_shift.type = 'split' THEN");
+      expect(hotfix123Sql).toContain("v_seg1 := round(EXTRACT(EPOCH FROM (('2000-01-01 ' || v_shift.end_time)");
+      expect(hotfix123Sql).toContain("v_seg2 := round(EXTRACT(EPOCH FROM (('2000-01-01 ' || v_shift.split_second_end_time)");
+      expect(hotfix123Sql).toContain("v_duration := GREATEST(0, (v_seg1 + v_seg2) - COALESCE(v_shift.break_minutes, 0))");
+    });
+
+    it("Item 7: verifies validate_period_shifts blocks invalid/incomplete shifts before period close", () => {
+      expect(hotfix123Sql).toContain("PERFORM public.validate_period_shifts(p_period_id);");
+    });
+
+    it("Item 8: verifies legacy overtime history is preserved without destructive mutation", () => {
+      expect(hotfix123Sql).toContain("legacy_original_rate_type text");
+      expect(hotfix123Sql).toContain("rate_type IN ('standard', 'holiday_or_rest_day', 'regular_150', 'holiday_200', 'rest_day_200')");
+    });
+
+    it("Item 9: verifies authoritative overtime facts distinguish requested, approved, actual, and payable", () => {
+      expect(hotfix123Sql).toContain("v_requested_ot_mins");
+      expect(hotfix123Sql).toContain("v_approved_ot_mins");
+      expect(hotfix123Sql).toContain("v_actual_ot_mins");
+      expect(hotfix123Sql).toContain("v_payable_ot_mins");
+      expect(hotfix123Sql).toContain("requested_overtime_minutes");
+    });
+
+    it("Item 10: verifies rest days in snapshot are calculated truthfully from schedule assignments, NOT as residual", () => {
+      expect(hotfix123Sql).toContain("sa.is_rest_day IS TRUE");
+      expect(hotfix123Sql).not.toContain("(v_period.to_date - v_period.from_date + 1) - v_expected_workdays");
+    });
+
+    it("Item 11 & 12: verifies jurisdiction templates cover SA, EG, QA, OM, BH and display legal disclaimer", () => {
+      expect(policySetupContent).toContain("JURISDICTION_STARTING_TEMPLATES");
+      expect(policySetupContent).toContain('jurisdiction: "OM"');
+      expect(policySetupContent).toContain('jurisdiction: "BH"');
+      expect(policySetupContent).toContain("تنبيه قانوني وإداري:");
+      expect(policySetupContent).toContain("هذه النماذج هي قوالب استرشادية لبدء التهيئة فقط ولا تعد ضماناً للامتثال القانوني التلقائي");
     });
   });
 });

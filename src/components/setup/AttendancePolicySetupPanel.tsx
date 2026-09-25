@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { ShieldCheck, Clock, MapPin, Save, CheckCircle2, AlertTriangle, Layers, Globe } from "lucide-react";
+import { ShieldCheck, Clock, MapPin, Save, AlertTriangle, Layers, Globe, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { toast } from "sonner";
 import { useAttendancePolicies, useAttendanceMutations } from "../../lib/domains/attendance";
 import type { AttendancePolicy } from "../../types";
 
-const JURISDICTION_PRESETS: Record<string, Partial<AttendancePolicy>> = {
+// Configuration starting templates — NOT guaranteed automatic legal standards
+const JURISDICTION_STARTING_TEMPLATES: Record<string, Partial<AttendancePolicy>> = {
   SA: {
-    nameAr: "سياسة نظام العمل السعودي",
+    nameAr: "نموذج استرشادي: نظام العمل السعودي",
     jurisdiction: "SA",
     defaultWorkHoursPerDay: 8,
     ramadanWorkHoursPerDay: 6,
@@ -29,7 +31,7 @@ const JURISDICTION_PRESETS: Record<string, Partial<AttendancePolicy>> = {
     overtimePreApprovalRequired: true,
   },
   EG: {
-    nameAr: "سياسة قانون العمل المصري (قانون 12 لسنة 2003)",
+    nameAr: "نموذج استرشادي: قانون العمل المصري (قانون 12 لسنة 2003)",
     jurisdiction: "EG",
     defaultWorkHoursPerDay: 8,
     ramadanWorkHoursPerDay: null,
@@ -51,7 +53,7 @@ const JURISDICTION_PRESETS: Record<string, Partial<AttendancePolicy>> = {
     overtimePreApprovalRequired: true,
   },
   QA: {
-    nameAr: "سياسة قانون العمل القطري (قانون 14 لسنة 2004)",
+    nameAr: "نموذج استرشادي: قانون العمل القطري (قانون 14 لسنة 2004)",
     jurisdiction: "QA",
     defaultWorkHoursPerDay: 8,
     ramadanWorkHoursPerDay: 6,
@@ -72,6 +74,106 @@ const JURISDICTION_PRESETS: Record<string, Partial<AttendancePolicy>> = {
     allowMobilePunch: true,
     overtimePreApprovalRequired: true,
   },
+  OM: {
+    nameAr: "نموذج استرشادي: قانون العمل العماني (مرسوم سلطاني 53/2023)",
+    jurisdiction: "OM",
+    defaultWorkHoursPerDay: 8,
+    ramadanWorkHoursPerDay: 6,
+    maxWorkHoursPerWeek: 40,
+    ramadanMaxWorkHoursPerWeek: 30,
+    gracePeriodInMinutes: 15,
+    gracePeriodOutMinutes: 15,
+    overtimeRegularMultiplier: 1.25,
+    overtimeHolidayMultiplier: 1.5,
+    breakDurationMinutes: 60,
+    maxConsecutiveHoursWithoutBreak: 6,
+    geofenceEnforced: true,
+    geofenceRadiusMeters: 200,
+    maxGpsAccuracyMeters: 100,
+    gpsAccuracyAction: "flag",
+    autoDeductBreaks: true,
+    requireBiometricOrGps: true,
+    allowMobilePunch: true,
+    overtimePreApprovalRequired: true,
+  },
+  BH: {
+    nameAr: "نموذج استرشادي: قانون العمل البحريني (قانون 36 لسنة 2012)",
+    jurisdiction: "BH",
+    defaultWorkHoursPerDay: 8,
+    ramadanWorkHoursPerDay: 6,
+    maxWorkHoursPerWeek: 48,
+    ramadanMaxWorkHoursPerWeek: 36,
+    gracePeriodInMinutes: 15,
+    gracePeriodOutMinutes: 15,
+    overtimeRegularMultiplier: 1.25,
+    overtimeHolidayMultiplier: 1.5,
+    breakDurationMinutes: 60,
+    maxConsecutiveHoursWithoutBreak: 6,
+    geofenceEnforced: true,
+    geofenceRadiusMeters: 200,
+    maxGpsAccuracyMeters: 100,
+    gpsAccuracyAction: "flag",
+    autoDeductBreaks: true,
+    requireBiometricOrGps: true,
+    allowMobilePunch: true,
+    overtimePreApprovalRequired: true,
+  },
+};
+
+interface TriStateToggleProps {
+  label: string;
+  description?: string;
+  value: boolean | undefined | null;
+  onChange: (val: boolean) => void;
+}
+
+const TriStateToggle: React.FC<TriStateToggleProps> = ({
+  label,
+  description,
+  value,
+  onChange,
+}) => {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl border border-border/50 bg-background/50">
+      <div>
+        <span className="font-medium text-foreground block text-xs">{label}</span>
+        {description && (
+          <span className="text-[10px] text-muted-foreground block">{description}</span>
+        )}
+      </div>
+      <div className="flex items-center gap-1 self-start sm:self-center shrink-0">
+        <button
+          type="button"
+          onClick={() => onChange(true)}
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+            value === true
+              ? "bg-emerald-600 text-white shadow-xs"
+              : "border border-border/70 hover:bg-muted/50 text-muted-foreground"
+          }`}
+        >
+          <CheckCircle2 className="h-3 w-3" />
+          مفعّل
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(false)}
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+            value === false
+              ? "bg-rose-600 text-white shadow-xs"
+              : "border border-border/70 hover:bg-muted/50 text-muted-foreground"
+          }`}
+        >
+          <XCircle className="h-3 w-3" />
+          معطّل
+        </button>
+        {value === undefined || value === null ? (
+          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+            غير محدد
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
 };
 
 export const AttendancePolicySetupPanel: React.FC = () => {
@@ -93,24 +195,52 @@ export const AttendancePolicySetupPanel: React.FC = () => {
     if (code === "custom") {
       setForm((prev) => ({ ...prev, jurisdiction: "custom" }));
     } else {
-      const preset = JURISDICTION_PRESETS[code];
+      const preset = JURISDICTION_STARTING_TEMPLATES[code];
       if (preset) {
         setForm((prev) => ({
           ...prev,
           ...preset,
-          effectiveFrom: prev.effectiveFrom || new Date().toISOString().slice(0, 10),
+          // Preserve explicit effective date if already set, but never auto-fill with browser UTC date
+          effectiveFrom: prev.effectiveFrom || "",
         }));
+        toast.info(`تم تحميل النموذج الاسترشادي: ${preset.nameAr}. يرجى مراجعة واعتماد الحقول.`);
       }
     }
   };
 
   const handleSave = async () => {
+    if (!form.nameAr || !form.nameAr.trim()) {
+      toast.error("يرجى إدخال اسم السياسة الرسمية.");
+      return;
+    }
+    if (!form.effectiveFrom) {
+      toast.error("يرجى تحديد تاريخ سريان السياسة صراحة قبل الحفظ.");
+      return;
+    }
+    if (
+      form.geofenceEnforced === undefined ||
+      form.allowMobilePunch === undefined ||
+      form.overtimePreApprovalRequired === undefined ||
+      form.autoDeductBreaks === undefined ||
+      form.requireBiometricOrGps === undefined
+    ) {
+      toast.error("يرجى تحديد جميع خيارات السياسة الإلزامية صراحة (مفعّل/معطّل) قبل الحفظ.");
+      return;
+    }
+    if (form.allowMobilePunch && !form.gpsAccuracyAction) {
+      toast.error("يرجى تحديد إجراء دقة نظام GPS صراحة (رفض / تحذير / قبول) عند السماح ببصمة الجوال.");
+      return;
+    }
+
     setIsSaving(true);
     try {
       await updatePolicy({
         ...form,
-        effectiveFrom: form.effectiveFrom || new Date().toISOString().slice(0, 10),
+        effectiveFrom: form.effectiveFrom,
       });
+      toast.success("تم حفظ واعتماد سياسة الدوام بنجاح.");
+    } catch (err: any) {
+      toast.error(err.message || "حدث خطأ أثناء حفظ سياسة الدوام.");
     } finally {
       setIsSaving(false);
     }
@@ -155,67 +285,105 @@ export const AttendancePolicySetupPanel: React.FC = () => {
         )}
       </div>
 
-      {/* Jurisdiction Preset Picker */}
+      {/* Starting Templates Disclaimer & Selector */}
       <div className="p-4 rounded-2xl border border-border/70 bg-muted/20 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-bold text-foreground">
             <Globe className="h-4 w-4 text-primary" />
-            نماذج وقوالب الأنظمة العمالية المعتمدة (Jurisdiction Presets)
+            قوالب بدء الإعداد ونماذج استرشادية (Starting Configuration Templates)
           </div>
-          <span className="text-[11px] text-muted-foreground">اختر نموذجاً لتطبيق المعايير القانونية تلقائياً</span>
+          <span className="text-[11px] text-muted-foreground">اختر قالباً كمعيار أولي قابل للتعديل</span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        {/* Legal Disclaimer Box */}
+        <div className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-amber-900 text-xs">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-bold block text-foreground">تنبيه قانوني وإداري:</span>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              هذه النماذج هي قوالب استرشادية لبدء التهيئة فقط ولا تعد ضماناً للامتثال القانوني التلقائي.
+              يجب مراجعة السياسة واعتمادها من مسؤول الموارد البشرية/الشؤون القانونية قبل الاستخدام.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           <button
             type="button"
             onClick={() => handleApplyPreset("SA")}
-            className={`p-3 rounded-2xl border text-start transition-all cursor-pointer ${
+            className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer ${
               selectedJurisdiction === "SA"
                 ? "border-emerald-500 bg-emerald-500/10 text-foreground font-bold shadow-xs"
                 : "border-border/70 hover:bg-muted/40 text-muted-foreground"
             }`}
           >
-            <span className="text-xs block font-bold text-foreground">المملكة العربية السعودية</span>
-            <span className="text-[10px] text-muted-foreground mt-0.5 block">نظام العمل (م98، م107)</span>
+            <span className="text-xs block font-bold text-foreground">السعودية</span>
+            <span className="text-[10px] text-muted-foreground mt-0.5 block">نظام العمل</span>
           </button>
 
           <button
             type="button"
             onClick={() => handleApplyPreset("EG")}
-            className={`p-3 rounded-2xl border text-start transition-all cursor-pointer ${
+            className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer ${
               selectedJurisdiction === "EG"
                 ? "border-blue-500 bg-blue-500/10 text-foreground font-bold shadow-xs"
                 : "border-border/70 hover:bg-muted/40 text-muted-foreground"
             }`}
           >
-            <span className="text-xs block font-bold text-foreground">جمهورية مصر العربية</span>
-            <span className="text-[10px] text-muted-foreground mt-0.5 block">قانون العمل 12/2003</span>
+            <span className="text-xs block font-bold text-foreground">مصر</span>
+            <span className="text-[10px] text-muted-foreground mt-0.5 block">قانون 12/2003</span>
           </button>
 
           <button
             type="button"
             onClick={() => handleApplyPreset("QA")}
-            className={`p-3 rounded-2xl border text-start transition-all cursor-pointer ${
+            className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer ${
               selectedJurisdiction === "QA"
                 ? "border-purple-500 bg-purple-500/10 text-foreground font-bold shadow-xs"
                 : "border-border/70 hover:bg-muted/40 text-muted-foreground"
             }`}
           >
-            <span className="text-xs block font-bold text-foreground">دولة قطر</span>
-            <span className="text-[10px] text-muted-foreground mt-0.5 block">قانون العمل 14/2004</span>
+            <span className="text-xs block font-bold text-foreground">قطر</span>
+            <span className="text-[10px] text-muted-foreground mt-0.5 block">قانون 14/2004</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleApplyPreset("OM")}
+            className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer ${
+              selectedJurisdiction === "OM"
+                ? "border-teal-500 bg-teal-500/10 text-foreground font-bold shadow-xs"
+                : "border-border/70 hover:bg-muted/40 text-muted-foreground"
+            }`}
+          >
+            <span className="text-xs block font-bold text-foreground">عُمان</span>
+            <span className="text-[10px] text-muted-foreground mt-0.5 block">مرسوم 53/2023</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleApplyPreset("BH")}
+            className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer ${
+              selectedJurisdiction === "BH"
+                ? "border-rose-500 bg-rose-500/10 text-foreground font-bold shadow-xs"
+                : "border-border/70 hover:bg-muted/40 text-muted-foreground"
+            }`}
+          >
+            <span className="text-xs block font-bold text-foreground">البحرين</span>
+            <span className="text-[10px] text-muted-foreground mt-0.5 block">قانون 36/2012</span>
           </button>
 
           <button
             type="button"
             onClick={() => handleApplyPreset("custom")}
-            className={`p-3 rounded-2xl border text-start transition-all cursor-pointer ${
+            className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer ${
               selectedJurisdiction === "custom"
                 ? "border-primary bg-primary/10 text-foreground font-bold shadow-xs"
                 : "border-border/70 hover:bg-muted/40 text-muted-foreground"
             }`}
           >
-            <span className="text-xs block font-bold text-foreground">مخصص / لائحة داخلية</span>
-            <span className="text-[10px] text-muted-foreground mt-0.5 block">تحديد يدوي للمدد والنسب</span>
+            <span className="text-xs block font-bold text-foreground">مخصص</span>
+            <span className="text-[10px] text-muted-foreground mt-0.5 block">لائحة داخلية</span>
           </button>
         </div>
       </div>
@@ -228,17 +396,36 @@ export const AttendancePolicySetupPanel: React.FC = () => {
             ساعات الدوام وسماح الدخول/الخروج
           </div>
 
-          <div>
-            <label className="font-medium text-foreground block mb-1">
-              اسم السياسة الرسمية
-            </label>
-            <input
-              type="text"
-              value={form.nameAr || ""}
-              onChange={(e) => setForm({ ...form, nameAr: e.target.value })}
-              placeholder="مثال: سياسة الدوام الرسمية للمنشأة"
-              className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs text-foreground outline-none"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="font-medium text-foreground block mb-1">
+                اسم السياسة الرسمية *
+              </label>
+              <input
+                type="text"
+                required
+                value={form.nameAr || ""}
+                onChange={(e) => setForm({ ...form, nameAr: e.target.value })}
+                placeholder="مثال: سياسة الدوام الرسمية للمنشأة"
+                className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs text-foreground outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="font-medium text-foreground block mb-1">
+                تاريخ بدء سريان السياسة (إلزامي) *
+              </label>
+              <input
+                type="date"
+                required
+                value={form.effectiveFrom || ""}
+                onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })}
+                className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs text-foreground outline-none font-mono"
+              />
+              {!form.effectiveFrom && (
+                <p className="text-[10px] text-rose-500 mt-1">يجب اختيار تاريخ سريان صريح</p>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -370,6 +557,22 @@ export const AttendancePolicySetupPanel: React.FC = () => {
               />
             </div>
           </div>
+
+          <div className="pt-2 border-t border-border/40 space-y-2">
+            <span className="text-[11px] font-bold text-foreground block">قواعد فترات الراحة والتسجيل البيومتري:</span>
+            <TriStateToggle
+              label="خصم فترات الراحة تلقائياً (Auto Deduct Breaks) *"
+              description="تطبيق خصم مدة الاستراحة المحددة عند احتساب ساعات العمل الصافية"
+              value={form.autoDeductBreaks}
+              onChange={(val) => setForm({ ...form, autoDeductBreaks: val })}
+            />
+            <TriStateToggle
+              label="اشتراط وسيلة موثوقة (بصمة أو GPS) *"
+              description="منع تسجيل الحضور اليدوي دون إثبات بيومتري أو موقع جغرافي"
+              value={form.requireBiometricOrGps}
+              onChange={(val) => setForm({ ...form, requireBiometricOrGps: val })}
+            />
+          </div>
         </div>
 
         {/* Overtime & Geofence */}
@@ -465,36 +668,84 @@ export const AttendancePolicySetupPanel: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-2 space-y-2">
-            <label className="flex items-center gap-2 text-xs cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.geofenceEnforced ?? true}
-                onChange={(e) => setForm({ ...form, geofenceEnforced: e.target.checked })}
-                className="rounded border-border text-primary focus:ring-primary/20"
-              />
-              <span className="font-medium text-foreground">إلزامية مطابقة السياج الجغرافي GPS</span>
-            </label>
+          {/* Explicit GPS Accuracy Action Selection */}
+          <div className="space-y-1.5 p-3 rounded-xl border border-border/50 bg-background/50">
+            <div className="flex items-center justify-between">
+              <label className="font-medium text-foreground block text-xs">
+                إجراء تجاوز حد دقة نظام تحديد المواقع (GPS Accuracy Action) *
+              </label>
+              {!form.gpsAccuracyAction && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                  يتطلب اختيار صريح
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              تحديد الإجراء النظامي عند تسجيل بصمة بدقة GPS أضعف من الحد الأقصى المسموح
+            </p>
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, gpsAccuracyAction: "reject" })}
+                className={`p-2 rounded-xl border text-center transition-all cursor-pointer text-xs ${
+                  form.gpsAccuracyAction === "reject"
+                    ? "border-rose-500 bg-rose-500/10 text-foreground font-bold shadow-xs"
+                    : "border-border/70 hover:bg-muted/40 text-muted-foreground"
+                }`}
+              >
+                <span className="block font-bold">رفض البصمة</span>
+                <span className="text-[10px] text-muted-foreground block">(Reject)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, gpsAccuracyAction: "flag" })}
+                className={`p-2 rounded-xl border text-center transition-all cursor-pointer text-xs ${
+                  form.gpsAccuracyAction === "flag"
+                    ? "border-amber-500 bg-amber-500/10 text-foreground font-bold shadow-xs"
+                    : "border-border/70 hover:bg-muted/40 text-muted-foreground"
+                }`}
+              >
+                <span className="block font-bold">قبول مع تحذير</span>
+                <span className="text-[10px] text-muted-foreground block">(Flag Warning)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, gpsAccuracyAction: "allow" })}
+                className={`p-2 rounded-xl border text-center transition-all cursor-pointer text-xs ${
+                  form.gpsAccuracyAction === "allow"
+                    ? "border-emerald-500 bg-emerald-500/10 text-foreground font-bold shadow-xs"
+                    : "border-border/70 hover:bg-muted/40 text-muted-foreground"
+                }`}
+              >
+                <span className="block font-bold">قبول دائم</span>
+                <span className="text-[10px] text-muted-foreground block">(Allow)</span>
+              </button>
+            </div>
+          </div>
 
-            <label className="flex items-center gap-2 text-xs cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.allowMobilePunch ?? true}
-                onChange={(e) => setForm({ ...form, allowMobilePunch: e.target.checked })}
-                className="rounded border-border text-primary focus:ring-primary/20"
-              />
-              <span className="font-medium text-foreground">السماح بتسجيل الحضور عبر تطبيق الجوال</span>
-            </label>
+          {/* Explicit Tri-State Boolean Policies */}
+          <div className="pt-2 border-t border-border/40 space-y-2">
+            <span className="text-[11px] font-bold text-foreground block">سياسات النطاق الجغرافي والعمل الإضافي:</span>
+            <TriStateToggle
+              label="إلزامية مطابقة السياج الجغرافي GPS (Geofence Enforced) *"
+              description="اشتراط التواجد الفعلي داخل النطاق المعتمد للموقع الجغرافي"
+              value={form.geofenceEnforced}
+              onChange={(val) => setForm({ ...form, geofenceEnforced: val })}
+            />
 
-            <label className="flex items-center gap-2 text-xs cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.overtimePreApprovalRequired ?? true}
-                onChange={(e) => setForm({ ...form, overtimePreApprovalRequired: e.target.checked })}
-                className="rounded border-border text-primary focus:ring-primary/20"
-              />
-              <span className="font-medium text-foreground">اشتراط الموافقة المسبقة لاحتساب العمل الإضافي</span>
-            </label>
+            <TriStateToggle
+              label="السماح بتسجيل الحضور عبر تطبيق الجوال (Mobile Punch) *"
+              description="تمكين الموظف من تسجيل الدخول والانصراف عبر تطبيق الهاتف الذكي"
+              value={form.allowMobilePunch}
+              onChange={(val) => setForm({ ...form, allowMobilePunch: val })}
+            />
+
+            <TriStateToggle
+              label="اشتراط الموافقة المسبقة لاحتساب العمل الإضافي *"
+              description="عدم اعتماد دقائق الإضافي في الرواتب إلا بطلب موافق عليه مسبقاً"
+              value={form.overtimePreApprovalRequired}
+              onChange={(val) => setForm({ ...form, overtimePreApprovalRequired: val })}
+            />
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { describe, expect, it, beforeAll } from "vitest";
 import fs from "fs";
 import path from "path";
+import { mapScheduleAssignment } from "../lib/data/shifts-repository";
 
 describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (PGlite Database Tests)", () => {
   const db = new PGlite();
@@ -262,6 +263,35 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
     const migration4Path = path.resolve(__dirname, "../../supabase/migrations/20260925030000_finalize_authoritative_roster_security.sql");
     const migration4Sql = fs.readFileSync(migration4Path, "utf-8");
     await db.exec(migration4Sql);
+
+    // 2.4 Internal tables for least-privilege testing
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS public.cleanup_audit_log (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        action text NOT NULL,
+        created_at timestamptz DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS public.company_employee_number_counters (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        company_id uuid REFERENCES public.companies(id),
+        current_val integer NOT NULL DEFAULT 0
+      );
+    `);
+
+    // 2.5 Load and Apply Migration 20260925040000_revoke_global_privileges_and_close_roster_security.sql
+    const migration5Path = path.resolve(__dirname, "../../supabase/migrations/20260925040000_revoke_global_privileges_and_close_roster_security.sql");
+    const migration5Sql = fs.readFileSync(migration5Path, "utf-8");
+    await db.exec(migration5Sql);
+
+    // 2.6 Load and Apply Migration 20260926030000_fix_is_hr_and_has_role_permissions.sql
+    const migration6Path = path.resolve(__dirname, "../../supabase/migrations/20260926030000_fix_is_hr_and_has_role_permissions.sql");
+    const migration6Sql = fs.readFileSync(migration6Path, "utf-8");
+    await db.exec(migration6Sql);
+
+    // 2.7 Load and Apply Migration 20260926040000_enforce_explicit_authenticated_privileges.sql
+    const migration7Path = path.resolve(__dirname, "../../supabase/migrations/20260926040000_enforce_explicit_authenticated_privileges.sql");
+    const migration7Sql = fs.readFileSync(migration7Path, "utf-8");
+    await db.exec(migration7Sql);
 
     // 3. Seed Companies, Employees, Users, and Roles
     await db.exec(`
@@ -1188,7 +1218,7 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
           INSERT INTO public.roster_periods (company_id, name, period_start, period_end, status, timezone, version)
           VALUES ('${companyA}', 'جدول منشور مكرر غير مسموح', '2026-11-15', '2026-11-21', 'published', 'Asia/Riyadh', 99);
         `)
-      ).rejects.toThrow(/uq_roster_periods_single_published_per_range|unique|فترات جداول عمل منشورة متداخلة/i);
+      ).rejects.toThrow(/uq_roster_periods_single_published_per_range|unique|فترات جداول عمل منشورة متداخلة|لا يمكن نشر فترة جدولة تتداخل مع فترة منشورة أخرى/i);
     });
 
     it("8.3: Deterministic Effective Published Schedule view and RPC return V2 and ignore superseded V1", async () => {
@@ -1541,7 +1571,7 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
         db.query(`
           UPDATE public.roster_periods SET status = 'published' WHERE id = '${p9Roster2Id}';
         `)
-      ).rejects.toThrow(/لا يمكن وجود فترات جداول عمل منشورة متداخلة لنفس المنشأة/);
+      ).rejects.toThrow(/(لا يمكن وجود فترات جداول عمل منشورة متداخلة لنفس المنشأة|لا يمكن نشر فترة جدولة تتداخل مع فترة منشورة أخرى)/);
     });
 
     it("9.5: Legitimate amendment (same range) supersedes V1 atomically and publishes V2", async () => {
@@ -1574,7 +1604,10 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
       await asUser(userHrA);
 
       // Create a secondary published roster period via trigger bypass to simulate an integrity anomaly
-      await db.exec(`ALTER TABLE public.roster_periods DISABLE TRIGGER trg_prevent_overlapping_published_rosters;`);
+      await db.exec(`
+        ALTER TABLE public.roster_periods DISABLE TRIGGER trg_prevent_overlapping_published_rosters;
+        ALTER TABLE public.roster_periods DISABLE TRIGGER trg_check_no_overlapping_published_rosters;
+      `);
 
       const dupePeriod = await db.query<any>(`
         INSERT INTO public.roster_periods (company_id, name, period_start, period_end, status, version)
@@ -1588,7 +1621,10 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
         VALUES ('${companyA}', '${dupePeriodId}', 99, '${empId1A}', '2027-01-02', '${p9ShiftId}', 'published');
       `);
 
-      await db.exec(`ALTER TABLE public.roster_periods ENABLE TRIGGER trg_prevent_overlapping_published_rosters;`);
+      await db.exec(`
+        ALTER TABLE public.roster_periods ENABLE TRIGGER trg_prevent_overlapping_published_rosters;
+        ALTER TABLE public.roster_periods ENABLE TRIGGER trg_check_no_overlapping_published_rosters;
+      `);
 
       // Querying should raise authoritative_schedule_integrity_error (P0001)
       await expect(
@@ -1647,6 +1683,176 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
         SELECT public.get_effective_published_schedule('${empId1A}'::uuid, '2027-01-30'::date);
       `);
       expect(res.rows[0].get_effective_published_schedule).toBeNull();
+    });
+  });
+
+  // ==========================================================================
+  // SECTION 10: PROMPT 13.5 LEAST-PRIVILEGE & EXPLICIT SECURITY CLOSURE
+  // ==========================================================================
+  describe("10: Prompt 13.5 Least-Privilege & Explicit Security Matrix", () => {
+    it("10.1: Direct table mutations on schedule_assignments under role authenticated are denied (42501)", async () => {
+      await asUser(userEmp1A);
+      await db.exec("SET ROLE authenticated;");
+
+      // Direct INSERT denied
+      await expect(
+        db.query(`
+          INSERT INTO public.schedule_assignments (company_id, employee_id, work_date, status)
+          VALUES ('${companyA}', '${empId1A}', '2027-02-01', 'draft');
+        `)
+      ).rejects.toThrow(/permission denied/i);
+
+      // Direct UPDATE denied
+      await expect(
+        db.query(`
+          UPDATE public.schedule_assignments SET status = 'draft' WHERE company_id = '${companyA}';
+        `)
+      ).rejects.toThrow(/permission denied/i);
+
+      // Direct DELETE denied
+      await expect(
+        db.query(`
+          DELETE FROM public.schedule_assignments WHERE company_id = '${companyA}';
+        `)
+      ).rejects.toThrow(/permission denied/i);
+
+      await db.exec("RESET ROLE;");
+    });
+
+    it("10.2: Direct table mutations on roster_periods under role authenticated are denied (42501)", async () => {
+      await asUser(userEmp1A);
+      await db.exec("SET ROLE authenticated;");
+
+      // Direct INSERT denied
+      await expect(
+        db.query(`
+          INSERT INTO public.roster_periods (company_id, name, period_start, period_end, status)
+          VALUES ('${companyA}', 'فترة تجريبية مرفوضة', '2027-03-01', '2027-03-07', 'draft');
+        `)
+      ).rejects.toThrow(/permission denied/i);
+
+      // Direct UPDATE denied
+      await expect(
+        db.query(`
+          UPDATE public.roster_periods SET status = 'draft' WHERE company_id = '${companyA}';
+        `)
+      ).rejects.toThrow(/permission denied/i);
+
+      // Direct DELETE denied
+      await expect(
+        db.query(`
+          DELETE FROM public.roster_periods WHERE company_id = '${companyA}';
+        `)
+      ).rejects.toThrow(/permission denied/i);
+
+      await db.exec("RESET ROLE;");
+    });
+
+    it("10.3: Direct write mutations on shifts table under role authenticated are denied (42501)", async () => {
+      await asUser(userEmp1A);
+      await db.exec("SET ROLE authenticated;");
+
+      // Direct INSERT into shifts denied
+      await expect(
+        db.query(`
+          INSERT INTO public.shifts (company_id, code, name_ar, name_en, start_time, end_time)
+          VALUES ('${companyA}', 'SH-FAIL', 'وردية مرفوضة', 'Shift Fail', '08:00', '16:00');
+        `)
+      ).rejects.toThrow(/permission denied/i);
+
+      await db.exec("RESET ROLE;");
+    });
+
+    it("10.4: Read-only SELECT is permitted on schedule_assignments, roster_periods, and shifts under authenticated", async () => {
+      await asUser(userEmp1A);
+      await db.exec("SET ROLE authenticated;");
+
+      const schedRes = await db.query(`SELECT count(*) FROM public.schedule_assignments;`);
+      expect(schedRes.rows).toBeDefined();
+
+      const rosterRes = await db.query(`SELECT count(*) FROM public.roster_periods;`);
+      expect(rosterRes.rows).toBeDefined();
+
+      const shiftRes = await db.query(`SELECT count(*) FROM public.shifts;`);
+      expect(shiftRes.rows).toBeDefined();
+
+      const viewRes = await db.query(`SELECT count(*) FROM public.vw_effective_published_schedules;`);
+      expect(viewRes.rows).toBeDefined();
+
+      await db.exec("RESET ROLE;");
+    });
+
+    it("10.5: Internal sensitive tables strictly deny ALL access to role authenticated (42501)", async () => {
+      await asUser(userEmp1A);
+      await db.exec("SET ROLE authenticated;");
+
+      await expect(
+        db.query(`SELECT * FROM public.cleanup_audit_log;`)
+      ).rejects.toThrow(/permission denied/i);
+
+      await expect(
+        db.query(`SELECT * FROM public.company_employee_number_counters;`)
+      ).rejects.toThrow(/permission denied/i);
+
+      await db.exec("RESET ROLE;");
+    });
+
+    it("10.6: Row Level Security (RLS) is enabled on all public base tables", async () => {
+      const res = await db.query<{ tablename: string; rowsecurity: boolean }>(`
+        SELECT tablename, rowsecurity
+        FROM pg_tables
+        WHERE schemaname = 'public'
+          AND tablename NOT IN ('pg_stat_statements');
+      `);
+
+      expect(res.rows.length).toBeGreaterThan(0);
+      for (const row of res.rows) {
+        expect(row.rowsecurity).toBe(true);
+      }
+    });
+
+    it("10.7: Attendance engine fail-closed version contract without inventing V1", async () => {
+      // 1. Repository mapping leaves missing version undefined without falling back to 1
+      const mapped = mapScheduleAssignment({
+        id: "test-id",
+        employee_id: empId1A,
+        work_date: "2027-04-02",
+        status: "published",
+        roster_version: null,
+        shift_version: null,
+      });
+      expect(mapped.rosterVersion).toBeUndefined();
+      expect(mapped.shiftVersion).toBeUndefined();
+
+      // 2. Query an existing shift for company A
+      const shiftRow = await db.query<any>(`SELECT id FROM public.shifts WHERE company_id = '${companyA}' LIMIT 1;`);
+      const shiftId = shiftRow.rows[0].id;
+
+      // Create a test assignment with roster_version = 2
+      await db.exec(`
+        SELECT set_config('roster.allow_published_mutation', 'on', true);
+        INSERT INTO public.roster_periods (id, company_id, name, period_start, period_end, status, version)
+        VALUES ('99999999-0000-0000-0000-000000000099', '${companyA}', 'فترة اختبار الإصدارات', '2027-04-01', '2027-04-07', 'published', 2);
+        INSERT INTO public.schedule_assignments (company_id, roster_period_id, roster_version, employee_id, work_date, shift_id, status)
+        VALUES ('${companyA}', '99999999-0000-0000-0000-000000000099', 2, '${empId1A}', '2027-04-02', '${shiftId}', 'published');
+        SELECT set_config('roster.allow_published_mutation', 'off', true);
+      `);
+
+      // Authoritative effective published view returns truthful roster_version = 2
+      const viewRow = await db.query<any>(`
+        SELECT * FROM public.vw_effective_published_schedules
+        WHERE employee_id = '${empId1A}'::uuid AND work_date = '2027-04-02'::date;
+      `);
+      expect(viewRow.rows.length).toBe(1);
+      expect(viewRow.rows[0].roster_version).toBe(2);
+
+      // Clean up
+      await db.exec(`
+        SELECT set_config('roster.allow_published_mutation', 'on', true);
+        DELETE FROM public.schedule_assignments WHERE roster_period_id = '99999999-0000-0000-0000-000000000099';
+        DELETE FROM public.roster_periods WHERE id = '99999999-0000-0000-0000-000000000099';
+        SELECT set_config('roster.allow_published_mutation', 'off', true);
+      `);
     });
   });
 });

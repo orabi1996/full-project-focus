@@ -316,6 +316,73 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
         continue;
       }
 
+      // VERSION CONTRACT (Prompt 13.5): Fail-closed on missing required versions (no fabrication)
+      if (!isRest && (!schedule.shift_version || !schedule.roster_version || !schedule.roster_period_id)) {
+        exceptions.push({
+          employee_id: employeeId,
+          work_date: workDate,
+          exception_type: "authoritative_schedule_integrity_error",
+          severity: "error",
+          minutes: 0,
+          description: "خطأ في تكامل الجداول المعتمدة: غياب رقم إصدار الوردية أو رقم إصدار الجدول المنشور",
+        });
+
+        rows.push({
+          employee_id: employeeId,
+          work_date: workDate,
+          check_in: entry.in ? formatTime(timeOfDay(entry.in)) : null,
+          check_out: entry.out ? formatTime(timeOfDay(entry.out)) : null,
+          status: "authoritative_schedule_integrity_error",
+          worked_hours: 0,
+          worked_minutes: 0,
+          late_minutes: 0,
+          overtime_minutes: 0,
+          overtime_hours: 0,
+          geofence_valid: entry.geofenceValid ?? true,
+          work_location_id: schedule.work_location_id || null,
+          shift_id: schedule.shift_id || null,
+          shift_version: null,
+          roster_version: null,
+          roster_period_id: schedule.roster_period_id || null,
+          is_manual: false,
+          note: "فشل تكامل الجداول المعتمدة: غياب بيانات الإصدار المعتمدة دون اختلاق افتراضي (authoritative_schedule_integrity_error)",
+        });
+        continue;
+      }
+
+      if (isRest && (!schedule.roster_version || !schedule.roster_period_id)) {
+        exceptions.push({
+          employee_id: employeeId,
+          work_date: workDate,
+          exception_type: "authoritative_schedule_integrity_error",
+          severity: "error",
+          minutes: 0,
+          description: "خطأ في تكامل الجداول المعتمدة: غياب رقم إصدار جدول الراحة الأسبوعية المنشور",
+        });
+
+        rows.push({
+          employee_id: employeeId,
+          work_date: workDate,
+          check_in: entry.in ? formatTime(timeOfDay(entry.in)) : null,
+          check_out: entry.out ? formatTime(timeOfDay(entry.out)) : null,
+          status: "authoritative_schedule_integrity_error",
+          worked_hours: 0,
+          worked_minutes: 0,
+          late_minutes: 0,
+          overtime_minutes: 0,
+          overtime_hours: 0,
+          geofence_valid: entry.geofenceValid ?? true,
+          work_location_id: schedule.work_location_id || null,
+          shift_id: null,
+          shift_version: null,
+          roster_version: null,
+          roster_period_id: schedule.roster_period_id || null,
+          is_manual: false,
+          note: "فشل تكامل الجداول المعتمدة: غياب بيانات إصدار جدول الراحة (authoritative_schedule_integrity_error)",
+        });
+        continue;
+      }
+
       if (!entry.in) {
         if (entry.out) {
           exceptions.push({
@@ -403,8 +470,8 @@ export const processAttendanceServer = createServerFn({ method: "POST" })
         geofence_valid: entry.geofenceValid ?? true,
         work_location_id: schedule.work_location_id || null,
         shift_id: schedule.shift_id || null,
-        shift_version: schedule.shift_version || 1,
-        roster_version: schedule.roster_version || 1,
+        shift_version: schedule.shift_version,
+        roster_version: schedule.roster_version,
         roster_period_id: schedule.roster_period_id || null,
         is_manual: false,
         note: isRest ? "حضور في يوم راحة أسبوعية (عمل إضافي)" : "احتُسب آليًا من البصمات والجدول المعتمد",
@@ -748,6 +815,59 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
     return;
   }
 
+  // VERSION CONTRACT (Prompt 13.5): Fail-closed on missing required versions (no fabrication)
+  if (!isRest && (!schedule.shift_version || !schedule.roster_version || !schedule.roster_period_id)) {
+    await supabase.from("attendance_records").upsert(
+      {
+        employee_id: employeeId,
+        work_date: day,
+        check_in: formatTime(checkInMin),
+        check_out: checkOutMin !== null ? formatTime(checkOutMin) : null,
+        status: "authoritative_schedule_integrity_error",
+        worked_hours: 0,
+        worked_minutes: 0,
+        late_minutes: 0,
+        overtime_minutes: 0,
+        overtime_hours: 0,
+        work_location_id: schedule.work_location_id || null,
+        shift_id: schedule.shift_id || null,
+        shift_version: null,
+        roster_version: null,
+        roster_period_id: schedule.roster_period_id || null,
+        is_manual: false,
+        note: "فشل تكامل الجداول المعتمدة: غياب بيانات الإصدار المعتمدة دون اختلاق افتراضي (authoritative_schedule_integrity_error)",
+      },
+      { onConflict: "employee_id,work_date" },
+    );
+    return;
+  }
+
+  if (isRest && (!schedule.roster_version || !schedule.roster_period_id)) {
+    await supabase.from("attendance_records").upsert(
+      {
+        employee_id: employeeId,
+        work_date: day,
+        check_in: formatTime(checkInMin),
+        check_out: checkOutMin !== null ? formatTime(checkOutMin) : null,
+        status: "authoritative_schedule_integrity_error",
+        worked_hours: 0,
+        worked_minutes: 0,
+        late_minutes: 0,
+        overtime_minutes: 0,
+        overtime_hours: 0,
+        work_location_id: schedule.work_location_id || null,
+        shift_id: null,
+        shift_version: null,
+        roster_version: null,
+        roster_period_id: schedule.roster_period_id || null,
+        is_manual: false,
+        note: "فشل تكامل الجداول المعتمدة: غياب بيانات إصدار جدول الراحة (authoritative_schedule_integrity_error)",
+      },
+      { onConflict: "employee_id,work_date" },
+    );
+    return;
+  }
+
   let expectedMinutes = 0;
   let lateMinutes = 0;
   const isOvernight = shift?.is_overnight || (shift && toMinutes(shift.end_time) < toMinutes(shift.start_time));
@@ -793,8 +913,8 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
       overtime_hours: round2(overtimeMinutes / 60),
       work_location_id: schedule.work_location_id || null,
       shift_id: schedule.shift_id || null,
-      shift_version: schedule.shift_version || 1,
-      roster_version: schedule.roster_version || 1,
+      shift_version: schedule.shift_version,
+      roster_version: schedule.roster_version,
       roster_period_id: schedule.roster_period_id || null,
       is_manual: false,
       note: isRest ? "حضور في يوم راحة أسبوعية (عمل إضافي)" : "احتُسب آليًا من بصمات الجهاز والجدول المعتمد",

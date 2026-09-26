@@ -104,10 +104,10 @@ export function mapScheduleAssignment(row: any): ScheduleAssignment {
     companyId: row.company_id ?? undefined,
     employeeId: row.employee_id,
     rosterPeriodId: row.roster_period_id ?? undefined,
-    rosterVersion: Number(row.roster_version ?? 1),
+    rosterVersion: row.roster_version != null ? Number(row.roster_version) : undefined,
     date: row.work_date || row.date || "",
     shiftId: row.shift_id,
-    shiftVersion: Number(row.shift_version ?? 1),
+    shiftVersion: row.shift_version != null ? Number(row.shift_version) : undefined,
     shiftNameAr: row.shift_name_ar || "",
     shiftColor: row.shift_color || "#0284c7",
     workLocationId: row.work_location_id ?? null,
@@ -549,7 +549,7 @@ export async function createRosterAmendment(
   return {
     ok: Boolean(res?.ok),
     newRosterPeriodId: String(res?.new_roster_period_id || ""),
-    newVersion: Number(res?.new_version ?? 1),
+    newVersion: Number(res?.new_version),
     message: String(res?.message || "تم إنشاء مسودة ملحق التعديل بنجاح"),
   };
 }
@@ -604,7 +604,7 @@ export async function publishRosterPeriod(
   return {
     ok: Boolean(res?.ok),
     publishedAssignments: Number(res?.published_assignments ?? 0),
-    rosterVersion: Number(res?.roster_version ?? 1),
+    rosterVersion: Number(res?.roster_version),
     message: String(res?.message || ""),
   };
 }
@@ -1068,6 +1068,16 @@ export async function fetchEffectivePublishedSchedule(
   }
 
   const v = viewData[0] as any;
+  if (!v.is_rest_day && (v.shift_version == null || v.roster_version == null || !v.roster_period_id)) {
+    throw new Error(
+      "authoritative_schedule_integrity_error: خطأ في تكامل الجداول المعتمدة: غياب إصدار الوردية أو إصدار الجداول المعتمدة"
+    );
+  }
+  if (v.is_rest_day && (v.roster_version == null || !v.roster_period_id)) {
+    throw new Error(
+      "authoritative_schedule_integrity_error: خطأ في تكامل الجداول المعتمدة: غياب إصدار الجداول المعتمدة"
+    );
+  }
   return {
     assignmentId: v.assignment_id,
     companyId: v.company_id,

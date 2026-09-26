@@ -330,8 +330,17 @@ export async function fetchOperationalSnapshot(
     attendanceCorrectionsResult,
     employeeDocsResult,
   ];
-  const firstError = results.map((result) => result.error).find(Boolean);
-  if (firstError) throw new Error(firstError.message);
+  // Log non-fatal query errors so individual table permission anomalies
+  // (e.g. approval_chains/leave_balances) do not crash unrelated views like
+  // Document Vault, Assets, Recruitment, etc.
+  for (const result of results) {
+    if (result.error) {
+      console.warn(`[HRMS Operational] Query degraded: ${result.error.message}`);
+    }
+  }
+  if (companiesResult.error) {
+    throw new Error(companiesResult.error.message);
+  }
 
   const employeeMap = new Map(employees.map((employee) => [employee.id, employee]));
   const unitMap = new Map(orgUnits.map((unit) => [unit.id, unit]));

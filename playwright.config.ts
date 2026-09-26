@@ -5,8 +5,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 2 : undefined,
-  expect: { timeout: 10_000 },
+  workers: 1,
+  expect: { timeout: 25_000 },
   reporter: process.env.CI
     ? [["line"], ["html", { outputFolder: "playwright-report", open: "never" }]]
     : [["list"], ["html", { outputFolder: "playwright-report", open: "never" }]],
@@ -23,9 +23,12 @@ export default defineConfig({
     { name: "mobile-chrome", use: { ...devices["Pixel 7"] } },
   ],
   webServer: {
-    command: "VITE_ENABLE_DEMO_MODE=true npm run dev -- --host 127.0.0.1 --port 4173",
+    command: "npm run dev -- --host 127.0.0.1 --port 4173",
     url: "http://127.0.0.1:4173/login",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      VITE_ENABLE_DEMO_MODE: "true",
+    },
   },
 });

@@ -8,6 +8,11 @@ import {
   AppMutationError,
   normalizeMutationError,
 } from "../lib/data/reliable-mutation";
+import {
+  mapDelegationRule,
+  mapOvertimeRecord,
+  mapAttendanceCorrection,
+} from "../lib/data/operational-repository";
 import { demoStore } from "../lib/domains/demo/demo-store";
 
 describe("Reliable Mutations Contract Tests", () => {
@@ -298,8 +303,7 @@ describe("Reliable Mutations Contract Tests", () => {
   });
 
   describe("Mappers and Data Transformation Truthfulness", () => {
-    it("maps delegation rules truthfully with employee names and scopes", async () => {
-      const { mapDelegationRule } = await import("../lib/data/operational-repository");
+    it("maps delegation rules truthfully with employee names and scopes", () => {
       const employeeMap = new Map([
         ["emp-1", { id: "emp-1", firstNameAr: "أحمد", lastNameAr: "علي" } as any],
         ["emp-2", { id: "emp-2", firstNameAr: "سارة", lastNameAr: "محمود" } as any],
@@ -329,8 +333,7 @@ describe("Reliable Mutations Contract Tests", () => {
       expect(mapped.status).toBe("active");
     });
 
-    it("maps overtime records truthfully with rates and calculated amounts", async () => {
-      const { mapOvertimeRecord } = await import("../lib/data/operational-repository");
+    it("maps overtime records truthfully with rates and calculated amounts", () => {
       const employeeMap = new Map([
         ["emp-1", { id: "emp-1", firstNameAr: "خالد", lastNameAr: "العتيبي", employeeNo: "EMP-042", departmentName: "تقنية المعلومات" } as any],
       ]);
@@ -363,8 +366,7 @@ describe("Reliable Mutations Contract Tests", () => {
       expect(mapped.status).toBe("pending");
     });
 
-    it("maps attendance corrections from requests payload truthfully", async () => {
-      const { mapAttendanceCorrection } = await import("../lib/data/operational-repository");
+    it("maps attendance corrections from requests payload truthfully", () => {
       const employeeMap = new Map([
         ["emp-1", { id: "emp-1", firstNameAr: "فاطمة", lastNameAr: "الغامدي", employeeNo: "EMP-088", departmentName: "المالية" } as any],
       ]);

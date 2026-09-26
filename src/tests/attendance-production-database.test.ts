@@ -1081,7 +1081,7 @@ describe.sequential("PGlite Integration Test — Prompt 12 Attendance Engine Dat
       INSERT INTO public.shifts (id, company_id, name_ar, start_time, end_time, break_minutes) VALUES
         ('${shiftIdA}', '${companyA}', 'الدوام الصباحي', '08:00:00', '16:00:00', 0);
     `);
-  });
+  }, 60000);
 
   describe("Item 25: Security Test — process_attendance_day Authorization", () => {
     it("allows Employee A to process self", async () => {

@@ -293,6 +293,11 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
     const migration7Sql = fs.readFileSync(migration7Path, "utf-8");
     await db.exec(migration7Sql);
 
+    // 2.8 Load and Apply Migration 20260926050000_enforce_rpc_and_sequence_allowlists.sql
+    const migration8Path = path.resolve(__dirname, "../../supabase/migrations/20260926050000_enforce_rpc_and_sequence_allowlists.sql");
+    const migration8Sql = fs.readFileSync(migration8Path, "utf-8");
+    await db.exec(migration8Sql);
+
     // 3. Seed Companies, Employees, Users, and Roles
     await db.exec(`
       INSERT INTO auth.users (id, email) VALUES

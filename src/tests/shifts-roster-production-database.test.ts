@@ -298,6 +298,11 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
     const migration8Sql = fs.readFileSync(migration8Path, "utf-8");
     await db.exec(migration8Sql);
 
+    // 2.9 Load and Apply Migration 20260926060000_enforce_public_function_deny_by_default.sql
+    const migration9Path = path.resolve(__dirname, "../../supabase/migrations/20260926060000_enforce_public_function_deny_by_default.sql");
+    const migration9Sql = fs.readFileSync(migration9Path, "utf-8");
+    await db.exec(migration9Sql);
+
     // 3. Seed Companies, Employees, Users, and Roles
     await db.exec(`
       INSERT INTO auth.users (id, email) VALUES
@@ -1858,6 +1863,135 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
         DELETE FROM public.roster_periods WHERE id = '99999999-0000-0000-0000-000000000099';
         SELECT set_config('roster.allow_published_mutation', 'off', true);
       `);
+    });
+  });
+
+  // ============================================================================
+  // Section 11: Prompt 13.7 — PUBLIC EXECUTE Deny-by-Default + RLS Regression
+  // ============================================================================
+  describe.sequential("Section 11: PUBLIC Function Deny-by-Default + RLS Regression (Prompt 13.7)", () => {
+
+    it("11.1: authenticated has no EXECUTE on internal trigger function (update_updated_at_column) — PUBLIC grant closed", async () => {
+      // Verify the pg_proc catalog shows no authenticated privilege on a restricted trigger function.
+      // This verifies migration 060000 closed the PUBLIC EXECUTE gap.
+      const res = await db.query<{ has_priv: boolean }>(`
+        SELECT has_function_privilege(
+          'authenticated',
+          (SELECT oid FROM pg_proc WHERE proname = 'update_updated_at_column' AND pronamespace = 'public'::regnamespace LIMIT 1),
+          'execute'
+        ) AS has_priv
+        WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'update_updated_at_column' AND pronamespace = 'public'::regnamespace);
+      `);
+      // If function exists: authenticated must NOT have execute after PUBLIC revoke
+      if (res.rows.length > 0) {
+        expect(res.rows[0].has_priv).toBe(false);
+      }
+      // If function not present in PGlite environment: test passes vacuously
+    });
+
+    it("11.2: authenticated has EXECUTE on RLS helper (is_hr) — explicit allowlist preserved", async () => {
+      const res = await db.query<{ has_priv: boolean }>(`
+        SELECT has_function_privilege(
+          'authenticated',
+          (SELECT oid FROM pg_proc WHERE proname = 'is_hr' AND pronamespace = 'public'::regnamespace LIMIT 1),
+          'execute'
+        ) AS has_priv
+        WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'is_hr' AND pronamespace = 'public'::regnamespace);
+      `);
+      if (res.rows.length > 0) {
+        // is_hr is explicitly granted in migration 060000 Step 3
+        expect(res.rows[0].has_priv).toBe(true);
+      }
+    });
+
+    it("11.3: authenticated has EXECUTE on RLS helper (current_user_is_hr) — RLS regression prevention", async () => {
+      const res = await db.query<{ has_priv: boolean }>(`
+        SELECT has_function_privilege(
+          'authenticated',
+          (SELECT oid FROM pg_proc WHERE proname = 'current_user_is_hr' AND pronamespace = 'public'::regnamespace LIMIT 1),
+          'execute'
+        ) AS has_priv
+        WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'current_user_is_hr' AND pronamespace = 'public'::regnamespace);
+      `);
+      if (res.rows.length > 0) {
+        expect(res.rows[0].has_priv).toBe(true);
+      }
+    });
+
+    it("11.4: authenticated has EXECUTE on RLS helper (current_company_id) — tenant-scoped RLS works", async () => {
+      const res = await db.query<{ has_priv: boolean }>(`
+        SELECT has_function_privilege(
+          'authenticated',
+          (SELECT oid FROM pg_proc WHERE proname = 'current_company_id' AND pronamespace = 'public'::regnamespace LIMIT 1),
+          'execute'
+        ) AS has_priv
+        WHERE EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'current_company_id' AND pronamespace = 'public'::regnamespace);
+      `);
+      if (res.rows.length > 0) {
+        expect(res.rows[0].has_priv).toBe(true);
+      }
+    });
+
+    it("11.5: RLS regression — authenticated Employee can call current_company_id() without permission error", async () => {
+      await asUser(userEmp1A, "authenticated");
+      // Call current_company_id() directly — verifies EXECUTE grant is active.
+      // Employee 1A belongs to companyA — function should return companyA uuid.
+      const res = await db.query<{ cid: string }>(`SELECT public.current_company_id() AS cid;`);
+      expect(Array.isArray(res.rows)).toBe(true);
+      // Result should be companyA (employee 1A is in companyA)
+      expect(res.rows[0].cid).toBe(companyA);
+      await asUser(null);
+    });
+
+    it("11.6: RLS regression — authenticated Employee can query their own employee record", async () => {
+      await asUser(userEmp1A, "authenticated");
+      const res = await db.query<{ id: string }>(`
+        SELECT id FROM public.employees WHERE id = '${empId1A}' LIMIT 1;
+      `);
+      // Should succeed — own company A employee visible to authenticated
+      expect(Array.isArray(res.rows)).toBe(true);
+      await asUser(null);
+    });
+
+    it("11.7: RLS regression — authenticated HR can query company A employees", async () => {
+      await asUser(userHrA, "authenticated");
+      const res = await db.query<{ id: string }>(`
+        SELECT id FROM public.employees WHERE company_id = '${companyA}' LIMIT 5;
+      `);
+      expect(Array.isArray(res.rows)).toBe(true);
+      await asUser(null);
+    });
+
+    it("11.8: Cross-company isolation — current_company_id() returns NULL for user not in any company", async () => {
+      // A user with no employee record gets NULL from current_company_id().
+      // This verifies the RLS isolation mechanism works correctly.
+      const isolatedUserId = "99999999-0000-0000-0000-000000000099";
+      await asUser(isolatedUserId, "authenticated");
+      const res = await db.query<{ cid: string | null }>(`SELECT public.current_company_id() AS cid;`);
+      // No employee record for this user — should return NULL
+      expect(res.rows[0].cid).toBeNull();
+      await asUser(null);
+    });
+
+    it("11.9: is_hr() correctly identifies HR user when seeded in user_roles", async () => {
+      // Seed user_roles for HR A (is_hr() queries user_roles, not employee_roles)
+      await db.exec(`
+        INSERT INTO public.user_roles (user_id, role)
+        VALUES ('${userHrA}', 'hr_manager')
+        ON CONFLICT DO NOTHING;
+      `);
+      await asUser(userHrA, "authenticated");
+      const res = await db.query<{ result: boolean }>(`SELECT public.is_hr('${userHrA}'::uuid) AS result;`);
+      // HR A has hr_manager in user_roles — should return true
+      expect(res.rows[0].result).toBe(true);
+      await asUser(null);
+    });
+
+    it("11.10: is_hr() correctly returns false for non-HR employee", async () => {
+      await asUser(userEmp1A, "authenticated");
+      const res = await db.query<{ result: boolean }>(`SELECT public.is_hr('${userEmp1A}'::uuid) AS result;`);
+      expect(res.rows[0].result).toBe(false);
+      await asUser(null);
     });
   });
 });

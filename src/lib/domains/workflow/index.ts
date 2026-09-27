@@ -87,7 +87,7 @@ export function useWorkflow() {
 export function useWorkflowMutations() {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
-  const demoStore = useDemoStore();
+  const demoStore = useDemoStore((s) => s);
   const engine = useWorkflowEngineMutations();
 
   const submitRequest = useCallback(

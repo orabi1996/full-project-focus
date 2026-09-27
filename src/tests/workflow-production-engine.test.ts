@@ -641,7 +641,7 @@ describe.sequential("Prompt 14: Production Workflow, Request, Approval & Delegat
 
       // Step 2: HR approves
       await asUser(userHrA);
-      const finalRes = await db.query<{ res: any }>(`
+      const finalRes = await db.query<{ decide_workflow_request: { status: string; is_final: boolean } }>(`
         SELECT public.decide_workflow_request('${reqId}'::uuid, 'approved', 'موافقة نهائية');
       `);
       expect(finalRes.rows[0].decide_workflow_request.status).toBe("approved");

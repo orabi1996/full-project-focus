@@ -87,7 +87,7 @@ export function useWorkflow() {
 export function useWorkflowMutations() {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
-  const demoStore = useDemoStore();
+  const demoStore = useDemoStore((s) => s);
   const engine = useWorkflowEngineMutations();
 
   const submitRequest = useCallback(
@@ -113,15 +113,16 @@ export function useWorkflowMutations() {
         demoOperation: () => {
           const newReq: ServiceRequest = {
             id: `req-${Date.now()}`,
-            reference: `REQ-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900000) + 100000)}`,
-            employeeId: requesterId || "emp-1",
+            referenceNo: `REQ-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900000) + 100000)}`,
+            requesterId: requesterId || "emp-1",
+            requesterName: "",
             type: req.type,
             status: "pending_approval",
             payload: req.payload || {},
             currentStepIndex: 1,
             totalSteps: 2,
             currentApproverRole: "line_manager",
-            createdAt: new Date().toISOString(),
+            submittedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             timeline: [],
           };

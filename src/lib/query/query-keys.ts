@@ -77,8 +77,27 @@ export const queryKeys = {
   workflow: {
     all: ["workflow"] as const,
     requests: () => [...queryKeys.workflow.all, "requests"] as const,
-    chains: () => [...queryKeys.workflow.all, "chains"] as const,
-    delegations: () => [...queryKeys.workflow.all, "delegations"] as const,
+    inbox: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.workflow.all, "inbox", filters] as const)
+        : ([...queryKeys.workflow.all, "inbox"] as const),
+    myRequests: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.workflow.all, "myRequests", filters] as const)
+        : ([...queryKeys.workflow.all, "myRequests"] as const),
+    request: (id: string) => [...queryKeys.workflow.all, "request", id] as const,
+    chains: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.workflow.all, "chains", filters] as const)
+        : ([...queryKeys.workflow.all, "chains"] as const),
+    chain: (id: string) => [...queryKeys.workflow.all, "chain", id] as const,
+    delegations: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.workflow.all, "delegations", filters] as const)
+        : ([...queryKeys.workflow.all, "delegations"] as const),
+    myDelegations: () => [...queryKeys.workflow.all, "myDelegations"] as const,
+    sla: () => [...queryKeys.workflow.all, "sla"] as const,
+    kpis: (companyId?: string) => [...queryKeys.workflow.all, "kpis", companyId ?? "current"] as const,
   },
   leaves: {
     all: ["leaves"] as const,

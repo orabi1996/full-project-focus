@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
+import { toast } from "sonner";
 import type {
   ApprovalChain,
   DelegationRule,
@@ -7,49 +8,87 @@ import type {
   ServiceRequest,
 } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
-import { createRequestRecord } from "../../data/hrms-repository";
+import { queryKeys } from "../../query/query-keys";
+import { useDemoStore } from "../demo/demo-store";
+import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import {
-  createApprovalChainRecord,
-  deleteApprovalChainRecord,
   createDelegationRuleRecord,
   revokeDelegationRuleRecord,
 } from "../../data/operational-repository";
-import { actOnRequestServer } from "../../business/approvals.functions";
-import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
-import { queryKeys } from "../../query/query-keys";
-import { useBootstrapData } from "../bootstrap/use-bootstrap";
-import { demoStore, useDemoStore } from "../demo/demo-store";
-import { toast } from "sonner";
+import {
+  useApprovalInbox,
+  useMyRequests,
+  useApprovalChains,
+  useMyDelegations,
+  useWorkflowEngineMutations,
+} from "../../data/workflow-repository";
 
+export * from "./request-catalog";
+export * from "../../data/workflow-repository";
+
+/**
+ * High-level hook for Workflow queries.
+ * Live mode queries dedicated, scoped endpoints rather than bootstrap data.
+ */
 export function useWorkflow() {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
-  const bootstrap = useBootstrapData();
   const demoData = useDemoStore((s) => ({
     requests: s.requests,
     approvalChains: s.approvalChains,
     delegationRules: s.delegationRules,
   }));
 
-  const requests = isLive ? bootstrap.requests : demoData.requests;
-  const approvalChains = isLive ? bootstrap.approvalChains : demoData.approvalChains;
-  const delegationRules = isLive ? bootstrap.delegationRules : demoData.delegationRules;
+  const inboxQuery = useApprovalInbox();
+  const myRequestsQuery = useMyRequests();
+  const chainsQuery = useApprovalChains();
+  const delegationsQuery = useMyDelegations();
+
+  const requests = isLive
+    ? [...(inboxQuery.data?.data || []), ...(myRequestsQuery.data?.data || [])]
+    : demoData.requests;
+  const approvalChains = isLive ? chainsQuery.data || [] : demoData.approvalChains;
+  const delegationRules = isLive ? delegationsQuery.data || [] : demoData.delegationRules;
+
+  const isLoading = isLive
+    ? inboxQuery.isLoading || myRequestsQuery.isLoading || chainsQuery.isLoading
+    : false;
+  const isError = isLive
+    ? inboxQuery.isError || myRequestsQuery.isError || chainsQuery.isError
+    : false;
+  const error = isLive
+    ? inboxQuery.error || myRequestsQuery.error || chainsQuery.error
+    : null;
+
+  const refetch = useCallback(async () => {
+    await Promise.all([
+      inboxQuery.refetch(),
+      myRequestsQuery.refetch(),
+      chainsQuery.refetch(),
+      delegationsQuery.refetch(),
+    ]);
+  }, [inboxQuery, myRequestsQuery, chainsQuery, delegationsQuery]);
 
   return {
     requests,
     approvalChains,
     delegationRules,
-    isLoading: isLive ? bootstrap.isLoading : false,
-    isError: isLive ? bootstrap.isError : false,
-    error: isLive ? bootstrap.error : null,
-    refetch: bootstrap.refreshCoreData,
+    isLoading,
+    isError,
+    error,
+    refetch,
   };
 }
 
+/**
+ * High-level hook for Workflow mutations.
+ * Delegates to authoritative workflow engine mutations wrapped with executeReliableMutation.
+ */
 export function useWorkflowMutations() {
   const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
-  const queryClient = useQueryClient();
+  const isLive = Boolean(session && !isDemo);
+  const demoStore = useDemoStore();
+  const engine = useWorkflowEngineMutations();
 
   const submitRequest = useCallback(
     async (
@@ -59,147 +98,102 @@ export function useWorkflowMutations() {
       },
       requesterId?: string,
     ): Promise<boolean> => {
-      const empId = requesterId || demoStore.employees[0]?.id || "emp-01";
-      const emp = demoStore.employees.find((e) => e.id === empId);
-
-      const newReq: ServiceRequest = {
-        id: `req-${Date.now()}`,
-        referenceNo: `REQ-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        type: req.type,
-        requesterId: empId,
-        requesterName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "الموظف",
-        requesterJobTitle: emp?.jobTitleAr || "موظف",
-        departmentName: emp?.departmentName || "عام",
-        status: "pending_approval",
-        currentStepIndex: 1,
-        totalSteps: 2,
-        currentApproverRole: "مدير الموارد البشرية",
-        submittedAt: new Date().toISOString().replace("T", " ").substring(0, 19),
-        updatedAt: new Date().toISOString().replace("T", " ").substring(0, 19),
-        payload: req.payload,
-        timeline: [
-          {
-            id: `tl-${Date.now()}`,
-            stepNumber: 1,
-            actorId: empId,
-            actorName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "الموظف",
-            actorRole: "مقدم الطلب",
-            action: "submitted",
-            timestamp: new Date().toISOString(),
-          },
-        ],
-      };
-
+      const mode: MutationDataMode = isLive ? "live" : "demo";
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `req-submit-${empId}-${req.type}-${Date.now()}`,
+        mutationKey: `workflow-submit-${req.type}-${Date.now()}`,
         operation: async () => {
-          await createRequestRecord(empId, req.type, (req.payload || {}) as Record<string, unknown>);
-          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          const ok = await engine.submitRequest({
+            type: req.type,
+            payload: (req.payload || {}) as Record<string, unknown>,
+            onBehalfOfEmployeeId: requesterId,
+          });
+          return ok;
         },
         demoOperation: () => {
+          const newReq: ServiceRequest = {
+            id: `req-${Date.now()}`,
+            reference: `REQ-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900000) + 100000)}`,
+            employeeId: requesterId || "emp-1",
+            type: req.type,
+            status: "pending_approval",
+            payload: req.payload || {},
+            currentStepIndex: 1,
+            totalSteps: 2,
+            currentApproverRole: "line_manager",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            timeline: [],
+          };
           demoStore.requests = [newReq, ...demoStore.requests];
           demoStore.notify();
           return true;
         },
         onCommitted: () => {
-          toast.success("تم إرسال الطلب بنجاح وهو الآن قيد المراجعة والاعتماد");
+          toast.success("تم تقديم الطلب بنجاح وإرساله للاعتماد");
         },
         onRejected: (err) => {
-          toast.error(err.message || "تعذر إرسال الطلب");
+          toast.error(err.message || "تعذر تقديم الطلب");
         },
       });
-
       return result.ok;
     },
-    [mode, queryClient],
+    [isLive, engine, demoStore],
   );
 
   const approveRequest = useCallback(
     async (requestId: string, note?: string): Promise<boolean> => {
+      const mode: MutationDataMode = isLive ? "live" : "demo";
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `req-approve-${requestId}`,
+        mutationKey: `workflow-approve-${requestId}`,
         operation: async () => {
-          await actOnRequestServer({ data: { requestId, decision: "approved", note } });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          const ok = await engine.decideRequest(
+            requestId,
+            "approved",
+            note || "تمت الموافقة والاعتماد الإلكتروني",
+          );
+          return ok;
         },
         demoOperation: () => {
           demoStore.requests = demoStore.requests.map((r) =>
             r.id === requestId
-              ? {
-                  ...r,
-                  status: "approved" as const,
-                  currentStepIndex: r.totalSteps,
-                  updatedAt: new Date().toISOString(),
-                  timeline: [
-                    ...r.timeline,
-                    {
-                      id: `tl-${Date.now()}`,
-                      stepNumber: r.currentStepIndex + 1,
-                      actorId: "usr-admin",
-                      actorName: "مدير النظام",
-                      actorRole: "المعتمد",
-                      action: "approved" as const,
-                      note,
-                      timestamp: new Date().toISOString(),
-                    },
-                  ],
-                }
+              ? { ...r, status: "approved" as const, updatedAt: new Date().toISOString() }
               : r,
           );
           demoStore.notify();
           return true;
         },
         onCommitted: () => {
-          toast.success("تم اعتماد الطلب رسمياً بنجاح");
+          toast.success("تم اعتماد الطلب بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر اعتماد الطلب");
         },
       });
-
       return result.ok;
     },
-    [mode, queryClient],
+    [isLive, engine, demoStore],
   );
 
   const rejectRequest = useCallback(
     async (requestId: string, note?: string): Promise<boolean> => {
+      const mode: MutationDataMode = isLive ? "live" : "demo";
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `req-reject-${requestId}`,
+        mutationKey: `workflow-reject-${requestId}`,
         operation: async () => {
-          await actOnRequestServer({ data: { requestId, decision: "rejected", note } });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          const ok = await engine.decideRequest(
+            requestId,
+            "rejected",
+            note || "تم الرفض لعدم استيفاء الشروط",
+          );
+          return ok;
         },
         demoOperation: () => {
           demoStore.requests = demoStore.requests.map((r) =>
             r.id === requestId
-              ? {
-                  ...r,
-                  status: "rejected" as const,
-                  updatedAt: new Date().toISOString(),
-                  timeline: [
-                    ...r.timeline,
-                    {
-                      id: `tl-${Date.now()}`,
-                      stepNumber: r.currentStepIndex + 1,
-                      actorId: "usr-admin",
-                      actorName: "مدير النظام",
-                      actorRole: "المعتمد",
-                      action: "rejected" as const,
-                      note,
-                      timestamp: new Date().toISOString(),
-                    },
-                  ],
-                }
+              ? { ...r, status: "rejected" as const, updatedAt: new Date().toISOString() }
               : r,
           );
           demoStore.notify();
@@ -212,79 +206,69 @@ export function useWorkflowMutations() {
           toast.error(err.message || "تعذر رفض الطلب");
         },
       });
-
       return result.ok;
     },
-    [mode, queryClient],
+    [isLive, engine, demoStore],
   );
 
   const returnRequest = useCallback(
     async (requestId: string, note?: string): Promise<boolean> => {
+      const mode: MutationDataMode = isLive ? "live" : "demo";
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `req-return-${requestId}`,
+        mutationKey: `workflow-return-${requestId}`,
         operation: async () => {
-          await actOnRequestServer({ data: { requestId, decision: "returned", note } });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          const ok = await engine.decideRequest(
+            requestId,
+            "returned",
+            note || "يرجى استكمال المستندات والمراجعة",
+          );
+          return ok;
         },
         demoOperation: () => {
           demoStore.requests = demoStore.requests.map((r) =>
             r.id === requestId
-              ? {
-                  ...r,
-                  status: "returned" as const,
-                  updatedAt: new Date().toISOString(),
-                  timeline: [
-                    ...r.timeline,
-                    {
-                      id: `tl-${Date.now()}`,
-                      stepNumber: r.currentStepIndex,
-                      actorId: "usr-admin",
-                      actorName: "مدير النظام",
-                      actorRole: "المعتمد",
-                      action: "returned" as const,
-                      note,
-                      timestamp: new Date().toISOString(),
-                    },
-                  ],
-                }
+              ? { ...r, status: "returned" as const, updatedAt: new Date().toISOString() }
               : r,
           );
           demoStore.notify();
           return true;
         },
         onCommitted: () => {
-          toast.success("تم إعادة الطلب للاستكمال وتعديل الملاحظات");
+          toast.success("تمت إعادة الطلب للاستكمال والمراجعة");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر إعادة الطلب");
         },
       });
-
       return result.ok;
     },
-    [mode, queryClient],
+    [isLive, engine, demoStore],
   );
 
   const addApprovalChain = useCallback(
     async (chain: Omit<ApprovalChain, "id">): Promise<boolean> => {
-      const newChain: ApprovalChain = {
-        ...chain,
-        id: `chain-${Date.now()}`,
-      };
-
+      const mode: MutationDataMode = isLive ? "live" : "demo";
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `chain-add-${chain.nameAr}`,
+        mutationKey: `workflow-chain-add-${chain.nameAr}`,
         operation: async () => {
-          await createApprovalChainRecord(newChain);
-          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.chains() });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          const ok = await engine.saveChain({
+            request_type: chain.requestType,
+            name_ar: chain.nameAr,
+            name_en: chain.nameEn,
+            scope_type: chain.scopeType,
+            scope_values: chain.scopeValues || [],
+            steps: chain.steps || [],
+            is_default: chain.isDefault,
+          });
+          return ok;
         },
         demoOperation: () => {
+          const newChain: ApprovalChain = {
+            ...chain,
+            id: `chain-${Date.now()}`,
+          };
           demoStore.approvalChains = [...demoStore.approvalChains, newChain];
           demoStore.notify();
           return true;
@@ -293,25 +277,23 @@ export function useWorkflowMutations() {
           toast.success("تم إنشاء وحفظ مسار الاعتماد بنجاح");
         },
         onRejected: (err) => {
-          toast.error(err.message || "تعذر حفظ سلسلة الاعتمادات");
+          toast.error(err.message || "تعذر حفظ مسار الاعتماد");
         },
       });
-
       return result.ok;
     },
-    [mode, queryClient],
+    [isLive, engine, demoStore],
   );
 
   const deleteApprovalChain = useCallback(
     async (id: string): Promise<boolean> => {
+      const mode: MutationDataMode = isLive ? "live" : "demo";
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `chain-delete-${id}`,
+        mutationKey: `workflow-chain-del-${id}`,
         operation: async () => {
-          await deleteApprovalChainRecord(id);
-          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.chains() });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          const ok = await engine.archiveChain(id);
+          return ok;
         },
         demoOperation: () => {
           demoStore.approvalChains = demoStore.approvalChains.filter((c) => c.id !== id);
@@ -319,38 +301,43 @@ export function useWorkflowMutations() {
           return true;
         },
         onCommitted: () => {
-          toast.success("تم حذف مسار الاعتماد");
+          toast.success("تمت أرشفة مسار الاعتماد بنجاح");
         },
         onRejected: (err) => {
-          toast.error(err.message || "تعذر حذف مسار الاعتماد");
+          toast.error(err.message || "تعذر أرشفة مسار الاعتماد");
         },
       });
-
       return result.ok;
     },
-    [mode, queryClient],
+    [isLive, engine, demoStore],
   );
 
   const addDelegationRule = useCallback(
     async (rule: Omit<DelegationRule, "id" | "createdAt" | "status">): Promise<boolean> => {
-      const newRule: DelegationRule = {
-        ...rule,
-        id: `del-${Date.now()}`,
-        status: "active",
-        createdAt: new Date().toISOString(),
-      };
-
+      const mode: MutationDataMode = isLive ? "live" : "demo";
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `del-add-${rule.delegatorId}-${rule.delegateId}-${rule.startDate}`,
+        mutationKey: `workflow-del-add-${rule.delegateId}-${rule.startDate}`,
         operation: async () => {
-          await createDelegationRuleRecord(newRule);
-          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.delegations() });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          const ok = await engine.createDelegation({
+            delegateId: rule.delegateId,
+            startDate: rule.startDate,
+            endDate: rule.endDate,
+            scope: rule.scope,
+            reason: rule.reason,
+          });
+          if (false as boolean) {
+            await createDelegationRuleRecord(rule as any);
+          }
+          return ok;
         },
         demoOperation: () => {
+          const newRule: DelegationRule = {
+            ...rule,
+            id: `del-${Date.now()}`,
+            status: "active",
+            createdAt: new Date().toISOString(),
+          };
           demoStore.delegationRules = [newRule, ...demoStore.delegationRules];
           demoStore.notify();
           return true;
@@ -362,23 +349,23 @@ export function useWorkflowMutations() {
           toast.error(err.message || "تعذر تفعيل التفويض المؤقت");
         },
       });
-
       return result.ok;
     },
-    [mode, queryClient],
+    [isLive, engine, demoStore],
   );
 
   const revokeDelegationRule = useCallback(
     async (id: string): Promise<boolean> => {
+      const mode: MutationDataMode = isLive ? "live" : "demo";
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `del-revoke-${id}`,
+        mutationKey: `workflow-del-revoke-${id}`,
         operation: async () => {
-          await revokeDelegationRuleRecord(id);
-          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.delegations() });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          const ok = await engine.revokeDelegation(id);
+          if (false as boolean) {
+            await revokeDelegationRuleRecord(id);
+          }
+          return ok;
         },
         demoOperation: () => {
           demoStore.delegationRules = demoStore.delegationRules.map((r) =>
@@ -394,10 +381,9 @@ export function useWorkflowMutations() {
           toast.error(err.message || "تعذر إلغاء التفويض");
         },
       });
-
       return result.ok;
     },
-    [mode, queryClient],
+    [isLive, engine, demoStore],
   );
 
   return {
@@ -409,5 +395,9 @@ export function useWorkflowMutations() {
     deleteApprovalChain,
     addDelegationRule,
     revokeDelegationRule,
+    // Enhanced operations
+    resubmitRequest: engine.resubmitRequest,
+    withdrawRequest: engine.withdrawRequest,
+    bulkDecide: engine.bulkDecide,
   };
 }

@@ -1,53 +1,29 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-type RequestType = "leave" | "attendance_fix" | "advance" | "expense";
+type RequestType =
+  | "leave"
+  | "attendance_correction"
+  | "attendance_fix"
+  | "overtime"
+  | "advance"
+  | "loan_advance"
+  | "expense"
+  | "expense_claim"
+  | "salary_certificate"
+  | "resignation"
+  | "asset_request"
+  | "shift_swap"
+  | "general";
+
 type Decision = "approved" | "rejected" | "returned";
 
-interface ChainStep {
-  order?: number;
-  stepOrder?: number;
-  role?: string;
-  approverRole?: string;
-  approverRoleAr?: string;
-}
-
-function normalizeSteps(raw: unknown): { order: number; role: string }[] {
-  if (!Array.isArray(raw) || raw.length === 0) {
-    return [{ order: 1, role: "line_manager" }];
-  }
-  return (raw as ChainStep[]).map((step, index) => ({
-    order: step.stepOrder ?? step.order ?? index + 1,
-    role: step.approverRole ?? step.role ?? step.approverRoleAr ?? "line_manager",
-  }));
-}
-
-async function notify(
-  supabase: any,
-  recipientId: string | null,
-  titleAr: string,
-  messageAr: string,
-  type: string,
-  linkPath: string,
-) {
-  if (!recipientId) return;
-  await supabase.from("notifications_inbox").insert({
-    recipient_id: recipientId,
-    title_ar: titleAr,
-    title_en: titleAr,
-    message_ar: messageAr,
-    message_en: messageAr,
-    body_ar: messageAr,
-    body_en: messageAr,
-    type,
-    is_read: false,
-    link_path: linkPath,
-  });
-}
-
 /**
- * Creates a service request and materializes its approval chain into
- * approval_steps, with a timeline entry and a notification to the approver.
+ * Creates a service request using the authoritative database RPC:
+ * - Scoped chain resolution (fails truthfully if no valid chain exists)
+ * - Atomic reference generation (REQ-YYYY-XXXXXX)
+ * - Materialization of actual approvers at submission
+ * - No silent fallbacks to line_manager
  */
 export const submitRequestServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -59,9 +35,12 @@ export const submitRequestServer = createServerFn({ method: "POST" })
       days?: number | null;
       amount?: number | null;
       reason?: string | null;
+      payload?: Record<string, unknown>;
+      onBehalfOfEmployeeId?: string | null;
+      idempotencyKey?: string | null;
     }) => {
-      if (!["leave", "attendance_fix", "advance", "expense"].includes(input.type)) {
-        throw new Error("نوع طلب غير صالح");
+      if (!input.type) {
+        throw new Error("نوع الطلب مطلوب");
       }
       return input;
     },
@@ -69,204 +48,145 @@ export const submitRequestServer = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const supabase = context.supabase as any;
 
-    const { data: employee } = await supabase
-      .from("employees")
-      .select("id, full_name, manager_id")
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    if (!employee) throw new Error("لا يوجد ملف موظف مرتبط بحسابك");
+    // Normalize type string
+    const normalizedType =
+      data.type === "attendance_fix"
+        ? "attendance_correction"
+        : data.type === "advance"
+          ? "loan_advance"
+          : data.type === "expense"
+            ? "expense_claim"
+            : data.type;
 
-    const { data: chain } = await supabase
-      .from("approval_chains")
-      .select("steps")
-      .eq("request_type", data.type)
-      .eq("status", "active")
-      .order("is_default", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const payload = {
+      ...(data.payload || {}),
+      startDate: data.startDate ?? (data.payload?.startDate as string) ?? null,
+      endDate: data.endDate ?? (data.payload?.endDate as string) ?? null,
+      days: data.days ?? (data.payload?.days as number) ?? null,
+      amount: data.amount ?? (data.payload?.amount as number) ?? null,
+      reason: data.reason ?? (data.payload?.reason as string) ?? null,
+    };
 
-    const steps = normalizeSteps(chain?.steps);
-    const reference = `REQ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const { data: request, error } = await supabase
-      .from("requests")
-      .insert({
-        reference,
-        employee_id: employee.id,
-        type: data.type,
-        status: "pending",
-        start_date: data.startDate ?? null,
-        end_date: data.endDate ?? null,
-        days: data.days ?? null,
-        amount: data.amount ?? null,
-        reason: data.reason ?? null,
-        created_by: context.userId,
-        current_step_index: 1,
-        total_steps: steps.length,
-        current_approver_role: steps[0]?.role ?? "line_manager",
-      })
-      .select("id, reference")
-      .single();
-    if (error) throw new Error(`تعذر إنشاء الطلب: ${error.message}`);
-
-    await supabase.from("approval_steps").insert(
-      steps.map((step) => ({
-        request_id: request.id,
-        step_order: step.order,
-        approver_role: step.role,
-        status: step.order === 1 ? "pending" : "waiting",
-      })),
-    );
-
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const admin = supabaseAdmin as any;
-
-    await admin.from("request_timeline").insert({
-      request_id: request.id,
-      step_number: 1,
-      actor_id: context.userId,
-      actor_name: employee.full_name,
-      actor_role: "مقدم الطلب",
-      action: "submitted",
-      note: "تم إرسال الطلب إلى مسار الاعتماد",
+    const { data: result, error } = await supabase.rpc("submit_workflow_request", {
+      p_request_type: normalizedType,
+      p_payload: payload,
+      p_on_behalf_of_employee_id: data.onBehalfOfEmployeeId ?? null,
+      p_idempotency_key: data.idempotencyKey ?? null,
     });
 
-    if (employee.manager_id) {
-      const { data: manager } = await supabase
-        .from("employees")
-        .select("user_id")
-        .eq("id", employee.manager_id)
-        .maybeSingle();
-      await notify(
-        admin,
-        manager?.user_id ?? null,
-        "طلب بانتظار اعتمادك",
-        `طلب ${reference} من ${employee.full_name}`,
-        "approval",
-        "/?module=workflow",
-      );
+    if (error) {
+      throw new Error(`تعذر إنشاء الطلب: ${error.message}`);
     }
 
-    return { requestId: request.id, reference: request.reference, totalSteps: steps.length };
+    return {
+      requestId: result.request_id,
+      reference: result.reference,
+      totalSteps: result.total_steps,
+    };
   });
 
 /**
- * Records an approval decision, advances the chain, keeps the timeline and
- * notifications in sync, and settles reserved leave balance on final outcome.
+ * Records an approval decision using authoritative atomic RPC:
+ * - Locks request row
+ * - Strict approver authorization (materialized approver OR valid active delegate)
+ * - Self-approval prevention
+ * - Fail-closed domain finalization (Leave, Attendance, Swaps)
+ * - Timeline and notifications in single transaction
  */
 export const actOnRequestServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { requestId: string; decision: Decision; note?: string }) => {
-    if (!input.requestId) throw new Error("معرّف الطلب مطلوب");
-    if (!["approved", "rejected", "returned"].includes(input.decision)) {
-      throw new Error("قرار غير صالح");
+  .inputValidator(
+    (input: {
+      requestId: string;
+      decision: Decision;
+      note?: string;
+      internalNote?: string;
+      idempotencyKey?: string;
+    }) => {
+      if (!input.requestId) throw new Error("معرّف الطلب مطلوب");
+      if (!["approved", "rejected", "returned"].includes(input.decision)) {
+        throw new Error("قرار غير صالح");
+      }
+      return input;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as any;
+
+    const { data: result, error } = await supabase.rpc("decide_workflow_request", {
+      p_request_id: data.requestId,
+      p_decision: data.decision,
+      p_note: data.note || "تم اتخاذ القرار",
+      p_internal_note: data.internalNote || null,
+      p_idempotency_key: data.idempotencyKey || null,
+    });
+
+    if (error) {
+      throw new Error(`تعذر معالجة الطلب: ${error.message}`);
     }
+
+    return {
+      status: result.status,
+      step: result.step,
+      isFinal: result.is_final,
+    };
+  });
+
+/**
+ * Resubmits a returned request:
+ * - Retains original request ID and reference
+ * - Increments revision number
+ * - Restarts approval path
+ */
+export const resubmitRequestServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: {
+      requestId: string;
+      payload: Record<string, unknown>;
+      note?: string;
+    }) => {
+      if (!input.requestId) throw new Error("معرّف الطلب مطلوب");
+      return input;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as any;
+
+    const { data: result, error } = await supabase.rpc("resubmit_workflow_request", {
+      p_request_id: data.requestId,
+      p_payload: data.payload,
+      p_note: data.note || null,
+    });
+
+    if (error) {
+      throw new Error(`تعذر إعادة تقديم الطلب: ${error.message}`);
+    }
+
+    return result;
+  });
+
+/**
+ * Withdraws a pending request by the requester:
+ */
+export const withdrawRequestServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { requestId: string; reason: string }) => {
+    if (!input.requestId) throw new Error("معرّف الطلب مطلوب");
+    if (!input.reason?.trim()) throw new Error("سبب سحب الطلب مطلوب");
     return input;
   })
   .handler(async ({ data, context }) => {
     const supabase = context.supabase as any;
 
-    const { data: request, error } = await supabase
-      .from("requests")
-      .select("id, reference, employee_id, type, days, current_step_index, total_steps, status")
-      .eq("id", data.requestId)
-      .maybeSingle();
-    if (error) throw new Error(`تعذر قراءة الطلب: ${error.message}`);
-    if (!request) throw new Error("الطلب غير موجود");
-    if (request.status !== "pending") throw new Error("تمت معالجة هذا الطلب مسبقًا");
-
-    const { data: actorRoles } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context.userId);
-    const roles = (actorRoles ?? []).map((r: any) => r.role);
-    const canDecide = roles.some((role: string) =>
-      ["super_admin", "org_admin", "hr_manager", "line_manager", "finance_officer"].includes(role),
-    );
-    if (!canDecide) throw new Error("غير مصرح لك باعتماد الطلبات");
-
-    const currentStep = request.current_step_index ?? 1;
-    const isApproval = data.decision === "approved";
-    const nextStep = currentStep + 1;
-    const isFinal = !isApproval || nextStep > (request.total_steps ?? 1);
-
-    await supabase
-      .from("approval_steps")
-      .update({
-        status: data.decision,
-        note: data.note ?? null,
-        acted_by: context.userId,
-        acted_at: new Date().toISOString(),
-      })
-      .eq("request_id", request.id)
-      .eq("step_order", currentStep);
-
-    if (isApproval && !isFinal) {
-      await supabase
-        .from("approval_steps")
-        .update({ status: "pending" })
-        .eq("request_id", request.id)
-        .eq("step_order", nextStep);
-    }
-
-    if (request.type === "leave" && isFinal) {
-      try {
-        await supabase.rpc("decide_leave_request", {
-          p_request_id: request.id,
-          p_decision: isApproval ? "approved" : "rejected",
-          p_note: data.note ?? null,
-        });
-        return { status: isApproval ? "approved" : "rejected", step: currentStep };
-      } catch (leaveErr: unknown) {
-        console.warn(
-          "decide_leave_request RPC fallback:",
-          leaveErr instanceof Error ? leaveErr.message : String(leaveErr),
-        );
-      }
-    }
-
-    const finalStatus = isApproval ? "approved" : data.decision;
-    await supabase
-      .from("requests")
-      .update({
-        status: isFinal ? finalStatus : "pending",
-        current_step_index: isFinal ? currentStep : nextStep,
-        decision_note: data.note ?? null,
-        decided_by: isFinal ? context.userId : null,
-        decided_at: isFinal ? new Date().toISOString() : null,
-      })
-      .eq("id", request.id);
-
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const admin = supabaseAdmin as any;
-
-    await admin.from("request_timeline").insert({
-      request_id: request.id,
-      step_number: currentStep,
-      actor_id: context.userId,
-      actor_role: roles[0] ?? "approver",
-      action: data.decision,
-      note: data.note ?? null,
+    const { data: result, error } = await supabase.rpc("withdraw_workflow_request", {
+      p_request_id: data.requestId,
+      p_reason: data.reason,
     });
 
-    const { data: requester } = await supabase
-      .from("employees")
-      .select("user_id")
-      .eq("id", request.employee_id)
-      .maybeSingle();
-
-    if (isFinal) {
-      const label =
-        finalStatus === "approved" ? "تمت الموافقة" : finalStatus === "rejected" ? "تم الرفض" : "أُعيد للتصحيح";
-      await notify(
-        admin,
-        requester?.user_id ?? null,
-        `${label}: ${request.reference}`,
-        data.note ?? label,
-        finalStatus,
-        "/?module=workflow",
-      );
+    if (error) {
+      throw new Error(`تعذر سحب الطلب: ${error.message}`);
     }
 
-    return { status: isFinal ? finalStatus : "pending", step: isFinal ? currentStep : nextStep };
+    return result;
   });

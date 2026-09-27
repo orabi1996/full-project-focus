@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
 import type {
@@ -10,18 +10,13 @@ import type {
 } from "../../types";
 import { IconSymbol } from "../ui/IconSymbol";
 import {
-  GitPullRequest,
   CheckCircle2,
   XCircle,
   RotateCcw,
   Clock,
   Plus,
-  Filter,
-  User,
   ArrowRight,
-  Shield,
   Layers,
-  ChevronRight,
   Send,
   FileCheck,
   Trash2,
@@ -30,10 +25,16 @@ import {
   Search,
   CheckSquare,
   Square,
-  ShieldAlert,
   ArrowLeftRight,
-  Info,
   Sliders,
+  AlertCircle,
+  X,
+  FileText,
+  Receipt,
+  Wallet,
+  ClockAlert,
+  Laptop,
+  UserX,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -47,26 +48,23 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../ui/dialog";
+import {
+  useApprovalInbox,
+  useMyRequests,
+  useApprovalChains,
+  useMyDelegations,
+  useWorkflowKpis,
+  useWorkflowEngineMutations,
+  CANONICAL_REQUEST_CATALOG,
+  getRequestCatalogItem,
+} from "../../lib/domains/workflow";
 
 export const WorkflowView: React.FC = () => {
   const {
-    requests,
-    approvalChains,
-    delegationRules,
     employees,
     currentUser,
     currentRole,
-    approveRequest,
-    rejectRequest,
-    returnRequest,
-    submitRequest,
-    addApprovalChain,
-    deleteApprovalChain,
-    addDelegationRule,
-    revokeDelegationRule,
     openEmployeeProfile,
-    language,
-    t,
     isSaving,
   } = useApp();
 
@@ -76,28 +74,75 @@ export const WorkflowView: React.FC = () => {
     "inbox",
   );
 
-  // Filter States
+  // Pagination & Filter States for Inbox
+  const [inboxPage, setInboxPage] = useState(1);
   const [inboxSearch, setInboxSearch] = useState("");
   const [inboxCategoryFilter, setInboxCategoryFilter] = useState<string>("all");
   const [selectedRequestIds, setSelectedRequestIds] = useState<string[]>([]);
 
+  // Pagination & Filter States for My Requests
+  const [myPage, setMyPage] = useState(1);
+  const [mySearch, setMySearch] = useState("");
+  const [myCategoryFilter, setMyCategoryFilter] = useState<string>("all");
+  const [myStatusFilter, setMyStatusFilter] = useState<string>("all");
+
+  // Server Queries (Authoritative - Item 2 & 3)
+  const { data: inboxData, isLoading: isInboxLoading } = useApprovalInbox({
+    page: inboxPage,
+    pageSize: 15,
+    search: inboxSearch,
+    type: inboxCategoryFilter,
+  });
+
+  const { data: myRequestsData, isLoading: isMyRequestsLoading } = useMyRequests({
+    page: myPage,
+    pageSize: 15,
+    search: mySearch,
+    type: myCategoryFilter,
+    status: myStatusFilter,
+  });
+
+  const { data: approvalChains = [], isLoading: isChainsLoading } = useApprovalChains();
+  const { data: delegationRules = [], isLoading: isDelegationsLoading } = useMyDelegations();
+  const { data: kpis } = useWorkflowKpis();
+  const mutations = useWorkflowEngineMutations();
+
+  const inboxRequests = inboxData?.data || [];
+  const myRequests = myRequestsData?.data || [];
+
   // Selected Request for Detail Modal
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(null);
   const [decisionNote, setDecisionNote] = useState("");
+  const [internalNote, setInternalNote] = useState("");
 
   // Modals
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
   const [isNewChainOpen, setIsNewChainOpen] = useState(false);
   const [isNewDelegationOpen, setIsNewDelegationOpen] = useState(false);
+  const [isResubmitOpen, setIsResubmitOpen] = useState(false);
+  const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
+  const [requestToResubmit, setRequestToResubmit] = useState<ServiceRequest | null>(null);
+  const [requestToWithdraw, setRequestToWithdraw] = useState<ServiceRequest | null>(null);
+  const [withdrawReason, setWithdrawReason] = useState("");
 
-  // New Request State
-  const [reqType, setReqType] = useState<RequestCategory>("general");
+  // New Request Form State
+  const [reqType, setReqType] = useState<RequestCategory>("leave");
   const [reqReason, setReqReason] = useState("");
+  const [reqStartDate, setReqStartDate] = useState("");
+  const [reqEndDate, setReqEndDate] = useState("");
+  const [reqDays, setReqDays] = useState<number | "">("");
+  const [reqAmount, setReqAmount] = useState<number | "">("");
+  const [reqAttachmentUrl, setReqAttachmentUrl] = useState("");
+
+  // Resubmit Form State
+  const [resubmitReason, setResubmitReason] = useState("");
+  const [resubmitNote, setResubmitNote] = useState("");
 
   // New Chain Designer State
   const [chainNameAr, setChainNameAr] = useState("");
   const [chainCategory, setChainCategory] = useState<RequestCategory>("leave");
   const [chainScope, setChainScope] = useState<ApprovalChain["scopeType"]>("all_employees");
+  const [chainPriority, setChainPriority] = useState<number>(100);
   const [chainSteps, setChainSteps] = useState<ApprovalStep[]>([
     {
       sequence: 1,
@@ -107,54 +152,32 @@ export const WorkflowView: React.FC = () => {
     },
     {
       sequence: 2,
-      stepNameAr: "موافقة مدير إدارة الموارد البشرية",
+      stepNameAr: "موافقة مدير الموارد البشرية",
       stepNameEn: "HR Manager Approval",
       resolverType: "hr_manager",
     },
   ]);
 
-  // New Delegation State
-  const [delegateEmpId, setDelegateEmpId] = useState(employees[0]?.id || "");
-  const [delStartDate, setDelStartDate] = useState(new Date().toISOString().slice(0, 10));
-  const [delEndDate, setDelEndDate] = useState("2026-09-15");
+  // New Delegation State (Dynamic dates, no hardcoded year)
+  const [delegateEmpId, setDelegateEmpId] = useState<string>(() => {
+    const peer = employees.find((e) => e.id !== currentUser?.id);
+    return peer ? peer.id : "";
+  });
+  const [delStartDate, setDelStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [delEndDate, setDelEndDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  });
   const [delScope, setDelScope] = useState<DelegationRule["scope"]>("all_requests");
   const [delReason, setDelReason] = useState("");
 
-  const pendingInbox = useMemo(() => {
-    return requests.filter((r) => r.status === "pending_approval");
-  }, [requests]);
-
-  const filteredInbox = useMemo(() => {
-    return pendingInbox.filter((r) => {
-      const matchesSearch =
-        r.referenceNo.toLowerCase().includes(inboxSearch.toLowerCase()) ||
-        r.requesterName.toLowerCase().includes(inboxSearch.toLowerCase()) ||
-        (r.departmentName && r.departmentName.toLowerCase().includes(inboxSearch.toLowerCase()));
-
-      const matchesCat = inboxCategoryFilter === "all" || r.type === inboxCategoryFilter;
-
-      return matchesSearch && matchesCat;
-    });
-  }, [pendingInbox, inboxSearch, inboxCategoryFilter]);
-
-  const myRequests = useMemo(() => {
-    return requests.filter((r) => r.requesterId === currentUser.id);
-  }, [requests, currentUser.id]);
-
-  const activeDelegation = useMemo(() => {
-    return delegationRules.find(
-      (d) =>
-        d.status === "active" &&
-        (d.delegatorId === currentUser.id || d.delegateId === currentUser.id),
-    );
-  }, [delegationRules, currentUser.id]);
-
   // Bulk Selection Handlers
   const handleToggleSelectAll = () => {
-    if (selectedRequestIds.length === filteredInbox.length) {
+    if (selectedRequestIds.length === inboxRequests.length) {
       setSelectedRequestIds([]);
     } else {
-      setSelectedRequestIds(filteredInbox.map((r) => r.id));
+      setSelectedRequestIds(inboxRequests.map((r) => r.id));
     }
   };
 
@@ -165,46 +188,68 @@ export const WorkflowView: React.FC = () => {
   };
 
   const handleBulkApprove = async () => {
-    if (isSaving) return;
-    if (selectedRequestIds.length === 0) {
-      toast.error("يرجى تحديد طلب واحد على الأقل للاعتماد");
-      return;
-    }
-    const results = await Promise.all(
-      selectedRequestIds.map((id) =>
-        approveRequest(id, "تم الاعتماد السريع ضمن دفعة الاعتمادات المجمعة"),
-      ),
+    if (isSaving || selectedRequestIds.length === 0) return;
+    const res = await mutations.bulkDecide(
+      selectedRequestIds,
+      "approved",
+      "تم الاعتماد السريع ضمن دفعة الاعتمادات المجمعة المعتمدة",
     );
-    if (results.some((saved) => !saved)) return;
-    toast.success(`تم اعتماد ${selectedRequestIds.length} طلبات بنجاح`);
-    setSelectedRequestIds([]);
+    if (res.ok) {
+      setSelectedRequestIds([]);
+    }
   };
 
   const handleApprove = async (id: string) => {
     if (isSaving) return;
-    const saved = await approveRequest(id, decisionNote || "تمت الموافقة والاعتماد الإلكتروني");
-    if (!saved) return;
-    setSelectedRequest(null);
-    setDecisionNote("");
+    const ok = await mutations.decideRequest(
+      id,
+      "approved",
+      decisionNote || "تمت الموافقة والاعتماد الإلكتروني الموثق",
+      internalNote || undefined,
+    );
+    if (ok) {
+      setSelectedRequest(null);
+      setDecisionNote("");
+      setInternalNote("");
+    }
   };
 
   const handleReject = async (id: string) => {
     if (isSaving) return;
-    const saved = await rejectRequest(id, decisionNote || "تم الرفض لعدم استيفاء الشروط");
-    if (!saved) return;
-    setSelectedRequest(null);
-    setDecisionNote("");
+    if (!decisionNote.trim()) {
+      toast.error("يرجى كتابة سبب أو مبرر الرفض");
+      return;
+    }
+    const ok = await mutations.decideRequest(
+      id,
+      "rejected",
+      decisionNote,
+      internalNote || undefined,
+    );
+    if (ok) {
+      setSelectedRequest(null);
+      setDecisionNote("");
+      setInternalNote("");
+    }
   };
 
   const handleReturn = async (id: string) => {
     if (isSaving) return;
-    const saved = await returnRequest(
+    if (!decisionNote.trim()) {
+      toast.error("يرجى كتابة الملاحظات والمستندات المطلوبة لإعادة الطلب");
+      return;
+    }
+    const ok = await mutations.decideRequest(
       id,
-      decisionNote || "يرجى استكمال المستندات الداعمة والمراجعة",
+      "returned",
+      decisionNote,
+      internalNote || undefined,
     );
-    if (!saved) return;
-    setSelectedRequest(null);
-    setDecisionNote("");
+    if (ok) {
+      setSelectedRequest(null);
+      setDecisionNote("");
+      setInternalNote("");
+    }
   };
 
   const handleCreateNewRequest = async () => {
@@ -213,26 +258,96 @@ export const WorkflowView: React.FC = () => {
       toast.error("يرجى كتابة تفاصيل ومبررات الطلب");
       return;
     }
-    const saved = await submitRequest({
+
+    const payload: Record<string, unknown> = {
+      reason: reqReason.trim(),
+    };
+
+    if (reqStartDate) payload.startDate = reqStartDate;
+    if (reqEndDate) payload.endDate = reqEndDate;
+    if (reqDays !== "") payload.days = Number(reqDays);
+    if (reqAmount !== "") payload.amount = Number(reqAmount);
+    if (reqAttachmentUrl.trim()) {
+      payload.attachmentUrls = [reqAttachmentUrl.trim()];
+    }
+
+    const ok = await mutations.submitRequest({
       type: reqType,
-      payload: {
-        reason: reqReason,
-      },
+      payload,
     });
-    if (!saved) return;
-    toast.success("تم إرسال الطلب لمسار الاعتماد بنجاح");
-    setIsNewRequestOpen(false);
-    setReqReason("");
+
+    if (ok) {
+      setIsNewRequestOpen(false);
+      setReqReason("");
+      setReqStartDate("");
+      setReqEndDate("");
+      setReqDays("");
+      setReqAmount("");
+      setReqAttachmentUrl("");
+    }
   };
 
-  // Dynamic Step Helpers for Designer
+  const handleOpenResubmit = (req: ServiceRequest) => {
+    setRequestToResubmit(req);
+    setResubmitReason(String(req.payload.reason || ""));
+    setResubmitNote("");
+    setIsResubmitOpen(true);
+  };
+
+  const handleConfirmResubmit = async () => {
+    if (!requestToResubmit || isSaving) return;
+    if (!resubmitReason.trim()) {
+      toast.error("يرجى إدخال تفاصيل ومبررات الطلب بعد التعديل");
+      return;
+    }
+
+    const updatedPayload = {
+      ...requestToResubmit.payload,
+      reason: resubmitReason.trim(),
+    };
+
+    const ok = await mutations.resubmitRequest(
+      requestToResubmit.id,
+      updatedPayload,
+      resubmitNote.trim() || undefined,
+    );
+
+    if (ok) {
+      setIsResubmitOpen(false);
+      setRequestToResubmit(null);
+      setResubmitReason("");
+      setResubmitNote("");
+    }
+  };
+
+  const handleOpenWithdraw = (req: ServiceRequest) => {
+    setRequestToWithdraw(req);
+    setWithdrawReason("");
+    setIsWithdrawOpen(true);
+  };
+
+  const handleConfirmWithdraw = async () => {
+    if (!requestToWithdraw || isSaving) return;
+    if (!withdrawReason.trim()) {
+      toast.error("يرجى تحديد سبب سحب الطلب");
+      return;
+    }
+
+    const ok = await mutations.withdrawRequest(requestToWithdraw.id, withdrawReason.trim());
+    if (ok) {
+      setIsWithdrawOpen(false);
+      setRequestToWithdraw(null);
+      setWithdrawReason("");
+    }
+  };
+
   const handleAddStepToChain = () => {
     const nextSeq = chainSteps.length + 1;
     setChainSteps((prev) => [
       ...prev,
       {
         sequence: nextSeq,
-        stepNameAr: `المستوى ${nextSeq}: موافقة الإدارة المعنية`,
+        stepNameAr: `المستوى ${nextSeq}: موافقة الإدارة`,
         stepNameEn: `Level ${nextSeq} Approval`,
         resolverType: "department_head",
       },
@@ -245,74 +360,96 @@ export const WorkflowView: React.FC = () => {
       return;
     }
     const updated = chainSteps.filter((_, idx) => idx !== index);
-    // Re-index sequences
     setChainSteps(updated.map((s, idx) => ({ ...s, sequence: idx + 1 })));
   };
 
-  const handleCreateNewChain = () => {
+  const handleCreateNewChain = async () => {
     if (!chainNameAr.trim()) {
       toast.error("يرجى كتابة اسم مسار الاعتماد");
       return;
     }
-    addApprovalChain({
-      nameAr: chainNameAr,
-      nameEn: chainNameAr,
-      requestType: chainCategory,
-      scopeType: chainScope,
-      status: "active",
-      isDefault: false,
+
+    const ok = await mutations.saveChain({
+      name_ar: chainNameAr.trim(),
+      name_en: chainNameAr.trim(),
+      request_type: chainCategory,
+      scope_type: chainScope,
+      priority: chainPriority,
       steps: chainSteps,
+      is_default: false,
     });
-    setIsNewChainOpen(false);
-    setChainNameAr("");
-    setChainSteps([
-      {
-        sequence: 1,
-        stepNameAr: "موافقة المدير المباشر",
-        stepNameEn: "Direct Manager Approval",
-        resolverType: "direct_manager",
-      },
-      {
-        sequence: 2,
-        stepNameAr: "موافقة مدير الموارد البشرية",
-        stepNameEn: "HR Manager Approval",
-        resolverType: "hr_manager",
-      },
-    ]);
+
+    if (ok) {
+      setIsNewChainOpen(false);
+      setChainNameAr("");
+      setChainPriority(100);
+      setChainSteps([
+        {
+          sequence: 1,
+          stepNameAr: "موافقة المدير المباشر",
+          stepNameEn: "Direct Manager Approval",
+          resolverType: "direct_manager",
+        },
+        {
+          sequence: 2,
+          stepNameAr: "موافقة مدير الموارد البشرية",
+          stepNameEn: "HR Manager Approval",
+          resolverType: "hr_manager",
+        },
+      ]);
+    }
   };
 
-  const handleCreateDelegation = () => {
+  const handleCreateDelegation = async () => {
     if (!delReason.trim()) {
-      toast.error("يرجى كتابة سبب التفويض");
+      toast.error("يرجى كتابة سبب ومبرر التفويض");
       return;
     }
-    const targetDelegate = employees.find((e) => e.id === delegateEmpId);
-    if (!targetDelegate) return;
+    if (!delegateEmpId) {
+      toast.error("يرجى اختيار الموظف المفوض له");
+      return;
+    }
+    if (delEndDate < delStartDate) {
+      toast.error("تاريخ نهاية التفويض يجب أن يكون بعد تاريخ البدء");
+      return;
+    }
 
-    addDelegationRule({
-      delegatorId: currentUser.id,
-      delegatorName: `${currentUser.firstNameAr} ${currentUser.lastNameAr} (${currentUser.jobTitleAr})`,
-      delegateId: targetDelegate.id,
-      delegateName: `${targetDelegate.firstNameAr} ${targetDelegate.lastNameAr} (${targetDelegate.jobTitleAr})`,
+    const ok = await mutations.createDelegation({
+      delegateId: delegateEmpId,
       startDate: delStartDate,
       endDate: delEndDate,
-      reason: delReason,
       scope: delScope,
+      reason: delReason.trim(),
     });
 
-    setIsNewDelegationOpen(false);
-    setDelReason("");
+    if (ok) {
+      setIsNewDelegationOpen(false);
+      setDelReason("");
+    }
   };
 
-  const categoryLabels: Record<RequestCategory, string> = {
-    leave: "طلب إجازة",
-    attendance_correction: "تصحيح بصمة",
-    expense_claim: "مطالبة مصروفات",
-    loan_advance: "سلفة مالية",
-    salary_certificate: "شهادة تعريف بالراتب",
-    resignation: "طلب استقالة / إخلاء طرف",
-    asset_request: "طلب عهدة / أجهزة",
-    general: "طلب إداري عام",
+  // Helper for rendering catalog icons
+  const renderCatalogIcon = (iconName: string) => {
+    switch (iconName) {
+      case "Calendar":
+        return <Calendar className="h-4 w-4" />;
+      case "Clock":
+        return <Clock className="h-4 w-4" />;
+      case "ClockAlert":
+        return <ClockAlert className="h-4 w-4" />;
+      case "Receipt":
+        return <Receipt className="h-4 w-4" />;
+      case "Wallet":
+        return <Wallet className="h-4 w-4" />;
+      case "FileText":
+        return <FileText className="h-4 w-4" />;
+      case "UserX":
+        return <UserX className="h-4 w-4" />;
+      case "Laptop":
+        return <Laptop className="h-4 w-4" />;
+      default:
+        return <FileCheck className="h-4 w-4" />;
+    }
   };
 
   return (
@@ -330,24 +467,17 @@ export const WorkflowView: React.FC = () => {
                   محرك الطلبات ومسارات الاعتماد المؤسسية
                 </h1>
                 <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
-                  حوكمة ومسارات إلكترونية
+                  معتمد وموثق رقمياً
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                إدارة تدفقات الموافقات متعددة المستويات، تفويض الصلاحيات، والاعتماد الإلكتروني الموثق
+                إدارة تدفقات الموافقات متعددة المستويات، التفويض الذكي، والربط الحصري مع محركات النظام
               </p>
             </div>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {activeDelegation && (
-            <Badge className="bg-amber-500/10 text-amber-700 border-amber-300 rounded-full px-3 py-1 text-xs gap-1.5 font-bold shadow-xs">
-              <ArrowLeftRight className="h-3.5 w-3.5 text-amber-600" />
-              تفويض مفعل: {activeDelegation.delegateName.split(" ")[0]}
-            </Badge>
-          )}
-
           <Button
             onClick={() => setIsNewRequestOpen(true)}
             className="classera-btn-primary rounded-full font-bold text-xs gap-1.5 shadow-xs h-10 px-5 cursor-pointer"
@@ -363,10 +493,12 @@ export const WorkflowView: React.FC = () => {
         <div className="classera-kpi-card p-5 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground">
-              صندوق الوارد (بانتظار الاعتماد)
+              صندوق الوارد (بانتظار قرارك)
             </span>
-            <p className="text-2xl font-black text-amber-600 mt-0.5 font-tabular-nums font-mono">{pendingInbox.length}</p>
-            <span className="text-[10px] text-muted-foreground font-bold">تتطلب اتخاذ قرار</span>
+            <p className="text-2xl font-black text-amber-600 mt-0.5 font-tabular-nums font-mono">
+              {kpis?.inboxPending ?? inboxRequests.length}
+            </p>
+            <span className="text-[10px] text-muted-foreground font-bold">معاملات تتطلب اتخاذ إجراء</span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600">
             <Clock className="h-6 w-6" />
@@ -375,11 +507,12 @@ export const WorkflowView: React.FC = () => {
 
         <div className="classera-kpi-card p-5 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">طلباتي المقدمة</span>
-            <p className="text-2xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">{myRequests.length}</p>
+            <span className="text-[11px] font-bold text-muted-foreground">طلباتي الجارية</span>
+            <p className="text-2xl font-black text-foreground mt-0.5 font-tabular-nums font-mono">
+              {kpis?.myPending ?? myRequests.filter((r) => r.status === "pending_approval").length}
+            </p>
             <span className="text-[10px] text-emerald-600 font-bold font-tabular-nums">
-              {myRequests.filter((r) => r.status === "approved").length} معتمد •{" "}
-              {myRequests.filter((r) => r.status === "pending_approval").length} جاري
+              {kpis?.myApproved ?? myRequests.filter((r) => r.status === "approved").length} معتمد • {kpis?.myReturned ?? myRequests.filter((r) => r.status === "returned").length} معاد للاستكمال
             </span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
@@ -396,7 +529,7 @@ export const WorkflowView: React.FC = () => {
               {approvalChains.filter((c) => c.status === "active").length}
             </p>
             <span className="text-[10px] text-muted-foreground font-bold">
-              تغطي كافة أقسام المنشأة
+              مسارات حوكمة مُعرفة حسب النطاق
             </span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
@@ -413,7 +546,7 @@ export const WorkflowView: React.FC = () => {
               {delegationRules.filter((d) => d.status === "active").length}
             </p>
             <span className="text-[10px] text-muted-foreground font-bold">
-              سارية المفعول حالياً
+              تفويضات سارية وموثقة
             </span>
           </div>
           <div className="h-11 w-11 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
@@ -428,17 +561,17 @@ export const WorkflowView: React.FC = () => {
           <TabsTrigger value="inbox" className="rounded-xl text-xs font-bold gap-1.5 py-2">
             <Clock className="h-3.5 w-3.5 text-amber-500" />
             صندوق الوارد للاعتماد
-            {pendingInbox.length > 0 && (
-              <Badge className="mr-1 bg-amber-500 text-white rounded-full text-[10px] h-4 px-1.5">
-                {pendingInbox.length}
+            {(kpis?.inboxPending || inboxRequests.length) > 0 && (
+              <Badge className="mr-1 bg-amber-500 text-white rounded-full text-[10px] h-4 px-1.5 font-mono">
+                {kpis?.inboxPending ?? inboxRequests.length}
               </Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="my_requests" className="rounded-xl text-xs font-bold gap-1.5 py-2">
             <Send className="h-3.5 w-3.5 text-primary" />
             طلباتي ومتابعة الحالات
-            <Badge className="mr-1 bg-muted text-foreground border border-border rounded-full text-[10px] h-4 px-1.5">
-              {myRequests.length}
+            <Badge className="mr-1 bg-muted text-foreground border border-border rounded-full text-[10px] h-4 px-1.5 font-mono">
+              {myRequestsData?.totalCount ?? myRequests.length}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="chains" className="rounded-xl text-xs font-bold gap-1.5 py-2">
@@ -461,25 +594,29 @@ export const WorkflowView: React.FC = () => {
                   <input
                     type="text"
                     value={inboxSearch}
-                    onChange={(e) => setInboxSearch(e.target.value)}
-                    placeholder="بحث برقم الطلب، اسم الموظف..."
+                    onChange={(e) => {
+                      setInboxSearch(e.target.value);
+                      setInboxPage(1);
+                    }}
+                    placeholder="بحث برقم الطلب، اسم الموظف، المبرر..."
                     className="w-full h-9 rounded-full border border-border/80 bg-muted/40 pr-9 pl-4 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
 
-                {/* Category Filter */}
                 <select
                   value={inboxCategoryFilter}
-                  onChange={(e) => setInboxCategoryFilter(e.target.value)}
+                  onChange={(e) => {
+                    setInboxCategoryFilter(e.target.value);
+                    setInboxPage(1);
+                  }}
                   className="h-9 rounded-full border border-border/80 bg-muted/40 px-3 text-xs font-medium focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
-                  <option value="all">جميع أنواع الطلبات</option>
-                  <option value="leave">طلبات الإجازات</option>
-                  <option value="attendance_correction">تصحيح البصمة</option>
-                  <option value="expense_claim">مطالبات المصروفات</option>
-                  <option value="loan_advance">السلف المالية</option>
-                  <option value="resignation">الاستقالات وإخلاء الطرف</option>
-                  <option value="general">طلبات إدارية عامة</option>
+                  <option value="all">كافة أنواع المعاملات</option>
+                  {CANONICAL_REQUEST_CATALOG.map((cat) => (
+                    <option key={cat.code} value={cat.code}>
+                      {cat.nameAr}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -489,7 +626,7 @@ export const WorkflowView: React.FC = () => {
                   <Button
                     size="sm"
                     onClick={handleBulkApprove}
-                    className="rounded-full h-9 text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4"
+                    className="rounded-full h-9 text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 cursor-pointer"
                   >
                     <CheckCircle2 className="h-4 w-4" />
                     اعتماد محدد ({selectedRequestIds.length})
@@ -508,10 +645,10 @@ export const WorkflowView: React.FC = () => {
                         <button
                           type="button"
                           onClick={handleToggleSelectAll}
-                          className="text-muted-foreground hover:text-foreground"
+                          className="text-muted-foreground hover:text-foreground cursor-pointer"
                         >
-                          {selectedRequestIds.length === filteredInbox.length &&
-                          filteredInbox.length > 0 ? (
+                          {selectedRequestIds.length === inboxRequests.length &&
+                          inboxRequests.length > 0 ? (
                             <CheckSquare className="h-4 w-4 text-primary" />
                           ) : (
                             <Square className="h-4 w-4" />
@@ -524,111 +661,166 @@ export const WorkflowView: React.FC = () => {
                     <th className="py-3 px-4 text-start">تفاصيل ومبرر الطلب</th>
                     <th className="py-3 px-4 text-center">المرحلة الحالية</th>
                     <th className="py-3 px-4 text-center">تاريخ التقديم</th>
+                    <th className="py-3 px-4 text-center">المهلة (SLA)</th>
                     <th className="py-3 px-4 text-center">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {filteredInbox.map((req) => (
-                    <tr key={req.id} className="hover:bg-muted/20 transition-colors">
-                      {canApprove && (
-                        <td className="py-3 px-4 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleSelectOne(req.id)}
-                            className="text-muted-foreground hover:text-foreground"
-                          >
-                            {selectedRequestIds.includes(req.id) ? (
-                              <CheckSquare className="h-4 w-4 text-primary" />
-                            ) : (
-                              <Square className="h-4 w-4" />
-                            )}
-                          </button>
-                        </td>
-                      )}
-                      <td className="py-3 px-4">
-                        <span className="font-mono font-bold text-primary block">
-                          {req.referenceNo}
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] rounded-full border-border/80"
-                        >
-                          {categoryLabels[req.type] || req.type}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4">
-                        <button
-                          type="button"
-                          onClick={() => openEmployeeProfile(req.requesterId)}
-                          className="font-bold text-foreground hover:text-primary hover:underline transition-colors block text-start"
-                        >
-                          {req.requesterName}
-                        </button>
-                        <span className="text-[10px] text-muted-foreground font-mono">
-                          {req.departmentName}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 max-w-sm truncate text-muted-foreground font-medium">
-                        {String(req.payload.reason || req.payload.notes || "لا توجد تفاصيل إضافية")}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Badge className="bg-amber-500/10 text-amber-700 border-amber-300 rounded-full font-bold text-[10px]">
-                            المرحلة {req.currentStepIndex + 1} من {req.totalSteps}
-                          </Badge>
-                        </div>
-                        <span className="text-[10px] text-muted-foreground block mt-0.5">
-                          {req.currentApproverRole || "المدير المباشر"}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono text-[10px] text-muted-foreground">
-                        {new Date(req.submittedAt).toLocaleDateString("ar-SA")}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <Button
-                            size="sm"
-                            onClick={() => setSelectedRequest(req)}
-                            className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-7 px-3"
-                          >
-                            اتخاذ قرار
-                          </Button>
-                        </div>
+                  {isInboxLoading ? (
+                    <tr>
+                      <td colSpan={8} className="text-center py-10 text-muted-foreground">
+                        جاري تحميل صندوق الوارد...
                       </td>
                     </tr>
-                  ))}
-                  {filteredInbox.length === 0 && (
+                  ) : inboxRequests.map((req) => {
+                    const catalogItem = getRequestCatalogItem(req.type);
+                    return (
+                      <tr key={req.id} className="hover:bg-muted/20 transition-colors">
+                        {canApprove && (
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSelectOne(req.id)}
+                              className="text-muted-foreground hover:text-foreground cursor-pointer"
+                            >
+                              {selectedRequestIds.includes(req.id) ? (
+                                <CheckSquare className="h-4 w-4 text-primary" />
+                              ) : (
+                                <Square className="h-4 w-4" />
+                              )}
+                            </button>
+                          </td>
+                        )}
+                        <td className="py-3 px-4">
+                          <span className="font-mono font-bold text-primary block">
+                            {req.referenceNo}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] rounded-full border-border/80 flex items-center gap-1 w-fit mt-0.5"
+                          >
+                            {renderCatalogIcon(catalogItem.icon)}
+                            {catalogItem.nameAr}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4">
+                          <button
+                            type="button"
+                            onClick={() => openEmployeeProfile(req.requesterId)}
+                            className="font-bold text-foreground hover:text-primary hover:underline transition-colors block text-start"
+                          >
+                            {req.requesterName}
+                          </button>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {req.departmentName || req.requesterJobTitle || "موظف"}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 max-w-sm truncate text-muted-foreground font-medium">
+                          {String(req.payload.reason || req.payload.notes || "لا توجد تفاصيل إضافية")}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Badge className="bg-amber-500/10 text-amber-700 border-amber-300 rounded-full font-bold text-[10px]">
+                              المرحلة {req.currentStepIndex} من {req.totalSteps}
+                            </Badge>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground block mt-0.5">
+                            {req.currentApproverRole || "المعتمد الحالي"}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center font-mono text-[10px] text-muted-foreground">
+                          {req.submittedAt ? req.submittedAt.slice(0, 10) : "—"}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {req.dueAt ? (
+                            <span className="text-[10px] font-mono text-muted-foreground block">
+                              {req.dueAt.slice(0, 10)}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">معياري (48س)</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              size="sm"
+                              onClick={() => setSelectedRequest(req)}
+                              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-7 px-3 cursor-pointer"
+                            >
+                              اتخاذ قرار
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!isInboxLoading && inboxRequests.length === 0 && (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center py-10 text-muted-foreground font-medium"
                       >
-                        رائع! لا توجد طلبات معلقة بانتظار اعتمادك حالياً 🎉
+                        رائع! لا توجد طلبات معلقة بانتظار قرارك حالياً 🎉
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {(inboxData?.totalCount || 0) > 15 && (
+              <div className="flex justify-between items-center pt-2 text-xs text-muted-foreground">
+                <span>إجمالي الطلبات: {inboxData?.totalCount}</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={inboxPage <= 1}
+                    onClick={() => setInboxPage((p) => Math.max(p - 1, 1))}
+                    className="h-8 rounded-full px-3"
+                  >
+                    السابق
+                  </Button>
+                  <span className="font-mono">صفحة {inboxPage}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={inboxPage * 15 >= (inboxData?.totalCount || 0)}
+                    onClick={() => setInboxPage((p) => p + 1)}
+                    className="h-8 rounded-full px-3"
+                  >
+                    التالي
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
 
         {/* TAB 2: My Requests */}
         <TabsContent value="my_requests" className="space-y-4">
           <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
-            <div className="flex justify-between items-center border-b border-border/60 pb-4">
-              <h2 className="text-base font-black text-foreground flex items-center gap-2">
-                <Send className="h-5 w-5 text-primary" />
-                سجل طلباتي ومتابعة مسار الاعتمادات
-              </h2>
-              <Button
-                size="sm"
-                onClick={() => setIsNewRequestOpen(true)}
-                className="rounded-full text-xs font-bold gap-1.5 bg-primary text-primary-foreground h-9 px-4"
-              >
-                <Plus className="h-4 w-4" />
-                طلب جديد
-              </Button>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-border/60 pb-4">
+              <div>
+                <h2 className="text-base font-black text-foreground flex items-center gap-2">
+                  <Send className="h-5 w-5 text-primary" />
+                  سجل طلباتي ومتابعة مسار الاعتمادات
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  تتبع تقدم طلباتك، التعديل على الطلبات المعادة، أو سحب الطلبات قبل الاعتماد
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => setIsNewRequestOpen(true)}
+                  className="rounded-full text-xs font-bold gap-1.5 bg-primary text-primary-foreground h-9 px-4 cursor-pointer"
+                >
+                  <Plus className="h-4 w-4" />
+                  طلب جديد
+                </Button>
+              </div>
             </div>
 
             <div className="overflow-x-auto rounded-2xl border border-border/60">
@@ -636,68 +828,111 @@ export const WorkflowView: React.FC = () => {
                 <thead className="border-b border-border/60 bg-muted/40 font-bold text-muted-foreground">
                   <tr>
                     <th className="py-3 px-4 text-start">رقم الطلب</th>
-                    <th className="py-3 px-4 text-start">نوع الخدمة</th>
+                    <th className="py-3 px-4 text-start">نوع المعاملة</th>
                     <th className="py-3 px-4 text-start">المبررات والتفاصيل</th>
                     <th className="py-3 px-4 text-center">تقدم المسار</th>
                     <th className="py-3 px-4 text-center">تاريخ التقديم</th>
                     <th className="py-3 px-4 text-center">الحالة الحالية</th>
-                    <th className="py-3 px-4 text-center">التفاصيل والتتبع</th>
+                    <th className="py-3 px-4 text-center">الإجراءات والتتبع</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {myRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold text-primary">
-                        {req.referenceNo}
-                      </td>
-                      <td className="py-3 px-4 font-bold text-foreground">
-                        {categoryLabels[req.type] || req.type}
-                      </td>
-                      <td className="py-3 px-4 max-w-xs truncate text-muted-foreground font-medium">
-                        {String(req.payload.reason || "—")}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="font-mono font-bold text-foreground">
-                          {req.currentStepIndex + 1} / {req.totalSteps}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono text-[10px] text-muted-foreground">
-                        {new Date(req.submittedAt).toLocaleDateString("ar-SA")}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <Badge
-                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                            req.status === "approved"
-                              ? "bg-emerald-500/10 text-emerald-700 border-emerald-300"
-                              : req.status === "rejected"
-                                ? "bg-destructive/10 text-destructive border-destructive/30"
-                                : req.status === "returned"
-                                  ? "bg-purple-500/10 text-purple-700 border-purple-300"
-                                  : "bg-amber-500/10 text-amber-700 border-amber-300"
-                          }`}
-                        >
-                          {req.status === "approved"
-                            ? "معتمد نهائياً"
-                            : req.status === "rejected"
-                              ? "مرفوض"
-                              : req.status === "returned"
-                                ? "معاد للاستكمال"
-                                : "قيد المراجعة"}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setSelectedRequest(req)}
-                          className="h-7 text-xs font-bold text-primary hover:bg-secondary rounded-full px-2.5"
-                        >
-                          عرض المسار الزمني
-                        </Button>
+                  {isMyRequestsLoading ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-10 text-muted-foreground">
+                        جاري تحميل طلباتك...
                       </td>
                     </tr>
-                  ))}
-                  {myRequests.length === 0 && (
+                  ) : myRequests.map((req) => {
+                    const catalogItem = getRequestCatalogItem(req.type);
+                    return (
+                      <tr key={req.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="py-3 px-4 font-mono font-bold text-primary">
+                          {req.referenceNo}
+                          {((req as any).revisionNumber || 1) > 1 && (
+                            <span className="mr-1 text-[9px] text-muted-foreground">
+                              (تعديل {(req as any).revisionNumber})
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 font-bold text-foreground">
+                          <span className="flex items-center gap-1.5">
+                            {renderCatalogIcon(catalogItem.icon)}
+                            {catalogItem.nameAr}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 max-w-xs truncate text-muted-foreground font-medium">
+                          {String(req.payload.reason || "—")}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className="font-mono font-bold text-foreground">
+                            {req.currentStepIndex} / {req.totalSteps}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center font-mono text-[10px] text-muted-foreground">
+                          {req.submittedAt ? req.submittedAt.slice(0, 10) : "—"}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <Badge
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                              req.status === "approved"
+                                ? "bg-emerald-500/10 text-emerald-700 border-emerald-300"
+                                : req.status === "rejected"
+                                  ? "bg-destructive/10 text-destructive border-destructive/30"
+                                  : req.status === "returned"
+                                    ? "bg-purple-500/10 text-purple-700 border-purple-300"
+                                    : req.status === "cancelled"
+                                      ? "bg-muted text-muted-foreground border-border"
+                                      : "bg-amber-500/10 text-amber-700 border-amber-300"
+                            }`}
+                          >
+                            {req.status === "approved"
+                              ? "معتمد نهائياً"
+                              : req.status === "rejected"
+                                ? "مرفوض"
+                                : req.status === "returned"
+                                  ? "معاد للاستكمال"
+                                  : req.status === "cancelled"
+                                    ? "مسحوب"
+                                    : "قيد المراجعة"}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setSelectedRequest(req)}
+                              className="h-7 text-xs font-bold text-primary hover:bg-secondary rounded-full px-2.5 cursor-pointer"
+                            >
+                              التفاصيل
+                            </Button>
+                            {req.status === "returned" && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleOpenResubmit(req)}
+                                className="h-7 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-full px-2.5 gap-1 cursor-pointer"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                                تعديل وإعادة تقديم
+                              </Button>
+                            )}
+                            {(req.status === "pending" || req.status === "pending_approval") && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenWithdraw(req)}
+                                className="h-7 text-[11px] font-bold text-destructive hover:bg-destructive/10 rounded-full px-2.5 border-destructive/30 cursor-pointer"
+                              >
+                                سحب الطلب
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!isMyRequestsLoading && myRequests.length === 0 && (
                     <tr>
                       <td
                         colSpan={7}
@@ -723,7 +958,7 @@ export const WorkflowView: React.FC = () => {
                   مصمم سلاسل ومسارات الاعتماد المؤسسية
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  بناء وتخصيص مستويات الموافقة لكل نوع خدمة حسب الهيكل الإداري والصلاحيات المالية
+                  بناء وتخصيص مستويات الموافقة لكل نوع خدمة مع دعم التعيين المحدد والأولويات والتاريخ الساري
                 </p>
               </div>
 
@@ -731,7 +966,7 @@ export const WorkflowView: React.FC = () => {
                 <Button
                   size="sm"
                   onClick={() => setIsNewChainOpen(true)}
-                  className="rounded-full text-xs font-bold gap-1.5 bg-primary text-primary-foreground h-9 px-4"
+                  className="rounded-full text-xs font-bold gap-1.5 bg-primary text-primary-foreground h-9 px-4 cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
                   تصميم مسار جديد
@@ -740,75 +975,86 @@ export const WorkflowView: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {approvalChains.map((chain) => (
-                <div
-                  key={chain.id}
-                  className="rounded-2xl border border-border/70 bg-card p-5 shadow-xs space-y-3 hover:border-primary/40 transition-colors"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-black text-sm text-foreground">{chain.nameAr}</span>
-                        {chain.isDefault && (
-                          <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] rounded-full">
-                            افتراضي
-                          </Badge>
-                        )}
-                      </div>
-                      <span className="text-[11px] text-muted-foreground font-medium block mt-0.5">
-                        نوع الطلب: {categoryLabels[chain.requestType] || chain.requestType} •
-                        النطاق:{" "}
-                        {chain.scopeType === "all_employees" ? "كافة الموظفين" : chain.scopeType}
-                      </span>
-                    </div>
-
-                    {!chain.isDefault && canApprove && (
-                      <button
-                        type="button"
-                        onClick={() => deleteApprovalChain(chain.id)}
-                        className="text-muted-foreground hover:text-destructive transition-colors p-1"
-                        title="حذف المسار"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Visual Steps Chain */}
-                  <div className="pt-2 space-y-2">
-                    <span className="text-[11px] font-bold text-muted-foreground block">
-                      مستويات الاعتماد ({chain.steps.length} خطوات):
-                    </span>
-                    <div className="space-y-1.5">
-                      {chain.steps.map((step, idx) => (
-                        <div
-                          key={step.sequence}
-                          className="flex items-center gap-2 p-2 rounded-xl bg-muted/40 border border-border/60 text-xs"
-                        >
-                          <span className="h-5 w-5 rounded-full bg-primary/15 text-primary font-mono font-bold flex items-center justify-center text-[10px] shrink-0">
-                            {idx + 1}
-                          </span>
-                          <span className="font-bold text-foreground flex-1 truncate">
-                            {step.stepNameAr}
-                          </span>
-                          <Badge
-                            variant="outline"
-                            className="text-[9px] font-mono rounded-full shrink-0"
-                          >
-                            {step.resolverType === "direct_manager"
-                              ? "المدير المباشر"
-                              : step.resolverType === "hr_manager"
-                                ? "مدير الموارد البشرية"
-                                : step.resolverType === "finance_manager"
-                                  ? "المدير المالي"
-                                  : "مدير الإدارة"}
+              {isChainsLoading ? (
+                <div className="col-span-2 text-center py-10 text-muted-foreground">
+                  جاري تحميل مسارات الاعتماد...
+                </div>
+              ) : approvalChains.map((chain) => {
+                const catalogItem = getRequestCatalogItem(chain.requestType);
+                return (
+                  <div
+                    key={chain.id}
+                    className="rounded-2xl border border-border/70 bg-card p-5 shadow-xs space-y-3 hover:border-primary/40 transition-colors"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-sm text-foreground">{chain.nameAr}</span>
+                          {chain.isDefault && (
+                            <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] rounded-full">
+                              افتراضي
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="text-[9px] rounded-full font-mono">
+                            v{(chain as any).version || 1}
                           </Badge>
                         </div>
-                      ))}
+                        <span className="text-[11px] text-muted-foreground font-medium block mt-0.5">
+                          نوع المعاملة: {catalogItem.nameAr} • النطاق:{" "}
+                          {chain.scopeType === "all_employees" ? "كافة الموظفين" : chain.scopeType}
+                        </span>
+                      </div>
+
+                      {!chain.isDefault && canApprove && (
+                        <button
+                          type="button"
+                          onClick={() => mutations.archiveChain(chain.id)}
+                          className="text-muted-foreground hover:text-destructive transition-colors p-1 cursor-pointer"
+                          title="أرشفة المسار"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Visual Steps Chain */}
+                    <div className="pt-2 space-y-2">
+                      <span className="text-[11px] font-bold text-muted-foreground block">
+                        مستويات الاعتماد ({chain.steps.length} خطوات):
+                      </span>
+                      <div className="space-y-1.5">
+                        {chain.steps.map((step, idx) => (
+                          <div
+                            key={step.sequence}
+                            className="flex items-center gap-2 p-2 rounded-xl bg-muted/40 border border-border/60 text-xs"
+                          >
+                            <span className="h-5 w-5 rounded-full bg-primary/15 text-primary font-mono font-bold flex items-center justify-center text-[10px] shrink-0">
+                              {idx + 1}
+                            </span>
+                            <span className="font-bold text-foreground flex-1 truncate">
+                              {step.stepNameAr}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] font-mono rounded-full shrink-0"
+                            >
+                              {step.resolverType === "direct_manager"
+                                ? "المدير المباشر"
+                                : step.resolverType === "hr_manager"
+                                  ? "مدير الموارد البشرية"
+                                  : step.resolverType === "finance_manager"
+                                    ? "المدير المالي"
+                                    : step.resolverType === "specific_employee"
+                                      ? "موظف محدد"
+                                      : "مدير الإدارة"}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </TabsContent>
@@ -823,15 +1069,14 @@ export const WorkflowView: React.FC = () => {
                   قواعد تفويض الصلاحيات (Delegation of Authority & Out of Office)
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  تمكين المدراء من تفويض صلاحيات اتخاذ القرار والاعتمادات لموظف بديل أثناء الإجازات
-                  والانتدابات
+                  تفويض صلاحيات اتخاذ القرار والاعتماد لموظف بديل أثناء الإجازات والانتدابات مع التوثيق الكامل
                 </p>
               </div>
 
               <Button
                 size="sm"
                 onClick={() => setIsNewDelegationOpen(true)}
-                className="rounded-full text-xs font-bold gap-1.5 bg-primary text-primary-foreground h-9 px-4"
+                className="rounded-full text-xs font-bold gap-1.5 bg-primary text-primary-foreground h-9 px-4 cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
                 تفعيل تفويض جديد
@@ -847,13 +1092,19 @@ export const WorkflowView: React.FC = () => {
                     <th className="py-3 px-4 text-start">المفوض له (البديل)</th>
                     <th className="py-3 px-4 text-center">فترة التفويض</th>
                     <th className="py-3 px-4 text-center">نطاق الصلاحيات</th>
-                    <th className="py-3 px-4 text-start">سبب التفويض والمبرر</th>
+                    <th className="py-3 px-4 text-start">سبب ومبرر التفويض</th>
                     <th className="py-3 px-4 text-center">الحالة</th>
                     <th className="py-3 px-4 text-center">الإجراء</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {delegationRules.map((del) => (
+                  {isDelegationsLoading ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-10 text-muted-foreground">
+                        جاري تحميل التفويضات...
+                      </td>
+                    </tr>
+                  ) : delegationRules.map((del) => (
                     <tr key={del.id} className="hover:bg-muted/20 transition-colors">
                       <td className="py-3 px-4 font-bold text-foreground">{del.delegatorName}</td>
                       <td className="py-3 px-4 font-bold text-primary">{del.delegateName}</td>
@@ -875,7 +1126,7 @@ export const WorkflowView: React.FC = () => {
                         className="py-3 px-4 max-w-xs truncate text-muted-foreground font-medium"
                         title={del.reason}
                       >
-                        {del.reason}
+                        {del.reason || "—"}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <Badge
@@ -899,8 +1150,8 @@ export const WorkflowView: React.FC = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => revokeDelegationRule(del.id)}
-                            className="h-7 text-[11px] font-bold text-destructive hover:bg-destructive/10 rounded-full px-2.5 border-destructive/30"
+                            onClick={() => mutations.revokeDelegation(del.id)}
+                            className="h-7 text-[11px] font-bold text-destructive hover:bg-destructive/10 rounded-full px-2.5 border-destructive/30 cursor-pointer"
                           >
                             إلغاء التفويض
                           </Button>
@@ -908,7 +1159,7 @@ export const WorkflowView: React.FC = () => {
                       </td>
                     </tr>
                   ))}
-                  {delegationRules.length === 0 && (
+                  {!isDelegationsLoading && delegationRules.length === 0 && (
                     <tr>
                       <td
                         colSpan={7}
@@ -936,13 +1187,11 @@ export const WorkflowView: React.FC = () => {
                   تفاصيل الطلب: {selectedRequest?.referenceNo}
                 </DialogTitle>
                 <DialogDescription className="text-xs font-medium mt-0.5">
-                  مقدم من: {selectedRequest?.requesterName} • {selectedRequest?.departmentName}
+                  مقدم من: {selectedRequest?.requesterName} • {selectedRequest?.departmentName || selectedRequest?.requesterJobTitle || "موظف"}
                 </DialogDescription>
               </div>
               <Badge variant="outline" className="rounded-full text-xs font-mono">
-                {selectedRequest
-                  ? categoryLabels[selectedRequest.type] || selectedRequest.type
-                  : ""}
+                {selectedRequest ? getRequestCatalogItem(selectedRequest.type).nameAr : ""}
               </Badge>
             </div>
           </DialogHeader>
@@ -974,7 +1223,7 @@ export const WorkflowView: React.FC = () => {
                       تقديم الطلب بواسطة {selectedRequest.requesterName}
                     </span>
                     <span className="text-[10px] text-muted-foreground font-mono">
-                      {new Date(selectedRequest.submittedAt).toLocaleString("ar-SA")}
+                      {selectedRequest.submittedAt}
                     </span>
                   </div>
 
@@ -991,8 +1240,13 @@ export const WorkflowView: React.FC = () => {
                       />
                       <span className="font-bold text-foreground block">
                         المرحلة {evt.stepNumber}:{" "}
-                        {evt.action === "approved" ? "موافقة" : evt.action} • {evt.actorName} (
-                        {evt.actorRole})
+                        {evt.action === "approved"
+                          ? "موافقة"
+                          : evt.action === "rejected"
+                            ? "رفض"
+                            : evt.action === "returned"
+                              ? "إعادة للاستكمال"
+                              : evt.action} • {evt.actorName} ({evt.actorRole})
                       </span>
                       {evt.note && (
                         <p className="text-[11px] text-muted-foreground italic mt-0.5">
@@ -1000,7 +1254,7 @@ export const WorkflowView: React.FC = () => {
                         </p>
                       )}
                       <span className="text-[10px] text-muted-foreground font-mono">
-                        {new Date(evt.timestamp).toLocaleString("ar-SA")}
+                        {evt.timestamp}
                       </span>
                     </div>
                   ))}
@@ -1008,23 +1262,23 @@ export const WorkflowView: React.FC = () => {
               </div>
 
               {/* Decision Input & Actions (if pending) */}
-              {selectedRequest.status === "pending_approval" && canApprove && (
+              {(selectedRequest.status === "pending" || selectedRequest.status === "pending_approval") && canApprove && (
                 <div className="space-y-2 pt-2 border-t border-border/60">
                   <label className="font-bold text-foreground block">
-                    ملاحظات وقرار الاعتماد (اختياري):
+                    ملاحظات وتوجيهات القرار:
                   </label>
                   <textarea
                     rows={2}
                     value={decisionNote}
                     onChange={(e) => setDecisionNote(e.target.value)}
-                    placeholder="اكتب أي توجيهات أو مبررات للقرار..."
+                    placeholder="اكتب التوجيهات أو الملاحظات التي ستظهر لمقدم الطلب..."
                     className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                   <div className="flex flex-wrap gap-2 pt-2">
                     <Button
                       size="sm"
                       onClick={() => handleApprove(selectedRequest.id)}
-                      className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5"
+                      className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 cursor-pointer"
                     >
                       <CheckCircle2 className="h-4 w-4 mr-1" />
                       موافقة واعتماد الطلب
@@ -1033,7 +1287,7 @@ export const WorkflowView: React.FC = () => {
                       size="sm"
                       variant="outline"
                       onClick={() => handleReturn(selectedRequest.id)}
-                      className="rounded-full text-xs font-bold text-amber-700 border-amber-300 hover:bg-amber-50 px-4"
+                      className="rounded-full text-xs font-bold text-amber-700 border-amber-300 hover:bg-amber-50 px-4 cursor-pointer"
                     >
                       <RotateCcw className="h-4 w-4 mr-1" />
                       إعادة للتعديل
@@ -1042,7 +1296,7 @@ export const WorkflowView: React.FC = () => {
                       size="sm"
                       variant="outline"
                       onClick={() => handleReject(selectedRequest.id)}
-                      className="rounded-full text-xs font-bold text-destructive border-destructive/30 hover:bg-destructive/10 px-4"
+                      className="rounded-full text-xs font-bold text-destructive border-destructive/30 hover:bg-destructive/10 px-4 cursor-pointer"
                     >
                       <XCircle className="h-4 w-4 mr-1" />
                       رفض
@@ -1064,7 +1318,7 @@ export const WorkflowView: React.FC = () => {
               تقديم طلب خدمة إدارية جديد
             </DialogTitle>
             <DialogDescription className="text-xs font-medium">
-              سيتم توجيه الطلب تلقائياً للمسار المعتمد وفق هيكل الموافقات
+              سيتم توجيه الطلب تلقائياً لمسار الاعتماد المعتمد حسب الدليل الإجرائي
             </DialogDescription>
           </DialogHeader>
 
@@ -1076,14 +1330,65 @@ export const WorkflowView: React.FC = () => {
                 onChange={(e) => setReqType(e.target.value as any)}
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
-                <option value="general">طلب إداري عام</option>
-                <option value="salary_certificate">طلب شهادة تعريف بالراتب</option>
-                <option value="expense_claim">مطالبة عهدة أو مصروفات</option>
-                <option value="loan_advance">طلب سلفة مالية طارئة</option>
-                <option value="asset_request">طلب أجهزة أو عهدة عمل</option>
-                <option value="resignation">طلب إخلاء طرف واستقالة</option>
+                {CANONICAL_REQUEST_CATALOG.filter((c) => c.active).map((cat) => (
+                  <option key={cat.code} value={cat.code}>
+                    {cat.nameAr} ({cat.nameEn})
+                  </option>
+                ))}
               </select>
             </div>
+
+            {/* Dynamic Fields according to Request Type */}
+            {(reqType === "leave" || reqType === "attendance_correction" || reqType === "overtime") && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <label className="font-bold">
+                    {reqType === "leave" ? "تاريخ البدء *" : "تاريخ اليوم المعني *"}
+                  </label>
+                  <input
+                    type="date"
+                    value={reqStartDate}
+                    onChange={(e) => setReqStartDate(e.target.value)}
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+                {reqType === "leave" ? (
+                  <div className="space-y-1.5">
+                    <label className="font-bold">تاريخ الانتهاء *</label>
+                    <input
+                      type="date"
+                      value={reqEndDate}
+                      onChange={(e) => setReqEndDate(e.target.value)}
+                      className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <label className="font-bold">عدد الساعات / الدقائق</label>
+                    <input
+                      type="number"
+                      value={reqDays}
+                      onChange={(e) => setReqDays(e.target.value ? Number(e.target.value) : "")}
+                      placeholder="مثال: 2"
+                      className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(reqType === "expense_claim" || reqType === "loan_advance") && (
+              <div className="space-y-1.5">
+                <label className="font-bold">المبلغ المطلوب (ريال سعودي) *</label>
+                <input
+                  type="number"
+                  value={reqAmount}
+                  onChange={(e) => setReqAmount(e.target.value ? Number(e.target.value) : "")}
+                  placeholder="0.00"
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <label className="font-bold">تفاصيل ومبررات الطلب *</label>
@@ -1091,8 +1396,21 @@ export const WorkflowView: React.FC = () => {
                 rows={3}
                 value={reqReason}
                 onChange={(e) => setReqReason(e.target.value)}
-                placeholder="اكتب الغرض من الطلب وكافة الملاحظات التوضيحية..."
+                placeholder="اكتب الغرض من الطلب وكافة الملاحظات التوضيحية اللازمة لاعتماده..."
                 className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-muted-foreground">
+                رابط المرفق أو المستند الداعم (اختياري)
+              </label>
+              <input
+                type="text"
+                value={reqAttachmentUrl}
+                onChange={(e) => setReqAttachmentUrl(e.target.value)}
+                placeholder="https://..."
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
           </div>
@@ -1101,9 +1419,113 @@ export const WorkflowView: React.FC = () => {
             <Button
               size="sm"
               onClick={handleCreateNewRequest}
-              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 h-9"
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 h-9 cursor-pointer"
             >
-              إرسال الطلب
+              إرسال الطلب للاعتماد
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: Return and Resubmit (Item 10) */}
+      <Dialog open={isResubmitOpen} onOpenChange={setIsResubmitOpen}>
+        <DialogContent className="max-w-md rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-purple-600" />
+              تعديل وإعادة تقديم الطلب: {requestToResubmit?.referenceNo}
+            </DialogTitle>
+            <DialogDescription className="text-xs font-medium">
+              سيتم تحديث الطلب وإعادة إرساله لمسار الاعتماد مع حفظ تسلسل المراجعات
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3.5 text-xs py-2">
+            <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-200 text-purple-900 space-y-1">
+              <span className="font-bold block">ملاحظة المعتمد السابقة:</span>
+              <p className="text-[11px] italic">
+                "{String(requestToResubmit?.decisionNote || "يرجى استكمال البيانات")}"
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold">المبررات والتفاصيل بعد التعديل *</label>
+              <textarea
+                rows={3}
+                value={resubmitReason}
+                onChange={(e) => setResubmitReason(e.target.value)}
+                placeholder="اكتب التعديلات التي قمت بها وفق ملاحظات المعتمد..."
+                className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-muted-foreground">
+                ملاحظة توضيحية للمعتمد (اختياري)
+              </label>
+              <input
+                type="text"
+                value={resubmitNote}
+                onChange={(e) => setResubmitNote(e.target.value)}
+                placeholder="تم إرفاق المستندات المطلوبة وتعديل التواريخ..."
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-3">
+            <Button
+              size="sm"
+              onClick={handleConfirmResubmit}
+              className="rounded-full text-xs bg-purple-600 hover:bg-purple-700 text-white font-bold px-6 h-9 cursor-pointer"
+            >
+              إعادة التقديم
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: Withdraw Request (Item 11) */}
+      <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
+        <DialogContent className="max-w-md rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              تأكيد سحب الطلب: {requestToWithdraw?.referenceNo}
+            </DialogTitle>
+            <DialogDescription className="text-xs font-medium">
+              سيتم إلغاء متابعة الطلب نهائياً وتحرير أي أرصدة محجوزة مرتبطة به
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3.5 text-xs py-2">
+            <div className="space-y-1.5">
+              <label className="font-bold">سبب سحب الطلب *</label>
+              <textarea
+                rows={2}
+                value={withdrawReason}
+                onChange={(e) => setWithdrawReason(e.target.value)}
+                placeholder="اذكر سبب الرغبة في إلغاء وسحب هذا الطلب..."
+                className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-3">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsWithdrawOpen(false)}
+              className="rounded-full text-xs px-4"
+            >
+              إلغاء
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmWithdraw}
+              className="rounded-full text-xs bg-destructive hover:bg-destructive/90 text-white font-bold px-5 h-9 cursor-pointer"
+            >
+              تأكيد السحب
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1118,7 +1540,7 @@ export const WorkflowView: React.FC = () => {
               تصميم مسار موافقات متعدد المستويات
             </DialogTitle>
             <DialogDescription className="text-xs font-medium">
-              تحديد تسلسل متسلسل لجهات الاعتماد حسب نوع المعاملة
+              تحديد تسلسل مستويات الاعتماد مع ضبط جهات التعيين والأولويات
             </DialogDescription>
           </DialogHeader>
 
@@ -1134,19 +1556,19 @@ export const WorkflowView: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <div className="space-y-1.5">
-                <label className="font-bold">نوع الخدمة / المعاملة</label>
+                <label className="font-bold">نوع المعاملة</label>
                 <select
                   value={chainCategory}
                   onChange={(e) => setChainCategory(e.target.value as any)}
                   className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
-                  <option value="leave">الإجازات</option>
-                  <option value="expense_claim">المصروفات والعهد</option>
-                  <option value="loan_advance">السلف المالية</option>
-                  <option value="attendance_correction">تصحيح البصمة</option>
-                  <option value="general">طلبات عامة</option>
+                  {CANONICAL_REQUEST_CATALOG.map((cat) => (
+                    <option key={cat.code} value={cat.code}>
+                      {cat.nameAr}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -1157,10 +1579,20 @@ export const WorkflowView: React.FC = () => {
                   onChange={(e) => setChainScope(e.target.value as any)}
                   className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
-                  <option value="all_employees">كافة موظفي المنشأة</option>
+                  <option value="all_employees">كافة الموظفين</option>
                   <option value="department">إدارة محددة</option>
                   <option value="subsidiary">شركة تابعة محددة</option>
                 </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold">الأولوية (Priority)</label>
+                <input
+                  type="number"
+                  value={chainPriority}
+                  onChange={(e) => setChainPriority(Number(e.target.value) || 100)}
+                  className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
               </div>
             </div>
 
@@ -1175,7 +1607,7 @@ export const WorkflowView: React.FC = () => {
                   size="sm"
                   variant="outline"
                   onClick={handleAddStepToChain}
-                  className="h-7 text-[11px] rounded-full px-2.5 font-bold gap-1"
+                  className="h-7 text-[11px] rounded-full px-2.5 font-bold gap-1 cursor-pointer"
                 >
                   <Plus className="h-3 w-3" />
                   إضافة مستوى
@@ -1216,12 +1648,13 @@ export const WorkflowView: React.FC = () => {
                       <option value="department_head">مدير الإدارة</option>
                       <option value="hr_manager">مدير الموارد البشرية</option>
                       <option value="finance_manager">المدير المالي</option>
+                      <option value="specific_employee">موظف محدد</option>
                     </select>
                     {chainSteps.length > 1 && (
                       <button
                         type="button"
                         onClick={() => handleRemoveStepFromChain(idx)}
-                        className="text-muted-foreground hover:text-destructive p-1"
+                        className="text-muted-foreground hover:text-destructive p-1 cursor-pointer"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -1236,7 +1669,7 @@ export const WorkflowView: React.FC = () => {
             <Button
               size="sm"
               onClick={handleCreateNewChain}
-              className="rounded-full text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 h-9"
+              className="rounded-full text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 h-9 cursor-pointer"
             >
               حفظ وتفعيل المسار
             </Button>
@@ -1253,7 +1686,7 @@ export const WorkflowView: React.FC = () => {
               تفعيل تفويض صلاحيات جديد (Out of Office)
             </DialogTitle>
             <DialogDescription className="text-xs font-medium">
-              تفويض صلاحيات اعتماد المعاملات لموظف بديل خلال فترة الغياب
+              تفويض صلاحيات اعتماد المعاملات لموظف بديل خلال فترة الغياب مع التوثيق
             </DialogDescription>
           </DialogHeader>
 
@@ -1265,11 +1698,12 @@ export const WorkflowView: React.FC = () => {
                 onChange={(e) => setDelegateEmpId(e.target.value)}
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
+                <option value="">اختر الموظف البديل...</option>
                 {employees
-                  .filter((e) => e.id !== currentUser.id)
+                  .filter((e) => e.id !== currentUser?.id)
                   .map((emp) => (
                     <option key={emp.id} value={emp.id}>
-                      {emp.firstNameAr} {emp.lastNameAr} ({emp.jobTitleAr})
+                      {emp.firstNameAr} {emp.lastNameAr} ({emp.jobTitleAr || "موظف"})
                     </option>
                   ))}
               </select>
@@ -1316,7 +1750,7 @@ export const WorkflowView: React.FC = () => {
                 rows={2}
                 value={delReason}
                 onChange={(e) => setDelReason(e.target.value)}
-                placeholder="مثال: إجازة سنوية، انتداب لمؤتمر عمل خارجي..."
+                placeholder="مثال: إجازة سنوية، انتداب لمهمة عمل رسمية..."
                 className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
@@ -1326,7 +1760,7 @@ export const WorkflowView: React.FC = () => {
             <Button
               size="sm"
               onClick={handleCreateDelegation}
-              className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-9"
+              className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-9 cursor-pointer"
             >
               تفعيل التفويض
             </Button>

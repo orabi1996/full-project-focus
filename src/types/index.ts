@@ -26,12 +26,14 @@ export type RequestStatus =
   | "draft"
   | "submitted"
   | "pending_approval"
+  | "pending"
   | "returned"
   | "approved"
   | "rejected"
   | "in_execution"
   | "completed"
-  | "cancelled";
+  | "cancelled"
+  | "withdrawn";
 
 // ----------------------------------------------------------------------------
 // M02: Organization & Work Structure
@@ -454,11 +456,13 @@ export interface RoleDefinition {
 export type RequestCategory =
   | "leave"
   | "attendance_correction"
+  | "overtime"
   | "expense_claim"
   | "loan_advance"
   | "salary_certificate"
   | "resignation"
   | "asset_request"
+  | "shift_swap"
   | "general";
 
 export interface ApprovalStep {
@@ -469,7 +473,9 @@ export interface ApprovalStep {
     | "hr_manager"
     | "finance_manager"
     | "specific_user"
-    | "custom_role";
+    | "specific_employee"
+    | "custom_role"
+    | "role";
   resolverValue?: string;
   stepNameAr: string;
   stepNameEn: string;
@@ -484,7 +490,13 @@ export interface ApprovalChain {
   scopeValues?: string[];
   steps: ApprovalStep[];
   isDefault: boolean;
-  status: "active" | "inactive";
+  status: "active" | "inactive" | "archived";
+  version?: number;
+  priority?: number;
+  effectiveFrom?: string;
+  effectiveTo?: string;
+  departmentId?: string;
+  description?: string;
 }
 
 export interface DelegationRule {
@@ -510,6 +522,7 @@ export interface RequestTimelineEvent {
   action: "submitted" | "approved" | "rejected" | "returned" | "delegated";
   note?: string;
   timestamp: string;
+  revisionNumber?: number;
 }
 
 export interface ServiceRequest {
@@ -531,6 +544,10 @@ export interface ServiceRequest {
   payload: Record<string, string | number | boolean | null | undefined>;
   timeline: RequestTimelineEvent[];
   attachmentUrls?: string[];
+  dueAt?: string;
+  isOverdue?: boolean;
+  decisionNote?: string;
+  revisionNumber?: number;
 }
 
 // ----------------------------------------------------------------------------

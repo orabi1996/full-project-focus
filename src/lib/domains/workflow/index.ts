@@ -113,7 +113,7 @@ export function useWorkflowMutations() {
         demoOperation: () => {
           const newReq: ServiceRequest = {
             id: `req-${Date.now()}`,
-            reference: `REQ-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900000) + 100000)}`,
+            referenceNo: `REQ-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900000) + 100000)}`,
             employeeId: requesterId || "emp-1",
             type: req.type,
             status: "pending_approval",

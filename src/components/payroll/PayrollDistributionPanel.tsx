@@ -19,9 +19,6 @@ const LEVEL_ORDER: Record<string, number> = {
   unit: 3,
 };
 
-// نسبة اشتراك صاحب العمل مقابل اشتراك الموظف في التأمينات (9.75% مقابل 11.75%)
-const EMPLOYER_TO_EMPLOYEE_GOSI = 11.75 / 9.75;
-
 export interface UnitPayrollRow {
   unitId: string;
   code: string;
@@ -124,7 +121,18 @@ export const PayrollDistributionPanel: React.FC<Props> = ({
           (employee?.departmentId && unitById.has(employee.departmentId)
             ? employee.departmentId
             : unitByName.get(detail.departmentName)?.id) ?? null;
-        const gosiEmployer = detail.gosiEmployeeDeduction * EMPLOYER_TO_EMPLOYEE_GOSI;
+        const gosiEmployer =
+          detail.gosiEmployerContribution != null
+            ? detail.gosiEmployerContribution
+            : (() => {
+                const isSaudi =
+                  (employee?.nationality ?? "SA").toUpperCase().startsWith("SA") ||
+                  Boolean((employee as any)?.isSaudi);
+                const gosiBase = Math.min(detail.basicSalary + detail.housingAllowance, 45000);
+                return isSaudi
+                  ? Math.round(gosiBase * 0.1175 * 100) / 100
+                  : Math.round(gosiBase * 0.02 * 100) / 100;
+              })();
         contribute(unitId, {
           headcount: 1,
           basic: detail.basicSalary,

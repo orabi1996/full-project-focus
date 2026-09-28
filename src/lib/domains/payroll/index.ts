@@ -12,6 +12,14 @@ import {
   createSettlementRecord,
   updatePayrollRunStatusRecord,
 } from "../../data/operational-repository";
+import {
+  usePayrollRuns,
+  usePayrollGroups,
+  usePayrollKpis,
+  usePayrollRun as usePayrollRunRepo,
+  usePayrollEmployees,
+  usePayrollExceptions,
+} from "../../data/payroll-repository";
 import { runPayrollServer, updatePayrollRunStatusServer } from "../../business/payroll.functions";
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
@@ -19,10 +27,14 @@ import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
 
-export function usePayroll() {
+export function usePayroll(filters?: Record<string, unknown>) {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
   const bootstrap = useBootstrapData();
+  const runsQuery = usePayrollRuns(filters);
+  const groupsQuery = usePayrollGroups();
+  const kpisQuery = usePayrollKpis();
+
   const demoData = useDemoStore((s) => ({
     payrollGroups: s.payrollGroups,
     payrollRuns: s.payrollRuns,
@@ -31,11 +43,16 @@ export function usePayroll() {
     settlements: s.settlements,
   }));
 
-  const payrollGroups = isLive ? bootstrap.payrollGroups : demoData.payrollGroups;
-  const payrollRuns = isLive ? bootstrap.payrollRuns : demoData.payrollRuns;
+  const payrollGroups = isLive
+    ? (groupsQuery.data && groupsQuery.data.length > 0 ? groupsQuery.data : bootstrap.payrollGroups)
+    : demoData.payrollGroups;
+  const payrollRuns = isLive
+    ? (runsQuery.data && runsQuery.data.length > 0 ? runsQuery.data : bootstrap.payrollRuns)
+    : demoData.payrollRuns;
   const payrollDetails = isLive ? bootstrap.payrollDetails : demoData.payrollDetails;
   const loans = isLive ? bootstrap.loans : demoData.loans;
   const settlements = isLive ? bootstrap.settlements : demoData.settlements;
+  const kpis = isLive ? kpisQuery.data : null;
 
   return {
     payrollGroups,
@@ -43,10 +60,16 @@ export function usePayroll() {
     payrollDetails,
     loans,
     settlements,
-    isLoading: isLive ? bootstrap.isLoading : false,
-    isError: isLive ? bootstrap.isError : false,
-    error: isLive ? bootstrap.error : null,
-    refetch: bootstrap.refreshCoreData,
+    kpis,
+    isLoading: isLive ? (runsQuery.isLoading || groupsQuery.isLoading) : false,
+    isError: isLive ? (runsQuery.isError || groupsQuery.isError) : false,
+    error: isLive ? (runsQuery.error || groupsQuery.error) : null,
+    refetch: () => {
+      runsQuery.refetch();
+      groupsQuery.refetch();
+      kpisQuery.refetch();
+      bootstrap.refreshCoreData();
+    },
   };
 }
 
@@ -85,10 +108,10 @@ export function usePayrollMutations() {
         mode,
         mutationKey: `payroll-run-${groupId}-${year}-${month}`,
         operation: async () => {
-          await runPayrollServer({ data: { payrollGroupId: groupId, year, month } });
+          const runRes = await runPayrollServer({ data: { payrollGroupId: groupId, year, month } });
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          return Boolean(runRes);
         },
         demoOperation: () => {
           const group = demoStore.payrollGroups.find((g) => g.id === groupId);
@@ -126,17 +149,54 @@ export function usePayrollMutations() {
     [mode, queryClient],
   );
 
+  const approvePayrollRun = useCallback(
+    async (runId: string, note: string = ""): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `payroll-approve-${runId}`,
+        operation: async () => {
+          const res = await updatePayrollRunStatusServer({ data: { runId, status: "approved" as any, note } });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.run(runId) });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.runs() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.kpis() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          return Boolean(res);
+        },
+        demoOperation: () => {
+          demoStore.payrollRuns = demoStore.payrollRuns.map((r) =>
+            r.id === runId
+              ? { ...r, status: "approved" as any, approvedAt: new Date().toISOString() }
+              : r,
+          );
+          demoStore.notify();
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تم اعتماد مسير الرواتب بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر اعتماد مسير الرواتب");
+        },
+      });
+
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
   const lockAndConfirmPayrollRun = useCallback(
     async (runId: string): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
         mutationKey: `payroll-lock-${runId}`,
         operation: async () => {
-          await updatePayrollRunStatusServer({ data: { runId, status: "locked" } });
+          const res = await updatePayrollRunStatusServer({ data: { runId, status: "locked" } });
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.run(runId) });
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.runs() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.kpis() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.loans() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          return Boolean(res);
         },
         demoOperation: () => {
           demoStore.payrollRuns = demoStore.payrollRuns.map((r) =>
@@ -160,17 +220,53 @@ export function usePayrollMutations() {
     [mode, queryClient],
   );
 
+  const reopenPayrollRun = useCallback(
+    async (runId: string, reason: string): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `payroll-reopen-${runId}`,
+        operation: async () => {
+          const res = await updatePayrollRunStatusServer({ data: { runId, status: "draft", reason } });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.run(runId) });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.runs() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.kpis() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          return Boolean(res);
+        },
+        demoOperation: () => {
+          demoStore.payrollRuns = demoStore.payrollRuns.map((r) =>
+            r.id === runId
+              ? { ...r, status: "draft" as const, lockedAt: undefined, approvedAt: undefined }
+              : r,
+          );
+          demoStore.notify();
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تم إعادة فتح مسير الرواتب للتعديل بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إعادة فتح مسير الرواتب");
+        },
+      });
+
+      return result.ok;
+    },
+    [mode, queryClient],
+  );
+
   const markPayrollAsPaid = useCallback(
     async (runId: string): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
         mutationKey: `payroll-paid-${runId}`,
         operation: async () => {
-          await updatePayrollRunStatusRecord(runId, "paid");
+          const res = await updatePayrollRunStatusRecord(runId, "paid");
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.run(runId) });
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.runs() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.kpis() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          return Boolean(res ?? true);
         },
         demoOperation: () => {
           demoStore.payrollRuns = demoStore.payrollRuns.map((r) =>
@@ -225,7 +321,7 @@ export function usePayrollMutations() {
         mode,
         mutationKey: `payroll-loan-${empId}-${payload.principalAmount}-${payload.totalInstallments}`,
         operation: async () => {
-          await createLoanRecord({
+          const res = await createLoanRecord({
             employeeId: empId,
             principalAmount: payload.principalAmount,
             monthlyInstallment: payload.monthlyInstallment,
@@ -234,7 +330,7 @@ export function usePayrollMutations() {
           });
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.loans() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          return Boolean(res ?? true);
         },
         demoOperation: () => {
           demoStore.loans = [newLoan, ...demoStore.loans];
@@ -265,10 +361,10 @@ export function usePayrollMutations() {
         mode,
         mutationKey: `payroll-settle-${settlement.employeeId}-${settlement.terminationDate}`,
         operation: async () => {
-          await createSettlementRecord(settlement);
+          const res = await createSettlementRecord(settlement);
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.settlements() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          return Boolean(res ?? true);
         },
         demoOperation: () => {
           demoStore.settlements = [newSettlement, ...demoStore.settlements];
@@ -290,7 +386,9 @@ export function usePayrollMutations() {
 
   return {
     processPayrollRun,
+    approvePayrollRun,
     lockAndConfirmPayrollRun,
+    reopenPayrollRun,
     markPayrollAsPaid,
     createLoan,
     createSettlement,

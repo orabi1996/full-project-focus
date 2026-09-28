@@ -2087,13 +2087,42 @@ export async function createPayrollRunWithDetailsRecord(
   if (error) throw new Error(error.message);
 }
 
-export async function updatePayrollRunStatusRecord(id: string, status: PayrollRun["status"]) {
+export async function updatePayrollRunStatusRecord(
+  id: string,
+  status: PayrollRun["status"],
+  bankReference = "MANUAL-DISBURSEMENT",
+) {
+  if (status === "locked" || status === "confirmed_locked") {
+    const { error } = await (enterpriseSupabase as any).rpc("lock_payroll_run_atomic", {
+      p_payroll_run_id: id,
+    });
+    if (!error) return;
+  } else if (status === "paid") {
+    const { error } = await (enterpriseSupabase as any).rpc("confirm_payroll_disbursement_atomic", {
+      p_payroll_run_id: id,
+      p_bank_reference: bankReference,
+    });
+    if (!error) return;
+  } else if (status === "draft") {
+    const { error } = await (enterpriseSupabase as any).rpc("reopen_payroll_run_atomic", {
+      p_payroll_run_id: id,
+      p_reason: "طلب إعادة فتح مسيّر الرواتب للتعديل والمراجعة",
+    });
+    if (!error) return;
+  } else if (status === "approved" || status === "under_review" || status === "ready_for_review") {
+    const { error } = await (enterpriseSupabase as any).rpc("approve_payroll_run_atomic", {
+      p_payroll_run_id: id,
+      p_note: "اعتماد مسيّر الرواتب",
+    });
+    if (!error) return;
+  }
+
   const now = new Date().toISOString();
   const { error } = await enterpriseSupabase
     .from("payroll_runs")
     .update({
       status,
-      locked_at: status === "confirmed_locked" ? now : undefined,
+      locked_at: status === "confirmed_locked" || status === "locked" ? now : undefined,
       paid_at: status === "paid" ? now : undefined,
     })
     .eq("id", id);

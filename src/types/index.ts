@@ -528,6 +528,8 @@ export interface RequestTimelineEvent {
 export interface ServiceRequest {
   id: string;
   referenceNo: string;
+  reference?: string;
+  employeeId?: string;
   type: RequestCategory;
   requesterId: string;
   requesterName: string;
@@ -540,6 +542,7 @@ export interface ServiceRequest {
   totalSteps: number;
   currentApproverRole?: string;
   submittedAt: string;
+  createdAt?: string;
   updatedAt: string;
   payload: Record<string, string | number | boolean | null | undefined>;
   timeline: RequestTimelineEvent[];
@@ -1224,38 +1227,175 @@ export interface AttendanceSummaryKPIs {
 }
 
 // ----------------------------------------------------------------------------
-// M10 & M11: Payroll, Loans & Settlements
+// M10 & M11: Payroll, Loans & Settlements (Prompt 15 Enhanced)
 // ----------------------------------------------------------------------------
-export type PayrollCalculationBasis = "fixed_30_days" | "calendar_days";
+export type PayrollCalculationBasis = "fixed_30_days" | "calendar_days" | "working_days";
 
 export interface PayrollGroup {
   id: string;
+  companyId?: string;
   nameAr: string;
   nameEn: string;
+  code?: string;
   calculationBasis: PayrollCalculationBasis;
   cutoffDay: number; // e.g. 25th of month
   payday: number; // e.g. 28th of month
   currency: string;
-  employeeCount: number;
+  employeeCount?: number;
+  status?: "active" | "archived";
 }
 
 export type PayrollRunStatus =
   | "draft"
   | "calculating"
+  | "calculated"
   | "ready_for_review"
+  | "under_review"
   | "pending_approval"
   | "approved"
   | "confirmed_locked"
+  | "locked"
+  | "payment_processing"
   | "paid"
-  | "closed";
+  | "closed"
+  | "reversed";
+
+export type PayrollPaymentStatus =
+  | "not_processed"
+  | "payment_ready"
+  | "file_generated"
+  | "sent_to_bank"
+  | "partially_paid"
+  | "paid"
+  | "failed";
+
+export interface CompanyPayrollConfig {
+  companyId: string;
+  currency: string;
+  timezone: string;
+  payFrequency: "monthly" | "bi_weekly" | "weekly";
+  payrollCutoffDay: number;
+  payday: number;
+  calculationBasis: PayrollCalculationBasis;
+  workingDaysPerMonth: number;
+  roundingRule: "round_2" | "round_0" | "ceil_2" | "floor_2";
+  prorationPolicy: "fixed_30" | "calendar_days" | "working_days";
+  overtimeTreatment: "statutory_article_107" | "basic_only" | "gross_based" | "fixed_multiplier";
+  overtimeCustomMultiplier?: number;
+  unpaidLeaveTreatment: "fixed_30_basis" | "calendar_day_basis" | "working_day_basis";
+  statutoryRegime: "saudi_gosi" | "egypt_social_insurance" | "generic_statutory" | "none";
+  status: "active" | "suspended";
+}
+
+export interface SalaryComponent {
+  id: string;
+  companyId?: string;
+  code: string;
+  nameAr: string;
+  nameEn: string;
+  type: "earning" | "deduction" | "employer_contribution" | "employee_contribution" | "informational";
+  calculationMethod: "fixed" | "percentage" | "formula";
+  formulaExpression?: string;
+  isTaxable: boolean;
+  isStatutoryInsurable: boolean;
+  isRecurring: boolean;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  rounding: string;
+  displayOrder: number;
+  status: "active" | "archived";
+}
+
+export interface SalaryStructure {
+  id: string;
+  companyId: string;
+  code: string;
+  nameAr: string;
+  nameEn: string;
+  description?: string;
+  version: number;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  status: "active" | "archived";
+  components?: SalaryStructureComponent[];
+}
+
+export interface SalaryStructureComponent {
+  id: string;
+  structureId: string;
+  componentId: string;
+  defaultAmount?: number;
+  percentageOfBasic?: number;
+  isMandatory: boolean;
+  component?: SalaryComponent;
+}
+
+export interface EmployeeCompensationVersion {
+  id: string;
+  employeeId: string;
+  companyId: string;
+  salaryStructureId?: string;
+  version: number;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  basicSalary: number;
+  housingAllowance: number;
+  transportAllowance: number;
+  otherAllowances: Array<{ code: string; nameAr: string; amount: number }>;
+  currency: string;
+  bankName?: string;
+  iban?: string;
+  payrollGroupId?: string;
+  statutoryApplicable: boolean;
+  statutoryScheme: string;
+  gosiSchemeTier?: "legacy" | "new_1445";
+  reason?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  status: "draft" | "pending_approval" | "approved" | "superseded" | "cancelled";
+}
+
+export interface StatutoryRuleSet {
+  id: string;
+  jurisdictionCode: string; // e.g. SA, EG
+  nameAr: string;
+  nameEn: string;
+  currency: string;
+  status: "active" | "archived";
+}
+
+export interface StatutoryRuleVersion {
+  id: string;
+  ruleSetId: string;
+  version: number;
+  nameAr: string;
+  nameEn: string;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  wageCeiling: number;
+  wageFloor: number;
+  wageBasis: "basic_plus_housing" | "basic_only" | "gross_salary";
+  nationalPensionEmployeeRate: number;
+  nationalPensionEmployerRate: number;
+  sanedEmployeeRate: number;
+  sanedEmployerRate: number;
+  hazardsEmployerRate: number;
+  expatHazardsRate: number;
+  isActive: boolean;
+}
 
 export interface PayrollRun {
   id: string;
-  payrollGroupId: string;
-  payrollGroupName: string;
+  companyId?: string;
+  payrollGroupId?: string;
+  payrollGroupName?: string;
   periodYear: number;
   periodMonth: number; // 1 to 12
+  periodId?: string;
+  calculationBasis?: string;
   status: PayrollRunStatus;
+  paymentStatus?: PayrollPaymentStatus;
+  currency?: string;
   totalEmployees: number;
   totalBasicSalary: number;
   totalAllowances: number;
@@ -1263,8 +1403,108 @@ export interface PayrollRun {
   totalDeductions: number;
   totalNetSalary: number;
   totalEmployerGosi: number;
+  blockingExceptionsCount?: number;
+  warningsCount?: number;
   lockedAt?: string;
+  lockedBy?: string;
+  approvedAt?: string;
+  approvedBy?: string;
+  reopenedAt?: string;
+  reopenedBy?: string;
+  reopenReason?: string;
   paidAt?: string;
+}
+
+export interface PayrollRunEmployee {
+  id: string;
+  payrollRunId: string;
+  employeeId: string;
+  compensationVersionId?: string;
+  employeeNo: string;
+  employeeName: string;
+  departmentName?: string;
+  nationality: string;
+  isSaudi: boolean;
+  bankName?: string;
+  iban?: string;
+  eligibleDays: number;
+  daysInPeriod: number;
+  basicSalary: number;
+  housingAllowance: number;
+  transportAllowance: number;
+  overtimeHours: number;
+  overtimeAmount: number;
+  bonusAmount: number;
+  unpaidLeaveDays: number;
+  unpaidLeaveDeduction: number;
+  absenceDays: number;
+  absenceDeduction: number;
+  loanDeduction: number;
+  gosiEmployee: number;
+  gosiEmployer: number;
+  otherDeductions: number;
+  grossSalary: number;
+  totalDeductions: number;
+  netSalary: number;
+  hasBlockingException: boolean;
+  status: "calculated" | "under_review" | "approved" | "locked" | "excluded";
+}
+
+export interface PayrollRunLine {
+  id: string;
+  payrollRunId: string;
+  runEmployeeId: string;
+  componentId?: string;
+  componentCode: string;
+  componentNameAr: string;
+  componentType: "earning" | "deduction" | "employer_contribution" | "employee_contribution" | "informational";
+  quantity: number;
+  rate: number;
+  amount: number;
+  isStatutoryInsurable: boolean;
+  calculationTrace: string;
+  sourceReference?: string;
+}
+
+export interface PayrollException {
+  id: string;
+  payrollRunId: string;
+  employeeId?: string;
+  employeeName?: string;
+  code: string;
+  titleAr: string;
+  messageAr: string;
+  severity: "warning" | "blocking";
+  details?: Record<string, unknown>;
+  isResolved: boolean;
+  resolvedAt?: string;
+}
+
+export interface PayrollPaymentBatch {
+  id: string;
+  companyId: string;
+  payrollRunId: string;
+  batchNumber: string;
+  bankAccountId?: string;
+  totalCount: number;
+  totalAmount: number;
+  currency: string;
+  status: "draft" | "file_generated" | "submitted" | "reconciled" | "failed";
+  bankReference?: string;
+  disbursedAt?: string;
+}
+
+export interface PayrollKpis {
+  latestRunId?: string;
+  latestPeriod: string;
+  latestRunStatus: PayrollRunStatus;
+  latestPaymentStatus: PayrollPaymentStatus;
+  totalMonthlyNet: number;
+  totalMonthlyEmployerGosi: number;
+  activeLoansCount: number;
+  activeLoansBalance: number;
+  pendingApprovalRunsCount: number;
+  blockingExceptionsCount: number;
 }
 
 export interface EmployeePayrollDetail {
@@ -1294,6 +1534,7 @@ export interface EmployeePayrollDetail {
   absenceLateDeduction: number;
   loanInstallmentDeduction: number;
   gosiEmployeeDeduction: number;
+  gosiEmployerContribution?: number;
   otherDeductions: number;
   totalDeductions: number;
 

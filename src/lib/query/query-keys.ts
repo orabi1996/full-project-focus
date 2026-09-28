@@ -38,10 +38,35 @@ export const queryKeys = {
   },
   payroll: {
     all: ["payroll"] as const,
+    config: () => [...queryKeys.payroll.all, "config"] as const,
     groups: () => [...queryKeys.payroll.all, "groups"] as const,
-    runs: () => [...queryKeys.payroll.all, "runs"] as const,
-    run: (id: string) => [...queryKeys.payroll.runs(), id] as const,
-    details: (runId?: string) => [...queryKeys.payroll.all, "details", runId ?? "all"] as const,
+    components: () => [...queryKeys.payroll.all, "components"] as const,
+    structures: () => [...queryKeys.payroll.all, "structures"] as const,
+    compensation: (employeeId?: string) =>
+      [...queryKeys.payroll.all, "compensation", employeeId ?? "all"] as const,
+    runs: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.payroll.all, "runs", filters] as const)
+        : ([...queryKeys.payroll.all, "runs"] as const),
+    run: (id: string) => [...queryKeys.payroll.all, "runs", id] as const,
+    employees: (runId: string, filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.payroll.all, "employees", runId, filters] as const)
+        : ([...queryKeys.payroll.all, "employees", runId] as const),
+    lines: (runEmployeeId: string) =>
+      [...queryKeys.payroll.all, "lines", runEmployeeId] as const,
+    exceptions: (runId: string) =>
+      [...queryKeys.payroll.all, "exceptions", runId] as const,
+    payslip: (runEmployeeId: string) =>
+      [...queryKeys.payroll.all, "payslip", runEmployeeId] as const,
+    kpis: () => [...queryKeys.payroll.all, "kpis"] as const,
+    batches: () => [...queryKeys.payroll.all, "batches"] as const,
+    reconciliation: (runId?: string) =>
+      [...queryKeys.payroll.all, "reconciliation", runId ?? "all"] as const,
+    statutoryRules: () =>
+      [...queryKeys.payroll.all, "statutory_rules"] as const,
+    details: (runId?: string) =>
+      [...queryKeys.payroll.all, "details", runId ?? "all"] as const,
     loans: () => [...queryKeys.payroll.all, "loans"] as const,
     settlements: () => [...queryKeys.payroll.all, "settlements"] as const,
   },

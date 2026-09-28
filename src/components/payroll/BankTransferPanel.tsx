@@ -72,9 +72,19 @@ export const BankTransferPanel: React.FC = () => {
   const paidRows = rows.filter((r) => r.status === "paid");
   const pendingRows = rows.filter((r) => r.status !== "paid");
   const account = accounts.find((a) => a.id === accountId);
+  const selectedRun = runs.find((r) => r.runId === runId);
+  const isApprovedOrLocked =
+    selectedRun?.status === "approved" ||
+    selectedRun?.status === "locked" ||
+    selectedRun?.status === "confirmed_locked" ||
+    selectedRun?.status === "paid";
 
   const execute = async () => {
     if (busy || !confirmed || !bankReference.trim()) return;
+    if (!isApprovedOrLocked) {
+      toast.error("لا يمكن تسجيل تأكيد التحويل البنكي إلا بعد اعتماد المسيّر أو قفله رسمياً");
+      return;
+    }
     setBusy(true);
     try {
       const result: any = await disburseRunPaymentsServer({
@@ -95,6 +105,10 @@ export const BankTransferPanel: React.FC = () => {
 
   const prepare = async () => {
     if (busy || !runId) return;
+    if (!isApprovedOrLocked) {
+      toast.error("لا يمكن تجهيز الدفعات إلا بعد اعتماد مسيّر الرواتب أو قفله رسمياً");
+      return;
+    }
     setBusy(true);
     try {
       await prepareRunPaymentsServer({ data: { runId } });

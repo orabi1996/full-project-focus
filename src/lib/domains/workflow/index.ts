@@ -9,7 +9,7 @@ import type {
 } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
 import { queryKeys } from "../../query/query-keys";
-import { useDemoStore } from "../demo/demo-store";
+import { demoStore, useDemoStore } from "../demo/demo-store";
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import {
   createDelegationRuleRecord,
@@ -87,7 +87,6 @@ export function useWorkflow() {
 export function useWorkflowMutations() {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
-  const demoStore = useDemoStore();
   const engine = useWorkflowEngineMutations();
 
   const submitRequest = useCallback(
@@ -111,16 +110,21 @@ export function useWorkflowMutations() {
           return ok;
         },
         demoOperation: () => {
+          const ref = `REQ-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900000) + 100000)}`;
           const newReq: ServiceRequest = {
             id: `req-${Date.now()}`,
-            reference: `REQ-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900000) + 100000)}`,
+            referenceNo: ref,
+            reference: ref,
+            requesterId: requesterId || "emp-1",
             employeeId: requesterId || "emp-1",
+            requesterName: "موظف",
             type: req.type,
             status: "pending_approval",
             payload: req.payload || {},
             currentStepIndex: 1,
             totalSteps: 2,
             currentApproverRole: "line_manager",
+            submittedAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             timeline: [],
@@ -138,7 +142,7 @@ export function useWorkflowMutations() {
       });
       return result.ok;
     },
-    [isLive, engine, demoStore],
+    [isLive, engine],
   );
 
   const approveRequest = useCallback(
@@ -173,7 +177,7 @@ export function useWorkflowMutations() {
       });
       return result.ok;
     },
-    [isLive, engine, demoStore],
+    [isLive, engine],
   );
 
   const rejectRequest = useCallback(
@@ -208,7 +212,7 @@ export function useWorkflowMutations() {
       });
       return result.ok;
     },
-    [isLive, engine, demoStore],
+    [isLive, engine],
   );
 
   const returnRequest = useCallback(
@@ -243,7 +247,7 @@ export function useWorkflowMutations() {
       });
       return result.ok;
     },
-    [isLive, engine, demoStore],
+    [isLive, engine],
   );
 
   const addApprovalChain = useCallback(
@@ -282,7 +286,7 @@ export function useWorkflowMutations() {
       });
       return result.ok;
     },
-    [isLive, engine, demoStore],
+    [isLive, engine],
   );
 
   const deleteApprovalChain = useCallback(
@@ -309,7 +313,7 @@ export function useWorkflowMutations() {
       });
       return result.ok;
     },
-    [isLive, engine, demoStore],
+    [isLive, engine],
   );
 
   const addDelegationRule = useCallback(
@@ -351,7 +355,7 @@ export function useWorkflowMutations() {
       });
       return result.ok;
     },
-    [isLive, engine, demoStore],
+    [isLive, engine],
   );
 
   const revokeDelegationRule = useCallback(
@@ -383,7 +387,7 @@ export function useWorkflowMutations() {
       });
       return result.ok;
     },
-    [isLive, engine, demoStore],
+    [isLive, engine],
   );
 
   return {

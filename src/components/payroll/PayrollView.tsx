@@ -38,11 +38,14 @@ import {
   Calendar,
   UserCheck,
   QrCode,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { toast } from "sonner";
+import { usePayrollMutations } from "../../lib/domains/payroll";
+import { usePayrollExceptions } from "../../lib/data/payroll-repository";
 import {
   Dialog,
   DialogContent,
@@ -114,6 +117,12 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   const [separationType, setSeparationType] = useState<SeparationType>("contract_expiration");
 
   const selectedRun = payrollRuns.find((r) => r.id === selectedRunId) || payrollRuns[0];
+  const payrollMutations = usePayrollMutations();
+  const exceptionsQuery = usePayrollExceptions(selectedRun?.id);
+  const exceptions = exceptionsQuery.data || [];
+  const blockingExceptions = exceptions.filter((e) => e.severity === "blocking" && !e.isResolved);
+  const warningExceptions = exceptions.filter((e) => e.severity === "warning" && !e.isResolved);
+
   const selectedRunDetails = selectedRun
     ? payrollDetails.filter((detail) => detail.payrollRunId === selectedRun.id)
     : [];
@@ -159,6 +168,10 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   const [isSavingSettlement, setIsSavingSettlement] = useState(false);
   const [isLockingRun, setIsLockingRun] = useState(false);
   const [isPayingRun, setIsPayingRun] = useState(false);
+  const [isApprovingRun, setIsApprovingRun] = useState(false);
+  const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
+  const [reopenReason, setReopenReason] = useState("");
+  const [isReopeningRun, setIsReopeningRun] = useState(false);
 
   const handleRunNewPayroll = async () => {
     const groupId = payrollGroups.some((group) => group.id === runGroupId)
@@ -427,18 +440,28 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                     <Badge
                       variant="outline"
                       className={`text-xs rounded-full px-3 py-0.5 font-bold ${
-                        selectedRun.status === "confirmed_locked"
-                          ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
-                          : selectedRun.status === "paid"
-                            ? "bg-purple-500/10 text-purple-700 border-purple-200"
-                            : "bg-amber-500/10 text-amber-700 border-amber-200"
+                        selectedRun.status === "paid"
+                          ? "bg-purple-500/10 text-purple-700 border-purple-200"
+                          : selectedRun.status === "locked" || selectedRun.status === "confirmed_locked"
+                            ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
+                            : selectedRun.status === "approved"
+                              ? "bg-blue-500/10 text-blue-700 border-blue-200"
+                              : selectedRun.status === "calculated"
+                                ? "bg-cyan-500/10 text-cyan-700 border-cyan-200"
+                                : "bg-amber-500/10 text-amber-700 border-amber-200"
                       }`}
                     >
-                      {selectedRun.status === "confirmed_locked"
-                        ? "مغلق ومؤكد"
-                        : selectedRun.status === "paid"
-                          ? "تم الصرف بنجاح"
-                          : "جاهز للمراجعة والاعتماد"}
+                      {selectedRun.status === "paid"
+                        ? "تم الصرف بنجاح"
+                        : selectedRun.status === "locked" || selectedRun.status === "confirmed_locked"
+                          ? "مغلق ومؤكد"
+                          : selectedRun.status === "approved"
+                            ? "معتمد وجاهز للصرف"
+                            : selectedRun.status === "calculated"
+                              ? "تم الاحتساب بنجاح"
+                              : selectedRun.status === "under_review" || selectedRun.status === "ready_for_review"
+                                ? "جاهز للمراجعة"
+                                : "مسودة عمل"}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground font-medium mt-1">
@@ -479,9 +502,35 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                     <Download className="h-3.5 w-3.5" />
                     تحميل ملف حماية الأجور (SIF)
                   </Button>
-                  {canManagePayroll && ["draft", "ready_for_review"].includes(selectedRun.status) && (
+                  {canManagePayroll && ["draft", "calculated", "ready_for_review", "under_review"].includes(selectedRun.status) && (
                     <Button
                       onClick={async () => {
+                        if (blockingExceptions.length > 0) {
+                          toast.error("لا يمكن اعتماد المسير مع وجود استثناءات مانعة للاعتماد");
+                          return;
+                        }
+                        setIsApprovingRun(true);
+                        try {
+                          await payrollMutations.approvePayrollRun(selectedRun.id);
+                        } finally {
+                          setIsApprovingRun(false);
+                        }
+                      }}
+                      disabled={isApprovingRun || blockingExceptions.length > 0}
+                      size="sm"
+                      className="rounded-full text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white gap-1.5 h-9 px-4 cursor-pointer"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {isApprovingRun ? "جاري الاعتماد..." : "اعتماد المسير"}
+                    </Button>
+                  )}
+                  {canManagePayroll && ["approved", "draft", "ready_for_review"].includes(selectedRun.status) && (
+                    <Button
+                      onClick={async () => {
+                        if (blockingExceptions.length > 0) {
+                          toast.error("لا يمكن قفل المسير مع وجود استثناءات مانعة للاعتماد");
+                          return;
+                        }
                         setIsLockingRun(true);
                         try {
                           await lockAndConfirmPayrollRun(selectedRun.id);
@@ -489,15 +538,29 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                           setIsLockingRun(false);
                         }
                       }}
-                      disabled={isLockingRun}
+                      disabled={isLockingRun || blockingExceptions.length > 0}
                       size="sm"
                       className="rounded-full text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 h-9 px-4 cursor-pointer"
                     >
                       <Lock className="h-3.5 w-3.5" />
-                      {isLockingRun ? "جاري الاعتماد..." : "اعتماد وقفل المسير"}
+                      {isLockingRun ? "جاري القفل..." : "قفل المسير وتثبيت السلف"}
                     </Button>
                   )}
-                  {canManagePayroll && selectedRun.status === "confirmed_locked" && (
+                  {canManagePayroll && ["locked", "confirmed_locked", "approved"].includes(selectedRun.status) && (
+                    <Button
+                      onClick={() => {
+                        setReopenReason("");
+                        setIsReopenModalOpen(true);
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full text-xs font-bold gap-1.5 border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 h-9 px-3 cursor-pointer"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      إعادة فتح المسير
+                    </Button>
+                  )}
+                  {canManagePayroll && ["locked", "confirmed_locked", "approved"].includes(selectedRun.status) && (
                     <Button
                       onClick={async () => {
                         setIsPayingRun(true);
@@ -512,11 +575,37 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                       className="rounded-full text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white gap-1.5 h-9 px-4 cursor-pointer"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      {isPayingRun ? "جاري التأكيد..." : "إرشادات تأكيد التحويل"}
+                      {isPayingRun ? "جاري التأكيد..." : "تأكيد الصرف البنكي"}
                     </Button>
                   )}
                 </div>
               </div>
+
+              {/* Exceptions Alert Banner */}
+              {blockingExceptions.length > 0 && (
+                <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3.5 flex items-start gap-2.5 text-xs text-destructive">
+                  <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">استثناءات مانعة للاعتماد (Blocking Exceptions - {blockingExceptions.length}):</span>
+                    <ul className="list-disc list-inside mt-1 space-y-0.5 font-medium">
+                      {blockingExceptions.map((ex) => (
+                        <li key={ex.id}>
+                          <span className="font-bold">{ex.titleAr}:</span> {ex.messageAr}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+              {warningExceptions.length > 0 && blockingExceptions.length === 0 && (
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-200">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">تنبيهات احتساب المسير ({warningExceptions.length}):</span>
+                    <span className="mr-1">{warningExceptions[0]?.messageAr}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Totals Summary Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
@@ -1370,6 +1459,60 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-10 shadow-xs cursor-pointer"
             >
               {isSavingSettlement ? "جاري الاعتماد..." : "احتساب واعتماد المخالصة"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 6: Reopen Locked Payroll Run Modal */}
+      <Dialog open={isReopenModalOpen} onOpenChange={setIsReopenModalOpen}>
+        <DialogContent className="max-w-md rounded-3xl p-6 border border-border/80 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-black flex items-center gap-2 text-foreground">
+              <RotateCcw className="h-5 w-5 text-amber-600" />
+              إعادة فتح مسير رواتب مقفل
+            </DialogTitle>
+            <DialogDescription className="text-xs font-medium text-muted-foreground">
+              وفق ضوابط الحوكمة، يتطلب فتح المسير المقفل توضيح سبب رسمي للتسجيل في سجل التدقيق
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs">
+            <div className="space-y-1">
+              <label className="font-bold text-foreground">سبب إعادة الفتح (10 أحرف على الأقل) *</label>
+              <textarea
+                value={reopenReason}
+                onChange={(e) => setReopenReason(e.target.value)}
+                rows={3}
+                placeholder="مثال: تصحيح ساعات العمل الإضافي لقسم التشغيل بناءً على اعتماد إدارة الموارد البشرية..."
+                className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-medium"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button
+              size="sm"
+              onClick={async () => {
+                if (reopenReason.trim().length < 10) {
+                  toast.error("يرجى كتابة سبب واضح لإعادة فتح المسير (10 أحرف على الأقل)");
+                  return;
+                }
+                setIsReopeningRun(true);
+                try {
+                  const ok = await payrollMutations.reopenPayrollRun(selectedRun.id, reopenReason);
+                  if (ok) {
+                    setIsReopenModalOpen(false);
+                    setReopenReason("");
+                  }
+                } finally {
+                  setIsReopeningRun(false);
+                }
+              }}
+              disabled={isReopeningRun || reopenReason.trim().length < 10}
+              className="rounded-full text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-6 h-10 shadow-xs cursor-pointer"
+            >
+              {isReopeningRun ? "جاري الفتح..." : "تأكيد إعادة فتح المسير"}
             </Button>
           </DialogFooter>
         </DialogContent>

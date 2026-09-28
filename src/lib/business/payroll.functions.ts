@@ -43,6 +43,58 @@ export const runPayrollServer = createServerFn({ method: "POST" })
  */
 export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
   const { year, month } = data;
+
+  // 1. Attempt authoritative database RPC execution if available
+  try {
+    let companyId: string | null = null;
+    if (data.payrollGroupId) {
+      const { data: grp } = await supabase
+        .from("payroll_groups")
+        .select("company_id")
+        .eq("id", data.payrollGroupId)
+        .maybeSingle();
+      companyId = grp?.company_id ?? null;
+    }
+    if (!companyId) {
+      const { data: comp } = await supabase
+        .from("companies")
+        .select("id")
+        .limit(1)
+        .maybeSingle();
+      companyId = comp?.id ?? null;
+    }
+
+    if (companyId) {
+      const { data: runRes, error: createError } = await supabase.rpc("create_payroll_run_atomic", {
+        p_company_id: companyId,
+        p_payroll_group_id: data.payrollGroupId || null,
+        p_period_year: year,
+        p_period_month: month,
+      });
+
+      if (!createError && runRes?.payroll_run_id) {
+        const runId = runRes.payroll_run_id;
+        const { data: calcRes, error: calcError } = await supabase.rpc("calculate_payroll_run_atomic", {
+          p_payroll_run_id: runId,
+        });
+
+        if (!calcError && calcRes) {
+          return {
+            runId,
+            employees: calcRes.total_employees ?? 0,
+            totalNet: calcRes.total_net_salary ?? 0,
+            totalDeductions: 0,
+            totalEmployerGosi: 0,
+            blockingExceptions: calcRes.blocking_exceptions ?? 0,
+            warnings: calcRes.warnings ?? 0,
+          };
+        }
+      }
+    }
+  } catch (_rpcErr) {
+    // Fall back to TypeScript computation if RPC is not present
+  }
+
   const periodDays = daysInMonth(year, month);
   const periodStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const periodEnd = `${year}-${String(month).padStart(2, "0")}-${String(periodDays).padStart(2, "0")}`;
@@ -230,11 +282,20 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
  */
 export const updatePayrollRunStatusServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { runId: string; status: "draft" | "locked" | "paid" }) => {
-    if (!input.runId) throw new Error("معرّف المسيّر مطلوب");
-    if (!["draft", "locked", "paid"].includes(input.status)) throw new Error("حالة غير صالحة");
-    return input;
-  })
+  .inputValidator(
+    (input: {
+      runId: string;
+      status: "draft" | "locked" | "paid" | "approved";
+      note?: string;
+      reason?: string;
+    }) => {
+      if (!input.runId) throw new Error("معرّف المسيّر مطلوب");
+      if (!["draft", "locked", "paid", "approved"].includes(input.status)) {
+        throw new Error("حالة غير صالحة");
+      }
+      return input;
+    },
+  )
   .handler(async ({ data, context }) => {
     const supabase = context.supabase as any;
     const userId = context.userId;
@@ -249,6 +310,26 @@ export const updatePayrollRunStatusServer = createServerFn({ method: "POST" })
     if (data.status === "paid") {
       throw new Error("سجّل تأكيد التحويل ومرجع البنك من شاشة دفعات الرواتب");
     }
+
+    if (data.status === "approved") {
+      const { error } = await supabase.rpc("approve_payroll_run_atomic", {
+        p_payroll_run_id: data.runId,
+        p_note: data.note || "",
+      });
+      if (!error) return { ok: true };
+    } else if (data.status === "locked") {
+      const { error } = await supabase.rpc("lock_payroll_run_atomic", {
+        p_payroll_run_id: data.runId,
+      });
+      if (!error) return { ok: true };
+    } else if (data.status === "draft") {
+      const { error } = await supabase.rpc("reopen_payroll_run_atomic", {
+        p_payroll_run_id: data.runId,
+        p_reason: data.reason || "طلب إعادة فتح مسيّر الرواتب للتعديل والمراجعة",
+      });
+      if (!error) return { ok: true };
+    }
+
     const { error } = await supabase.rpc("set_payroll_run_status_atomic", {
       p_run_id: data.runId,
       p_status: data.status,

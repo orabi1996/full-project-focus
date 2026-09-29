@@ -11,6 +11,7 @@ export const queryKeys = {
   company: {
     all: ["company"] as const,
     detail: () => [...queryKeys.company.all, "detail"] as const,
+    bankAccounts: () => [...queryKeys.company.all, "bankAccounts"] as const,
   },
   organization: {
     all: ["organization"] as const,

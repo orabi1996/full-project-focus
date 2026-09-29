@@ -7,6 +7,8 @@ import { useAuth } from "../auth/AuthContext";
 import type {
   CompanyPayrollConfig,
   EmployeeCompensationVersion,
+  FinalSettlementRecord,
+  LoanRecord,
   PayrollException,
   PayrollGroup,
   PayrollKpis,
@@ -505,7 +507,215 @@ export function useEmployeePayslip(runEmployeeId?: string | null) {
 }
 
 // ============================================================================
-// 12. AUTHORITATIVE PAYROLL MUTATIONS HOOK
+// 12. RUN EMPLOYEES (ALL FOR RUN) HOOK
+// ============================================================================
+
+export function usePayrollRunEmployees(runId?: string | null) {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo && runId);
+
+  return useQuery({
+    queryKey: queryKeys.payroll.employees(runId || "", { all: true }),
+    queryFn: async (): Promise<PayrollRunEmployee[]> => {
+      if (!isLive || !runId) return [];
+      const { data, error } = await (supabase as any)
+        .from("payroll_run_employees")
+        .select("*")
+        .eq("payroll_run_id", runId)
+        .order("employee_no", { ascending: true });
+
+      if (error) throw new Error(error.message);
+      return (data || []).map((pre: any) => ({
+        id: pre.id,
+        payrollRunId: pre.payroll_run_id,
+        employeeId: pre.employee_id,
+        compensationVersionId: pre.compensation_version_id,
+        employeeNo: pre.employee_no,
+        employeeName: pre.employee_name_ar || pre.employee_name || "",
+        departmentName: pre.department_name_ar || pre.department_name || "",
+        nationality: pre.nationality || "",
+        isSaudi: Boolean(pre.is_saudi),
+        bankName: pre.bank_name || "",
+        iban: pre.iban || "",
+        eligibleDays: Number(pre.eligible_days || 0),
+        daysInPeriod: Number(pre.days_in_period || 0),
+        basicSalary: Number(pre.basic_salary || 0),
+        housingAllowance: Number(pre.housing_allowance || 0),
+        transportAllowance: Number(pre.transport_allowance || 0),
+        overtimeHours: Number(pre.overtime_hours || 0),
+        overtimeAmount: Number(pre.overtime_amount || 0),
+        bonusAmount: Number(pre.bonus_amount || 0),
+        unpaidLeaveDays: Number(pre.unpaid_leave_days || 0),
+        unpaidLeaveDeduction: Number(pre.unpaid_leave_deduction || 0),
+        absenceDays: Number(pre.absence_days || 0),
+        absenceDeduction: Number(pre.absence_deduction || 0),
+        loanDeduction: Number(pre.loan_installment || 0),
+        gosiEmployee: Number(pre.statutory_employee || 0),
+        gosiEmployer: Number(pre.statutory_employer || 0),
+        otherDeductions: Number(pre.other_deductions || 0),
+        grossSalary: Number(pre.gross_salary || 0),
+        totalDeductions: Number(pre.total_deductions || 0),
+        netSalary: Number(pre.net_salary || 0),
+        hasBlockingException: Boolean(pre.has_blocking_exception),
+        status: pre.status || "calculated",
+      }));
+    },
+    enabled: isLive,
+    staleTime: 10_000,
+  });
+}
+
+// ============================================================================
+// 13. PAYROLL LOANS HOOK (LIVE DB)
+// ============================================================================
+
+export function usePayrollLoans() {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  return useQuery({
+    queryKey: queryKeys.payroll.loans(),
+    queryFn: async (): Promise<LoanRecord[]> => {
+      if (!isLive) return [];
+      const { data, error } = await (supabase as any)
+        .from("loans")
+        .select(`
+          *,
+          employees (
+            employee_no,
+            first_name_ar,
+            last_name_ar,
+            full_name
+          )
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw new Error(error.message);
+      return (data || []).map((l: any) => ({
+        id: l.id,
+        employeeId: l.employee_id,
+        employeeName: l.employees
+          ? (l.employees.first_name_ar ? `${l.employees.first_name_ar} ${l.employees.last_name_ar}` : l.employees.full_name)
+          : "موظف",
+        loanType: l.loan_type || "personal_advance",
+        principalAmount: Number(l.principal_amount || 0),
+        monthlyInstallment: Number(l.monthly_installment || 0),
+        totalInstallments: Number(l.total_installments || 0),
+        paidInstallments: Number(l.paid_installments || 0),
+        remainingBalance: Number(l.remaining_balance || 0),
+        startDate: l.start_date || (l.created_at ? l.created_at.split("T")[0] : ""),
+        reason: l.reason || "",
+        status: l.status || "active",
+      }));
+    },
+    enabled: isLive,
+    staleTime: 15_000,
+  });
+}
+
+// ============================================================================
+// 14. PAYROLL SETTLEMENTS HOOK (LIVE DB)
+// ============================================================================
+
+export function usePayrollSettlements() {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  return useQuery({
+    queryKey: queryKeys.payroll.settlements(),
+    queryFn: async (): Promise<FinalSettlementRecord[]> => {
+      if (!isLive) return [];
+      const { data, error } = await (supabase as any)
+        .from("settlements")
+        .select(`
+          *,
+          employees (
+            employee_no,
+            first_name_ar,
+            last_name_ar,
+            full_name
+          )
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw new Error(error.message);
+      return (data || []).map((s: any) => ({
+        id: s.id,
+        employeeId: s.employee_id,
+        employeeName: s.employees
+          ? (s.employees.first_name_ar ? `${s.employees.first_name_ar} ${s.employees.last_name_ar}` : s.employees.full_name)
+          : "موظف",
+        terminationDate: s.termination_date,
+        noticePeriodServed: s.notice_period_served ?? true,
+        serviceYears: Number(s.service_years || 0),
+        serviceMonths: Number(s.service_months || 0),
+        eosbAmount: Number(s.eosb_amount || 0),
+        leaveBalancePayoutDays: Number(s.leave_balance_payout_days || 0),
+        leaveBalancePayoutAmount: Number(s.leave_payout_amount || 0),
+        pendingSalaryAmount: Number(s.pending_salary_amount || 0),
+        loanDeductionAmount: Number(s.loan_deduction_amount || 0),
+        assetClearanceComplete: Boolean(s.asset_clearance_complete),
+        netSettlementAmount: Number(s.net_settlement_amount || 0),
+        eosbNotes: s.notes || (s.calculation_snapshot?.statutory_policy ? `سياسة الاحتساب: ${s.calculation_snapshot.statutory_policy}` : ""),
+        status: s.status || "draft",
+      }));
+    },
+    enabled: isLive,
+    staleTime: 15_000,
+  });
+}
+
+// ============================================================================
+// 15. COMPANY BANK ACCOUNTS HOOK (FOR WPS & DISBURSEMENTS)
+// ============================================================================
+
+export interface CompanyBankAccountRecord {
+  id: string;
+  companyId: string;
+  bankName: string;
+  accountName: string;
+  iban: string;
+  bankCode: string;
+  swiftCode: string;
+  currency: string;
+  currentBalance: number;
+  isPrimary: boolean;
+}
+
+export function useCompanyBankAccounts() {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  return useQuery({
+    queryKey: queryKeys.company.bankAccounts(),
+    queryFn: async (): Promise<CompanyBankAccountRecord[]> => {
+      if (!isLive) return [];
+      const { data, error } = await (supabase as any)
+        .from("company_bank_accounts")
+        .select("*")
+        .order("is_primary", { ascending: false });
+
+      if (error) throw new Error(error.message);
+      return (data || []).map((a: any) => ({
+        id: a.id,
+        companyId: a.company_id,
+        bankName: a.bank_name || "",
+        accountName: a.account_name || "",
+        iban: a.iban || "",
+        bankCode: a.bank_code || "",
+        swiftCode: a.swift_code || "",
+        currency: a.currency || "SAR",
+        currentBalance: Number(a.current_balance || 0),
+        isPrimary: Boolean(a.is_primary),
+      }));
+    },
+    enabled: isLive,
+    staleTime: 60_000,
+  });
+}
+
+// ============================================================================
+// 16. AUTHORITATIVE PAYROLL MUTATIONS HOOK
 // ============================================================================
 
 export function usePayrollEngineMutations() {
@@ -646,6 +856,26 @@ export function usePayrollEngineMutations() {
     [queryClient]
   );
 
+  const validateWpsExport = useCallback(
+    async (runId: string) => {
+      const { data, error } = await (supabase as any).rpc("validate_payroll_wps_export", {
+        p_payroll_run_id: runId,
+      });
+      if (error) throw new Error(error.message);
+      return data as {
+        ok: boolean;
+        can_export: boolean;
+        establishment_id: string;
+        employer_bank_code: string;
+        total_employees: number;
+        total_net_amount: number;
+        currency: string;
+        payroll_period: string;
+      };
+    },
+    []
+  );
+
   return {
     initConfig,
     setEmployeeCompensation,
@@ -656,5 +886,6 @@ export function usePayrollEngineMutations() {
     reopenRun,
     prepareBankBatch,
     confirmDisbursement,
+    validateWpsExport,
   };
 }

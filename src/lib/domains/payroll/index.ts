@@ -19,8 +19,18 @@ import {
   usePayrollRun as usePayrollRunRepo,
   usePayrollEmployees,
   usePayrollExceptions,
+  usePayrollLoans,
+  usePayrollSettlements,
+  useCompanyBankAccounts,
 } from "../../data/payroll-repository";
 import { runPayrollServer, updatePayrollRunStatusServer } from "../../business/payroll.functions";
+import {
+  calculateSettlementServer,
+  createSettlementServer,
+  type SettlementInput,
+  type SettlementCalculationPreview,
+} from "../../business/settlement.functions";
+import { calculateEOSB } from "../../utils/eosb-calculator";
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
@@ -30,10 +40,11 @@ import { toast } from "sonner";
 export function usePayroll(filters?: Record<string, unknown>) {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
-  const bootstrap = useBootstrapData();
   const runsQuery = usePayrollRuns(filters);
   const groupsQuery = usePayrollGroups();
   const kpisQuery = usePayrollKpis();
+  const loansQuery = usePayrollLoans();
+  const settlementsQuery = usePayrollSettlements();
 
   const demoData = useDemoStore((s) => ({
     payrollGroups: s.payrollGroups,
@@ -44,14 +55,14 @@ export function usePayroll(filters?: Record<string, unknown>) {
   }));
 
   const payrollGroups = isLive
-    ? (groupsQuery.data && groupsQuery.data.length > 0 ? groupsQuery.data : bootstrap.payrollGroups)
+    ? (groupsQuery.data ?? [])
     : demoData.payrollGroups;
   const payrollRuns = isLive
-    ? (runsQuery.data && runsQuery.data.length > 0 ? runsQuery.data : bootstrap.payrollRuns)
+    ? (runsQuery.data ?? [])
     : demoData.payrollRuns;
-  const payrollDetails = isLive ? bootstrap.payrollDetails : demoData.payrollDetails;
-  const loans = isLive ? bootstrap.loans : demoData.loans;
-  const settlements = isLive ? bootstrap.settlements : demoData.settlements;
+  const payrollDetails = isLive ? [] : demoData.payrollDetails;
+  const loans = isLive ? (loansQuery.data ?? []) : demoData.loans;
+  const settlements = isLive ? (settlementsQuery.data ?? []) : demoData.settlements;
   const kpis = isLive ? kpisQuery.data : null;
 
   return {
@@ -61,14 +72,21 @@ export function usePayroll(filters?: Record<string, unknown>) {
     loans,
     settlements,
     kpis,
-    isLoading: isLive ? (runsQuery.isLoading || groupsQuery.isLoading) : false,
-    isError: isLive ? (runsQuery.isError || groupsQuery.isError) : false,
-    error: isLive ? (runsQuery.error || groupsQuery.error) : null,
+    isLoading: isLive
+      ? (runsQuery.isLoading || groupsQuery.isLoading || loansQuery.isLoading || settlementsQuery.isLoading)
+      : false,
+    isError: isLive
+      ? (runsQuery.isError || groupsQuery.isError || loansQuery.isError || settlementsQuery.isError)
+      : false,
+    error: isLive
+      ? (runsQuery.error || groupsQuery.error || loansQuery.error || settlementsQuery.error)
+      : null,
     refetch: () => {
       runsQuery.refetch();
       groupsQuery.refetch();
       kpisQuery.refetch();
-      bootstrap.refreshCoreData();
+      loansQuery.refetch();
+      settlementsQuery.refetch();
     },
   };
 }
@@ -350,29 +368,112 @@ export function usePayrollMutations() {
     [mode, queryClient],
   );
 
+  const calculateSettlement = useCallback(
+    async (input: SettlementInput): Promise<SettlementCalculationPreview> => {
+      if (mode === "live") {
+        return (await calculateSettlementServer({ data: input })) as unknown as SettlementCalculationPreview;
+      } else {
+        const emp = demoStore.employees.find((e) => e.id === input.employeeId);
+        if (!emp) throw new Error("الموظف غير موجود في بيانات التجربة");
+        const eosb = calculateEOSB({
+          totalMonthlyWage: emp.totalSalary,
+          startDate: emp.hireDate,
+          endDate: input.terminationDate,
+          separationType: input.separationType,
+          unpaidLeaveDays: input.unpaidLeaveDays ?? 0,
+        });
+        const dailyRate = Math.round((emp.totalSalary / 30.0) * 100) / 100;
+        const leaveDays = 15;
+        const leavePayout = Math.round(leaveDays * dailyRate);
+        const openLoan = demoStore.loans.find((l) => l.employeeId === input.employeeId && l.status === "active");
+        const loanDeduction = openLoan ? openLoan.remainingBalance : 0;
+        const net = Math.max(0, eosb.finalEOSBAmount + leavePayout - loanDeduction);
+
+        return {
+          ok: true,
+          employeeId: emp.id,
+          employeeNo: emp.employeeNo,
+          employeeName: `${emp.firstNameAr} ${emp.lastNameAr}`,
+          hireDate: emp.hireDate,
+          terminationDate: input.terminationDate,
+          separationType: input.separationType,
+          serviceYears: eosb.serviceYears,
+          serviceMonths: eosb.serviceMonths,
+          serviceDays: 0,
+          totalServiceYearsDecimal: eosb.totalServiceYearsDecimal,
+          totalMonthlyWage: emp.totalSalary,
+          dailyRate,
+          calculationBasis: "fixed_30_days",
+          grossEosb: eosb.finalEOSBAmount,
+          resignationMultiplier: eosb.resignationMultiplier,
+          eosbAmount: eosb.finalEOSBAmount,
+          leaveBalancePayoutDays: leaveDays,
+          leavePayoutAmount: leavePayout,
+          pendingSalaryAmount: 0,
+          loanDeductionAmount: loanDeduction,
+          netSettlementAmount: net,
+          calculationSnapshot: {
+            mode: "demo",
+            statutory_policy: "SA_LABOR_LAW_ARTICLES_84_85",
+          },
+        };
+      }
+    },
+    [mode],
+  );
+
   const createSettlement = useCallback(
-    async (settlement: Omit<FinalSettlementRecord, "id">): Promise<boolean> => {
-      const newSettlement: FinalSettlementRecord = {
-        ...settlement,
-        id: `settle-${Date.now()}`,
-      };
+    async (payload: SettlementInput | Omit<FinalSettlementRecord, "id">): Promise<boolean> => {
+      const empId = payload.employeeId;
+      const termDate = payload.terminationDate;
+      const sepType = ((payload as any).separationType || "contract_expiration") as SettlementInput["separationType"];
 
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `payroll-settle-${settlement.employeeId}-${settlement.terminationDate}`,
+        mutationKey: `payroll-settle-${empId}-${termDate}`,
         operation: async () => {
-          const res = await createSettlementRecord(settlement);
+          const res = await createSettlementServer({
+            data: {
+              employeeId: empId,
+              terminationDate: termDate,
+              separationType: sepType,
+              unpaidLeaveDays: (payload as any).unpaidLeaveDays ?? 0,
+              notes: (payload as any).notes || (payload as any).eosbNotes,
+              noticePeriodServed: (payload as any).noticePeriodServed ?? true,
+              assetClearanceComplete: (payload as any).assetClearanceComplete ?? false,
+            },
+          });
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.settlements() });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.loans() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return Boolean(res ?? true);
+          return Boolean(res);
         },
         demoOperation: () => {
+          const emp = demoStore.employees.find((e) => e.id === empId);
+          const newSettlement: FinalSettlementRecord = {
+            id: `settle-${Date.now()}`,
+            employeeId: empId,
+            employeeName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "موظف",
+            terminationDate: termDate,
+            noticePeriodServed: (payload as any).noticePeriodServed ?? true,
+            serviceYears: (payload as any).serviceYears ?? 3,
+            serviceMonths: (payload as any).serviceMonths ?? 0,
+            eosbAmount: (payload as any).eosbAmount ?? 15000,
+            leaveBalancePayoutDays: (payload as any).leaveBalancePayoutDays ?? 15,
+            leaveBalancePayoutAmount: (payload as any).leaveBalancePayoutAmount ?? 5000,
+            pendingSalaryAmount: (payload as any).pendingSalaryAmount ?? 0,
+            loanDeductionAmount: (payload as any).loanDeductionAmount ?? 0,
+            assetClearanceComplete: (payload as any).assetClearanceComplete ?? false,
+            netSettlementAmount: (payload as any).netSettlementAmount ?? 20000,
+            eosbNotes: (payload as any).notes || (payload as any).eosbNotes || "تسوية تجريبية معتمدة",
+            status: "draft",
+          };
           demoStore.settlements = [newSettlement, ...demoStore.settlements];
           demoStore.notify();
           return true;
         },
         onCommitted: () => {
-          toast.success("تم إنشاء وحفظ تسوية نهاية الخدمة بنجاح");
+          toast.success("تم اعتماد وإنشاء تسوية نهاية الخدمة بنجاح في النظام");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حفظ تسوية نهاية الخدمة");
@@ -391,6 +492,7 @@ export function usePayrollMutations() {
     reopenPayrollRun,
     markPayrollAsPaid,
     createLoan,
+    calculateSettlement,
     createSettlement,
   };
 }

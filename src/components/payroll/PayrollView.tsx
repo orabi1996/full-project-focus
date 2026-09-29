@@ -1,8 +1,17 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useApp } from "../../lib/context/AppContext";
-import { calculateEOSB, type SeparationType } from "../../lib/utils/eosb-calculator";
 import { exportToCSV, generateWPSSIFFile } from "../../lib/utils/export-helpers";
 import type { EmployeePayrollDetail, FinalSettlementRecord } from "../../types";
+import type { SeparationType, SettlementCalculationPreview } from "../../lib/business/settlement.functions";
+import { useAuth } from "../../lib/auth/AuthContext";
+import { useDemoStore } from "../../lib/domains/demo/demo-store";
+import { usePayroll, usePayrollMutations } from "../../lib/domains/payroll";
+import { useEmployees } from "../../lib/domains/employees";
+import {
+  usePayrollExceptions,
+  usePayrollRunEmployees,
+  useCompanyBankAccounts,
+} from "../../lib/data/payroll-repository";
 import { IconSymbol } from "../ui/IconSymbol";
 import { PayrollDistributionPanel } from "./PayrollDistributionPanel";
 import { SalaryFilesPanel } from "./SalaryFilesPanel";
@@ -44,8 +53,6 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { toast } from "sonner";
-import { usePayrollMutations } from "../../lib/domains/payroll";
-import { usePayrollExceptions } from "../../lib/data/payroll-repository";
 import {
   Dialog,
   DialogContent,
@@ -64,25 +71,43 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   section = "payroll",
   initialRunId,
 }) => {
+  const { session, isDemo } = useAuth();
+  const isLive = Boolean(session && !isDemo);
+
+  // 1. Production Domain & Repository Data Hooks
   const {
     payrollRuns,
-    payrollDetails,
+    payrollGroups,
     loans,
     settlements,
-    employees,
+    kpis,
+    isLoading: isPayrollLoading,
+    refetch: refetchPayroll,
+  } = usePayroll();
+  const { employees } = useEmployees();
+  const { data: bankAccounts = [] } = useCompanyBankAccounts();
+  const demoPayrollDetails = useDemoStore((s) => s.payrollDetails);
+
+  const {
     orgUnits,
-    payrollGroups,
     company,
     currentRole,
-    processPayrollRun,
-    lockAndConfirmPayrollRun,
-    markPayrollAsPaid,
-    createLoan,
-    createSettlement,
     openEmployeeProfile,
     language,
     t,
   } = useApp();
+
+  const payrollMutations = usePayrollMutations();
+  const {
+    processPayrollRun,
+    approvePayrollRun,
+    lockAndConfirmPayrollRun,
+    reopenPayrollRun,
+    markPayrollAsPaid,
+    createLoan,
+    calculateSettlement,
+    createSettlement,
+  } = payrollMutations;
 
   const [activeTab, setActiveTab] = useState(section === "payroll" ? "runs" : "loans");
   const [selectedRunId, setSelectedRunId] = useState(
@@ -110,22 +135,95 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   const [installmentsCount, setInstallmentsCount] = useState(5);
   const [loanReason, setLoanReason] = useState("");
 
-  // EOSB Settlement Wizard State
+  // EOSB Settlement Wizard State (Server-Authoritative Preview)
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
   const [settlementEmpId, setSettlementEmpId] = useState(employees[0]?.id || "");
   const [terminationDate, setTerminationDate] = useState("2026-08-31");
   const [separationType, setSeparationType] = useState<SeparationType>("contract_expiration");
+  const [settlementPreview, setSettlementPreview] = useState<SettlementCalculationPreview | null>(null);
+  const [isCalculatingSettlement, setIsCalculatingSettlement] = useState(false);
+  const [settlementCalcError, setSettlementCalcError] = useState<string | null>(null);
 
   const selectedRun = payrollRuns.find((r) => r.id === selectedRunId) || payrollRuns[0];
-  const payrollMutations = usePayrollMutations();
+  const runEmployeesQuery = usePayrollRunEmployees(selectedRun?.id);
   const exceptionsQuery = usePayrollExceptions(selectedRun?.id);
   const exceptions = exceptionsQuery.data || [];
   const blockingExceptions = exceptions.filter((e) => e.severity === "blocking" && !e.isResolved);
   const warningExceptions = exceptions.filter((e) => e.severity === "warning" && !e.isResolved);
 
-  const selectedRunDetails = selectedRun
-    ? payrollDetails.filter((detail) => detail.payrollRunId === selectedRun.id)
-    : [];
+  const selectedRunDetails: EmployeePayrollDetail[] = useMemo(() => {
+    if (!selectedRun) return [];
+    if (isLive && runEmployeesQuery.data && runEmployeesQuery.data.length > 0) {
+      return runEmployeesQuery.data.map((re) => ({
+        id: re.id,
+        payrollRunId: re.payrollRunId,
+        employeeId: re.employeeId,
+        employeeNo: re.employeeNo,
+        employeeName: re.employeeName,
+        jobTitle: "",
+        departmentName: re.departmentName || "",
+        bankName: re.bankName || "",
+        iban: re.iban || "",
+        basicSalary: re.basicSalary,
+        housingAllowance: re.housingAllowance,
+        transportAllowance: re.transportAllowance,
+        otherAllowances: 0,
+        overtimeHours: re.overtimeHours,
+        overtimeAmount: re.overtimeAmount,
+        retroAdjustments: 0,
+        bonusAmount: re.bonusAmount,
+        grossSalary: re.grossSalary,
+        unpaidLeaveDeduction: re.unpaidLeaveDeduction,
+        absenceLateDeduction: re.absenceDeduction,
+        loanInstallmentDeduction: re.loanDeduction,
+        gosiEmployeeDeduction: re.gosiEmployee,
+        gosiEmployerContribution: re.gosiEmployer,
+        otherDeductions: re.otherDeductions,
+        totalDeductions: re.totalDeductions,
+        netSalary: re.netSalary,
+        unpaidLeaveDays: re.unpaidLeaveDays,
+        absenceDays: re.absenceDays,
+      }));
+    }
+    return demoPayrollDetails.filter((detail) => detail.payrollRunId === selectedRun.id);
+  }, [selectedRun, isLive, runEmployeesQuery.data, demoPayrollDetails]);
+
+  // Authoritative server calculation preview effect for Final Settlement
+  useEffect(() => {
+    if (!isSettlementModalOpen || !settlementEmpId || !terminationDate) {
+      setSettlementPreview(null);
+      setSettlementCalcError(null);
+      return;
+    }
+    let isCancelled = false;
+    setIsCalculatingSettlement(true);
+    setSettlementCalcError(null);
+
+    calculateSettlement({
+      employeeId: settlementEmpId,
+      terminationDate,
+      separationType,
+    })
+      .then((preview) => {
+        if (!isCancelled) {
+          setSettlementPreview(preview);
+          setSettlementCalcError(null);
+        }
+      })
+      .catch((err: any) => {
+        if (!isCancelled) {
+          setSettlementPreview(null);
+          setSettlementCalcError(err?.message || "تعذر احتساب مخالصة نهاية الخدمة من المحرك المالي");
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) setIsCalculatingSettlement(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isSettlementModalOpen, settlementEmpId, terminationDate, separationType, calculateSettlement]);
 
   const filteredRunDetails = useMemo(() => {
     return selectedRunDetails.filter((item) => {
@@ -196,32 +294,100 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   };
 
   const handleExportWPS = () => {
-    if (!selectedRun) return;
-    const establishmentId = company.crNumber || company.taxNumber || "1010892341";
-    const employerBankCode = "NCBKSA";
-    if (selectedRunDetails.length === 0) {
-      toast.error("لا توجد تفاصيل موظفين في المسير المختار");
+    if (!selectedRun) {
+      toast.error("يرجى اختيار مسير رواتب أولاً");
       return;
     }
+
+    // 1. Status Check: Must be approved, locked, or paid
+    if (!["approved", "locked", "confirmed_locked", "paid"].includes(selectedRun.status)) {
+      toast.error(
+        `لا يمكن تصدير ملف حماية الأجور (WPS) إلا بعد اعتماد أو إقفال المسير رسمياً. (الحالة الحالية: ${selectedRun.status})`
+      );
+      return;
+    }
+
+    // 2. Company Establishment ID check (NO fake fallbacks)
+    const establishmentId = (
+      company.crNumber ||
+      company.taxNumber ||
+      company.unifiedNumber ||
+      company.laborOfficeNumber ||
+      ""
+    ).trim();
+    if (!establishmentId) {
+      toast.error(
+        "رقم المنشأة / السجل التجاري غير محدد في إعدادات المنشأة. يرجى ضبط السجل التجاري المعتمد أولاً قبل تصدير ملف WPS."
+      );
+      return;
+    }
+
+    // 3. Bank Code check (NO fake fallbacks)
+    const primaryAccount = bankAccounts.find((a) => a.isPrimary) || bankAccounts[0];
+    const employerBankCode = (
+      primaryAccount?.bankCode ||
+      primaryAccount?.swiftCode ||
+      ""
+    ).trim();
+    if (!employerBankCode) {
+      toast.error(
+        "رمز البنك للمنشأة غير محدد في الحساب البنكي المعتمد. يرجى تهيئة رمز البنك للحساب البنكي الرئيسي قبل تصدير ملف WPS."
+      );
+      return;
+    }
+
+    // 4. Employee records & IBAN check
+    if (selectedRunDetails.length === 0) {
+      toast.error("لا توجد تفاصيل موظفين في المسير المختار جاهزة للصرف");
+      return;
+    }
+
+    const invalidEmployees = selectedRunDetails.filter((d) => {
+      const iban = (d.iban || "").trim().toUpperCase();
+      return !iban || iban.length < 15 || /^SA0{6,}/.test(iban) || /^SA0+$/.test(iban);
+    });
+
+    if (invalidEmployees.length > 0) {
+      const sampleNames = invalidEmployees
+        .slice(0, 3)
+        .map((e) => `${e.employeeName} (${e.employeeNo})`)
+        .join("، ");
+      toast.error(
+        `يوجد ${invalidEmployees.length} موظف ليس لديهم آيبان بنكي معتمد أو لديهم آيبان غير صالح (${sampleNames}). تم إيقاف تصدير WPS للامتثال لحماية الأجور.`
+      );
+      return;
+    }
+
+    // 5. Accurate timestamps & SIF generation
+    const now = new Date();
+    const fileCreationDate = now.toISOString().split("T")[0];
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const fileCreationTime = `${hours}${minutes}`;
+
     const wpsRecords = selectedRunDetails.map((d) => ({
       employeeId: d.employeeNo,
       employeeName: d.employeeName,
-      iban: d.iban || "SA0000000000000000000000",
+      iban: (d.iban || "").trim().toUpperCase(),
       basicSalary: d.basicSalary,
       housingAllowance: d.housingAllowance,
-      otherEarnings: d.transportAllowance + d.overtimeAmount,
+      otherEarnings: (d.transportAllowance || 0) + (d.overtimeAmount || 0),
       deductions: d.totalDeductions,
       netSalary: d.netSalary,
     }));
+
     generateWPSSIFFile({
       establishmentId,
       employerBankCode,
-      fileCreationDate: new Date().toISOString().split("T")[0],
-      fileCreationTime: "1200",
+      fileCreationDate,
+      fileCreationTime,
       salaryYearMonth: `${selectedRun.periodYear}${String(selectedRun.periodMonth).padStart(2, "0")}`,
       records: wpsRecords,
     });
-    toast.success("تم تصدير وتحميل ملف حماية الأجور (WPS SIF File) المعتمد بنجاح!");
+
+    toast.success(
+      "تم تصدير ملف حماية الأجور (WPS SIF) المعتمد بنجاح. حالة الملف: تم التوليد وبانتظار الإرسال والاعتماد البنكي (awaiting_submission)."
+    );
   };
 
   const handleExportPayrollCSV = () => {
@@ -268,50 +434,28 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     }
   };
 
-  const handleCalculateAndSaveSettlement = async () => {
-    const emp = employees.find((e) => e.id === settlementEmpId);
-    if (!emp) return;
-
-    const joinDate = new Date(emp.hireDate);
-    const termDate = new Date(terminationDate);
-    const totalDays = Math.max(
-      1,
-      Math.floor((termDate.getTime() - joinDate.getTime()) / (1000 * 60 * 60 * 24)),
-    );
-    const serviceYears = Math.floor(totalDays / 365);
-    const serviceMonths = Math.floor((totalDays % 365) / 30);
-
-    const eosbCalc = calculateEOSB({
-      totalMonthlyWage: emp.totalSalary,
-      startDate: emp.hireDate,
-      endDate: terminationDate,
-      separationType,
-    });
-
-    const leavePayout = Math.round((emp.basicSalary / 30) * 15);
-    const netTotal = eosbCalc.finalEOSBAmount + leavePayout;
-
+  const handleSaveSettlement = async () => {
+    if (!settlementEmpId || !terminationDate) {
+      toast.error("يرجى اختيار الموظف وتحديد تاريخ نهاية الخدمة");
+      return;
+    }
+    if (!settlementPreview) {
+      toast.error("يرجى الانتظار حتى اكتمال احتساب المعاينة من المحرك المالي");
+      return;
+    }
     setIsSavingSettlement(true);
     try {
       const ok = await createSettlement({
-        employeeId: emp.id,
-        employeeName: `${emp.firstNameAr} ${emp.lastNameAr}`,
+        employeeId: settlementEmpId,
         terminationDate,
-        serviceYears,
-        serviceMonths,
-        eosbAmount: eosbCalc.finalEOSBAmount,
-        leaveBalancePayoutDays: 15,
-        leaveBalancePayoutAmount: leavePayout,
-        pendingSalaryAmount: 0,
-        loanDeductionAmount: 0,
+        separationType,
         noticePeriodServed: true,
         assetClearanceComplete: false,
-        netSettlementAmount: netTotal,
-        eosbNotes: `مدة الخدمة المحتسبة ${eosbCalc.totalServiceYearsDecimal} سنة بنسبة استحقاق ${eosbCalc.resignationMultiplier}%`,
-        status: "draft",
+        notes: `مخالصة نهاية خدمة - سبب الإنهاء: ${separationType}`,
       });
       if (ok) {
         setIsSettlementModalOpen(false);
+        setSettlementPreview(null);
       }
     } finally {
       setIsSavingSettlement(false);
@@ -1091,7 +1235,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                 {company.legalNameAr}
               </p>
               <span className="text-[10px] text-muted-foreground font-mono">
-                سجل تجاري: {company.crNumber || "1010892341"} | الرقم الضريبي: {company.taxNumber || "30012489100003"}
+                سجل تجاري: {company.crNumber || "—"} | الرقم الضريبي: {company.taxNumber || "—"}
               </span>
             </div>
 
@@ -1303,7 +1447,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                 مخالصة نهائية وإبراء ذمة مالية وقانونية
               </h2>
               <p className="text-xs text-muted-foreground font-medium">
-                {company.legalNameAr} • س.ت: {company.crNumber || "1010892341"}
+                {company.legalNameAr} • س.ت: {company.crNumber || "—"}
               </p>
             </div>
 
@@ -1449,16 +1593,75 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                 <option value="force_majeure">قوة قاهرة أو ترك العمل لظروف استثنائية (كاملة)</option>
               </select>
             </div>
+            {/* Server-Authoritative Settlement Preview */}
+            {settlementCalcError && (
+              <div className="p-3.5 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-xs space-y-1">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>تعذر احتساب المخالصة (استثناء مانع - Blocking Exception)</span>
+                </div>
+                <p className="text-[11px] font-medium leading-relaxed">{settlementCalcError}</p>
+              </div>
+            )}
+
+            {isCalculatingSettlement && (
+              <div className="p-4 rounded-2xl bg-muted/40 border border-border text-center text-xs font-semibold text-muted-foreground animate-pulse">
+                جاري احتساب مستحقات نهاية الخدمة بدقة وفق نظام العمل وقواعد المنشأة...
+              </div>
+            )}
+
+            {settlementPreview && !isCalculatingSettlement && (
+              <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/80 space-y-2.5">
+                <div className="flex justify-between items-center text-xs pb-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground font-medium">مدة الخدمة المحتسبة:</span>
+                  <span className="font-bold text-foreground font-mono">
+                    {settlementPreview.serviceYears} سنة و {settlementPreview.serviceMonths} شهر ({settlementPreview.totalServiceYearsDecimal} سنة)
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs pb-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground font-medium">الأجر الشهري المعتمد (الأساس: {settlementPreview.calculationBasis}):</span>
+                  <span className="font-bold text-foreground font-mono">
+                    {Math.round(settlementPreview.totalMonthlyWage).toLocaleString("ar-SA")} ر.س
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs pb-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground font-medium">مكافأة نهاية الخدمة (م84 وم85):</span>
+                  <span className="font-bold text-emerald-600 font-mono">
+                    {Math.round(settlementPreview.eosbAmount).toLocaleString("ar-SA")} ر.س ({settlementPreview.resignationMultiplier}%)
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs pb-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground font-medium">بدل رصيد الإجازات المستحق ({settlementPreview.leaveBalancePayoutDays} يوم):</span>
+                  <span className="font-bold text-emerald-600 font-mono">
+                    +{Math.round(settlementPreview.leavePayoutAmount).toLocaleString("ar-SA")} ر.س
+                  </span>
+                </div>
+                {settlementPreview.loanDeductionAmount > 0 && (
+                  <div className="flex justify-between items-center text-xs pb-1.5 border-b border-border/50">
+                    <span className="text-muted-foreground font-medium">استقطاع السلف القائمة:</span>
+                    <span className="font-bold text-destructive font-mono">
+                      -{Math.round(settlementPreview.loanDeductionAmount).toLocaleString("ar-SA")} ر.س
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-xs pt-1">
+                  <span className="font-black text-foreground">صافي المستحق النهائي للمخالصة:</span>
+                  <span className="text-sm font-black text-primary font-mono">
+                    {Math.round(settlementPreview.netSettlementAmount).toLocaleString("ar-SA")} ر.س
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="mt-3">
             <Button
               size="sm"
-              onClick={handleCalculateAndSaveSettlement}
-              disabled={isSavingSettlement}
-              className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-10 shadow-xs cursor-pointer"
+              onClick={handleSaveSettlement}
+              disabled={isSavingSettlement || isCalculatingSettlement || !settlementPreview || Boolean(settlementCalcError)}
+              className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-10 shadow-xs cursor-pointer disabled:opacity-50"
             >
-              {isSavingSettlement ? "جاري الاعتماد..." : "احتساب واعتماد المخالصة"}
+              {isSavingSettlement ? "جاري الاعتماد والترحيل..." : "اعتماد وحفظ المخالصة رسمياً"}
             </Button>
           </DialogFooter>
         </DialogContent>

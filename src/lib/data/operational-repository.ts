@@ -2129,18 +2129,33 @@ export async function updatePayrollRunStatusRecord(
   if (error) throw new Error(error.message);
 }
 
-export async function createSettlementRecord(settlement: Omit<FinalSettlementRecord, "id">) {
-  const { error } = await enterpriseSupabase.from("settlements").insert({
-    employee_id: settlement.employeeId,
-    termination_date: settlement.terminationDate,
-    service_years: settlement.serviceYears,
-    service_months: settlement.serviceMonths,
-    eosb_amount: settlement.eosbAmount,
-    leave_payout_amount: settlement.leaveBalancePayoutAmount,
-    net_settlement_amount: settlement.netSettlementAmount,
-    status: settlement.status,
+export async function createSettlementRecord(settlement: {
+  employeeId: string;
+  terminationDate: string;
+  separationType?: string;
+  notes?: string;
+  noticePeriodServed?: boolean;
+  assetClearanceComplete?: boolean;
+} | Omit<FinalSettlementRecord, "id">) {
+  const { data, error } = await (enterpriseSupabase as any).rpc("create_final_settlement_atomic", {
+    p_params: {
+      employee_id: settlement.employeeId,
+      termination_date: settlement.terminationDate,
+      separation_type: (settlement as any).separationType || "contract_expiration",
+      notes: (settlement as any).notes || (settlement as any).eosbNotes || null,
+      notice_period_served: (settlement as any).noticePeriodServed ?? true,
+      asset_clearance_complete: (settlement as any).assetClearanceComplete ?? false,
+    },
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    const { error: insertErr } = await enterpriseSupabase.from("settlements").insert({
+      employee_id: settlement.employeeId,
+      termination_date: settlement.terminationDate,
+      status: (settlement as any).status || "draft",
+    });
+    if (insertErr) throw new Error(error.message || insertErr.message);
+  }
+  return data;
 }
 
 export async function createLoanRecord(loan: {

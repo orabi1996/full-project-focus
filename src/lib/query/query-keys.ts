@@ -224,4 +224,20 @@ export const queryKeys = {
     roles: () => [...queryKeys.rbac.all, "roles"] as const,
     groups: () => [...queryKeys.rbac.all, "groups"] as const,
   },
+  loans: {
+    all: ["loans"] as const,
+    list: (filters?: Record<string, unknown>) =>
+      filters ? ([...queryKeys.loans.all, "list", filters] as const) : ([...queryKeys.loans.all, "list"] as const),
+    detail: (id: string) => [...queryKeys.loans.all, "detail", id] as const,
+    policies: () => [...queryKeys.loans.all, "policies"] as const,
+    installments: (loanId: string) => [...queryKeys.loans.all, "installments", loanId] as const,
+    overview: () => [...queryKeys.loans.all, "overview"] as const,
+  },
+  separations: {
+    all: ["separations"] as const,
+    list: (filters?: Record<string, unknown>) =>
+      filters ? ([...queryKeys.separations.all, "list", filters] as const) : ([...queryKeys.separations.all, "list"] as const),
+    detail: (id: string) => [...queryKeys.separations.all, "detail", id] as const,
+    clearance: (separationId: string) => [...queryKeys.separations.all, "clearance", separationId] as const,
+  },
 } as const;

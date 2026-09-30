@@ -46,6 +46,9 @@ import {
   Info,
   Calendar,
   UserCheck,
+  UserX,
+  Coins,
+  ListOrdered,
   QrCode,
   RotateCcw,
 } from "lucide-react";
@@ -53,6 +56,19 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { toast } from "sonner";
+import {
+  useEmployeeSeparations,
+  useClearanceItems,
+  useSeparationMutations,
+  type EmployeeSeparation,
+  SEPARATION_TYPE_LABELS,
+  CLEARANCE_CATEGORY_LABELS,
+  CLEARANCE_STATUS_LABELS,
+} from "../../lib/domains/separation";
+import {
+  useLoanInstallments,
+  useLoanMutations,
+} from "../../lib/domains/loans";
 import {
   Dialog,
   DialogContent,
@@ -134,6 +150,28 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   const [loanAmount, setLoanAmount] = useState(5000);
   const [installmentsCount, setInstallmentsCount] = useState(5);
   const [loanReason, setLoanReason] = useState("");
+
+  // Separation & Offboarding Hooks & State
+  const { data: separations = [] } = useEmployeeSeparations();
+  const { initiateSeparation, updateClearanceItem, finalizeOffboarding, isFinalizingOffboarding } =
+    useSeparationMutations();
+  const { submitLoan, settleEarly, isSettlingEarly } = useLoanMutations();
+
+  const [selectedLoanForSchedule, setSelectedLoanForSchedule] = useState<string | null>(null);
+  const { data: loanInstallments = [], isLoading: isLoadingInstallments } =
+    useLoanInstallments(selectedLoanForSchedule);
+
+  const [selectedSeparationForDetail, setSelectedSeparationForDetail] =
+    useState<EmployeeSeparation | null>(null);
+  const { data: clearanceItems = [] } = useClearanceItems(selectedSeparationForDetail?.id);
+
+  const [isSeparationModalOpen, setIsSeparationModalOpen] = useState(false);
+  const [sepEmpId, setSepEmpId] = useState(employees[0]?.id || "");
+  const [sepType, setSepType] = useState<string>("contract_expiration");
+  const [sepLastWorkingDay, setSepLastWorkingDay] = useState("2026-09-30");
+  const [sepReason, setSepReason] = useState("");
+  const [sepNoticeServed, setSepNoticeServed] = useState(true);
+  const [isInitiatingSep, setIsInitiatingSep] = useState(false);
 
   // EOSB Settlement Wizard State (Server-Authoritative Preview)
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
@@ -419,18 +457,59 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     }
     setIsCreatingLoan(true);
     try {
-      const ok = await createLoan({
-        principalAmount: loanAmount,
-        monthlyInstallment: Math.round(loanAmount / installmentsCount),
-        totalInstallments: installmentsCount,
+      await submitLoan({
+        loanType: "personal_advance",
+        amount: loanAmount,
+        installments: installmentsCount,
         reason: loanReason,
+        employeeId: loanEmpId,
       });
-      if (ok) {
-        setIsLoanModalOpen(false);
-        setLoanReason("");
-      }
+      setIsLoanModalOpen(false);
+      setLoanReason("");
+    } catch {
+      // toast shown by mutation
     } finally {
       setIsCreatingLoan(false);
+    }
+  };
+
+  const handleInitiateSeparation = async () => {
+    if (!sepReason) {
+      toast.error("يرجى كتابة سبب ومبرر إنهاء الخدمة");
+      return;
+    }
+    setIsInitiatingSep(true);
+    try {
+      await initiateSeparation({
+        employeeId: sepEmpId,
+        separationType: sepType,
+        lastWorkingDay: sepLastWorkingDay,
+        reason: sepReason,
+        noticeServed: sepNoticeServed,
+      });
+      setIsSeparationModalOpen(false);
+      setSepReason("");
+    } catch {
+      // toast shown by mutation
+    } finally {
+      setIsInitiatingSep(false);
+    }
+  };
+
+  const handleSettleLoanEarly = async (loanId: string) => {
+    try {
+      await settleEarly({ loanId, notes: "سداد مبكر معتمد من لوحة التحكم" });
+    } catch {
+      // toast shown by mutation
+    }
+  };
+
+  const handleFinalizeOffboarding = async (separationId: string) => {
+    try {
+      await finalizeOffboarding({ separationId });
+      setSelectedSeparationForDetail(null);
+    } catch {
+      // toast shown by mutation
     }
   };
 
@@ -508,6 +587,17 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
           )}
           {section === "loans" && canManageSettlements && (
             <Button
+              onClick={() => setIsSeparationModalOpen(true)}
+              variant="outline"
+              size="sm"
+              className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
+            >
+              <UserX className="h-4 w-4 text-primary" />
+              إجراء إنهاء خدمة / استقالة
+            </Button>
+          )}
+          {section === "loans" && canManageSettlements && (
+            <Button
               onClick={() => setIsSettlementModalOpen(true)}
               variant="outline"
               size="sm"
@@ -562,6 +652,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
             <>
               <TabsTrigger value="loans" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
                 سجل السلف والأقساط ({loans.length})
+              </TabsTrigger>
+              <TabsTrigger value="separations" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
+                حالات إنهاء الخدمة وإخلاء الطرف ({separations.length})
               </TabsTrigger>
               <TabsTrigger value="settlements" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
                 مخالصات نهاية الخدمة ({settlements.length})
@@ -1059,9 +1152,172 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                       </span>
                     </div>
                   </div>
+
+                  <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-8 rounded-xl font-bold gap-1 cursor-pointer"
+                      onClick={() => setSelectedLoanForSchedule(l.id)}
+                    >
+                      <ListOrdered className="h-3.5 w-3.5 text-primary" />
+                      جدول الأقساط
+                    </Button>
+                    {l.status === "active" && canManageSettlements && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="text-xs h-8 rounded-xl font-bold gap-1 cursor-pointer bg-amber-500/10 text-amber-800 hover:bg-amber-500/20"
+                        onClick={() => handleSettleLoanEarly(l.id)}
+                        disabled={isSettlingEarly}
+                      >
+                        <Coins className="h-3.5 w-3.5 text-amber-600" />
+                        سداد مبكر
+                      </Button>
+                    )}
+                  </div>
                 </div>
               );
             })}
+          </div>
+        </TabsContent>
+
+        {/* Tab: Employee Separation Cases & Clearance Checklist */}
+        <TabsContent value="separations" className="space-y-4 pt-4">
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* List of Separations */}
+            <div className="w-full lg:w-1/2 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                <h3 className="text-sm font-black text-foreground">حالات إنهاء الخدمة والاستقالة ({separations.length})</h3>
+                <span className="text-xs text-muted-foreground font-medium">اختر حالة لعرض بنود إخلاء الطرف</span>
+              </div>
+              {separations.length === 0 ? (
+                <div className="p-8 text-center rounded-2xl border border-dashed border-border/80 text-muted-foreground text-xs">
+                  لا توجد طلبات استقالة أو حالات إنهاء خدمة مسجلة حالياً
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {separations.map((sep) => {
+                    const isSelected = selectedSeparationForDetail?.id === sep.id;
+                    const typeLabel = SEPARATION_TYPE_LABELS[sep.separationType] || sep.separationType;
+                    const clearanceBadge = CLEARANCE_STATUS_LABELS[sep.clearanceStatus] || { label: sep.clearanceStatus, color: "bg-muted text-muted-foreground" };
+                    return (
+                      <div
+                        key={sep.id}
+                        onClick={() => setSelectedSeparationForDetail(sep)}
+                        className={`rounded-2xl border p-4 cursor-pointer transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/5 shadow-xs ring-1 ring-primary/30"
+                            : "border-border/80 bg-card hover:border-primary/40"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-black text-sm text-foreground block">{sep.employeeName}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {sep.employeeNo} • آخر يوم عمل: {sep.lastWorkingDay}
+                            </span>
+                          </div>
+                          <Badge variant="outline" className={`text-[10px] rounded-full px-2.5 font-bold ${clearanceBadge.color}`}>
+                            إخلاء الطرف: {clearanceBadge.label}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground pt-2.5 mt-2 border-t border-border/60">
+                          <span className="font-semibold text-foreground/80">{typeLabel}</span>
+                          <span className="text-[10px] font-mono">الحالة: {sep.status === "finalized" ? "منتهية الخدمة" : sep.status}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Clearance Checklist Detail Panel */}
+            <div className="w-full lg:w-1/2 rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
+              {selectedSeparationForDetail ? (
+                <>
+                  <div className="border-b border-border/60 pb-3 flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-black text-foreground">
+                        قائمة إخلاء الطرف: {selectedSeparationForDetail.employeeName}
+                      </h4>
+                      <p className="text-[11px] text-muted-foreground">
+                        {SEPARATION_TYPE_LABELS[selectedSeparationForDetail.separationType]} • ينتهي العمل في: {selectedSeparationForDetail.lastWorkingDay}
+                      </p>
+                    </div>
+                    {selectedSeparationForDetail.clearanceStatus === "completed" && selectedSeparationForDetail.status !== "finalized" && canManageSettlements && (
+                      <Button
+                        size="sm"
+                        className="rounded-full text-xs font-bold bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-4 gap-1.5 cursor-pointer shadow-xs"
+                        onClick={() => handleFinalizeOffboarding(selectedSeparationForDetail.id)}
+                        disabled={isFinalizingOffboarding}
+                      >
+                        <UserCheck className="h-4 w-4" />
+                        إنهاء الخدمة رسمياً وإغلاق الملف
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2.5 max-h-[450px] overflow-y-auto pr-1">
+                    {clearanceItems.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-muted-foreground">
+                        جاري تهيئة بنود إخلاء الطرف أو لا توجد بنود مطلوبة...
+                      </div>
+                    ) : (
+                      clearanceItems.map((item) => {
+                        const catLabel = CLEARANCE_CATEGORY_LABELS[item.category] || item.category;
+                        const isCleared = item.status === "cleared";
+                        return (
+                          <div
+                            key={item.id}
+                            className="rounded-2xl border border-border/70 bg-muted/20 p-3.5 flex items-center justify-between gap-3"
+                          >
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">
+                                  {catLabel}
+                                </span>
+                                <span className="text-xs font-bold text-foreground">{item.titleAr}</span>
+                              </div>
+                              {item.notes && <p className="text-[11px] text-muted-foreground font-mono">{item.notes}</p>}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] rounded-full px-2 font-bold ${
+                                  isCleared ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-800 border-amber-300"
+                                }`}
+                              >
+                                {isCleared ? "تم الإخلاء" : "معلق"}
+                              </Badge>
+                              {!isCleared && canManageSettlements && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[11px] rounded-xl font-bold cursor-pointer hover:bg-emerald-50 hover:text-emerald-700"
+                                  onClick={() => updateClearanceItem({ itemId: item.id, status: "cleared" })}
+                                >
+                                  اعتماد
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="py-16 text-center space-y-2">
+                  <UserX className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+                  <p className="text-xs font-bold text-muted-foreground">
+                    اختر حالة إنهاء خدمة من القائمة لمتابعة بنود إخلاء الطرف والأصول والسلف
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </TabsContent>
 
@@ -1716,6 +1972,181 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               className="rounded-full text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-6 h-10 shadow-xs cursor-pointer"
             >
               {isReopeningRun ? "جاري الفتح..." : "تأكيد إعادة فتح المسير"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 7: Authoritative Installment Schedule Dialog */}
+      {selectedLoanForSchedule && (
+        <Dialog open={!!selectedLoanForSchedule} onOpenChange={() => setSelectedLoanForSchedule(null)}>
+          <DialogContent className="max-w-2xl rounded-3xl p-6 overflow-y-auto max-h-[90vh] border border-border/80 shadow-2xl">
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+            <DialogHeader className="pt-1">
+              <DialogTitle className="text-base font-black flex items-center gap-2">
+                <ListOrdered className="h-5 w-5 text-primary" />
+                جدول أقساط السلفة المعتمد والموثق
+              </DialogTitle>
+              <DialogDescription className="text-xs font-medium text-muted-foreground">
+                جدول استقطاع معتمد خادميًا يستقطع تلقائيًا عند اعتماد كل مسيّر شهري
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2 text-xs">
+              {isLoadingInstallments ? (
+                <div className="p-8 text-center text-muted-foreground">جاري تحميل جدول الأقساط...</div>
+              ) : loanInstallments.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  لا يوجد جدول أقساط بعد (يتم إنشاء الجدول تلقائيًا فور الصرف المالي الفعلي للسلفة)
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-border/80 overflow-hidden">
+                  <table className="w-full text-right text-xs">
+                    <thead className="bg-muted/50 border-b border-border/60 text-muted-foreground font-bold">
+                      <tr>
+                        <th className="p-3">رقم القسط</th>
+                        <th className="p-3">فترة الاستحقاق</th>
+                        <th className="p-3">تاريخ الاستحقاق</th>
+                        <th className="p-3">المبلغ</th>
+                        <th className="p-3">المستقطع</th>
+                        <th className="p-3">المتبقي</th>
+                        <th className="p-3">الحالة</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/40 font-mono">
+                      {loanInstallments.map((inst) => {
+                        const statusBadge =
+                          inst.status === "deducted"
+                            ? { label: "تم الاستقطاع", color: "bg-emerald-100 text-emerald-800" }
+                            : inst.status === "early_settled"
+                            ? { label: "سداد مبكر", color: "bg-blue-100 text-blue-800" }
+                            : { label: "معلق", color: "bg-amber-100 text-amber-800" };
+                        return (
+                          <tr key={inst.id} className="hover:bg-muted/20">
+                            <td className="p-3 font-bold">#{inst.installmentNumber}</td>
+                            <td className="p-3">{inst.duePayrollPeriod}</td>
+                            <td className="p-3">{inst.dueDate}</td>
+                            <td className="p-3 font-bold">{inst.principalAmount.toLocaleString()} ر.س</td>
+                            <td className="p-3 text-emerald-600">{inst.deductedAmount.toLocaleString()} ر.س</td>
+                            <td className="p-3 text-destructive">{inst.remainingBalance.toLocaleString()} ر.س</td>
+                            <td className="p-3">
+                              <Badge variant="outline" className={`text-[10px] rounded-full px-2 font-bold ${statusBadge.color}`}>
+                                {statusBadge.label}
+                              </Badge>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="mt-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedLoanForSchedule(null)}
+                className="rounded-full text-xs font-bold px-6 h-9"
+              >
+                إغلاق
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* MODAL 8: Separation / Resignation Initiation Dialog */}
+      <Dialog open={isSeparationModalOpen} onOpenChange={setIsSeparationModalOpen}>
+        <DialogContent className="max-w-md rounded-3xl p-6 overflow-y-auto max-h-[90vh] border border-border/80 shadow-2xl">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+          <DialogHeader className="pt-1">
+            <DialogTitle className="text-base font-black flex items-center gap-2">
+              <UserX className="h-5 w-5 text-primary" />
+              بدء إجراء إنهاء خدمة / استقالة
+            </DialogTitle>
+            <DialogDescription className="text-xs font-medium text-muted-foreground">
+              يبدأ هذا الإجراء دورة إخلاء الطرف وحصر العهد والأصول وحساب المستحقات
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3.5 text-xs py-2">
+            <div className="space-y-1.5">
+              <label className="font-bold text-foreground">الموظف المعني *</label>
+              <select
+                value={sepEmpId}
+                onChange={(e) => setSepEmpId(e.target.value)}
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
+              >
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.firstNameAr} {emp.lastNameAr} ({emp.employeeNo}) — {emp.jobTitleAr}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-foreground">نوع إنهاء الخدمة / السبب النظامي *</label>
+              <select
+                value={sepType}
+                onChange={(e) => setSepType(e.target.value)}
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+              >
+                <option value="contract_expiration">انتهاء مدة العقد (مادة 84 - استحقاق كامل)</option>
+                <option value="resignation">استقالة اختيارية (مادة 85 - سلم الاستقالة)</option>
+                <option value="termination">إنهاء خدمات من طرف المنشأة</option>
+                <option value="termination_with_cause">فسخ العقد لسبب مشروع (مادة 80 - بدون مكافأة)</option>
+                <option value="retirement">تقاعد نظامي</option>
+                <option value="other">أسباب أخرى</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-foreground">آخر يوم عمل فعلي *</label>
+              <input
+                type="date"
+                value={sepLastWorkingDay}
+                onChange={(e) => setSepLastWorkingDay(e.target.value)}
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-bold"
+              >
+              </input>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="sepNoticeServed"
+                checked={sepNoticeServed}
+                onChange={(e) => setSepNoticeServed(e.target.checked)}
+                className="rounded border-border"
+              />
+              <label htmlFor="sepNoticeServed" className="font-semibold text-foreground cursor-pointer">
+                تم قضاء فترة الإشعار النظامية كاملة
+              </label>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-foreground">سبب ومبررات إنهاء الخدمة *</label>
+              <textarea
+                rows={3}
+                value={sepReason}
+                onChange={(e) => setSepReason(e.target.value)}
+                placeholder="اكتب أسباب ومبررات إنهاء الخدمة بالتفصيل..."
+                className="w-full rounded-2xl border border-border/80 bg-muted/40 p-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-3">
+            <Button
+              size="sm"
+              onClick={handleInitiateSeparation}
+              disabled={isInitiatingSep}
+              className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 h-10 shadow-xs cursor-pointer"
+            >
+              {isInitiatingSep ? "جاري البدء..." : "تأكيد وبدء إجراءات إنهاء الخدمة"}
             </Button>
           </DialogFooter>
         </DialogContent>

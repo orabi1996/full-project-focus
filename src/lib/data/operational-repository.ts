@@ -2159,26 +2159,22 @@ export async function createSettlementRecord(settlement: {
 }
 
 export async function createLoanRecord(loan: {
-  employeeId: string;
+  employeeId?: string;
   principalAmount: number;
-  monthlyInstallment: number;
+  monthlyInstallment?: number;
   totalInstallments: number;
   reason: string;
+  loanType?: string;
 }) {
-  const { error } = await enterpriseSupabase.from("loans").insert({
-    employee_id: loan.employeeId,
-    principal_amount: loan.principalAmount,
-    remaining_balance: loan.principalAmount,
-    monthly_installment: loan.monthlyInstallment,
-    total_installments: loan.totalInstallments,
-    paid_installments: 0,
-    installments_paid: 0,
-    total_paid: 0,
-    reason: loan.reason,
-    status: "active",
-    loan_type: "personal_advance",
+  const { data, error } = await (enterpriseSupabase as any).rpc("submit_loan_request_atomic", {
+    p_loan_type: loan.loanType || "personal_advance",
+    p_amount: loan.principalAmount,
+    p_installments: loan.totalInstallments,
+    p_reason: loan.reason,
+    p_employee_id: loan.employeeId || null,
   });
   if (error) throw new Error(error.message);
+  return data;
 }
 
 export async function createPerformanceCycleRecord(cycle: Omit<PerformanceCycle, "id">) {

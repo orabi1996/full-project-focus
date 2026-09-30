@@ -59,7 +59,7 @@ export const listLoansOverviewServer = createServerFn({ method: "GET" })
     if (error) throw new Error(`تعذر قراءة السلف: ${error.message}`);
 
     const loans: PendingLoanRow[] = ((data ?? []) as any[]).map(mapLoan);
-    const pending = loans.filter((l) => l.status === "approved" || l.status === "pending");
+    const pending = loans.filter((l) => l.status === "approved" || l.status === "pending_approval" || l.status === "disbursement_pending");
     const active = loans.filter((l) => l.status === "active");
 
     return {
@@ -70,7 +70,7 @@ export const listLoansOverviewServer = createServerFn({ method: "GET" })
         pendingCount: pending.length,
         pendingAmount: round2(pending.reduce((sum, l) => sum + l.amount, 0)),
         approvedAmount: round2(
-          pending.filter((l) => l.status === "approved").reduce((sum, l) => sum + l.amount, 0),
+          pending.filter((l) => l.status === "approved" || l.status === "disbursement_pending").reduce((sum, l) => sum + l.amount, 0),
         ),
         activeOutstanding: round2(active.reduce((sum, l) => sum + l.outstanding, 0)),
         monthlyRecovery: round2(active.reduce((sum, l) => sum + l.installment, 0)),
@@ -79,8 +79,9 @@ export const listLoansOverviewServer = createServerFn({ method: "GET" })
   });
 
 /**
- * Disburses approved loans from the company bank account: debits the balance,
- * activates each loan and sets the outstanding amount recovered by payroll.
+ * Disburses approved loans atomically using database RPC:
+ * validates authorization, locks loan and bank account, creates disbursement
+ * record, activates loan, generates authoritative installment plan, and writes audit event.
  */
 export const disburseApprovedLoansServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -99,59 +100,66 @@ export const disburseApprovedLoansServer = createServerFn({ method: "POST" })
 
     let query = supabase
       .from("loans")
-      .select(
-        "id, employee_id, principal_amount, approved_amount, installment_amount, monthly_installment, installments_total, total_installments",
-      )
-      .eq("status", "approved");
+      .select("id, principal_amount, approved_amount")
+      .in("status", ["approved", "disbursement_pending"]);
     if (data.loanIds?.length) query = query.in("id", data.loanIds);
 
     const { data: loans, error } = await query;
     if (error) throw new Error(`تعذر قراءة السلف: ${error.message}`);
     if (!loans?.length) throw new Error("لا توجد سلف معتمدة بانتظار الصرف");
 
-    const { data: account, error: accountError } = await supabase
-      .from("company_bank_accounts")
-      .select("id, current_balance")
-      .eq("id", data.bankAccountId)
-      .maybeSingle();
-    if (accountError || !account) throw new Error("حساب المنشأة غير موجود");
+    let totalDisbursed = 0;
+    let lastRemainingBalance = 0;
 
-    const total = round2(
-      loans.reduce(
-        (sum: number, l: any) => sum + Number(l.approved_amount ?? l.principal_amount ?? 0),
-        0,
-      ),
-    );
-    const balance = Number(account.current_balance ?? 0);
-    if (total > balance) throw new Error("رصيد حساب المنشأة لا يكفي لصرف السلف المعتمدة");
-
-    const now = new Date().toISOString();
     for (const loan of loans) {
-      const amount = round2(Number(loan.approved_amount ?? loan.principal_amount ?? 0));
-      const installments = Number(loan.installments_total ?? loan.total_installments ?? 1) || 1;
-      await supabase
-        .from("loans")
-        .update({
-          status: "active",
-          approved_amount: amount,
-          outstanding_amount: amount,
-          remaining_balance: amount,
-          installment_amount: round2(
-            Number(loan.installment_amount ?? loan.monthly_installment ?? amount / installments),
-          ),
-          decided_at: now,
-        })
-        .eq("id", loan.id);
-    }
+      const { data: result, error: rpcError } = await supabase.rpc("disburse_loan_atomic", {
+        p_loan_id: loan.id,
+        p_bank_account_id: data.bankAccountId,
+        p_external_ref: null,
+        p_notes: "صرف مالي معتمد عبر لوحة إدارة السلف",
+      });
 
-    await supabase
-      .from("company_bank_accounts")
-      .update({ current_balance: round2(balance - total) })
-      .eq("id", account.id);
+      if (rpcError) {
+        throw new Error(`فشل صرف السلفة ${loan.id}: ${rpcError.message}`);
+      }
+
+      totalDisbursed += Number(result?.disbursed_amount || 0);
+      lastRemainingBalance = Number(result?.new_bank_balance || 0);
+    }
 
     return {
       disbursed: loans.length,
-      totalDisbursed: total,
-      remainingBalance: round2(balance - total),
+      totalDisbursed: round2(totalDisbursed),
+      remainingBalance: round2(lastRemainingBalance),
     };
+  });
+
+/**
+ * Early loan payoff server action using authoritative database transaction.
+ */
+export const settleLoanEarlyServer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { loanId: string; paymentMethod?: string; receiptRef?: string; notes?: string }) => {
+    if (!input?.loanId) throw new Error("معرف السلفة مطلوب");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as any;
+    await assertRole(supabase, context.userId, [
+      "super_admin",
+      "org_admin",
+      "payroll_officer",
+      "finance_officer",
+      "hr_manager",
+    ]);
+
+    const { data: result, error } = await supabase.rpc("settle_loan_early_atomic", {
+      p_loan_id: data.loanId,
+      p_payment_method: data.paymentMethod || "bank_transfer",
+      p_receipt_ref: data.receiptRef || null,
+      p_notes: data.notes || null,
+    });
+
+    if (error) throw new Error(`تعذر السداد المبكر: ${error.message}`);
+    return result;
   });

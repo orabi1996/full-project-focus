@@ -1,161 +1,129 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import type { ExpenseCategory, ExpenseClaim } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
+import { useDemoStore } from "../demo/demo-store";
 import {
-  createExpenseCategoryRecord,
-  createExpenseClaimRecord,
-} from "../../data/operational-repository";
-import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
-import { queryKeys } from "../../query/query-keys";
-import { useBootstrapData } from "../bootstrap/use-bootstrap";
-import { demoStore, useDemoStore } from "../demo/demo-store";
-import { toast } from "sonner";
+  useExpenseCategories as useRepoCategories,
+  useExpenseClaims as useRepoClaims,
+  useExpenseMutations as useRepoMutations,
+} from "../../data/expenses-repository";
 
-import { uploadExpenseReceiptFile, rollbackUploadedFile } from "../../storage";
+export * from "../../data/expenses-repository";
 
+/**
+ * Domain hook providing expenses data, delegating to the production repository in live mode.
+ */
 export function useExpenses() {
   const { session, isDemo } = useAuth();
   const isLive = Boolean(session && !isDemo);
-  const bootstrap = useBootstrapData();
+
+  const repoCategories = useRepoCategories();
+  const repoClaims = useRepoClaims();
   const demoData = useDemoStore((s) => ({
     expenseCategories: s.expenseCategories,
     expenseClaims: s.expenseClaims,
   }));
 
-  const expenseCategories = isLive ? bootstrap.expenseCategories : demoData.expenseCategories;
-  const expenseClaims = isLive ? bootstrap.expenseClaims : demoData.expenseClaims;
+  const expenseCategories = isLive
+    ? (repoCategories.data || []).map((c) => ({
+        id: c.id,
+        nameAr: c.nameAr,
+        nameEn: c.nameEn,
+        icon: "Receipt",
+        maxLimitWarning: c.maxLimitWarning,
+        maxLimitBlock: c.maxLimitBlock,
+        requiresReceipt: c.requiresReceipt,
+      }))
+    : demoData.expenseCategories;
+
+  const expenseClaims = isLive
+    ? (repoClaims.data?.data || []).map((c) => ({
+        id: c.id,
+        employeeId: c.employeeId,
+        categoryId: c.categoryId || "",
+        categoryNameAr: c.categoryNameAr,
+        categoryNameEn: c.categoryNameEn || c.categoryNameAr,
+        amount: c.amount,
+        currency: c.currency,
+        spentAt: c.spentAt,
+        merchantName: c.merchantName,
+        receiptUrl: c.receiptUrl || undefined,
+        receiptFileId: c.receiptFileId || undefined,
+        description: c.description,
+        status: c.status as ExpenseClaim["status"],
+        policyWarningTriggered: c.policyWarningTriggered,
+      }))
+    : demoData.expenseClaims;
 
   return {
     expenseCategories,
     expenseClaims,
-    isLoading: isLive ? bootstrap.isLoading : false,
-    isError: isLive ? bootstrap.isError : false,
-    error: isLive ? bootstrap.error : null,
-    refetch: bootstrap.refreshCoreData,
+    isLoading: isLive ? (repoCategories.isLoading || repoClaims.isLoading) : false,
+    isError: isLive ? (repoCategories.isError || repoClaims.isError) : false,
+    error: isLive ? (repoCategories.error || repoClaims.error) : null,
+    refetch: async () => {
+      await Promise.all([repoCategories.refetch(), repoClaims.refetch()]);
+    },
   };
 }
 
+/**
+ * Enhanced mutation hook returning both repository and legacy compatible signatures.
+ */
 export function useExpenseMutations() {
-  const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
-  const queryClient = useQueryClient();
+  const repo = useRepoMutations();
 
   const addExpenseClaim = useCallback(
     async (
       claim: Omit<ExpenseClaim, "id" | "status" | "policyWarningTriggered">,
       receiptFile?: File,
     ): Promise<boolean> => {
-      const cat = demoStore.expenseCategories.find((c) => c.id === claim.categoryId);
-      const isWarning = cat ? claim.amount > cat.maxLimitWarning : false;
-      const expenseId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `exp-${Date.now()}`;
-
-      let receiptFileId: string | undefined = claim.receiptFileId;
-      let receiptUrl: string | undefined = claim.receiptUrl;
-
-      if (receiptFile) {
-        try {
-          const uploaded = await uploadExpenseReceiptFile({
-            employeeId: claim.employeeId,
-            expenseId,
-            file: receiptFile,
-          });
-          receiptFileId = uploaded.id;
-          receiptUrl = uploaded.object_path;
-        } catch (uploadErr) {
-          const msg = uploadErr instanceof Error ? uploadErr.message : "فشل رفع الإيصال";
-          toast.error(msg);
-          return false;
-        }
+      try {
+        await repo.submitClaim({
+          title: `مطالبة ${claim.merchantName}`,
+          justification: claim.description,
+          paymentMethod: "employee_paid",
+          items: [
+            {
+              categoryId: claim.categoryId,
+              itemDate: claim.spentAt,
+              merchantName: claim.merchantName,
+              amount: claim.amount,
+              currency: claim.currency,
+              description: claim.description,
+              receiptFile,
+              receiptUrl: claim.receiptUrl,
+              receiptFileId: claim.receiptFileId,
+            },
+          ],
+        });
+        return true;
+      } catch {
+        return false;
       }
-
-      const newClaim: ExpenseClaim = {
-        ...claim,
-        id: expenseId,
-        receiptFileId,
-        receiptUrl,
-        status: "submitted",
-        policyWarningTriggered: isWarning,
-      };
-
-      const result = await executeReliableMutation({
-        mode,
-        mutationKey: `create-expense-claim-${claim.employeeId}-${claim.categoryId}-${claim.amount}`,
-        operation: async () => {
-          try {
-            await createExpenseClaimRecord(newClaim);
-          } catch (insertErr) {
-            if (receiptFileId) {
-              await rollbackUploadedFile({ fileId: receiptFileId }).catch((rbErr) =>
-                console.error("Rollback of uploaded expense receipt failed:", rbErr),
-              );
-            }
-            throw insertErr;
-          }
-          await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.claims() });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.expenseClaims = [newClaim, ...demoStore.expenseClaims];
-          demoStore.notify();
-          return true;
-        },
-        onCommitted: () => {
-          toast.success("تم رفع مطالبة المصروفات بنجاح");
-        },
-        onRejected: (err) => {
-          toast.error(err.message || "تعذر رفع مطالبة المصروفات");
-        },
-      });
-
-      return result.ok;
     },
-    [mode, queryClient],
+    [repo],
   );
 
   const addExpenseCategory = useCallback(
     async (input: { nameAr: string; warningLimit: number; blockLimit: number }): Promise<boolean> => {
-      const newCat: ExpenseCategory = {
-        id: `cat-${Date.now()}`,
-        nameAr: input.nameAr,
-        nameEn: input.nameAr,
-        icon: "Receipt",
-        maxLimitWarning: input.warningLimit,
-        maxLimitBlock: input.blockLimit,
-        requiresReceipt: true,
-      };
-
-      const result = await executeReliableMutation({
-        mode,
-        mutationKey: `create-expense-category-${input.nameAr}`,
-        operation: async () => {
-          await createExpenseCategoryRecord({
-            nameAr: input.nameAr,
-            warningLimit: input.warningLimit,
-            blockLimit: input.blockLimit,
-          });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.categories() });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.expenseCategories = [...demoStore.expenseCategories, newCat];
-          demoStore.notify();
-          return true;
-        },
-        onCommitted: () => {
-          toast.success("تم إضافة فئة المصروفات بنجاح");
-        },
-        onRejected: (err) => {
-          toast.error(err.message || "تعذر إضافة فئة المصروفات");
-        },
-      });
-
-      return result.ok;
+      try {
+        await repo.addCategory({
+          nameAr: input.nameAr,
+          warningLimit: input.warningLimit,
+          blockLimit: input.blockLimit,
+        });
+        return true;
+      } catch {
+        return false;
+      }
     },
-    [mode, queryClient],
+    [repo],
   );
 
-  return { addExpenseClaim, addExpenseCategory };
+  return {
+    ...repo,
+    addExpenseClaim,
+    addExpenseCategory,
+  };
 }

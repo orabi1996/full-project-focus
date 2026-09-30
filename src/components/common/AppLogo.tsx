@@ -47,13 +47,11 @@ const STORAGE_KEY = "classera_active_logo_id";
 const EVENT_KEY = "classera-brand-logo-change";
 
 export function getActiveBrandLogoId(): BrandLogoId {
-  return 4; // Standardized Official Single Logo: Human Capital Synergy
+  return 4; // Standardized Official Single Logo
 }
 
 export function getActiveBrandLogoPath(): string {
-  const id = getActiveBrandLogoId();
-  const found = BRAND_LOGO_OPTIONS.find((o) => o.id === id);
-  return found?.path || "/classera-pulse-logo.png";
+  return "/classera-pulse-logo.png";
 }
 
 export function setActiveBrandLogoId(id: BrandLogoId) {
@@ -129,16 +127,9 @@ export const AppLogo: React.FC<AppLogoProps> = ({
       <div className={`relative flex items-center justify-center shrink-0 ${className}`}>
         <div className="relative h-11 w-11 rounded-2xl bg-white p-1.5 shadow-md shadow-primary/10 border border-border/80 flex items-center justify-center overflow-hidden transition-transform duration-200 hover:scale-105">
           <img
-            src={config.path}
-            alt={config.titleEn}
-            className="h-full w-full object-contain"
-            style={
-              effectiveId === 3
-                ? { transform: "scale(1.9) translateY(-14%)" }
-                : effectiveId === 1
-                  ? { transform: "scale(2.2) translateX(-18%)" }
-                  : { transform: "scale(2.3) translateX(18%)" }
-            }
+            src="/classera-pulse-logo.png"
+            alt="Classera Pulse Mark"
+            className="h-full w-full object-contain object-left scale-[1.75] translate-x-[-12%] rtl:translate-x-[12%]"
           />
         </div>
       </div>
@@ -148,9 +139,9 @@ export const AppLogo: React.FC<AppLogoProps> = ({
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
       <img
-        src={config.path}
+        src="/classera-pulse-logo.png"
         alt="Classera Pulse - Human Capital Management"
-        className="h-10 w-auto max-w-[220px] object-contain transition-all duration-300 hover:opacity-95"
+        className="h-10 w-auto max-w-[240px] object-contain transition-all duration-300 hover:opacity-95"
         style={{ height }}
       />
     </div>

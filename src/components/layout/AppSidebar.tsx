@@ -335,10 +335,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         })}
       </div>
 
-      {/* Footer Status Badge */}
+      {/* Footer Status Badge & Legal Notice */}
       {!collapsed && (
-        <div className="border-t border-border/60 p-4 bg-muted/15">
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <div className="border-t border-border/60 p-3 bg-muted/20">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
             <span className="font-bold flex items-center gap-1.5 text-foreground">
               <span className="h-2 w-2 rounded-full bg-[#00B5FF] animate-pulse" />
               Classera Pulse HCM
@@ -346,6 +346,9 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             <span className="font-mono bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full text-[10px]">
               v2026
             </span>
+          </div>
+          <div className="text-[9.5px] text-muted-foreground/80 text-start leading-tight">
+            جميع الحقوق محفوظة لشركة كاسيرا بلس
           </div>
         </div>
       )}

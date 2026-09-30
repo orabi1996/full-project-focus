@@ -68,8 +68,8 @@ export const AppLayout: React.FC = () => {
         <SetupProgressBanner />
 
         {/* Dynamic Page Body: TanStack Router Outlet */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-muted/15">
-          <div className="w-full">
+        <main className="flex-1 overflow-y-auto flex flex-col bg-muted/15">
+          <div className="flex-1 p-3 sm:p-4 md:p-6 w-full">
             <ViewErrorBoundary key={pathname}>
               <Suspense
                 fallback={
@@ -82,6 +82,30 @@ export const AppLayout: React.FC = () => {
               </Suspense>
             </ViewErrorBoundary>
           </div>
+
+          {/* System Unified Footer & Protected Copyrights */}
+          <footer className="mt-auto border-t border-border/60 bg-card/60 backdrop-blur-xs px-4 py-3 select-none">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <img
+                  src="/classera-pulse-logo.png"
+                  alt="Classera Pulse"
+                  className="h-5 w-auto object-contain"
+                />
+                <span className="font-bold text-foreground">
+                  Classera Pulse™ HCM
+                </span>
+                <span className="text-border">|</span>
+                <span>جميع الحقوق محفوظة لشركة كاسيرا بلس © {new Date().getFullYear()}</span>
+              </div>
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                <span className="font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
+                  Enterprise Edition
+                </span>
+                <span>نظام إدارة رأس المال البشري والرواتب وحماية الأجور</span>
+              </div>
+            </div>
+          </footer>
         </main>
 
         {/* Mobile Fast Navigation Bar (Classera Pulse Mobile) */}

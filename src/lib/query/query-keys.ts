@@ -179,7 +179,21 @@ export const queryKeys = {
   expenses: {
     all: ["expenses"] as const,
     categories: () => [...queryKeys.expenses.all, "categories"] as const,
-    claims: () => [...queryKeys.expenses.all, "claims"] as const,
+    policies: () => [...queryKeys.expenses.all, "policies"] as const,
+    claims: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.expenses.all, "claims", filters] as const)
+        : ([...queryKeys.expenses.all, "claims"] as const),
+    claim: (id: string) => [...queryKeys.expenses.all, "claim", id] as const,
+    items: (claimId: string) => [...queryKeys.expenses.all, "items", claimId] as const,
+    batches: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.expenses.all, "batches", filters] as const)
+        : ([...queryKeys.expenses.all, "batches"] as const),
+    batch: (id: string) => [...queryKeys.expenses.all, "batch", id] as const,
+    kpis: (companyId?: string) => [...queryKeys.expenses.all, "kpis", companyId ?? "current"] as const,
+    reports: (filters?: Record<string, unknown>) =>
+      [...queryKeys.expenses.all, "reports", filters ?? {}] as const,
   },
   performance: {
     all: ["performance"] as const,

@@ -1054,10 +1054,15 @@ export function LoginPage() {
       </div>
 
       {/* Footer Note */}
-      <footer className="w-full max-w-6xl mx-auto text-center py-2 text-[11px] text-slate-500 relative z-10 flex flex-col sm:flex-row items-center justify-between gap-1">
-        <span>جميع الحقوق محفوظة © {new Date().getFullYear()} Classera Pulse — Human Capital Management System</span>
-        <span className="text-[10px] text-slate-400">
-          بوابة معتمدة لإدارة رأس المال البشري وحماية الأجور
+      <footer className="w-full max-w-6xl mx-auto text-center py-3 text-[11px] text-slate-500 relative z-10 flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-slate-200/60 mt-4">
+        <div className="flex items-center gap-2">
+          <img src="/classera-pulse-logo.png" alt="Classera Pulse" className="h-5 w-auto object-contain" />
+          <span className="font-bold text-slate-700">Classera Pulse™ HCM</span>
+          <span className="text-slate-300">|</span>
+          <span>جميع الحقوق محفوظة لشركة كاسيرا بلس © {new Date().getFullYear()}</span>
+        </div>
+        <span className="text-[10px] text-slate-400 font-medium">
+          المنصة المؤسسية لإدارة رأس المال البشري والرواتب وحماية الأجور
         </span>
       </footer>
 

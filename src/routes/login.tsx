@@ -4,7 +4,7 @@ import { LoginPage } from "../components/auth/LoginPage";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
-    meta: [{ title: "تسجيل الدخول | Focus HRMS" }],
+    meta: [{ title: "تسجيل الدخول | كاسيرا بلس Classera Pulse HCM" }],
   }),
   component: LoginPage,
 });

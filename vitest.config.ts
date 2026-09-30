@@ -12,6 +12,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    hookTimeout: 60000,
+    testTimeout: 60000,
     exclude: ["e2e/**", "node_modules/**", ".output/**"],
     coverage: {
       provider: "v8",

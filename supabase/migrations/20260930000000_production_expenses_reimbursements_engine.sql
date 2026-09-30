@@ -277,7 +277,7 @@ CREATE TABLE IF NOT EXISTS public.reimbursement_batches (
   total_amount numeric(14,2) NOT NULL DEFAULT 0 CHECK (total_amount >= 0),
   total_claims_count integer NOT NULL DEFAULT 0,
   total_employees_count integer NOT NULL DEFAULT 0,
-  payment_status text NOT NULL DEFAULT 'prepared' CHECK (payment_status IN ('prepared', 'approved_for_payment', 'submitted', 'confirmed_paid', 'failed', 'reversed')),
+  payment_status text NOT NULL DEFAULT 'prepared' CHECK (payment_status IN ('prepared', 'approved_for_payment', 'submitted', 'transferred_to_payroll', 'confirmed_paid', 'failed', 'reversed')),
   prepared_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   prepared_at timestamptz NOT NULL DEFAULT now(),
   approved_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -1532,17 +1532,15 @@ BEGIN
       );
       v_transferred_count := v_transferred_count + 1;
     EXCEPTION WHEN OTHERS THEN
-      NULL;
+      RAISE EXCEPTION 'فشل إضافة قيد تعويض المصروفات كبدل في مسير الرواتب للمطالبة %: %', v_alloc.claim_number, SQLERRM;
     END;
   END LOOP;
 
   -- Update batch status
   UPDATE public.reimbursement_batches
   SET payment_method = 'payroll',
-      payment_status = 'confirmed_paid',
+      payment_status = 'transferred_to_payroll',
       payroll_run_id = p_payroll_run_id,
-      confirmed_by = v_caller_uid,
-      confirmed_at = now(),
       updated_at = now()
   WHERE id = p_batch_id;
 

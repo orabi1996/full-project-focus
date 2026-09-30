@@ -37,6 +37,7 @@ export type ReimbursementPaymentStatus =
   | "prepared"
   | "approved_for_payment"
   | "submitted"
+  | "transferred_to_payroll"
   | "confirmed_paid"
   | "failed"
   | "reversed";

@@ -540,6 +540,8 @@ export const ExpensesView: React.FC = () => {
     switch (status) {
       case "confirmed_paid":
         return <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-400 font-bold">تم السداد والخصم</Badge>;
+      case "transferred_to_payroll":
+        return <Badge className="bg-purple-500/15 text-purple-700 border-purple-400 font-bold">مرحل للرواتب (بانتظار الصرف)</Badge>;
       case "approved_for_payment":
         return <Badge className="bg-blue-500/15 text-blue-700 border-blue-400 font-bold">معتمد للصرف</Badge>;
       case "prepared":

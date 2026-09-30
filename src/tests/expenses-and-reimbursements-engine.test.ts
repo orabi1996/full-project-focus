@@ -312,6 +312,16 @@ describe.sequential("Prompt 17: Production Expense Management & Employee Reimbur
       const migrationSql = fs.readFileSync(migrationPath, "utf-8");
       await db.exec(migrationSql);
 
+      // 2.1 Execute Prompt 17 Corrective Migration SQL
+      const correctiveMigrationPath = path.resolve(
+        __dirname,
+        "../../supabase/migrations/20260930010000_correct_expense_reimbursement_cursors.sql"
+      );
+      if (fs.existsSync(correctiveMigrationPath)) {
+        const corrSql = fs.readFileSync(correctiveMigrationPath, "utf-8");
+        await db.exec(corrSql);
+      }
+
       // 3. Seed Base Data
       await db.exec(`
         INSERT INTO auth.users (id, email) VALUES
@@ -697,6 +707,14 @@ describe.sequential("Prompt 17: Production Expense Management & Employee Reimbur
       `);
       expect(transferredClaim.rows[0].reimbursement_status).toBe("transferred_to_payroll");
       expect(transferredClaim.rows[0].reimbursement_method).toBe("payroll");
+
+      // Verify batch status is transferred_to_payroll and NOT falsely marked confirmed_paid
+      const batchRow: any = await db.query(`
+        SELECT payment_status, payment_method, payroll_run_id, confirmed_at FROM public.reimbursement_batches WHERE id = '${newBatchId}';
+      `);
+      expect(batchRow.rows[0].payment_status).toBe("transferred_to_payroll");
+      expect(batchRow.rows[0].payment_method).toBe("payroll");
+      expect(batchRow.rows[0].confirmed_at).toBeNull();
     });
 
     // ------------------------------------------------------------------------

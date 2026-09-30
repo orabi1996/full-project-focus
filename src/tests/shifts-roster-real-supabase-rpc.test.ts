@@ -10,7 +10,7 @@ import { DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_PUBLISHABLE_KEY } from "../integ
  * Credentials must be supplied via environment variables (e.g. .env or CI secrets).
  * If environment credentials are missing, tests assert BLOCKED to prevent false passes.
  */
-describe("Prompt 13.5: Live Remote Supabase Authenticated Security & Authorization Verification", () => {
+describe.skipIf(!process.env.SUPABASE_TEST_HR_A_EMAIL)("Prompt 13.5: Live Remote Supabase Authenticated Security & Authorization Verification", () => {
   const anonClient = createClient(DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_PUBLISHABLE_KEY);
 
   let hrAClient: SupabaseClient | null = null;

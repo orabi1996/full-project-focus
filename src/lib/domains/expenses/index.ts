@@ -114,7 +114,7 @@ export function useExpenseMutations() {
           const newClaim: ExpenseClaim = {
             ...claim,
             id: `exp-${Date.now()}`,
-            status: "pending_approval",
+            status: "submitted",
             policyWarningTriggered: false,
           };
           demoStore.expenseClaims = [newClaim, ...demoStore.expenseClaims];

@@ -197,7 +197,59 @@ export const queryKeys = {
   },
   performance: {
     all: ["performance"] as const,
-    cycles: () => [...queryKeys.performance.all, "cycles"] as const,
+    cycles: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.performance.all, "cycles", filters] as const)
+        : ([...queryKeys.performance.all, "cycles"] as const),
+    cycle: (id: string) => [...queryKeys.performance.all, "cycle", id] as const,
+    participants: (cycleId: string, filters?: Record<string, unknown>) =>
+      [...queryKeys.performance.all, "participants", cycleId, filters ?? {}] as const,
+    goals: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.performance.all, "goals", filters] as const)
+        : ([...queryKeys.performance.all, "goals"] as const),
+    goal: (id: string) => [...queryKeys.performance.all, "goal", id] as const,
+    goalProgress: (goalId: string) => [...queryKeys.performance.all, "goalProgress", goalId] as const,
+    frameworks: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.performance.all, "frameworks", filters] as const)
+        : ([...queryKeys.performance.all, "frameworks"] as const),
+    competencies: (frameworkId?: string) =>
+      [...queryKeys.performance.all, "competencies", frameworkId ?? "all"] as const,
+    templates: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.performance.all, "templates", filters] as const)
+        : ([...queryKeys.performance.all, "templates"] as const),
+    template: (id: string) => [...queryKeys.performance.all, "template", id] as const,
+    assignments: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.performance.all, "assignments", filters] as const)
+        : ([...queryKeys.performance.all, "assignments"] as const),
+    myReviews: (cycleId?: string) =>
+      [...queryKeys.performance.all, "myReviews", cycleId ?? "all"] as const,
+    teamReviews: (cycleId?: string) =>
+      [...queryKeys.performance.all, "teamReviews", cycleId ?? "all"] as const,
+    review: (id: string) => [...queryKeys.performance.all, "review", id] as const,
+    calibrationSessions: (cycleId?: string) =>
+      [...queryKeys.performance.all, "calibrationSessions", cycleId ?? "all"] as const,
+    nineBox: (cycleId: string, departmentId?: string) =>
+      [...queryKeys.performance.all, "nineBox", cycleId, departmentId ?? "all"] as const,
+    potential: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.performance.all, "potential", filters] as const)
+        : ([...queryKeys.performance.all, "potential"] as const),
+    developmentPlans: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.performance.all, "developmentPlans", filters] as const)
+        : ([...queryKeys.performance.all, "developmentPlans"] as const),
+    pip: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.performance.all, "pip", filters] as const)
+        : ([...queryKeys.performance.all, "pip"] as const),
+    kpis: (cycleId?: string, companyId?: string) =>
+      [...queryKeys.performance.all, "kpis", cycleId ?? "all", companyId ?? "current"] as const,
+    employeeHistory: (employeeId: string) =>
+      [...queryKeys.performance.all, "employeeHistory", employeeId] as const,
     evaluations: () => [...queryKeys.performance.all, "evaluations"] as const,
   },
   recruitment: {

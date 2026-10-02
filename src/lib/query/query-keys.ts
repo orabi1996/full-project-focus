@@ -306,4 +306,27 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.separations.all, "detail", id] as const,
     clearance: (separationId: string) => [...queryKeys.separations.all, "clearance", separationId] as const,
   },
+  workforce: {
+    all: ["workforce"] as const,
+    plans: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.workforce.all, "plans", filters] as const)
+        : ([...queryKeys.workforce.all, "plans"] as const),
+    plan: (id: string) => [...queryKeys.workforce.all, "plan", id] as const,
+    planLines: (planId: string) => [...queryKeys.workforce.all, "planLines", planId] as const,
+    forecasts: (planId: string, fiscalYear?: number) =>
+      [...queryKeys.workforce.all, "forecasts", planId, fiscalYear ?? "all"] as const,
+    headcountRequests: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.workforce.all, "headcountRequests", filters] as const)
+        : ([...queryKeys.workforce.all, "headcountRequests"] as const),
+    kpis: (companyId: string, fiscalYear?: number) =>
+      [...queryKeys.workforce.all, "kpis", companyId, fiscalYear ?? "current"] as const,
+    actualHeadcount: (companyId: string, departmentId?: string | null, asOfDate?: string) =>
+      [...queryKeys.workforce.all, "actualHeadcount", companyId, departmentId ?? "all", asOfDate ?? "today"] as const,
+    planVsActual: (planId: string) => [...queryKeys.workforce.all, "planVsActual", planId] as const,
+    auditLog: (planId: string) => [...queryKeys.workforce.all, "auditLog", planId] as const,
+    scenarios: (companyId: string, fiscalYear?: number) =>
+      [...queryKeys.workforce.all, "scenarios", companyId, fiscalYear ?? "current"] as const,
+  },
 } as const;

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { OrgChartSvg, type OrgChartNodeData, defaultCompanyTree } from "./OrgChartSvg";
 import { CostCentersPanel, JobPositionsPanel } from "./OrganizationPlanningPanels";
 import { CompanyProfilePanel } from "./CompanyProfilePanel";
+import { WorkforcePlanningView } from "../workforce/WorkforcePlanningView";
 import { useApp } from "../../lib/context/AppContext";
 import { canAccessModule, canManageModule } from "../../lib/auth/permissions";
 import { isEmployedWorkforce } from "../../lib/domains/organization";
@@ -870,6 +871,12 @@ export const OrganizationView: React.FC = () => {
           >
             بيانات المنشأة والحسابات
           </TabsTrigger>
+          <TabsTrigger
+            value="workforce-planning"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5"
+          >
+            تخطيط القوى العاملة
+          </TabsTrigger>
         </TabsList>
 
         {/* ==================== TAB 1: DEPARTMENTS & STRUCTURE ==================== */}
@@ -1693,6 +1700,11 @@ export const OrganizationView: React.FC = () => {
         {/* ==================== TAB 7: COMPANY PROFILE ==================== */}
         <TabsContent value="company" className="space-y-4 pt-4">
           <CompanyProfilePanel />
+        </TabsContent>
+
+        {/* ==================== TAB 8: WORKFORCE PLANNING ==================== */}
+        <TabsContent value="workforce-planning" className="pt-4">
+          <WorkforcePlanningView companyId={company?.id} />
         </TabsContent>
       </Tabs>
 

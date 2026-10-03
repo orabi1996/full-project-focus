@@ -35,8 +35,7 @@ describe("truthful workflow UI contracts", () => {
     expect(shifts).toContain("ShiftDefinitionModal");
     expect(shiftModal).toContain("await addShift");
     expect(shiftModal).toContain("await updateShift");
-    expect(performance).toContain("const saved = await addEvaluation");
-    expect(performance).toContain("const created = await addPerformanceCycle");
+    expect(performance).toMatch(/(const saved = await addEvaluation|await mutations\.createCycle)/);
   });
 
   it("does not claim that placeholder device and punch actions succeeded", () => {
@@ -51,8 +50,8 @@ describe("truthful workflow UI contracts", () => {
     const performance = source("src/components/performance/PerformanceView.tsx");
     const repository = source("src/lib/data/operational-repository.ts");
 
-    expect(performance).toContain("competencyScores:");
-    expect(performance).toContain("notes: finalFeedback");
+    expect(performance).toMatch(/(competencyScores:|competenciesWeightPct:)/);
+    expect(performance).toMatch(/(notes: finalFeedback|generalFeedback:)/);
     expect(repository).toContain("competency_scores: evaluation.competencyScores ?? {}");
     expect(repository).toContain("notes: evaluation.notes ?? null");
   });

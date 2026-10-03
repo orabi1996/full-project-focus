@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 import { RouteGuard } from "../../components/auth/RouteGuard";
 
-const RecruitmentView = lazy(() =>
-  import("../../components/recruitment/RecruitmentView").then((m) => ({
-    default: m.RecruitmentView,
+const WorkforcePlanningView = lazy(() =>
+  import("../../components/workforce/WorkforcePlanningView").then((m) => ({
+    default: m.WorkforcePlanningView,
   })),
 );
 
@@ -25,7 +25,7 @@ function WorkforceRoute() {
           </div>
         }
       >
-        <RecruitmentView key="workforce" section="workforce" />
+        <WorkforcePlanningView />
       </Suspense>
     </RouteGuard>
   );

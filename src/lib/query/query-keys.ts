@@ -254,9 +254,46 @@ export const queryKeys = {
   },
   recruitment: {
     all: ["recruitment"] as const,
-    openings: () => [...queryKeys.recruitment.all, "openings"] as const,
-    candidates: () => [...queryKeys.recruitment.all, "candidates"] as const,
-    offers: () => [...queryKeys.recruitment.all, "offers"] as const,
+    openings: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.recruitment.all, "openings", filters] as const)
+        : ([...queryKeys.recruitment.all, "openings"] as const),
+    opening: (id: string) => [...queryKeys.recruitment.all, "opening", id] as const,
+    requisitions: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.recruitment.all, "requisitions", filters] as const)
+        : ([...queryKeys.recruitment.all, "requisitions"] as const),
+    requisition: (id: string) => [...queryKeys.recruitment.all, "requisition", id] as const,
+    candidates: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.recruitment.all, "candidates", filters] as const)
+        : ([...queryKeys.recruitment.all, "candidates"] as const),
+    candidate: (id: string) => [...queryKeys.recruitment.all, "candidate", id] as const,
+    pipeline: (filters?: string | Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.recruitment.all, "pipeline", typeof filters === "string" ? { jobId: filters } : filters] as const)
+        : ([...queryKeys.recruitment.all, "pipeline"] as const),
+    interviews: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.recruitment.all, "interviews", filters] as const)
+        : ([...queryKeys.recruitment.all, "interviews"] as const),
+    interview: (id: string) => [...queryKeys.recruitment.all, "interview", id] as const,
+    scorecards: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.recruitment.all, "scorecards", filters] as const)
+        : ([...queryKeys.recruitment.all, "scorecards"] as const),
+    offers: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.recruitment.all, "offers", filters] as const)
+        : ([...queryKeys.recruitment.all, "offers"] as const),
+    offer: (id: string) => [...queryKeys.recruitment.all, "offer", id] as const,
+    kpis: (companyId?: string | null) =>
+      [...queryKeys.recruitment.all, "kpis", companyId ?? "current"] as const,
+    talentPool: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.recruitment.all, "talentPool", filters] as const)
+        : ([...queryKeys.recruitment.all, "talentPool"] as const),
+    hiringRequests: () => [...queryKeys.recruitment.all, "hiringRequests"] as const,
     workforce: () => [...queryKeys.recruitment.all, "workforce"] as const,
   },
   assets: {

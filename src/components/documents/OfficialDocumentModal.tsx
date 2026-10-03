@@ -34,6 +34,11 @@ interface OfficialDocumentModalProps {
   employee: Employee;
   documentType: DocType;
   destinationEntity?: string;
+  referenceNumber?: string;
+  companyLegalNameAr?: string;
+  companyRegistrationNo?: string;
+  companyTaxNo?: string;
+  clearanceVerified?: boolean;
 }
 
 export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
@@ -42,6 +47,11 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
   employee,
   documentType: initialDocType,
   destinationEntity: initialDestination = "إلى من يهمه الأمر (البنوك / السفارات والجهات الرسمية)",
+  referenceNumber,
+  companyLegalNameAr,
+  companyRegistrationNo,
+  companyTaxNo,
+  clearanceVerified = false,
 }) => {
   const [currentDocType, setCurrentDocType] = useState<DocType>(initialDocType);
   const [destinationEntity, setDestinationEntity] = useState(initialDestination);
@@ -51,7 +61,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
     month: "long",
     day: "numeric",
   });
-  const refNo = `DOC-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+  const refNo = referenceNumber || "DOC-OFFICIAL";
 
   const handlePrint = () => {
     const sheet = document.getElementById("printable-official-letter-sheet");
@@ -201,12 +211,19 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
               <AppLogo height={44} />
               <div className="space-y-0.5">
                 <h1 className="text-sm font-black text-slate-900">
-                  كلاسيرا بالس لحلول رأس المال البشري
+                  {companyLegalNameAr || "شركة كلاسيرا بالس لحلول رأس المال البشري"}
                 </h1>
-                <p className="text-[10px] text-slate-600 font-medium">
-                  سجل تجاري: 1010789654 • الرقم الضريبي: 300098765400003 • رقم 700: 7001928374
-                </p>
-                <p className="text-[10px] text-slate-600">الرياض - المقر الرئيسي - المملكة العربية السعودية</p>
+                {(companyRegistrationNo || companyTaxNo) ? (
+                  <p className="text-[10px] text-slate-600 font-medium">
+                    {companyRegistrationNo && `سجل تجاري: ${companyRegistrationNo}`}
+                    {companyRegistrationNo && companyTaxNo && " • "}
+                    {companyTaxNo && `الرقم الضريبي: ${companyTaxNo}`}
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-slate-600 font-medium">
+                    المملكة العربية السعودية - المقر الرئيسي
+                  </p>
+                )}
               </div>
             </div>
             <div className="text-end space-y-1 font-mono text-[11px]">
@@ -285,16 +302,16 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
                 <tbody>
                   <tr className="font-mono font-bold">
                     <td className="py-2.5 border-l border-slate-300">
-                      {employee.basicSalary.toLocaleString()} ر.س
+                      {employee.basicSalary ? employee.basicSalary.toLocaleString() : "—"} ر.س
                     </td>
                     <td className="py-2.5 border-l border-slate-300">
-                      {(employee.housingAllowance || Math.round(employee.basicSalary * 0.25)).toLocaleString()} ر.س
+                      {employee.housingAllowance != null ? employee.housingAllowance.toLocaleString() : "—"} ر.س
                     </td>
                     <td className="py-2.5 border-l border-slate-300">
-                      {(employee.transportAllowance || Math.round(employee.basicSalary * 0.08)).toLocaleString()} ر.س
+                      {employee.transportAllowance != null ? employee.transportAllowance.toLocaleString() : "—"} ر.س
                     </td>
                     <td className="py-2.5 font-black bg-slate-50 text-slate-900">
-                      {employee.totalSalary.toLocaleString()} ر.س
+                      {employee.totalSalary ? employee.totalSalary.toLocaleString() : "—"} ر.س
                     </td>
                   </tr>
                 </tbody>
@@ -365,13 +382,24 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
           {/* DOCUMENT BODY 4: CLEARANCE LETTER */}
           {currentDocType === "clearance_letter" && (
             <div className="space-y-4 text-justify text-slate-800 text-xs leading-6">
+              {!clearanceVerified && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-800 font-bold text-xs">
+                  ⚠️ تنبيه: هذه الوثيقة مسودة أولية — لم يكتمل إخلاء الطرف واعتماد المخالصة رسمياً في النظام بعد. لا تُعتمد كوثيقة نهائية قبل استكمال كافة بنود إخلاء الطرف وتسليم العهد.
+                </div>
+              )}
               <p>
                 تحية طيبة وبعد ،،<br />
-                تشهد إدارة الموارد البشرية بمنظومة كلاسيرا بالس بأن الموظف / <strong>{employee.firstNameAr} {employee.lastNameAr}</strong> (هوية رقم: <span className="font-mono font-bold">{employee.nationalIdOrIqama}</span>) قد أنهى خدمته لدى الشركة بصورة نظامية، وقد تم تسليمه كافة مستحقاته النظامية ومكافأة نهاية الخدمة وفقاً للمادتين 84 و 85 من نظام العمل السعودي.
+                {clearanceVerified ? (
+                  <>تشهد إدارة الموارد البشرية بـ{companyLegalNameAr || "المنشأة"} بأن الموظف / <strong>{employee.firstNameAr} {employee.lastNameAr}</strong> (هوية رقم: <span className="font-mono font-bold">{employee.nationalIdOrIqama}</span>) قد أنهى خدمته لدى الشركة بصورة نظامية، وقد تم تسليمه كافة مستحقاته النظامية ومكافأة نهاية الخدمة وفقاً للمادتين 84 و 85 من نظام العمل السعودي.</>
+                ) : (
+                  <>مسودة شهادة إخلاء طرف للموظف / <strong>{employee.firstNameAr} {employee.lastNameAr}</strong> (هوية رقم: <span className="font-mono font-bold">{employee.nationalIdOrIqama}</span>) — قيد استيفاء متطلبات إخلاء الطرف الرسمية وتسليم العهد.</>
+                )}
               </p>
-              <p>
-                كما تشهد الشركة بأن الموظف قد قام بإخلاء طرفه وتسليم كافة العهد والأصول والمستندات المسلمة إليه أثناء فترة عمله، وبهذا تعتبر ذمته بريئة تجاه الشركة من أي التزامات وظيفية أو مالية حتى تاريخه.
-              </p>
+              {clearanceVerified && (
+                <p>
+                  كما تشهد الشركة بأن الموظف قد قام بإخلاء طرفه وتسليم كافة العهد والأصول والمستندات المسلمة إليه أثناء فترة عمله، وبهذا تعتبر ذمته بريئة تجاه الشركة من أي التزامات وظيفية أو مالية حتى تاريخه.
+                </p>
+              )}
             </div>
           )}
 
@@ -380,7 +408,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
             <div className="space-y-4 text-justify text-slate-800 text-xs leading-6">
               <p>
                 تحية طيبة وبعد ،،<br />
-                تشهد إدارة الموارد البشرية بمنظومة كلاسيرا بالس بأن الموظف / <strong>{employee.firstNameAr} {employee.lastNameAr}</strong> قد عمل لدينا في وظيفة (<strong>{employee.jobTitleAr}</strong>) في قطاع ({employee.departmentName}) خلال الفترة من (<span className="font-mono font-bold">{employee.hireDate}</span>) وحتى تاريخه.
+                تشهد إدارة الموارد البشرية بـ{companyLegalNameAr || "المنشأة"} بأن الموظف / <strong>{employee.firstNameAr} {employee.lastNameAr}</strong> قد عمل لدينا في وظيفة (<strong>{employee.jobTitleAr}</strong>) في قطاع ({employee.departmentName}) خلال الفترة من (<span className="font-mono font-bold">{employee.hireDate}</span>) وحتى تاريخه.
               </p>
               <p>
                 وخلال فترة خدمته تميز بالانضباط المهني والكفاءة العالية وحسن السيرة والسلوك والالتزام بقوانين العمل. وقد أُعطيت له هذه الشهادة بناءً على طلبه كشهادة خبرة دون أدنى مسؤولية على الشركة.
@@ -391,7 +419,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
           {/* DOCUMENT BODY 6: QIWA CONTRACT */}
           {currentDocType === "employment_contract" && (
             <div className="space-y-3 text-slate-800 text-xs leading-5">
-              <p className="font-bold">الطرف الأول (صاحب العمل): كلاسيرا بالس لحلول رأس المال البشري</p>
+              <p className="font-bold">الطرف الأول (صاحب العمل): {companyLegalNameAr || "المنشأة"}</p>
               <p className="font-bold">
                 الطرف الثاني (الموظف): {employee.firstNameAr} {employee.lastNameAr} - هوية رقم (
                 {employee.nationalIdOrIqama})
@@ -423,7 +451,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
           <div className="border-t-2 border-slate-900 pt-6 mt-8 flex justify-between items-end">
             <div className="space-y-1">
               <p className="font-bold text-slate-900">إدارة الموارد البشرية والشؤون القانونية</p>
-              <p className="text-[11px] text-slate-600">كلاسيرا بالس لحلول رأس المال البشري</p>
+              <p className="text-[11px] text-slate-600">{companyLegalNameAr || "المنشأة"}</p>
               <div className="h-16 w-36 border-2 border-dashed border-emerald-600 rounded-lg flex items-center justify-center text-emerald-700 font-black text-[11px] mt-2 rotate-[-4deg]">
                 ختم الموارد البشرية المعتمد
               </div>

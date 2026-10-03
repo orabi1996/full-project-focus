@@ -269,9 +269,9 @@ export const queryKeys = {
         ? ([...queryKeys.recruitment.all, "candidates", filters] as const)
         : ([...queryKeys.recruitment.all, "candidates"] as const),
     candidate: (id: string) => [...queryKeys.recruitment.all, "candidate", id] as const,
-    pipeline: (filters?: string | Record<string, unknown>) =>
+    pipeline: (filters?: Record<string, unknown>) =>
       filters
-        ? ([...queryKeys.recruitment.all, "pipeline", typeof filters === "string" ? { jobId: filters } : filters] as const)
+        ? ([...queryKeys.recruitment.all, "pipeline", filters] as const)
         : ([...queryKeys.recruitment.all, "pipeline"] as const),
     interviews: (filters?: Record<string, unknown>) =>
       filters

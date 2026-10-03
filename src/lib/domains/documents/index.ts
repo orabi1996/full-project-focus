@@ -9,6 +9,7 @@ import {
   createEmployeeDocumentRecord,
   verifyEmployeeDocumentRecord,
 } from "../../data/operational-repository";
+import { useDocumentMutationBundle } from "../../data/documents-repository";
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
@@ -47,6 +48,7 @@ export function useDocumentMutations() {
   const { session, isDemo } = useAuth();
   const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
+  const repoMutations = useDocumentMutationBundle();
 
   const addCompanyDocument = useCallback(
     async (
@@ -85,8 +87,9 @@ export function useDocumentMutations() {
         mode,
         mutationKey: `create-company-doc-${document.titleAr}-${docId}`,
         operation: async () => {
+          let res: unknown;
           try {
-            await createCompanyDocumentRecord(newDoc);
+            res = await createCompanyDocumentRecord(newDoc);
           } catch (insertErr) {
             if (fileId) {
               await rollbackUploadedFile({ fileId }).catch((rbErr) =>
@@ -98,7 +101,7 @@ export function useDocumentMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.documents.company() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          return res;
         },
         demoOperation: () => {
           demoStore.companyDocs = [...demoStore.companyDocs, newDoc];
@@ -155,8 +158,9 @@ export function useDocumentMutations() {
         mode,
         mutationKey: `create-emp-doc-${document.employeeId}-${document.titleAr}-${docId}`,
         operation: async () => {
+          let res: unknown;
           try {
-            await createEmployeeDocumentRecord(newDoc);
+            res = await createEmployeeDocumentRecord(newDoc);
           } catch (insertErr) {
             if (fileId) {
               await rollbackUploadedFile({ fileId }).catch((rbErr) =>
@@ -169,7 +173,7 @@ export function useDocumentMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.documents.employees() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          return res;
         },
         demoOperation: () => {
           demoStore.employeeDocs = [...demoStore.employeeDocs, newDoc];
@@ -199,10 +203,10 @@ export function useDocumentMutations() {
         mode,
         mutationKey: `archive-doc-${docId}`,
         operation: async () => {
-          await archiveDocumentRecord(docId, type, fileId);
+          const res = await archiveDocumentRecord(docId, type, fileId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          return res;
         },
         demoOperation: () => {
           if (type === "company") {
@@ -211,7 +215,6 @@ export function useDocumentMutations() {
             demoStore.employeeDocs = demoStore.employeeDocs.filter((d) => d.id !== docId);
           }
           demoStore.notify();
-          return true;
         },
         onCommitted: () => {
           toast.success("تم أرشفة وحذف المستند بنجاح");
@@ -241,7 +244,7 @@ export function useDocumentMutations() {
         mode,
         mutationKey: `verify-emp-doc-${docId}-${status}`,
         operation: async () => {
-          await verifyEmployeeDocumentRecord(
+          const res = await verifyEmployeeDocumentRecord(
             docId,
             status,
             "مسؤول الموارد البشرية",
@@ -249,7 +252,7 @@ export function useDocumentMutations() {
           );
           await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          return res;
         },
         demoOperation: () => {
           demoStore.employeeDocs = demoStore.employeeDocs.map((d) =>
@@ -264,7 +267,6 @@ export function useDocumentMutations() {
               : d,
           );
           demoStore.notify();
-          return true;
         },
         onCommitted: () => {
           if (status === "valid") {
@@ -293,17 +295,16 @@ export function useDocumentMutations() {
         mode,
         mutationKey: `ack-doc-${docId}-${empId}`,
         operation: async () => {
-          await acknowledgeDocumentRecord(docId, empId);
+          const res = await acknowledgeDocumentRecord(docId, empId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          return res;
         },
         demoOperation: () => {
           demoStore.companyDocs = demoStore.companyDocs.map((d) =>
             d.id === docId ? { ...d, acknowledgedCount: d.acknowledgedCount + 1 } : d,
           );
           demoStore.notify();
-          return true;
         },
         onCommitted: () => {
           toast.success("تم تأكيد الاطلاع والإقرار على المستند بنجاح");
@@ -318,11 +319,57 @@ export function useDocumentMutations() {
     [mode, queryClient],
   );
 
+  const publishCompanyDoc = useCallback(
+    async (docId: string): Promise<boolean> => {
+      const result = await executeReliableMutation({
+        mode,
+        mutationKey: `publish-doc-${docId}`,
+        operation: async () => {
+          const res = await repoMutations.publishCompanyDoc.mutateAsync({ docId });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
+          return res;
+        },
+        demoOperation: () => {
+          demoStore.companyDocs = demoStore.companyDocs.map((d) =>
+            d.id === docId ? { ...d, status: "active" as const } : d,
+          );
+          demoStore.notify();
+          return true;
+        },
+        onCommitted: () => {
+          toast.success("تم نشر الوثيقة بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر نشر الوثيقة");
+        },
+      });
+      return result.ok;
+    },
+    [mode, queryClient, repoMutations],
+  );
+
+  const generateOfficialRef = useCallback(
+    async (params: { companyId: string; docType: string; employeeId?: string }): Promise<string | null> => {
+      if (mode !== "live") return null;
+      try {
+        const res = await repoMutations.generateOfficialRef.mutateAsync(params);
+        return ((res as Record<string, unknown>)?.reference_number as string) ?? null;
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "تعذر توليد رقم المرجع الرسمي");
+        return null;
+      }
+    },
+    [mode, repoMutations],
+  );
+
   return {
     addCompanyDocument,
     addEmployeeDocument,
     archiveDocument,
     verifyEmployeeDocument,
     acknowledgeDocument,
+    publishCompanyDoc,
+    generateOfficialRef,
   };
 }

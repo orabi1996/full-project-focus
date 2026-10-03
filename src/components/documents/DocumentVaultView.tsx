@@ -155,14 +155,14 @@ type ViewMode = "grid" | "table";
 
 export function generateDocumentHtml(
   doc: StoredDocument,
-  company: { legalNameAr?: string },
+  company: { legalNameAr?: string; crNumber?: string; taxNumber?: string },
 ): string {
   const currentDate = new Date().toLocaleDateString("ar-SA", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
-  const refNo = doc.docNumber || `DOC-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+  const refNo = doc.docNumber || `DOC-${doc.id.slice(0, 8).toUpperCase()}`;
 
   return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -316,7 +316,7 @@ export function generateDocumentHtml(
     <div class="header">
       <div>
         <h1>${company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري"}</h1>
-        <p>سجل تجاري: 1010789654 • الرقم الضريبي: 300098765400003</p>
+        <p>${company.crNumber ? `سجل تجاري: ${company.crNumber}` : ""}${company.crNumber && company.taxNumber ? " • " : ""}${company.taxNumber ? `الرقم الضريبي: ${company.taxNumber}` : ""}</p>
         <p>المملكة العربية السعودية - الرياض - المقر الرئيسي</p>
       </div>
       <div class="meta">
@@ -1187,7 +1187,7 @@ export const DocumentVaultView: React.FC = () => {
                   : "other",
           titleAr: newDoc.title,
           titleEn: newDoc.title,
-          documentNumber: newDoc.docNumber || `DOC-${Math.floor(100000 + Math.random() * 900000)}`,
+          documentNumber: newDoc.docNumber?.trim() || `DOC-${Date.now()}`,
           issueDate: new Date().toISOString().split("T")[0],
           expiryDate: newDoc.expiryDate || undefined,
           fileUrl: "",
@@ -3155,6 +3155,9 @@ export const DocumentVaultView: React.FC = () => {
           onClose={() => setIsOfficialDocModalOpen(false)}
           employee={selectedEmployeeObj}
           documentType={officialDocType}
+          companyLegalNameAr={company.legalNameAr}
+          companyRegistrationNo={company.crNumber}
+          companyTaxNo={company.taxNumber}
         />
       )}
 
@@ -3243,10 +3246,15 @@ export const DocumentVaultView: React.FC = () => {
                       <h1 className="text-base font-black text-slate-900">
                         {company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري"}
                       </h1>
-                      <p className="text-[11px] text-slate-600 font-medium">
-                        سجل تجاري: 1010789654 • الرقم الضريبي: 300098765400003
-                      </p>
-                      <p className="text-[11px] text-slate-600">المملكة العربية السعودية - الرياض</p>
+                      {(company.crNumber || company.taxNumber) ? (
+                        <p className="text-[11px] text-slate-600 font-medium">
+                          {company.crNumber && `سجل تجاري: ${company.crNumber}`}
+                          {company.crNumber && company.taxNumber && " • "}
+                          {company.taxNumber && `الرقم الضريبي: ${company.taxNumber}`}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-slate-600">المملكة العربية السعودية - الرياض</p>
+                      )}
                     </div>
                     <div className="text-end space-y-1 font-mono text-[11px]">
                       <p className="font-bold text-slate-900">

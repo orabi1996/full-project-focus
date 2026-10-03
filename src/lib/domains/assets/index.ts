@@ -3,15 +3,17 @@ import { useCallback } from "react";
 import type { HardwareAsset } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
 import {
-  assignAssetRecord,
-  createAssetRecord,
-  returnAssetRecord,
-} from "../../data/operational-repository";
+  useAssets as useAssetsRepo,
+  useAssetCustodyHistory,
+  useAssetMutationBundle,
+} from "../../data/assets-repository";
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
+
+export { useAssetsRepo, useAssetCustodyHistory };
 
 export function useAssets() {
   const { session, isDemo } = useAuth();
@@ -34,22 +36,58 @@ export function useAssetMutations() {
   const { session, isDemo } = useAuth();
   const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
+  const repoMutations = useAssetMutationBundle();
 
   const addAsset = useCallback(
-    async (asset: Omit<HardwareAsset, "id">): Promise<boolean> => {
+    async (
+      asset: Omit<HardwareAsset, "id"> & {
+        companyId?: string;
+        acquisitionDate?: string;
+        purchaseValue?: number;
+        condition?: string;
+        location?: string;
+        notes?: string;
+      },
+    ): Promise<boolean> => {
+      const serial = asset.serialNumber?.trim();
+      const tag = asset.assetTag?.trim();
+
+      if (!serial) {
+        toast.error("الرقم التسلسلي مطلوب");
+        return false;
+      }
+      if (!tag) {
+        toast.error("رمز الأصل (Asset Tag) مطلوب");
+        return false;
+      }
+
       const newAsset: HardwareAsset = {
         ...asset,
         id: `ast-${Date.now()}`,
+        serialNumber: serial,
+        assetTag: tag,
       };
 
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `create-asset-${asset.serialNumber || asset.nameAr}`,
+        mutationKey: `create-asset-${serial}-${tag}`,
         operation: async () => {
-          await createAssetRecord(newAsset);
+          const res = await repoMutations.createAssetAtomic.mutateAsync({
+            companyId: asset.companyId || "00000000-0000-0000-0000-000000000000",
+            nameAr: asset.nameAr,
+            nameEn: asset.nameEn || asset.nameAr,
+            category: asset.category,
+            serialNumber: serial,
+            assetTag: tag,
+            acquisitionDate: asset.acquisitionDate,
+            purchaseValue: asset.purchaseValue,
+            condition: asset.condition || "good",
+            location: asset.location,
+            notes: asset.notes,
+          });
           await queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          return res;
         },
         demoOperation: () => {
           demoStore.assets = [...demoStore.assets, newAsset];
@@ -66,19 +104,23 @@ export function useAssetMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [mode, queryClient, repoMutations],
   );
 
   const assignAsset = useCallback(
-    async (assetId: string, employeeId: string): Promise<boolean> => {
+    async (assetId: string, employeeId: string, condition: string = "good"): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
         mutationKey: `assign-asset-${assetId}-${employeeId}`,
         operation: async () => {
-          await assignAssetRecord(assetId, employeeId);
+          const res = await repoMutations.assignAssetAtomic.mutateAsync({
+            assetId,
+            employeeId,
+            condition,
+          });
           await queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          return res;
         },
         demoOperation: () => {
           const emp = demoStore.employees.find((e) => e.id === employeeId);
@@ -106,19 +148,22 @@ export function useAssetMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [mode, queryClient, repoMutations],
   );
 
   const returnAsset = useCallback(
-    async (assetId: string): Promise<boolean> => {
+    async (assetId: string, condition: string = "good"): Promise<boolean> => {
       const result = await executeReliableMutation({
         mode,
         mutationKey: `return-asset-${assetId}`,
         operation: async () => {
-          await returnAssetRecord(assetId);
+          const res = await repoMutations.returnAssetAtomic.mutateAsync({
+            assetId,
+            condition,
+          });
           await queryClient.invalidateQueries({ queryKey: queryKeys.assets.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
+          return res;
         },
         demoOperation: () => {
           demoStore.assets = demoStore.assets.map((a) =>
@@ -145,8 +190,25 @@ export function useAssetMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [mode, queryClient, repoMutations],
   );
 
-  return { addAsset, assignAsset, returnAsset };
+  const checkClearanceBlock = useCallback(
+    async (employeeId: string): Promise<{ blocksCount: number; blocks: boolean }> => {
+      if (mode !== "live") return { blocksCount: 0, blocks: false };
+      try {
+        const res = await repoMutations.checkAssetClearanceBlock.mutateAsync({ employeeId });
+        const record = res as Record<string, unknown>;
+        return {
+          blocksCount: (record?.assigned_asset_count as number) ?? 0,
+          blocks: Boolean(record?.blocks_clearance),
+        };
+      } catch {
+        return { blocksCount: 0, blocks: false };
+      }
+    },
+    [mode, repoMutations],
+  );
+
+  return { addAsset, assignAsset, returnAsset, checkClearanceBlock };
 }

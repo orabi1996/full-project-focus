@@ -50,10 +50,9 @@ export const AssetsView: React.FC = () => {
   // Asset Form State
   const [assetName, setAssetName] = useState("");
   const [assetCategory, setAssetCategory] = useState<HardwareAsset["category"]>("laptop");
-  const [assetSerial, setAssetSerial] = useState(
-    `SN-${Math.floor(100000 + Math.random() * 900000)}`,
-  );
-  const [assignedEmpId, setAssignedEmpId] = useState(employees[0]?.id || "");
+  const [assetSerial, setAssetSerial] = useState("");
+  const [assetTag, setAssetTag] = useState("");
+  const [assignedEmpId, setAssignedEmpId] = useState("");
 
   // Doc Form State
   const [docTitle, setDocTitle] = useState("");
@@ -65,8 +64,16 @@ export const AssetsView: React.FC = () => {
   const [acknowledgingDocId, setAcknowledgingDocId] = useState<string | null>(null);
 
   const handleCreateAsset = async () => {
-    if (!assetName) {
+    if (!assetName.trim()) {
       toast.error("يرجى كتابة اسم العهدة / الجهاز");
+      return;
+    }
+    if (!assetTag.trim()) {
+      toast.error("يرجى إدخال رمز الأصل (Asset Tag) — مثال: TAG-2026-001");
+      return;
+    }
+    if (!assetSerial.trim()) {
+      toast.error("يرجى إدخال الرقم التسلسلي للجهاز");
       return;
     }
     if (isSubmittingAsset) return;
@@ -75,11 +82,11 @@ export const AssetsView: React.FC = () => {
     try {
       const emp = employees.find((e) => e.id === assignedEmpId);
       const ok = await addAsset({
-        assetTag: `TAG-${Math.floor(1000 + Math.random() * 9000)}`,
-        nameAr: assetName,
-        nameEn: assetName,
+        assetTag: assetTag.trim(),
+        nameAr: assetName.trim(),
+        nameEn: assetName.trim(),
         category: assetCategory,
-        serialNumber: assetSerial,
+        serialNumber: assetSerial.trim(),
         assignedToEmployeeId: emp?.id,
         assignedToEmployeeName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : undefined,
         status: emp ? "assigned" : "available",
@@ -89,6 +96,9 @@ export const AssetsView: React.FC = () => {
         toast.success(`تم تسجيل العهدة (${assetName}) بنجاح!`);
         setIsAddAssetOpen(false);
         setAssetName("");
+        setAssetTag("");
+        setAssetSerial("");
+        setAssignedEmpId("");
       }
     } finally {
       setIsSubmittingAsset(false);
@@ -96,8 +106,8 @@ export const AssetsView: React.FC = () => {
   };
 
   const handleCreateDoc = async () => {
-    if (!docTitle || !docFileUrl) {
-      toast.error("يرجى كتابة عنوان الوثيقة وإضافة رابط الملف");
+    if (!docTitle.trim()) {
+      toast.error("يرجى كتابة عنوان الوثيقة");
       return;
     }
     if (isSubmittingDoc) return;
@@ -105,11 +115,11 @@ export const AssetsView: React.FC = () => {
 
     try {
       const ok = await addCompanyDocument({
-        titleAr: docTitle,
-        titleEn: docTitle,
+        titleAr: docTitle.trim(),
+        titleEn: docTitle.trim(),
         category: docCategory,
-        version: "v1.0 (2026)",
-        fileUrl: docFileUrl,
+        version: "v1.0",
+        fileUrl: docFileUrl.trim(),
         requiresAcknowledgment: true,
         visibilityScope: "all",
       });
@@ -323,11 +333,22 @@ export const AssetsView: React.FC = () => {
               </select>
             </div>
             <div className="space-y-1.5">
+              <label className="font-bold">رمز الأصل (Asset Tag) * — مثال: TAG-2026-001</label>
+              <input
+                type="text"
+                value={assetTag}
+                onChange={(e) => setAssetTag(e.target.value)}
+                placeholder="TAG-2026-001"
+                className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+            <div className="space-y-1.5">
               <label className="font-bold">الرقم التسلسلي (Serial Number) *</label>
               <input
                 type="text"
                 value={assetSerial}
                 onChange={(e) => setAssetSerial(e.target.value)}
+                placeholder="مثال: SN-ABC-123456"
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>

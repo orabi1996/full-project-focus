@@ -163,7 +163,7 @@ export function exportReportDataToArabicPdf(
     title: reportTitle,
     columns: columns.map((c) => c.label),
     rows: tableRows,
-    note: `تم استخراج هذا التقرير آلياً من منصة Classera Pulse بتاريخ ${new Date().toLocaleDateString("ar-SA")}`,
+    note: `تم استخراج هذا التقرير آلياً من منصة مدار إكس (MadarX Enterprise Workforce Platform) بتاريخ ${new Date().toLocaleDateString("ar-SA")}`,
   };
 
   openArabicReportPdf({

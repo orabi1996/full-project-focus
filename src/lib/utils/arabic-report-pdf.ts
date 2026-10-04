@@ -53,20 +53,20 @@ export function openArabicReportPdf(options: ArabicReportOptions) {
     .join("");
 
   win.document.write(`<!doctype html>
-<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${options.title} | Classera Pulse</title>
+<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${options.title} | MadarX - منظومة العمل المتكاملة</title>
 <style>
   *{box-sizing:border-box}
-  body{font-family:"Segoe UI",Tahoma,Arial,sans-serif;margin:22px;color:#1c1b1f}
-  .rep-header{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #004BCE;padding-bottom:12px;margin-bottom:16px}
+  body{font-family:"Segoe UI",Tahoma,Arial,sans-serif;margin:22px;color:#0f172a}
+  .rep-header{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0066FF;padding-bottom:12px;margin-bottom:16px}
   .rep-brand{display:flex;align-items:center;gap:12px}
-  .rep-logo{height:46px;max-width:180px;object-fit:contain}
-  h1{font-size:20px;margin:0 0 4px;color:#004BCE}
-  h2{font-size:14px;margin:20px 0 8px;padding-bottom:4px;border-bottom:2px solid #00B5FF;color:#004BCE}
+  .rep-logo{height:48px;max-width:200px;object-fit:contain}
+  h1{font-size:20px;margin:0 0 4px;color:#0066FF}
+  h2{font-size:14px;margin:20px 0 8px;padding-bottom:4px;border-bottom:2px solid #00A3FF;color:#0066FF}
   .sub{color:#64748b;font-size:12px}
   .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
   .card{border:1px solid #e2e8f0;border-radius:12px;padding:9px 11px;background:#f8fafc}
   .card span{font-size:10px;color:#64748b}
-  .card b{display:block;font-size:14px;margin-top:3px;color:#004BCE}
+  .card b{display:block;font-size:14px;margin-top:3px;color:#0066FF}
   table{width:100%;border-collapse:collapse;font-size:11.5px}
   th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:right}
   th{background:#f1f5f9;color:#0f172a;font-weight:700}
@@ -82,14 +82,14 @@ export function openArabicReportPdf(options: ArabicReportOptions) {
     <div class="sub">${options.subtitle ?? ""} — صدر في ${new Date().toLocaleString("ar-SA")}</div>
   </div>
   <div class="rep-brand">
-    <img src="${window.location.origin}${getActiveBrandLogoPath()}" class="rep-logo" alt="Classera Pulse" onerror="this.style.display='none'" />
+    <img src="${window.location.origin}${getActiveBrandLogoPath()}" class="rep-logo" alt="MadarX" onerror="this.style.display='none'" />
   </div>
 </div>
 ${cardsHtml ? `<div class="cards">${cardsHtml}</div>` : ""}
 ${sectionsHtml}
 <div class="foot">
-  <span>${options.footer ?? "تقرير آلي معتمد مستخرج من منصة كلاسيرا بالس لإدارة رأس المال البشري (Classera Pulse HCM)."}</span>
-  <span>Classera Pulse HCM © ${new Date().getFullYear()}</span>
+  <span>${options.footer ?? "تقرير آلي معتمد مستخرج من منصة مدار إكس لإدارة رأس المال البشري (MadarX Enterprise Workforce Platform)."}</span>
+  <span>MadarX Enterprise © ${new Date().getFullYear()}</span>
 </div>
 <script>window.onload=()=>{window.focus();window.print();}</script>
 </body></html>`);

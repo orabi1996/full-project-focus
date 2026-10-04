@@ -211,7 +211,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
               <AppLogo height={44} />
               <div className="space-y-0.5">
                 <h1 className="text-sm font-black text-slate-900">
-                  {companyLegalNameAr || "شركة كلاسيرا بالس لحلول رأس المال البشري"}
+                  {companyLegalNameAr || "شركة مدار إكس للحلول والتقنية المتقدمة"}
                 </h1>
                 {(companyRegistrationNo || companyTaxNo) ? (
                   <p className="text-[10px] text-slate-600 font-medium">
@@ -249,7 +249,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
             <div className="space-y-4 text-justify text-slate-800 text-xs leading-6">
               <p>
                 تحية طيبة وبعد ،،<br />
-                تشهد شركة كلاسيرا بالس لحلول رأس المال البشري بأن الموظف الموضحة بياناته أدناه يعمل لدينا
+                تشهد شركة مدار إكس للحلول والتقنية المتقدمة بأن الموظف الموضحة بياناته أدناه يعمل لدينا
                 وتحت كفالتنا، وما زال على رأس العمل حتى تاريخ إصدار هذه الشهادة:
               </p>
 
@@ -368,7 +368,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
             <div className="space-y-4 text-justify text-slate-800 text-xs leading-6">
               <p>
                 To Whom It May Concern / Embassy Visa Section,<br />
-                This is to certify that Mr./Ms. <strong>{employee.firstNameEn} {employee.lastNameEn}</strong>, holding {employee.nationality} Nationality, Passport No: <strong>{employee.passportNo || "N/A"}</strong> and National/Iqama ID: <strong>{employee.nationalIdOrIqama}</strong>, is currently employed with FOCUS Technology & Business Solutions as a full-time <strong>{employee.jobTitleEn || employee.jobTitleAr}</strong>.
+                This is to certify that Mr./Ms. <strong>{employee.firstNameEn} {employee.lastNameEn}</strong>, holding {employee.nationality} Nationality, Passport No: <strong>{employee.passportNo || "N/A"}</strong> and National/Iqama ID: <strong>{employee.nationalIdOrIqama}</strong>, is currently employed with MadarX Enterprise Workforce Platform as a full-time <strong>{employee.jobTitleEn || employee.jobTitleAr}</strong>.
               </p>
               <p>
                 The employee has been with our company since <strong>{employee.hireDate}</strong> and receives a total monthly salary of <strong>SAR {employee.totalSalary.toLocaleString()}</strong>.

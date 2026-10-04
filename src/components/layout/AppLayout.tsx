@@ -88,21 +88,21 @@ export const AppLayout: React.FC = () => {
             <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-muted-foreground">
               <div className="flex items-center gap-2">
                 <img
-                  src="/classera-pulse-logo.png"
-                  alt="Classera Pulse"
-                  className="h-5 w-auto object-contain"
+                  src="/madarx-logo.png"
+                  alt="MadarX"
+                  className="h-6 w-auto object-contain"
                 />
                 <span className="font-bold text-foreground">
-                  Classera Pulse™ HCM
+                  MadarX™ Enterprise Platform
                 </span>
                 <span className="text-border">|</span>
-                <span>جميع الحقوق محفوظة لشركة كاسيرا بلس © {new Date().getFullYear()}</span>
+                <span>جميع الحقوق محفوظة لمنظومة مدار إكس © {new Date().getFullYear()}</span>
               </div>
               <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                 <span className="font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
                   Enterprise Edition
                 </span>
-                <span>نظام إدارة رأس المال البشري والرواتب وحماية الأجور</span>
+                <span>منظومة العمل المتكاملة وإدارة رأس المال البشري</span>
               </div>
             </div>
           </footer>

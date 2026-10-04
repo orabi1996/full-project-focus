@@ -1,7 +1,7 @@
 export const en = {
   // Global & Navigation
-  appName: "Classera Pulse HCM",
-  appTagline: "Human Capital Management Platform",
+  appName: "MadarX Enterprise",
+  appTagline: "Enterprise Workforce Platform (منظومة العمل المتكاملة)",
   searchPlaceholder: "Search employees, requests, policies, departments...",
   notifications: "Notifications",
   role: "Current Role",

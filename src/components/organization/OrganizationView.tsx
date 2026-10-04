@@ -1264,7 +1264,7 @@ export const OrganizationView: React.FC = () => {
                 {!selectedUnit ? (
                   <div className="space-y-2.5 text-xs text-muted-foreground">
                     <p className="font-black text-foreground text-sm">
-                      {company.legalNameAr || "مجموعة كلاسيرا القابضة"}
+                      {company.legalNameAr || "مجموعة مدار إكس القابضة"}
                     </p>
                     <p>
                       السجل التجاري:{" "}
@@ -2135,7 +2135,7 @@ export const OrganizationView: React.FC = () => {
                 type="text"
                 value={subForm.nameAr}
                 onChange={(e) => setSubForm({ ...subForm, nameAr: e.target.value })}
-                placeholder="مثال: كلاسيرا لحلول التعليم الذكي"
+                placeholder="مثال: مدار إكس لحلول الأعمال والتقنية"
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>

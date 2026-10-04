@@ -1691,7 +1691,7 @@ export const EmployeesView: React.FC = () => {
                   type="email"
                   value={newEmp.email}
                   onChange={(e) => setNewEmp({ ...newEmp, email: e.target.value })}
-                  placeholder="ahmed@classera-pulse.com"
+                  placeholder="ahmed@madarx.com"
                   className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3.5 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>

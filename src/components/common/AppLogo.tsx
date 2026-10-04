@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import madarxLogo from "../../assets/madarx-logo.png";
+import madarxMark from "../../assets/madarx-mark.png";
 
 export type BrandLogoId = 1 | 2 | 3 | 4;
 
@@ -14,44 +16,34 @@ export interface BrandLogoConfig {
 export const BRAND_LOGO_OPTIONS: BrandLogoConfig[] = [
   {
     id: 4,
-    titleAr: "رأس المال البشري",
-    titleEn: "Human Capital Synergy",
-    subtitleAr: "شعار ثلاثي يجسد فريق العمل وتكامل رأس المال البشري (موصى به)",
-    path: "/brand-options/logo-option-4-hcm-team.png",
+    titleAr: "شعار مدار إكس الرسمي المعتمد",
+    titleEn: "MadarX Official Enterprise Identity",
+    subtitleAr: "الهوية الرسمية المعتمدة لمنظومة العمل المتكاملة وإدارة رأس المال البشري",
+    path: "/madarx-logo.png",
     recommended: true,
   },
   {
-    id: 2,
-    titleAr: "قوس C الديناميكي",
-    titleEn: "Dynamic C Arc",
-    subtitleAr: "أيقونة انسيابية حديثة تعبر عن الحركة والابتكار",
-    path: "/brand-options/logo-option-2-dynamic-c.png",
-  },
-  {
-    id: 3,
-    titleAr: "مونوغرام CP",
-    titleEn: "CP Monogram",
-    subtitleAr: "مونوغرام دائري متناسق يدمج حرفي C و P معاً",
-    path: "/brand-options/logo-option-3-cp-monogram.png",
-  },
-  {
     id: 1,
-    titleAr: "حرف P النابض",
-    titleEn: "Typographic Pulse",
-    subtitleAr: "شعار نصي أفقي مميز مع دمج حرف P النابض وخط السيان",
-    path: "/brand-options/logo-option-1-pulse-p.png",
+    titleAr: "رمز مدار إكس التقني",
+    titleEn: "MadarX Cybernetic Mark",
+    subtitleAr: "الأيقونة الرمزية المربعة لإدارة القوى العاملة",
+    path: "/madarx-mark.png",
   },
 ];
 
-const STORAGE_KEY = "classera_active_logo_id";
-const EVENT_KEY = "classera-brand-logo-change";
+const STORAGE_KEY = "madarx_active_logo_id";
+const EVENT_KEY = "madarx-brand-logo-change";
 
 export function getActiveBrandLogoId(): BrandLogoId {
   return 4; // Standardized Official Single Logo
 }
 
 export function getActiveBrandLogoPath(): string {
-  return "/classera-pulse-logo.png";
+  return "/madarx-logo.png";
+}
+
+export function getActiveBrandMarkPath(): string {
+  return "/madarx-mark.png";
 }
 
 export function setActiveBrandLogoId(id: BrandLogoId) {
@@ -115,21 +107,19 @@ export const AppLogo: React.FC<AppLogoProps> = ({
   variant = "full",
   className = "",
   height = 40,
-  optionId,
 }) => {
-  const { activeId, activeConfig } = useActiveBrandLogo();
-  const effectiveId = optionId || activeId;
-  const config = BRAND_LOGO_OPTIONS.find((o) => o.id === effectiveId) || activeConfig;
-
   if (variant === "mark") {
     // Compact circular or rounded mark for collapsed sidebar & mobile avatars
     return (
       <div className={`relative flex items-center justify-center shrink-0 ${className}`}>
         <div className="relative h-11 w-11 rounded-2xl bg-white p-1.5 shadow-md shadow-primary/10 border border-border/80 flex items-center justify-center overflow-hidden transition-transform duration-200 hover:scale-105">
           <img
-            src="/classera-pulse-logo.png"
-            alt="Classera Pulse Mark"
-            className="h-full w-full object-contain object-left scale-[1.75] translate-x-[-12%] rtl:translate-x-[12%]"
+            src={madarxMark || "/madarx-mark.png"}
+            alt="MadarX Mark"
+            className="h-full w-full object-contain"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = "/madarx-mark.png";
+            }}
           />
         </div>
       </div>
@@ -139,10 +129,13 @@ export const AppLogo: React.FC<AppLogoProps> = ({
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
       <img
-        src="/classera-pulse-logo.png"
-        alt="Classera Pulse - Human Capital Management"
-        className="h-10 w-auto max-w-[240px] object-contain transition-all duration-300 hover:opacity-95"
+        src={madarxLogo || "/madarx-logo.png"}
+        alt="MadarX - Enterprise Workforce Platform (منظومة العمل المتكاملة)"
+        className="w-auto max-w-[260px] object-contain transition-all duration-300 hover:opacity-95"
         style={{ height }}
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).src = "/madarx-logo.png";
+        }}
       />
     </div>
   );
@@ -150,6 +143,5 @@ export const AppLogo: React.FC<AppLogoProps> = ({
 
 /**
  * Interactive Brand Logo Switcher Component
- * Enables live switching between all 4 Classera Pulse designs
  */
 export const BrandLogoSwitcher: React.FC<{ compact?: boolean; className?: string }> = () => null;

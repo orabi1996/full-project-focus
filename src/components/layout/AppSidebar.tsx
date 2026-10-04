@@ -24,6 +24,7 @@ interface NavItemConfig {
   label: string;
   iconName: string;
   iconSource: IconSource;
+  accentColor?: string;
   badge?: string | number;
   badgeVariant?: "default" | "secondary" | "destructive" | "outline";
 }
@@ -53,6 +54,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           label: t.nav.dashboard,
           iconName: "dashboard",
           iconSource: "material",
+          accentColor: "#0066FF",
         },
       ],
     },
@@ -64,12 +66,14 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           label: t.nav.employees,
           iconName: "badge",
           iconSource: "material",
+          accentColor: "#0066FF",
         },
         {
           id: "documents",
           label: t.nav.documents,
           iconName: "folder_shared",
           iconSource: "material",
+          accentColor: "#2563EB",
         },
       ],
     },
@@ -81,6 +85,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           label: t.nav.workflow,
           iconName: "approval_delegation",
           iconSource: "material",
+          accentColor: "#6366F1",
           badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
           badgeVariant: "destructive",
         },
@@ -89,12 +94,14 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           label: t.nav.leaves,
           iconName: "event_available",
           iconSource: "material",
+          accentColor: "#0D9488",
         },
         {
           id: "attendance",
           label: t.nav.attendance,
           iconName: "schedule",
           iconSource: "material",
+          accentColor: "#0284C7",
           badge: lateAttendanceCount > 0 ? lateAttendanceCount : undefined,
           badgeVariant: "secondary",
         },
@@ -103,6 +110,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           label: t.nav.shifts,
           iconName: "calendar_month",
           iconSource: "material",
+          accentColor: "#0284C7",
         },
       ],
     },
@@ -114,18 +122,21 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           label: t.nav.payroll,
           iconName: "account_balance_wallet",
           iconSource: "material",
+          accentColor: "#059669",
         },
         {
           id: "loans",
           label: t.nav.loans,
           iconName: "credit_card",
           iconSource: "material",
+          accentColor: "#059669",
         },
         {
           id: "expenses",
           label: t.nav.expenses,
           iconName: "receipt_long",
           iconSource: "material",
+          accentColor: "#10B981",
         },
       ],
     },
@@ -137,18 +148,21 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           label: t.nav.ats,
           iconName: "person_search",
           iconSource: "material",
+          accentColor: "#7C3AED",
         },
         {
           id: "performance",
           label: t.nav.performance,
           iconName: "trending_up",
           iconSource: "material",
+          accentColor: "#06B6D4",
         },
         {
           id: "workforce",
           label: t.nav.workforce,
           iconName: "monitoring",
           iconSource: "material",
+          accentColor: "#0066FF",
         },
       ],
     },
@@ -160,18 +174,21 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           label: t.nav.assets,
           iconName: "devices",
           iconSource: "material",
+          accentColor: "#D97706",
         },
         {
           id: "reports",
           label: t.nav.reports,
           iconName: "analytics",
           iconSource: "material",
+          accentColor: "#1D4ED8",
         },
         {
           id: "audit",
           label: t.nav.audit,
           iconName: "verified_user",
           iconSource: "material",
+          accentColor: "#475569",
         },
       ],
     },
@@ -183,6 +200,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           label: t.nav.ess,
           iconName: "smartphone",
           iconSource: "material",
+          accentColor: "#0284C7",
           badge: "ESS",
           badgeVariant: "default",
         },
@@ -196,6 +214,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           label: t.nav.setup,
           iconName: "tune",
           iconSource: "material",
+          accentColor: "#64748B",
           badge: "الإعداد",
           badgeVariant: "outline",
         },
@@ -204,18 +223,21 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           label: t.nav.organization,
           iconName: "corporate_fare",
           iconSource: "material",
+          accentColor: "#0066FF",
         },
         {
           id: "rbac",
           label: t.nav.rbac,
           iconName: "admin_panel_settings",
           iconSource: "material",
+          accentColor: "#7C3AED",
         },
         {
           id: "integrations",
           label: t.nav.integrations,
           iconName: "hub",
           iconSource: "material",
+          accentColor: "#2563EB",
         },
       ],
     },
@@ -241,7 +263,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           </div>
         )}
         {collapsed && (
-          <div className="mx-auto" title="Classera Pulse">
+          <div className="mx-auto" title="MadarX - منظومة العمل المتكاملة">
             <AppLogo variant="mark" />
           </div>
         )}
@@ -301,7 +323,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                     title={collapsed ? item.label : undefined}
                     className={`group relative flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-xs font-bold transition-all duration-200 ${
                       isActive
-                        ? "bg-gradient-to-r from-[#004BCE] to-[#007CE8] text-white shadow-md shadow-blue-600/25 scale-[1.02]"
+                        ? "bg-gradient-to-r from-[#0066FF] to-[#00A3FF] text-white shadow-md shadow-blue-600/25 scale-[1.02]"
                         : "text-foreground/75 hover:bg-muted/80 hover:text-foreground"
                     } ${collapsed ? "justify-center px-0 h-11 w-11 mx-auto" : ""}`}
                   >
@@ -311,8 +333,9 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                       filled={isActive}
                       size={20}
                       className={`shrink-0 transition-transform duration-200 group-hover:scale-110 ${
-                        isActive ? "text-white font-black drop-shadow-xs" : "text-muted-foreground"
+                        isActive ? "text-white font-black drop-shadow-xs" : "group-hover:text-foreground"
                       }`}
+                      style={!isActive && item.accentColor ? { color: item.accentColor } : undefined}
                     />
                     {!collapsed && <span className="flex-1 text-start truncate">{item.label}</span>}
                     {!collapsed && item.badge !== undefined && (
@@ -340,15 +363,15 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         <div className="border-t border-border/60 p-3 bg-muted/20">
           <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
             <span className="font-bold flex items-center gap-1.5 text-foreground">
-              <span className="h-2 w-2 rounded-full bg-[#00B5FF] animate-pulse" />
-              Classera Pulse HCM
+              <span className="h-2 w-2 rounded-full bg-[#00A3FF] animate-pulse" />
+              MadarX Platform
             </span>
             <span className="font-mono bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full text-[10px]">
               v2026
             </span>
           </div>
           <div className="text-[9.5px] text-muted-foreground/80 text-start leading-tight">
-            جميع الحقوق محفوظة لشركة كاسيرا بلس
+            جميع الحقوق محفوظة لمنظومة مدار إكس © {new Date().getFullYear()}
           </div>
         </div>
       )}

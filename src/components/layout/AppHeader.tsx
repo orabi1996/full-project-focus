@@ -380,8 +380,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   </h4>
                   <p className="text-[11px] font-mono text-primary font-bold truncate">
                     {session?.user?.email?.includes("focus-hrms")
-                      ? "hr.admin@classera.com"
-                      : session?.user?.email || (currentUser.email?.includes("focus-hrms") ? "hr.admin@classera.com" : currentUser.email) || "hr.admin@classera.com"}
+                      ? "hr.admin@madarx.com"
+                      : session?.user?.email || (currentUser.email?.includes("focus-hrms") ? "hr.admin@madarx.com" : currentUser.email) || "hr.admin@madarx.com"}
                   </p>
                   <p className="text-[10px] text-muted-foreground font-medium truncate">
                     {currentUser.jobTitleAr || "مدير عام المنظومة"}
@@ -391,7 +391,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
               <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[10px]">
                 <span className="font-mono text-muted-foreground">
-                  رقم: {currentUser.employeeNo || "CLS-0001"}
+                  رقم: {currentUser.employeeNo || "MDX-0001"}
                 </span>
                 <Badge variant="default" className="text-[9px] font-bold rounded-full px-2">
                   {roleLabels[currentRole][language]}
@@ -510,7 +510,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <AccountSecurityModal
           isOpen={isSecurityModalOpen}
           onClose={() => setIsSecurityModalOpen(false)}
-          userEmail={session?.user?.email || currentUser.email || "hr.admin@classera.com"}
+          userEmail={session?.user?.email || currentUser.email || "hr.admin@madarx.com"}
         />
       </div>
     </header>

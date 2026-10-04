@@ -315,7 +315,7 @@ export function generateDocumentHtml(
   <div class="sheet">
     <div class="header">
       <div>
-        <h1>${company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري"}</h1>
+        <h1>${company.legalNameAr || "مدار إكس لحلول رأس المال البشري"}</h1>
         <p>${company.crNumber ? `سجل تجاري: ${company.crNumber}` : ""}${company.crNumber && company.taxNumber ? " • " : ""}${company.taxNumber ? `الرقم الضريبي: ${company.taxNumber}` : ""}</p>
         <p>المملكة العربية السعودية - الرياض - المقر الرئيسي</p>
       </div>
@@ -351,7 +351,7 @@ export function generateDocumentHtml(
     <div class="footer">
       <div>
         <p style="font-weight: bold; margin: 0; font-size: 12px;">إدارة الموارد البشرية والتدقيق السحابي</p>
-        <p style="font-size: 10px; color: #64748b; margin: 2px 0;">كلاسيرا بالس لحلول رأس المال البشري</p>
+        <p style="font-size: 10px; color: #64748b; margin: 2px 0;">مدار إكس لحلول رأس المال البشري</p>
         <div class="stamp">ختم الموارد البشرية المعتمد ✓</div>
       </div>
       <div class="qr-box">
@@ -526,7 +526,7 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "doc-6",
       employeeId: "company-hq",
-      employeeName: company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري",
+      employeeName: company.legalNameAr || "مدار إكس لحلول رأس المال البشري",
       title: "السجل التجاري الرئيسي للمنشأة (CR)",
       category: "company",
       docNumber: "1010098765",
@@ -544,7 +544,7 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "doc-7",
       employeeId: "company-hq",
-      employeeName: company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري",
+      employeeName: company.legalNameAr || "مدار إكس لحلول رأس المال البشري",
       title: "شهادة تسجيل ضريبة القيمة المضافة (ZATCA)",
       category: "company",
       docNumber: "300098127300003",
@@ -559,7 +559,7 @@ export const DocumentVaultView: React.FC = () => {
     {
       id: "doc-8",
       employeeId: "company-hq",
-      employeeName: company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري",
+      employeeName: company.legalNameAr || "مدار إكس لحلول رأس المال البشري",
       title: "شهادة السعودة والامتثال بنطاقات (النطاق البلاتيني)",
       category: "company",
       docNumber: "SAUD-2026-0091",
@@ -2696,13 +2696,13 @@ export const DocumentVaultView: React.FC = () => {
               <div className="rounded-2xl border-2 border-primary/20 bg-card p-6 space-y-4 relative overflow-hidden shadow-inner text-center">
                 {/* Background Watermark */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none select-none">
-                  <span className="text-7xl font-black rotate-[-25deg]">CLASSERA PULSE</span>
+                  <span className="text-7xl font-black rotate-[-25deg]">MADARX WORKFORCE</span>
                 </div>
 
                 <div className="flex justify-between items-center border-b border-border/60 pb-3">
                   <div className="text-start">
                     <span className="text-xs font-black text-foreground block">
-                      {company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري"}
+                      {company.legalNameAr || "مدار إكس لحلول رأس المال البشري"}
                     </span>
                     <span className="text-[10px] text-muted-foreground">
                       مستودع الأرشفة الرقمية والحوكمة السحابية
@@ -2969,7 +2969,7 @@ export const DocumentVaultView: React.FC = () => {
                 className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
               >
                 <option value="company-hq">
-                  🏢 {company.legalNameAr || "مجموعة كلاسيرا القابضة"} (وثائق المنشأة)
+                  🏢 {company.legalNameAr || "مجموعة مدار إكس القابضة"} (وثائق المنشأة)
                 </option>
                 {employees.map((emp) => (
                   <option key={emp.id} value={emp.id}>
@@ -3244,7 +3244,7 @@ export const DocumentVaultView: React.FC = () => {
                   <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
                     <div className="space-y-1 text-start">
                       <h1 className="text-base font-black text-slate-900">
-                        {company.legalNameAr || "كلاسيرا بالس لحلول رأس المال البشري"}
+                        {company.legalNameAr || "مدار إكس لحلول رأس المال البشري"}
                       </h1>
                       {(company.crNumber || company.taxNumber) ? (
                         <p className="text-[11px] text-slate-600 font-medium">
@@ -3316,7 +3316,7 @@ export const DocumentVaultView: React.FC = () => {
                   {/* Certification Body Text */}
                   <div className="space-y-3 text-justify text-slate-800 text-xs leading-6">
                     <p>
-                      تشهد إدارة الموارد البشرية والشؤون القانونية بمنظومة كلاسيرا بالس بأن المستند الموضح أعلاه معتمد وموثق رسمياً بالأرشيف السحابي للمنشأة، ومطابق لكافة الأنظمة والتعليمات المنصوص عليها بنظام العمل في المملكة العربية السعودية.
+                      تشهد إدارة الموارد البشرية والشؤون القانونية بمنظومة مدار إكس بأن المستند الموضح أعلاه معتمد وموثق رسمياً بالأرشيف السحابي للمنشأة، ومطابق لكافة الأنظمة والتعليمات المنصوص عليها بنظام العمل في المملكة العربية السعودية.
                     </p>
                     {sidePrintDoc.notes && (
                       <p className="p-2.5 rounded-lg bg-slate-100 border border-slate-200 text-[11px] text-slate-700 font-medium">
@@ -3332,7 +3332,7 @@ export const DocumentVaultView: React.FC = () => {
                   <div className="border-t-2 border-slate-900 pt-5 mt-6 flex justify-between items-end">
                     <div className="space-y-1 text-start">
                       <p className="font-bold text-slate-900">إدارة الموارد البشرية والتدقيق</p>
-                      <p className="text-[11px] text-slate-600">كلاسيرا بالس لحلول رأس المال البشري</p>
+                      <p className="text-[11px] text-slate-600">مدار إكس لحلول رأس المال البشري</p>
                       <div className="h-14 w-32 border-2 border-dashed border-emerald-600 rounded-lg flex items-center justify-center text-emerald-700 font-black text-[10px] mt-1 rotate-[-3deg]">
                         ختم الموارد البشرية المعتمد
                       </div>

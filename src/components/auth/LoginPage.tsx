@@ -73,7 +73,7 @@ const DEMO_PERSONAS: DemoPersona[] = [
     roleTitleAr: "المدير العام / مسؤول النظام",
     roleCode: "Super Admin",
     nameAr: "خالد المهيري",
-    email: "admin@classera-pulse.com",
+    email: "admin@madarx.com",
     avatarLetter: "خ",
     badgeColor: "bg-blue-50 text-blue-700 border-blue-200",
     icon: ShieldCheck,
@@ -84,7 +84,7 @@ const DEMO_PERSONAS: DemoPersona[] = [
     roleTitleAr: "مدير الموارد البشرية",
     roleCode: "HR Lead",
     nameAr: "سارة العتيبي",
-    email: "sara.hr@classera-pulse.com",
+    email: "sara.hr@madarx.com",
     avatarLetter: "س",
     badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200",
     icon: Briefcase,
@@ -95,7 +95,7 @@ const DEMO_PERSONAS: DemoPersona[] = [
     roleTitleAr: "مسؤول الرواتب والمالية",
     roleCode: "Payroll Specialist",
     nameAr: "نورة التميمي",
-    email: "noura.payroll@classera-pulse.com",
+    email: "noura.payroll@madarx.com",
     avatarLetter: "ن",
     badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
     icon: DollarSign,
@@ -106,7 +106,7 @@ const DEMO_PERSONAS: DemoPersona[] = [
     roleTitleAr: "مدير قطاع / إدارة",
     roleCode: "Line Manager",
     nameAr: "فيصل بن سلمان",
-    email: "manager@classera-pulse.com",
+    email: "manager@madarx.com",
     avatarLetter: "ف",
     badgeColor: "bg-amber-50 text-amber-700 border-amber-200",
     icon: UsersRound,
@@ -117,7 +117,7 @@ const DEMO_PERSONAS: DemoPersona[] = [
     roleTitleAr: "الخدمة الذاتية للموظف (ESS)",
     roleCode: "Employee ESS",
     nameAr: "محمد الغامدي",
-    email: "mohammed.ess@classera-pulse.com",
+    email: "mohammed.ess@madarx.com",
     avatarLetter: "م",
     badgeColor: "bg-teal-50 text-teal-700 border-teal-200",
     icon: UserCheck,
@@ -453,8 +453,8 @@ export function LoginPage() {
             <span className="text-xs font-black tracking-wide text-slate-800">
               منظومة الموارد البشرية المؤسسية
             </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-50 text-[#004BCE] font-bold border border-blue-100">
-              Classera Pulse v2026
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-50 text-[#0066FF] font-bold border border-blue-100">
+              MadarX v2026
             </span>
           </div>
         </div>
@@ -501,9 +501,9 @@ export function LoginPage() {
 
             {/* Headline and Narrative */}
             <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100/60 border border-blue-200 text-xs font-bold text-[#004BCE]">
-                <ShieldCheck className="h-3.5 w-3.5 text-[#004BCE]" />
-                <span>نظام إدارة رأس المال البشري وحوكمة المنشآت</span>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100/60 border border-blue-200 text-xs font-bold text-[#0066FF]">
+                <ShieldCheck className="h-3.5 w-3.5 text-[#0066FF]" />
+                <span>منظومة مدار إكس لإدارة رأس المال البشري وحوكمة المنشآت</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-snug">
                 كفاءة تشغيلية متقدمة وحوكمة متكاملة لإدارة الكوادر والمؤسسات
@@ -521,7 +521,7 @@ export function LoginPage() {
                   key={title}
                   className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-blue-300 hover:shadow-md transition-all duration-200"
                 >
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#004BCE] to-[#00B5FF] flex items-center justify-center shrink-0 shadow-sm text-white mt-0.5">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#0066FF] to-[#00A3FF] flex items-center justify-center shrink-0 shadow-sm text-white mt-0.5">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="space-y-0.5 flex-1 min-w-0">
@@ -541,8 +541,8 @@ export function LoginPage() {
           {/* Compliance & Legal Disclaimer (Required by Security Contract Test) */}
           <div className="relative z-10 pt-6 mt-4 border-t border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[11px] text-slate-500">
             <span>مصمم لدعم متطلبات الموارد البشرية، وتخضع إعدادات الامتثال لاعتماد المنشأة</span>
-            <span className="font-mono font-bold text-[#004BCE] text-xs shrink-0">
-              Classera Pulse Enterprise
+            <span className="font-mono font-bold text-[#0066FF] text-xs shrink-0">
+              MadarX Enterprise
             </span>
           </div>
         </div>
@@ -734,7 +734,7 @@ export function LoginPage() {
                           type="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          placeholder="admin@classera-pulse.com"
+                          placeholder="admin@madarx.com"
                           required
                           autoFocus
                           className="w-full h-11 pr-10 pl-4 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-slate-900 placeholder:text-slate-400"
@@ -846,7 +846,7 @@ export function LoginPage() {
                               type="email"
                               value={otpEmail}
                               onChange={(e) => setOtpEmail(e.target.value)}
-                              placeholder="employee@classera-pulse.com"
+                              placeholder="employee@madarx.com"
                               required
                               autoFocus
                               className="w-full h-11 pr-10 pl-4 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-slate-900 placeholder:text-slate-400"
@@ -1056,13 +1056,13 @@ export function LoginPage() {
       {/* Footer Note */}
       <footer className="w-full max-w-6xl mx-auto text-center py-3 text-[11px] text-slate-500 relative z-10 flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-slate-200/60 mt-4">
         <div className="flex items-center gap-2">
-          <img src="/classera-pulse-logo.png" alt="Classera Pulse" className="h-5 w-auto object-contain" />
-          <span className="font-bold text-slate-700">Classera Pulse™ HCM</span>
+          <img src="/madarx-logo.png" alt="MadarX" className="h-6 w-auto object-contain" />
+          <span className="font-bold text-slate-700">MadarX™ Enterprise Platform</span>
           <span className="text-slate-300">|</span>
-          <span>جميع الحقوق محفوظة لشركة كاسيرا بلس © {new Date().getFullYear()}</span>
+          <span>جميع الحقوق محفوظة لمنظومة مدار إكس © {new Date().getFullYear()}</span>
         </div>
         <span className="text-[10px] text-slate-400 font-medium">
-          المنصة المؤسسية لإدارة رأس المال البشري والرواتب وحماية الأجور
+          منظومة العمل المتكاملة لإدارة رأس المال البشري والرواتب وحماية الأجور
         </span>
       </footer>
 
@@ -1104,7 +1104,7 @@ export function LoginPage() {
                     type="email"
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
-                    placeholder="user@classera-pulse.com"
+                    placeholder="user@madarx.com"
                     required
                     autoFocus
                     className="w-full h-11 pr-10 pl-4 rounded-2xl bg-transparent text-xs font-semibold focus:outline-none text-slate-900 placeholder:text-slate-400"

@@ -228,7 +228,7 @@ export const ReportsView: React.FC = () => {
 
     exportReportDataToArabicPdf(
       currentReport.nameAr,
-      `منشأة: ${bootstrap.company?.legalNameAr || "Classera Pulse"} | الفترة: ${viewerFilters.startDate || "الكل"} إلى ${viewerFilters.endDate || "الآن"}`,
+      `منشأة: ${bootstrap.company?.legalNameAr || "منظومة مدار إكس MadarX"} | الفترة: ${viewerFilters.startDate || "الكل"} إلى ${viewerFilters.endDate || "الآن"}`,
       cols,
       reportResult.data,
       [

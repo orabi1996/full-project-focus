@@ -1,4 +1,4 @@
-﻿import type { Factor } from "@supabase/supabase-js";
+import type { Factor } from "@supabase/supabase-js";
 import { supabase } from "../../integrations/supabase/client";
 import { toAuthErrorMessage } from "./auth-errors";
 
@@ -71,7 +71,7 @@ export async function enrollTotpFactor(friendlyName = "تطبيق المصادق
   try {
     const { data, error } = await supabase.auth.mfa.enroll({
       factorType: "totp",
-      issuer: "Classera Pulse HRMS",
+      issuer: "MadarX HRMS",
       friendlyName: friendlyName.trim(),
     });
 

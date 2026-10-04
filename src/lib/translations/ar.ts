@@ -1,7 +1,7 @@
 export const ar = {
   // Global & Navigation
-  appName: "كلاسيرا بالس | Classera Pulse",
-  appTagline: "إدارة رأس المال البشري (HCM)",
+  appName: "مدار إكس | MadarX",
+  appTagline: "منظومة العمل المتكاملة (Enterprise Workforce Platform)",
   searchPlaceholder: "بحث في الموظفين، الطلبات، السياسات، الأقسام...",
   notifications: "الإشعارات",
   role: "الدور الحالي",

@@ -81,8 +81,8 @@ function flatten(node: LaidOutNode, acc: LaidOutNode[] = []): LaidOutNode[] {
 
 export const defaultCompanyTree: OrgChartNodeData = {
   id: "comp-root",
-  titleAr: "مجموعة كلاسيرا العالمية - قطاع رأس المال البشري",
-  titleEn: "Classera Pulse - Human Capital Solutions",
+  titleAr: "مجموعة مدار إكس - قطاع رأس المال البشري",
+  titleEn: "MadarX - Human Capital Solutions",
   subtitle: "م. عبد العزيز الفهد • الرئيس التنفيذي",
   managerName: "م. عبد العزيز الفهد",
   code: "HQ-01",

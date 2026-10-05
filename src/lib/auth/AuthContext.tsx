@@ -147,7 +147,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     supabase.auth
       .getSession()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
+        // Stale sessions (signed with rotated/foreign keys) make every save fail
+        // with "Invalid token": verify with the server and drop them locally.
+        if (data.session) {
+          const { error: userError } = await supabase.auth.getUser();
+          if (userError && (userError.status === 401 || userError.status === 403)) {
+            await supabase.auth.signOut({ scope: "local" });
+            data = { session: null };
+          }
+        }
         if (!mounted) return;
         const currentUserId = data.session?.user?.id ?? null;
         previousUserId.current = currentUserId;

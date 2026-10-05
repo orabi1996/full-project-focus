@@ -13,8 +13,18 @@ const FINANCE_ROLES = [
 const WRITE_ROLES = ["super_admin", "org_admin", "finance_officer"] as const;
 
 /** ISO 13616 mod-97 check (Saudi IBANs are SA + 22 chars). */
+/** Normalizes pasted IBANs: Arabic/Persian digits, spaces, dashes, hidden RTL marks. */
+function normalizeIban(raw: string) {
+  return raw
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
 export function isValidIban(raw: string) {
-  const iban = raw.replace(/\s+/g, "").toUpperCase();
+  const iban = normalizeIban(raw);
+  if (iban.startsWith("SA") && iban.length !== 24) return false;
   if (!/^[A-Z]{2}[0-9A-Z]{13,32}$/.test(iban)) return false;
   const rearranged = iban.slice(4) + iban.slice(0, 4);
   const numeric = rearranged.replace(/[A-Z]/g, (ch) => String(ch.charCodeAt(0) - 55));
@@ -24,7 +34,7 @@ export function isValidIban(raw: string) {
 }
 
 export function formatIban(raw: string) {
-  return raw.replace(/\s+/g, "").toUpperCase();
+  return normalizeIban(raw);
 }
 
 /** Company identity + real bank accounts + live payroll disbursement summary. */

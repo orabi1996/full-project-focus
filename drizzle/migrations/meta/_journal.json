@@ -22,6 +22,13 @@
       "when": 1790345887205,
       "tag": "0002_extend_file_objects_and_dashboard_rpcs",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791237773015,
+      "tag": "0003_companies_profile_columns",
+      "breakpoints": true
     }
   ]
 }

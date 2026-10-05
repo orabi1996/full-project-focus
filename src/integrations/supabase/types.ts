@@ -437,49 +437,91 @@ export type Database = {
       }
       companies: {
         Row: {
+          city: string | null
           code: string | null
+          country: string | null
           cr_number: string | null
           created_at: string
           currency: string
+          email: string | null
+          entity_type: string | null
+          fiscal_year_start_month: number | null
+          gosi_number: string | null
           headquarters_address: string | null
           id: string
+          industry: string | null
+          labor_office_number: string | null
           legal_name: string | null
           legal_name_ar: string
           legal_name_en: string
+          logo_url: string | null
           name: string | null
+          phone: string | null
+          postal_code: string | null
+          setup_status: string | null
           subsidiary_id: string | null
           tax_number: string | null
           timezone: string
+          unified_number: string | null
+          website: string | null
         }
         Insert: {
+          city?: string | null
           code?: string | null
+          country?: string | null
           cr_number?: string | null
           created_at?: string
           currency?: string
+          email?: string | null
+          entity_type?: string | null
+          fiscal_year_start_month?: number | null
+          gosi_number?: string | null
           headquarters_address?: string | null
           id?: string
+          industry?: string | null
+          labor_office_number?: string | null
           legal_name?: string | null
           legal_name_ar: string
           legal_name_en: string
+          logo_url?: string | null
           name?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          setup_status?: string | null
           subsidiary_id?: string | null
           tax_number?: string | null
           timezone?: string
+          unified_number?: string | null
+          website?: string | null
         }
         Update: {
+          city?: string | null
           code?: string | null
+          country?: string | null
           cr_number?: string | null
           created_at?: string
           currency?: string
+          email?: string | null
+          entity_type?: string | null
+          fiscal_year_start_month?: number | null
+          gosi_number?: string | null
           headquarters_address?: string | null
           id?: string
+          industry?: string | null
+          labor_office_number?: string | null
           legal_name?: string | null
           legal_name_ar?: string
           legal_name_en?: string
+          logo_url?: string | null
           name?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          setup_status?: string | null
           subsidiary_id?: string | null
           tax_number?: string | null
           timezone?: string
+          unified_number?: string | null
+          website?: string | null
         }
         Relationships: [
           {

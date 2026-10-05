@@ -3,8 +3,9 @@
  * Supports targeted invalidation and prevents arbitrary string arrays across the codebase.
  */
 import { reportQueryKeys } from "./report-query-keys";
+import { integrationQueryKeys } from "./integration-query-keys";
 
-export { reportQueryKeys };
+export { reportQueryKeys, integrationQueryKeys };
 
 export const queryKeys = {
   bootstrap: {
@@ -315,9 +316,7 @@ export const queryKeys = {
   notifications: {
     all: ["notifications"] as const,
   },
-  integrations: {
-    all: ["integrations"] as const,
-  },
+  integrations: integrationQueryKeys,
   dashboard: {
     all: ["dashboard"] as const,
     summary: (filters: { start: string; end: string }) =>

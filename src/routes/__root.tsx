@@ -1,3 +1,4 @@
+import type { ErrorComponentProps } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -39,7 +40,8 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
+  const err = error as Error;
   console.error(error);
   const router = useRouter();
   useEffect(() => {
@@ -67,9 +69,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
-        {error?.message && (
+        {err?.message && (
           <div className="mt-3 p-3 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-mono text-start overflow-auto max-h-32">
-            {error.message}
+            {err.message}
           </div>
         )}
         <div className="mt-6 flex flex-wrap justify-center gap-2">

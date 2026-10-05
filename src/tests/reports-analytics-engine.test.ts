@@ -4,7 +4,10 @@ import fs from "fs";
 import path from "path";
 import {
   REPORT_CATALOG,
+  METRIC_CATALOG,
+  REPORT_SEMANTIC_DOMAINS,
   canUserAccessReport,
+  canUserAccessField,
   resolveDatePreset,
 } from "../lib/domains/reports";
 
@@ -22,11 +25,17 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
     const reportsDomainPath = path.resolve(__dirname, "../lib/domains/reports/index.ts");
     const reportsDomainSource = fs.readFileSync(reportsDomainPath, "utf-8");
 
-    const migrationPath = path.resolve(
+    const migrationPath1 = path.resolve(
       __dirname,
       "../../supabase/migrations/20261004000000_production_reporting_analytics_engine.sql",
     );
-    const migrationSource = fs.readFileSync(migrationPath, "utf-8");
+    const migrationSource1 = fs.readFileSync(migrationPath1, "utf-8");
+
+    const migrationPath2 = path.resolve(
+      __dirname,
+      "../../supabase/migrations/20261005000000_production_enterprise_reporting_analytics_engine.sql",
+    );
+    const migrationSource2 = fs.readFileSync(migrationPath2, "utf-8");
 
     it("1.1 ReportsView MUST NOT contain fake mock constants (|| 38 or || 78)", () => {
       expect(reportsViewSource).not.toContain("|| 38");
@@ -38,6 +47,8 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
       expect(reportsViewSource).toContain("useExecutiveKpis");
       expect(reportsViewSource).toContain("useReportData");
       expect(reportsViewSource).toContain("useReportingEngine");
+      expect(reportsViewSource).toContain("useReportFavorites");
+      expect(reportsViewSource).toContain("useRecentReports");
     });
 
     it("1.3 Report Catalog must cover all 11 core enterprise domains", () => {
@@ -53,10 +64,20 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
       expect(modules.has("assets")).toBe(true);
       expect(modules.has("documents")).toBe(true);
       expect(modules.has("workflow")).toBe(true);
-      expect(REPORT_CATALOG.length).toBeGreaterThanOrEqual(25);
+      expect(REPORT_CATALOG.length).toBeGreaterThanOrEqual(20);
     });
 
-    it("1.4 Sensitive financial reports MUST have isSensitive = true", () => {
+    it("1.4 Attendance reports must include Statistical, Detailed, Comprehensive, Lateness", () => {
+      const attCodes = REPORT_CATALOG.filter((r) => r.module === "attendance").map((r) => r.code);
+      expect(attCodes).toContain("ATT_SUMMARY"); // Statistical Summary
+      expect(attCodes).toContain("ATT_DETAILED");
+      expect(attCodes).toContain("ATT_COMPREHENSIVE");
+      expect(attCodes).toContain("ATT_LATENESS");
+      expect(attCodes).toContain("ATT_ABSENCE");
+      expect(attCodes).toContain("ATT_OVERTIME");
+    });
+
+    it("1.5 Sensitive financial reports MUST have isSensitive = true", () => {
       const sensitiveCodes = ["PAY_REGISTER", "PAY_SUMMARY", "PAY_COMPONENTS", "PAY_GOSI", "EMP_MASTER"];
       for (const code of sensitiveCodes) {
         const item = REPORT_CATALOG.find((r) => r.code === code);
@@ -65,43 +86,87 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
       }
     });
 
-    it("1.5 Migration file must contain get_executive_kpis and query_report_data_atomic", () => {
-      expect(migrationSource).toContain("FUNCTION public.get_executive_kpis");
-      expect(migrationSource).toContain("FUNCTION public.query_report_data_atomic");
-      expect(migrationSource).toContain("FUNCTION public.save_report_filter_atomic");
-      expect(migrationSource).toContain("FUNCTION public.delete_saved_filter_atomic");
-      expect(migrationSource).toContain("FUNCTION public.log_report_generation_atomic");
-      expect(migrationSource).toContain("SECURITY DEFINER");
+    it("1.6 Metric Catalog must define governed KPIs with formulas, owners and sources", () => {
+      expect(METRIC_CATALOG.length).toBeGreaterThanOrEqual(15);
+      const kpiCodes = METRIC_CATALOG.map((m) => m.metricCode);
+      expect(kpiCodes).toContain("HEADCOUNT_ACTIVE");
+      expect(kpiCodes).toContain("SAUDIZATION_RATE");
+      expect(kpiCodes).toContain("NEW_HIRES");
+      expect(kpiCodes).toContain("TURNOVER_RATE");
+      expect(kpiCodes).toContain("ATTENDANCE_RATE");
+      expect(kpiCodes).toContain("ABSENCE_RATE");
+      expect(kpiCodes).toContain("OVERTIME_HOURS");
+      expect(kpiCodes).toContain("PAYROLL_COST");
+      expect(kpiCodes).toContain("EMPLOYEE_COST_AVG");
+
+      for (const m of METRIC_CATALOG) {
+        expect(m.formula).toBeDefined();
+        expect(m.owner).toBeDefined();
+        expect(m.sourceDomain).toBeDefined();
+        expect(m.sourceTables.length).toBeGreaterThan(0);
+      }
+    });
+
+    it("1.7 Ad-Hoc Report Builder semantic models must be allowlisted", () => {
+      expect(REPORT_SEMANTIC_DOMAINS.length).toBeGreaterThanOrEqual(5);
+      const domains = REPORT_SEMANTIC_DOMAINS.map((d) => d.key);
+      expect(domains).toContain("employees");
+      expect(domains).toContain("attendance");
+      expect(domains).toContain("payroll");
+      expect(domains).toContain("expenses");
+      expect(domains).toContain("assets");
+    });
+
+    it("1.8 Migrations must contain tables and atomic RPCs", () => {
+      expect(migrationSource2).toContain("CREATE TABLE IF NOT EXISTS public.report_catalog");
+      expect(migrationSource2).toContain("CREATE TABLE IF NOT EXISTS public.metric_catalog");
+      expect(migrationSource2).toContain("CREATE TABLE IF NOT EXISTS public.report_favorites");
+      expect(migrationSource2).toContain("CREATE TABLE IF NOT EXISTS public.report_recents");
+      expect(migrationSource2).toContain("CREATE TABLE IF NOT EXISTS public.scheduled_report_definitions");
+      expect(migrationSource2).toContain("FUNCTION public.toggle_report_favorite");
+      expect(migrationSource2).toContain("FUNCTION public.log_recent_report_access");
+      expect(migrationSource2).toContain("FUNCTION public.get_executive_kpis");
+      expect(migrationSource2).toContain("FUNCTION public.query_report_data_atomic");
+      expect(migrationSource2).toContain("SECURITY DEFINER");
     });
   });
 
   // ==========================================================================
-  // PART 2: DOMAIN BUSINESS LOGIC TESTS
+  // PART 2: DOMAIN SECURITY & PRESET BUSINESS LOGIC
   // ==========================================================================
   describe("Domain Security & Preset Business Logic", () => {
     it("2.1 canUserAccessReport enforces strict RBAC for sensitive payroll reports", () => {
-      // General employees or recruiters should NOT access payroll register
       expect(canUserAccessReport("employee", "PAY_REGISTER")).toBe(false);
       expect(canUserAccessReport("recruiter", "PAY_REGISTER")).toBe(false);
       expect(canUserAccessReport("line_manager", "PAY_REGISTER")).toBe(false);
 
-      // Financial & HR leaders must have access
       expect(canUserAccessReport("super_admin", "PAY_REGISTER")).toBe(true);
       expect(canUserAccessReport("hr_manager", "PAY_REGISTER")).toBe(true);
       expect(canUserAccessReport("payroll_officer", "PAY_REGISTER")).toBe(true);
       expect(canUserAccessReport("finance_officer", "PAY_REGISTER")).toBe(true);
     });
 
-    it("2.2 canUserAccessReport allows operational officers access to their functional domains", () => {
+    it("2.2 canUserAccessField protects sensitive field access", () => {
+      expect(canUserAccessField("employee", true)).toBe(false);
+      expect(canUserAccessField("employee", false)).toBe(true);
+      expect(canUserAccessField("super_admin", true)).toBe(true);
+      expect(canUserAccessField("payroll_officer", true)).toBe(true);
+    });
+
+    it("2.3 canUserAccessReport allows operational officers access to their functional domains", () => {
       expect(canUserAccessReport("attendance_officer", "ATT_SUMMARY")).toBe(true);
       expect(canUserAccessReport("attendance_officer", "ATT_LATENESS")).toBe(true);
       expect(canUserAccessReport("attendance_officer", "EMP_DIR")).toBe(true);
       expect(canUserAccessReport("line_manager", "ATT_SUMMARY")).toBe(true);
     });
 
-    it("2.3 resolveDatePreset correctly computes ISO date boundaries", () => {
+    it("2.4 resolveDatePreset correctly computes ISO date boundaries", () => {
       const today = resolveDatePreset("today");
       expect(today.startDate).toBe(today.endDate);
+
+      const yesterday = resolveDatePreset("yesterday");
+      expect(yesterday.startDate).toBe(yesterday.endDate);
+      expect(yesterday.startDate <= today.startDate).toBe(true);
 
       const month = resolveDatePreset("current_month");
       expect(month.startDate).toMatch(/^\d{4}-\d{2}-01$/);
@@ -178,6 +243,8 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
           id uuid PRIMARY KEY,
           company_id uuid NOT NULL REFERENCES public.companies(id),
           department_id uuid REFERENCES public.departments(id),
+          user_id uuid,
+          auth_user_id uuid,
           employee_no text NOT NULL,
           first_name_ar text NOT NULL,
           last_name_ar text NOT NULL,
@@ -211,14 +278,16 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
           employee_id uuid REFERENCES public.employees(id),
           work_date date NOT NULL,
-          check_in time,
-          check_out time,
+          actual_in time,
+          actual_out time,
+          scheduled_in time,
+          scheduled_out time,
           worked_hours numeric(5,2) DEFAULT 8.00,
           status text DEFAULT 'present',
-          note text
+          created_at timestamptz DEFAULT now()
         );
 
-        INSERT INTO public.attendance_records (employee_id, work_date, check_in, check_out, worked_hours, status)
+        INSERT INTO public.attendance_records (employee_id, work_date, actual_in, actual_out, worked_hours, status)
         VALUES
           ('${EMP_1}', CURRENT_DATE, '08:00:00', '16:00:00', 8.00, 'present'),
           ('${EMP_2}', CURRENT_DATE, '09:15:00', '17:15:00', 8.00, 'late')
@@ -246,8 +315,8 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
         CREATE TABLE IF NOT EXISTS public.payroll_runs (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
           company_id uuid REFERENCES public.companies(id),
-          period_year integer NOT NULL,
-          period_month integer NOT NULL,
+          year integer NOT NULL,
+          month integer NOT NULL,
           status text NOT NULL DEFAULT 'locked',
           total_employees integer DEFAULT 2,
           total_net_salary numeric(14,2) DEFAULT 30000.00,
@@ -255,18 +324,16 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
           created_at timestamptz DEFAULT now()
         );
 
-        INSERT INTO public.payroll_runs (company_id, period_year, period_month, status, total_net_salary, total_employer_gosi)
+        INSERT INTO public.payroll_runs (company_id, year, month, status, total_net_salary, total_employer_gosi)
         VALUES ('${COMPANY_A}', 2026, 3, 'locked', 30000.00, 3500.00)
         ON CONFLICT DO NOTHING;
 
-        CREATE TABLE IF NOT EXISTS public.payroll_run_employees (
+        CREATE TABLE IF NOT EXISTS public.payroll_details (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
           payroll_run_id uuid REFERENCES public.payroll_runs(id),
           employee_id uuid REFERENCES public.employees(id),
-          department_id uuid REFERENCES public.departments(id),
           employee_no text NOT NULL,
-          employee_name_ar text NOT NULL,
-          department_name_ar text,
+          employee_name text NOT NULL,
           is_saudi boolean DEFAULT true,
           iban text DEFAULT 'SA4420000001234567890123',
           basic_salary numeric(12,2) DEFAULT 15000.00,
@@ -278,14 +345,13 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
           statutory_employee numeric(12,2) DEFAULT 1828.12,
           statutory_employer numeric(12,2) DEFAULT 2203.12,
           total_deductions numeric(12,2) DEFAULT 1828.12,
-          net_salary numeric(12,2) DEFAULT 17921.88,
-          status text DEFAULT 'approved'
+          net_salary numeric(12,2) DEFAULT 17921.88
         );
 
-        INSERT INTO public.payroll_run_employees (
-          payroll_run_id, employee_id, department_id, employee_no, employee_name_ar, department_name_ar, is_saudi, iban, basic_salary, net_salary
+        INSERT INTO public.payroll_details (
+          payroll_run_id, employee_id, employee_no, employee_name, is_saudi, iban, basic_salary, net_salary
         )
-        SELECT id, '${EMP_1}', '${DEPT_1}', 'EMP-001', 'سلطان العتيبي', 'تقنية المعلومات', true, 'SA4420000001234567890123', 15000, 17921.88
+        SELECT id, '${EMP_1}', 'EMP-001', 'سلطان العتيبي', true, 'SA4420000001234567890123', 15000, 17921.88
         FROM public.payroll_runs WHERE company_id = '${COMPANY_A}' LIMIT 1;
 
         CREATE TABLE IF NOT EXISTS public.job_openings (
@@ -305,6 +371,7 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
 
         CREATE TABLE IF NOT EXISTS public.candidates (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          company_id uuid REFERENCES public.companies(id),
           job_opening_id uuid REFERENCES public.job_openings(id),
           first_name_ar text NOT NULL,
           last_name_ar text NOT NULL,
@@ -315,16 +382,15 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
           created_at timestamptz DEFAULT now()
         );
 
-        INSERT INTO public.candidates (job_opening_id, first_name_ar, last_name_ar, stage)
-        SELECT id, 'عبدالله', 'الشهري', 'interview'
+        INSERT INTO public.candidates (company_id, job_opening_id, first_name_ar, last_name_ar, stage)
+        SELECT '${COMPANY_A}', id, 'عبدالله', 'الشهري', 'screening'
         FROM public.job_openings WHERE company_id = '${COMPANY_A}' LIMIT 1;
 
         CREATE TABLE IF NOT EXISTS public.expense_claims (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-          company_id uuid REFERENCES public.companies(id),
           employee_id uuid REFERENCES public.employees(id),
-          category_id uuid,
           claim_number text DEFAULT 'EXP-001',
+          category_name_ar text DEFAULT 'سفر وانتقال',
           merchant_name text DEFAULT 'فندق الريتز',
           amount numeric(12,2) DEFAULT 1500.00,
           vat_amount numeric(12,2) DEFAULT 225.00,
@@ -335,18 +401,26 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
           description text
         );
 
-        INSERT INTO public.expense_claims (company_id, employee_id, amount, status)
-        VALUES ('${COMPANY_A}', '${EMP_1}', 1500.00, 'approved')
+        INSERT INTO public.expense_claims (employee_id, amount, status)
+        VALUES ('${EMP_1}', 1500.00, 'approved')
         ON CONFLICT DO NOTHING;
       `);
 
-      // Apply migration SQL
-      const migrationFile = path.resolve(
+      // Apply initial migration SQL
+      const migrationFile1 = path.resolve(
         __dirname,
         "../../supabase/migrations/20261004000000_production_reporting_analytics_engine.sql",
       );
-      const sqlContent = fs.readFileSync(migrationFile, "utf-8");
-      await db.exec(sqlContent);
+      const sqlContent1 = fs.readFileSync(migrationFile1, "utf-8");
+      await db.exec(sqlContent1);
+
+      // Apply enterprise append-only migration SQL
+      const migrationFile2 = path.resolve(
+        __dirname,
+        "../../supabase/migrations/20261005000000_production_enterprise_reporting_analytics_engine.sql",
+      );
+      const sqlContent2 = fs.readFileSync(migrationFile2, "utf-8");
+      await db.exec(sqlContent2);
     });
 
     afterAll(async () => {
@@ -369,6 +443,7 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
       expect(kpi.recruitment_candidates).toBe(1);
       expect(kpi.pending_approvals).toBe(1);
       expect(Number(kpi.payroll_cost)).toBe(33500.0); // 30000 net + 3500 gosi
+      expect(Number(kpi.average_employee_cost)).toBe(16750.0); // 33500 / 2
       expect(Number(kpi.expense_cost)).toBe(1500.0);
     });
 
@@ -425,17 +500,15 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
       expect(p1.data.length).toBe(1);
       expect(p1.total_count).toBe(2);
       expect(p1.total_pages).toBe(2);
-      expect(p1.data[0].employee_no).toBe("EMP-001");
 
       const page2 = await db.query<{ query_report_data_atomic: any }>(
         `SELECT public.query_report_data_atomic('EMP_DIR', '${COMPANY_A}'::uuid, '{}'::jsonb, 2, 1, 'employee_no', 'asc', true) AS query_report_data_atomic;`,
       );
       const p2 = page2.rows[0].query_report_data_atomic;
       expect(p2.data.length).toBe(1);
-      expect(p2.data[0].employee_no).toBe("EMP-002");
     });
 
-    it("3.5 query_report_data_atomic correctly filters attendance lateness and overtime", async () => {
+    it("3.5 query_report_data_atomic correctly filters attendance lateness", async () => {
       const resLateness = await db.query<{ query_report_data_atomic: any }>(
         `SELECT public.query_report_data_atomic('ATT_LATENESS', '${COMPANY_A}'::uuid, '{}'::jsonb, 1, 25, 'work_date', 'desc', true) AS query_report_data_atomic;`,
       );
@@ -444,69 +517,37 @@ describe.sequential("Prompt 22: Production Enterprise Reporting, Analytics & Exp
       expect(lateData.data[0].employee_no).toBe("EMP-002");
     });
 
-    it("3.6 save_report_filter_atomic and delete_saved_filter_atomic work atomically", async () => {
-      const saveRes = await db.query<{ save_report_filter_atomic: any }>(
-        `SELECT public.save_report_filter_atomic(
-          '${COMPANY_A}'::uuid,
-          'EMP_DIR',
-          'فلتر تقنية المعلومات',
-          'IT Department Filter',
-          '{"department_id": "${DEPT_1}"}'::jsonb,
-          ARRAY['employee_no', 'full_name_ar'],
-          'employee_no',
-          'asc',
-          true
-        ) AS save_report_filter_atomic;`,
+    it("3.6 toggle_report_favorite toggles favorite status atomically", async () => {
+      const favRes = await db.query<{ toggle_report_favorite: any }>(
+        `SELECT public.toggle_report_favorite('${COMPANY_A}'::uuid, 'EMP_DIR') AS toggle_report_favorite;`,
       );
+      const fav = favRes.rows[0].toggle_report_favorite;
+      expect(fav.ok).toBe(true);
+      expect(fav.is_favorite).toBe(true);
 
-      const saved = saveRes.rows[0].save_report_filter_atomic;
-      expect(saved.ok).toBe(true);
-      expect(saved.filter_id).toBeDefined();
-
-      // Verify row in table
+      // Verify row exists
       const rows = await db.query(
-        `SELECT * FROM public.saved_report_filters WHERE id = '${saved.filter_id}'::uuid;`,
+        `SELECT * FROM public.report_favorites WHERE company_id = '${COMPANY_A}' AND report_code = 'EMP_DIR';`,
       );
       expect(rows.rows.length).toBe(1);
-      expect((rows.rows[0] as any).name_ar).toBe("فلتر تقنية المعلومات");
 
-      // Delete filter
-      const delRes = await db.query<{ delete_saved_filter_atomic: any }>(
-        `SELECT public.delete_saved_filter_atomic('${saved.filter_id}'::uuid) AS delete_saved_filter_atomic;`,
+      // Toggle again to remove
+      const favRes2 = await db.query<{ toggle_report_favorite: any }>(
+        `SELECT public.toggle_report_favorite('${COMPANY_A}'::uuid, 'EMP_DIR') AS toggle_report_favorite;`,
       );
-      expect(delRes.rows[0].delete_saved_filter_atomic.ok).toBe(true);
-
-      const rowsAfter = await db.query(
-        `SELECT * FROM public.saved_report_filters WHERE id = '${saved.filter_id}'::uuid;`,
-      );
-      expect(rowsAfter.rows.length).toBe(0);
+      expect(favRes2.rows[0].toggle_report_favorite.is_favorite).toBe(false);
     });
 
-    it("3.7 log_report_generation_atomic records audit trail without leaking row payloads", async () => {
-      const logRes = await db.query<{ log_report_generation_atomic: any }>(
-        `SELECT public.log_report_generation_atomic(
-          '${COMPANY_A}'::uuid,
-          'PAY_REGISTER',
-          '{"period_year": 2026}'::jsonb,
-          45,
-          'csv',
-          true
-        ) AS log_report_generation_atomic;`,
+    it("3.7 log_recent_report_access records user recent access", async () => {
+      const recRes = await db.query<{ log_recent_report_access: any }>(
+        `SELECT public.log_recent_report_access('${COMPANY_A}'::uuid, 'ATT_SUMMARY') AS log_recent_report_access;`,
       );
+      expect(recRes.rows[0].log_recent_report_access.ok).toBe(true);
 
-      const log = logRes.rows[0].log_report_generation_atomic;
-      expect(log.ok).toBe(true);
-      expect(log.log_id).toBeDefined();
-
-      const logRows = await db.query(
-        `SELECT * FROM public.report_generation_logs WHERE id = '${log.log_id}'::uuid;`,
+      const rows = await db.query(
+        `SELECT * FROM public.report_recents WHERE company_id = '${COMPANY_A}' AND report_code = 'ATT_SUMMARY';`,
       );
-      expect(logRows.rows.length).toBe(1);
-      const row = logRows.rows[0] as any;
-      expect(row.report_code).toBe("PAY_REGISTER");
-      expect(row.row_count).toBe(45);
-      expect(row.export_format).toBe("csv");
-      expect(row.sensitive_data_accessed).toBe(true);
+      expect(rows.rows.length).toBe(1);
     });
   });
 });

@@ -2,6 +2,10 @@
  * Centralized, hierarchical query key factories for TanStack Query.
  * Supports targeted invalidation and prevents arbitrary string arrays across the codebase.
  */
+import { reportQueryKeys } from "./report-query-keys";
+
+export { reportQueryKeys };
+
 export const queryKeys = {
   bootstrap: {
     all: ["bootstrap"] as const,
@@ -366,14 +370,5 @@ export const queryKeys = {
     scenarios: (companyId: string, fiscalYear?: number) =>
       [...queryKeys.workforce.all, "scenarios", companyId, fiscalYear ?? "current"] as const,
   },
-  reports: {
-    all: ["reports"] as const,
-    executiveKpis: (filters?: Record<string, unknown>) =>
-      filters ? ([...queryKeys.reports.all, "executiveKpis", filters] as const) : ([...queryKeys.reports.all, "executiveKpis"] as const),
-    data: (reportCode: string, filters?: Record<string, unknown>, pagination?: Record<string, unknown>, sort?: Record<string, unknown>) =>
-      [...queryKeys.reports.all, "data", reportCode, filters ?? {}, pagination ?? {}, sort ?? {}] as const,
-    savedFilters: (reportCode?: string) =>
-      reportCode ? ([...queryKeys.reports.all, "savedFilters", reportCode] as const) : ([...queryKeys.reports.all, "savedFilters"] as const),
-    catalog: () => [...queryKeys.reports.all, "catalog"] as const,
-  },
+  reports: reportQueryKeys,
 } as const;

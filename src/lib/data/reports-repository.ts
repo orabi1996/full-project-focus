@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useCallback } from "react";
 import { supabase } from "../../integrations/supabase/client";
-import { queryKeys } from "../query/query-keys";
+import { queryKeys, reportQueryKeys } from "../query/query-keys";
 import { useAuth, type AuthRole } from "../auth/AuthContext";
 import { useBootstrapData } from "../domains/bootstrap/use-bootstrap";
 import { demoStore } from "../domains/demo/demo-store";
@@ -24,6 +23,7 @@ export type ReportCategory =
   | "workflow";
 
 export interface ReportCatalogItem {
+  id: string;
   code: string;
   nameAr: string;
   nameEn: string;
@@ -34,10 +34,32 @@ export interface ReportCatalogItem {
   descriptionEn: string;
   requiredRoles: AuthRole[];
   availableFilters: ("department" | "status" | "date_range" | "search")[];
+  availableColumns: string[];
+  defaultColumns: string[];
   exportFormats: ("csv" | "excel" | "pdf")[];
   isSensitive: boolean;
+  drillDownCapability?: string;
   isActive: boolean;
   iconName: string;
+}
+
+export interface MetricCatalogItem {
+  metricCode: string;
+  nameAr: string;
+  nameEn: string;
+  businessDefinitionAr: string;
+  businessDefinitionEn: string;
+  sourceDomain: ReportCategory;
+  sourceTables: string[];
+  aggregationGrain: string;
+  numerator?: string;
+  denominator?: string;
+  formula: string;
+  timeDimension: string;
+  applicableFilters: string[];
+  owner: string;
+  securityClassification: "Public" | "Internal" | "Confidential" | "Restricted";
+  refreshBehavior: "realtime" | "hourly" | "daily_batch";
 }
 
 export interface ReportFilterState {
@@ -74,15 +96,27 @@ export interface ExecutiveKpis {
   nitaqatBand: "platinum" | "high_green" | "mid_green" | "low_green" | "red";
   newHires: number;
   turnoverCount: number;
+  turnoverRate: number;
   attendanceRate: number;
   absenceCount: number;
+  absenceRate: number;
   latenessCount: number;
   overtimeHours: number;
   leaveUtilizationDays: number;
   payrollCost: number;
-  expenseCost: number;
+  averageEmployeeCost: number;
+  openPositions: number;
   openVacancies: number;
   recruitmentCandidates: number;
+  offersCount: number;
+  hiresCount: number;
+  timeToFillDays: number;
+  performanceReviewCompletion: number;
+  averageRating: number;
+  workforcePlanVariance: number;
+  expenseCost: number;
+  outstandingAssets: number;
+  expiringDocuments: number;
   pendingApprovals: number;
   generatedAt: string;
 }
@@ -114,12 +148,286 @@ export interface ReportDataResponse<T = Record<string, unknown>> {
 }
 
 // ============================================================================
-// 2. CANONICAL REPORT CATALOG DEFINITIONS
+// 2. GOVERNED METRIC CATALOG DEFINITIONS
+// ============================================================================
+
+export const METRIC_CATALOG: readonly MetricCatalogItem[] = [
+  {
+    metricCode: "HEADCOUNT_TOTAL",
+    nameAr: "إجمالي القوى العاملة",
+    nameEn: "Total Headcount",
+    businessDefinitionAr: "العدد الكلي للموظفين المقيدين في سجل المنشأة باستثناء من أنهيت خدماتهم نهائياً.",
+    businessDefinitionEn: "Total active and on-service employees registered excluding terminated records.",
+    sourceDomain: "employees",
+    sourceTables: ["public.employees"],
+    aggregationGrain: "Legal Entity / Company",
+    formula: "COUNT(*) FILTER (WHERE status != 'terminated')",
+    timeDimension: "Snapshot at Effective Date",
+    applicableFilters: ["department", "status", "location"],
+    owner: "People Analytics",
+    securityClassification: "Internal",
+    refreshBehavior: "realtime",
+  },
+  {
+    metricCode: "HEADCOUNT_ACTIVE",
+    nameAr: "الموظفون على رأس العمل",
+    nameEn: "Active Employees",
+    businessDefinitionAr: "الموظفون الذين يؤدون مهامهم الفعلية وتصدر لهم رواتب نشطة دون إيقاف أو انقطاع.",
+    businessDefinitionEn: "Employees actively on service with an active contractual status.",
+    sourceDomain: "employees",
+    sourceTables: ["public.employees"],
+    aggregationGrain: "Department / Cost Center",
+    formula: "COUNT(*) FILTER (WHERE status = 'active')",
+    timeDimension: "Current State",
+    applicableFilters: ["department", "job_title", "location"],
+    owner: "People Operations",
+    securityClassification: "Internal",
+    refreshBehavior: "realtime",
+  },
+  {
+    metricCode: "SAUDIZATION_RATE",
+    nameAr: "نسبة التوطين (نطاقات)",
+    nameEn: "Saudization Rate (Nitaqat)",
+    businessDefinitionAr: "نسبة الموظفين السعوديين من إجمالي القوى العاملة النشطة المحسوبة وفق ضوابط وزارة الموارد البشرية.",
+    businessDefinitionEn: "Percentage of Saudi national employees relative to total active workforce.",
+    sourceDomain: "employees",
+    sourceTables: ["public.employees"],
+    aggregationGrain: "Company / Nitaqat Entity",
+    numerator: "COUNT(saudi_employees)",
+    denominator: "COUNT(active_employees)",
+    formula: "(COUNT(saudi) / NULLIF(COUNT(active), 0)) * 100",
+    timeDimension: "Daily Effective",
+    applicableFilters: ["department", "location"],
+    owner: "HR Compliance & Governance",
+    securityClassification: "Internal",
+    refreshBehavior: "realtime",
+  },
+  {
+    metricCode: "NEW_HIRES",
+    nameAr: "التعيينات والمنضمون الجدد",
+    nameEn: "New Hires",
+    businessDefinitionAr: "عدد الموظفين الذين بدأت مباشرتهم وتاريخ تعيينهم ضمن الفترة الزمنية المحددة.",
+    businessDefinitionEn: "Number of newly onboarded employees within the specified reporting period.",
+    sourceDomain: "employees",
+    sourceTables: ["public.employees"],
+    aggregationGrain: "Period (Month/Quarter/Year)",
+    formula: "COUNT(*) FILTER (WHERE hire_date BETWEEN start_date AND end_date)",
+    timeDimension: "Date Window",
+    applicableFilters: ["department", "date_range", "recruiter"],
+    owner: "Talent Acquisition",
+    securityClassification: "Internal",
+    refreshBehavior: "daily_batch",
+  },
+  {
+    metricCode: "TURNOVER_RATE",
+    nameAr: "معدل دوران العمل",
+    nameEn: "Turnover Rate",
+    businessDefinitionAr: "نسبة حالات إنهاء الخدمة والاستقالات خلال الفترة المحددة بالنسبة لمتوسط القوى العاملة.",
+    businessDefinitionEn: "Rate of employee attrition relative to average total headcount in period.",
+    sourceDomain: "employees",
+    sourceTables: ["public.employees"],
+    aggregationGrain: "Period",
+    numerator: "COUNT(terminated_in_period)",
+    denominator: "AVG(headcount_in_period)",
+    formula: "(COUNT(terminated) / NULLIF(COUNT(total_headcount), 0)) * 100",
+    timeDimension: "Quarterly / Annual",
+    applicableFilters: ["department", "date_range"],
+    owner: "People Analytics",
+    securityClassification: "Confidential",
+    refreshBehavior: "daily_batch",
+  },
+  {
+    metricCode: "ATTENDANCE_RATE",
+    nameAr: "معدل الحضور والانضباط",
+    nameEn: "Attendance Rate",
+    businessDefinitionAr: "نسبة سجلات الحضور الفعلي المسجلة مقارنة بإجمالي أيام العمل المجدولة في الورديات.",
+    businessDefinitionEn: "Percentage of scheduled work days attended vs. rostered shifts.",
+    sourceDomain: "attendance",
+    sourceTables: ["public.attendance_records"],
+    aggregationGrain: "Daily / Monthly",
+    numerator: "COUNT(present_records)",
+    denominator: "COUNT(total_rostered_records)",
+    formula: "(COUNT(present) / NULLIF(COUNT(total_attendance), 0)) * 100",
+    timeDimension: "Date Window",
+    applicableFilters: ["department", "shift", "date_range"],
+    owner: "Workforce Management",
+    securityClassification: "Internal",
+    refreshBehavior: "realtime",
+  },
+  {
+    metricCode: "ABSENCE_RATE",
+    nameAr: "معدل الغياب غير المبرر",
+    nameEn: "Unexcused Absence Rate",
+    businessDefinitionAr: "نسبة أيام الغياب غير المبرر وغير المرتبط بإجازة معتمدة إلى إجمالي الأيام المجدولة.",
+    businessDefinitionEn: "Unexcused absence records percentage against scheduled working capacity.",
+    sourceDomain: "attendance",
+    sourceTables: ["public.attendance_records"],
+    aggregationGrain: "Period",
+    formula: "(COUNT(absent) / NULLIF(COUNT(total_attendance), 0)) * 100",
+    timeDimension: "Date Window",
+    applicableFilters: ["department", "date_range"],
+    owner: "Workforce Management",
+    securityClassification: "Internal",
+    refreshBehavior: "realtime",
+  },
+  {
+    metricCode: "OVERTIME_HOURS",
+    nameAr: "ساعات العمل الإضافي المعتمدة",
+    nameEn: "Approved Overtime Hours",
+    businessDefinitionAr: "إجمالي ساعات العمل التي تجاوزت ساعات العمل النظامية والمعتمدة طبقاً للمادة 107 من نظام العمل.",
+    businessDefinitionEn: "Total confirmed overtime hours beyond standard roster compliant with Art 107.",
+    sourceDomain: "attendance",
+    sourceTables: ["public.attendance_records"],
+    aggregationGrain: "Monthly Payroll Cycle",
+    formula: "SUM(GREATEST(0, worked_hours - 8.0))",
+    timeDimension: "Date Window",
+    applicableFilters: ["department", "date_range"],
+    owner: "Payroll & Operations",
+    securityClassification: "Internal",
+    refreshBehavior: "realtime",
+  },
+  {
+    metricCode: "LEAVE_UTILIZATION",
+    nameAr: "معدل استهلاك الإجازات",
+    nameEn: "Leave Utilization Days",
+    businessDefinitionAr: "إجمالي أيام الإجازات السنوية والمستحقة التي تم استهلاكها فعلياً من قبل الموظفين.",
+    businessDefinitionEn: "Total leave days approved and consumed across the organization.",
+    sourceDomain: "leaves",
+    sourceTables: ["public.requests"],
+    aggregationGrain: "Monthly / Annual",
+    formula: "SUM(days) FILTER (WHERE type = 'leave' AND status = 'approved')",
+    timeDimension: "Date Window",
+    applicableFilters: ["department", "leave_type", "date_range"],
+    owner: "HR Operations",
+    securityClassification: "Internal",
+    refreshBehavior: "realtime",
+  },
+  {
+    metricCode: "PAYROLL_COST",
+    nameAr: "التكلفة الإجمالية للأجور والرواتب",
+    nameEn: "Total Payroll & Labor Cost",
+    businessDefinitionAr: "إجمالي تكاليف مسيرات الرواتب المعتمدة متضمنة الرواتب الأساسية، البدلات واشتراكات التأمينات (GOSI).",
+    businessDefinitionEn: "Consolidated payroll expenditures including earnings, allowances, and employer GOSI.",
+    sourceDomain: "payroll",
+    sourceTables: ["public.payroll_runs", "public.payroll_details"],
+    aggregationGrain: "Monthly Payroll Run",
+    formula: "SUM(total_net_salary + total_employer_gosi)",
+    timeDimension: "Payroll Period",
+    applicableFilters: ["cost_center", "department", "payroll_run"],
+    owner: "Finance & Payroll",
+    securityClassification: "Restricted",
+    refreshBehavior: "realtime",
+  },
+  {
+    metricCode: "EMPLOYEE_COST_AVG",
+    nameAr: "متوسط تكلفة الموظف",
+    nameEn: "Average Employee Cost",
+    businessDefinitionAr: "متوسط التكلفة المالية للموظف الواحد خلال دورة الرواتب المعتمدة.",
+    businessDefinitionEn: "Mean financial outlay per active employee during finalized payroll cycles.",
+    sourceDomain: "payroll",
+    sourceTables: ["public.payroll_runs", "public.employees"],
+    aggregationGrain: "Monthly",
+    numerator: "SUM(payroll_cost)",
+    denominator: "COUNT(active_employees)",
+    formula: "payroll_cost / NULLIF(active_employees, 0)",
+    timeDimension: "Payroll Period",
+    applicableFilters: ["department", "cost_center"],
+    owner: "Finance & People Analytics",
+    securityClassification: "Restricted",
+    refreshBehavior: "daily_batch",
+  },
+  {
+    metricCode: "OPEN_VACANCIES",
+    nameAr: "الشواغر الوظيفية المعتمدة",
+    nameEn: "Open Vacancies",
+    businessDefinitionAr: "عدد الشواغر المعتمدة ضمن ميزانية التوظيف الجاهزة للاستقطاب والتعيين.",
+    businessDefinitionEn: "Total active unfilled positions approved for recruitment.",
+    sourceDomain: "recruitment",
+    sourceTables: ["public.job_openings"],
+    aggregationGrain: "Company / Department",
+    formula: "SUM(openings_count) FILTER (WHERE status = 'open')",
+    timeDimension: "Current State",
+    applicableFilters: ["department", "job_title"],
+    owner: "Talent Acquisition",
+    securityClassification: "Internal",
+    refreshBehavior: "realtime",
+  },
+  {
+    metricCode: "CANDIDATE_PIPELINE",
+    nameAr: "المرشحون في مسار الاستقطاب",
+    nameEn: "Candidates in Pipeline",
+    businessDefinitionAr: "عدد المرشحين النشطين في مراحل الفرز، المقابلات، والتقييم قيد الإجراء.",
+    businessDefinitionEn: "Active candidates progressing through recruitment stages.",
+    sourceDomain: "recruitment",
+    sourceTables: ["public.candidates"],
+    aggregationGrain: "Requisition / Department",
+    formula: "COUNT(*) FILTER (WHERE stage NOT IN ('rejected', 'hired'))",
+    timeDimension: "Current State",
+    applicableFilters: ["department", "stage", "job_opening"],
+    owner: "Talent Acquisition",
+    securityClassification: "Internal",
+    refreshBehavior: "realtime",
+  },
+  {
+    metricCode: "EXPENSE_TOTAL",
+    nameAr: "إجمالي المصروفات والعهد المستردة",
+    nameEn: "Total Expense Outlay",
+    businessDefinitionAr: "مجموع مبالغ مطالبات العهد والمصروفات المعتمدة خلال الفترة المحددة.",
+    businessDefinitionEn: "Sum of approved employee expense reimbursements in period.",
+    sourceDomain: "expenses",
+    sourceTables: ["public.expense_claims"],
+    aggregationGrain: "Date Window",
+    formula: "SUM(amount) FILTER (WHERE status = 'approved')",
+    timeDimension: "Date Window",
+    applicableFilters: ["category", "department", "date_range"],
+    owner: "Finance & Accounts",
+    securityClassification: "Confidential",
+    refreshBehavior: "realtime",
+  },
+  {
+    metricCode: "OUTSTANDING_ASSETS",
+    nameAr: "العهد والأصول المسندة",
+    nameEn: "Outstanding Custody Assets",
+    businessDefinitionAr: "عدد الأجهزة والمعدات التقنية المسلمة بعهدة الموظفين دون إخلاء طرف.",
+    businessDefinitionEn: "Company hardware and equipment assigned to active employees.",
+    sourceDomain: "assets",
+    sourceTables: ["public.assets"],
+    aggregationGrain: "Company",
+    formula: "COUNT(*) FILTER (WHERE status = 'assigned')",
+    timeDimension: "Current State",
+    applicableFilters: ["category", "location"],
+    owner: "IT & Admin Operations",
+    securityClassification: "Internal",
+    refreshBehavior: "realtime",
+  },
+  {
+    metricCode: "DOCUMENTS_EXPIRING",
+    nameAr: "الوثائق الحكومية المقاربة على الانتهاء",
+    nameEn: "Expiring Employee Documents",
+    businessDefinitionAr: "عدد الإقامات، جوازات السفر والتأمينات الطبية التي تنتهي خلال الـ 60 يوماً القادمة.",
+    businessDefinitionEn: "Count of employee compliance documents expiring within the next 60 days.",
+    sourceDomain: "documents",
+    sourceTables: ["public.employee_documents"],
+    aggregationGrain: "Company",
+    formula: "COUNT(*) FILTER (WHERE expiry_date BETWEEN CURRENT_DATE AND (CURRENT_DATE + 60))",
+    timeDimension: "Rolling 60 Days",
+    applicableFilters: ["document_type", "department"],
+    owner: "Government Relations & HR",
+    securityClassification: "Confidential",
+    refreshBehavior: "daily_batch",
+  },
+];
+
+// ============================================================================
+// 3. CANONICAL REPORT CATALOG DEFINITIONS (ALL 11 DOMAINS COVERED)
 // ============================================================================
 
 export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
-  // 1. Employee Reports
+  // --------------------------------------------------------------------------
+  // 1. Employee Master & Workforce Group
+  // --------------------------------------------------------------------------
   {
+    id: "rep-emp-dir",
     code: "EMP_DIR",
     nameAr: "دليل الموظفين الموحد",
     nameEn: "Employee Directory",
@@ -130,12 +438,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Comprehensive directory of active and onboarded workforce members.",
     requiredRoles: ["super_admin", "hr_manager", "payroll_officer", "attendance_officer", "finance_officer", "line_manager", "auditor"],
     availableFilters: ["department", "status", "search"],
+    availableColumns: ["employee_no", "full_name_ar", "department_name_ar", "job_title_ar", "status", "hire_date", "nationality"],
+    defaultColumns: ["employee_no", "full_name_ar", "department_name_ar", "job_title_ar", "status"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "employees",
     isActive: true,
     iconName: "badge",
   },
   {
+    id: "rep-emp-master",
     code: "EMP_MASTER",
     nameAr: "سجل بيانات الموظفين والرواتب التعاقدية",
     nameEn: "Employee Master & Compensation",
@@ -146,12 +458,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Master employee records with detailed salary and contractual parameters.",
     requiredRoles: ["super_admin", "hr_manager", "payroll_officer", "finance_officer"],
     availableFilters: ["department", "status", "search"],
+    availableColumns: ["employee_no", "full_name_ar", "department_name_ar", "job_title_ar", "basic_salary", "housing_allowance", "total_salary", "national_id_or_iqama"],
+    defaultColumns: ["employee_no", "full_name_ar", "department_name_ar", "total_salary"],
     exportFormats: ["csv", "excel"],
     isSensitive: true,
+    drillDownCapability: "employees",
     isActive: true,
     iconName: "manage_accounts",
   },
   {
+    id: "rep-emp-headcount",
     code: "EMP_HEADCOUNT",
     nameAr: "تعداد القوى العاملة والتركيبة السكانية",
     nameEn: "Headcount & Demographics",
@@ -162,12 +478,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Headcount breakdown by nationality, employment type, and contracts.",
     requiredRoles: ["super_admin", "hr_manager", "payroll_officer", "finance_officer", "auditor"],
     availableFilters: ["department", "status", "search"],
+    availableColumns: ["employee_no", "full_name_ar", "nationality", "contract_type", "work_type", "status"],
+    defaultColumns: ["employee_no", "full_name_ar", "nationality", "contract_type", "work_type"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "employees",
     isActive: true,
     iconName: "groups",
   },
   {
+    id: "rep-emp-joiners",
     code: "EMP_JOINERS",
     nameAr: "تقرير المنضمين الجدد",
     nameEn: "New Joiners Report",
@@ -178,12 +498,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Employees onboarded within the selected date window and probation status.",
     requiredRoles: ["super_admin", "hr_manager", "payroll_officer", "finance_officer", "auditor"],
     availableFilters: ["department", "date_range", "search"],
+    availableColumns: ["employee_no", "full_name_ar", "department_name_ar", "job_title_ar", "hire_date", "status"],
+    defaultColumns: ["employee_no", "full_name_ar", "department_name_ar", "hire_date"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "employees",
     isActive: true,
     iconName: "person_add",
   },
   {
+    id: "rep-emp-leavers",
     code: "EMP_LEAVERS",
     nameAr: "تقرير المنتهية خدماتهم والاستقالات",
     nameEn: "Leavers & Separations Report",
@@ -194,33 +518,23 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Separations, termination reasons, and offboarding completion tracking.",
     requiredRoles: ["super_admin", "hr_manager", "payroll_officer", "finance_officer", "auditor"],
     availableFilters: ["department", "date_range", "search"],
+    availableColumns: ["employee_no", "full_name_ar", "department_name_ar", "hire_date", "status"],
+    defaultColumns: ["employee_no", "full_name_ar", "department_name_ar", "status"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "employees",
     isActive: true,
     iconName: "person_remove",
   },
-  {
-    code: "EMP_ORG_DIST",
-    nameAr: "توزيع الموظفين حسب الإدارات والفروع",
-    nameEn: "Organization Distribution",
-    module: "employees",
-    categoryNameAr: "شؤون الموظفين",
-    categoryNameEn: "Employees",
-    descriptionAr: "كثافة الموظفين موزعة عبر الإدارات، الأقسام، الفروع ومناطق السياج الجغرافي.",
-    descriptionEn: "Workforce density across branches, departments, and geofenced zones.",
-    requiredRoles: ["super_admin", "hr_manager", "line_manager", "finance_officer", "auditor"],
-    availableFilters: ["department", "status", "search"],
-    exportFormats: ["csv", "excel", "pdf"],
-    isSensitive: false,
-    isActive: true,
-    iconName: "account_tree",
-  },
 
-  // 2. Attendance Reports
+  // --------------------------------------------------------------------------
+  // 2. Attendance & Roster Group
+  // --------------------------------------------------------------------------
   {
+    id: "rep-att-summary",
     code: "ATT_SUMMARY",
-    nameAr: "ملخص الحضور والانضباط الشهري",
-    nameEn: "Monthly Attendance Summary",
+    nameAr: "ملخص الحضور والانضباط الشهري (الإحصائي)",
+    nameEn: "Attendance Statistical Summary",
     module: "attendance",
     categoryNameAr: "الحضور والانصراف",
     categoryNameEn: "Attendance",
@@ -228,12 +542,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Aggregated monthly attendance, punctuality rate, and worked hours.",
     requiredRoles: ["super_admin", "hr_manager", "attendance_officer", "line_manager", "auditor"],
     availableFilters: ["department", "date_range", "search"],
+    availableColumns: ["employee_no", "employee_name_ar", "department_name_ar", "work_date", "worked_hours", "status"],
+    defaultColumns: ["employee_no", "employee_name_ar", "department_name_ar", "work_date", "status"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "attendance",
     isActive: true,
     iconName: "fact_check",
   },
   {
+    id: "rep-att-detailed",
     code: "ATT_DETAILED",
     nameAr: "سجل الحضور والانصراف التفصيلي",
     nameEn: "Detailed Attendance Log",
@@ -244,12 +562,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Daily punch records, check-in, check-out timestamps, and daily hours.",
     requiredRoles: ["super_admin", "hr_manager", "attendance_officer", "line_manager", "auditor"],
     availableFilters: ["department", "status", "date_range", "search"],
+    availableColumns: ["employee_no", "employee_name_ar", "department_name_ar", "work_date", "check_in", "check_out", "worked_hours", "status"],
+    defaultColumns: ["employee_no", "employee_name_ar", "work_date", "check_in", "check_out", "status"],
     exportFormats: ["csv", "excel"],
     isSensitive: false,
+    drillDownCapability: "attendance",
     isActive: true,
     iconName: "schedule",
   },
   {
+    id: "rep-att-comprehensive",
     code: "ATT_COMPREHENSIVE",
     nameAr: "التقرير الشامل للبصمات والتأخير والإضافي",
     nameEn: "Comprehensive Punch & Overtime",
@@ -260,12 +582,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Integrated report of rostered shifts, delay minutes, and overtime metrics.",
     requiredRoles: ["super_admin", "hr_manager", "attendance_officer", "payroll_officer", "auditor"],
     availableFilters: ["department", "date_range", "search"],
+    availableColumns: ["employee_no", "employee_name_ar", "department_name_ar", "work_date", "check_in", "check_out", "worked_hours", "overtime_hours", "status"],
+    defaultColumns: ["employee_no", "employee_name_ar", "work_date", "worked_hours", "overtime_hours", "status"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "attendance",
     isActive: true,
     iconName: "browse_activity",
   },
   {
+    id: "rep-att-lateness",
     code: "ATT_LATENESS",
     nameAr: "تقرير التأخير الصباحي ومخالفات الحضور",
     nameEn: "Daily Lateness & Punctuality",
@@ -276,12 +602,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Tardiness events, grace-period infractions, and deduction-ready counts.",
     requiredRoles: ["super_admin", "hr_manager", "attendance_officer", "line_manager", "auditor"],
     availableFilters: ["department", "date_range", "search"],
+    availableColumns: ["employee_no", "employee_name_ar", "department_name_ar", "work_date", "check_in", "status", "note"],
+    defaultColumns: ["employee_no", "employee_name_ar", "work_date", "check_in", "note"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "attendance",
     isActive: true,
     iconName: "alarm",
   },
   {
+    id: "rep-att-absence",
     code: "ATT_ABSENCE",
     nameAr: "تقرير الغياب والانقطاع عن العمل",
     nameEn: "Absence & Unexcused Leave",
@@ -292,12 +622,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Unexcused absences and consecutive missing days for compliance.",
     requiredRoles: ["super_admin", "hr_manager", "attendance_officer", "line_manager", "auditor"],
     availableFilters: ["department", "date_range", "search"],
+    availableColumns: ["employee_no", "employee_name_ar", "department_name_ar", "work_date", "status", "note"],
+    defaultColumns: ["employee_no", "employee_name_ar", "department_name_ar", "work_date", "status"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "attendance",
     isActive: true,
     iconName: "person_off",
   },
   {
+    id: "rep-att-overtime",
     code: "ATT_OVERTIME",
     nameAr: "تقرير ساعات العمل الإضافي المعتمدة",
     nameEn: "Approved Overtime Hours",
@@ -308,14 +642,20 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Statutory Article 107 overtime hours confirmed for payroll inclusion.",
     requiredRoles: ["super_admin", "hr_manager", "attendance_officer", "payroll_officer", "finance_officer"],
     availableFilters: ["department", "date_range", "search"],
+    availableColumns: ["employee_no", "employee_name_ar", "department_name_ar", "work_date", "worked_hours", "overtime_hours"],
+    defaultColumns: ["employee_no", "employee_name_ar", "work_date", "overtime_hours"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "attendance",
     isActive: true,
     iconName: "more_time",
   },
 
-  // 3. Leave Reports
+  // --------------------------------------------------------------------------
+  // 3. Leave & Absences Group
+  // --------------------------------------------------------------------------
   {
+    id: "rep-lev-balances",
     code: "LEV_BALANCES",
     nameAr: "أرصدة الإجازات السنوية والمستحقة",
     nameEn: "Leave Balances & Accruals",
@@ -326,12 +666,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Opening, accrued, consumed, and remaining leave balances per employee.",
     requiredRoles: ["super_admin", "hr_manager", "payroll_officer", "finance_officer", "auditor"],
     availableFilters: ["department", "search"],
+    availableColumns: ["employee_no", "employee_name_ar", "department_name_ar", "entitlement_days", "used_days", "remaining_days"],
+    defaultColumns: ["employee_no", "employee_name_ar", "department_name_ar", "remaining_days"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "leaves",
     isActive: true,
     iconName: "beach_access",
   },
   {
+    id: "rep-lev-requests",
     code: "LEV_REQUESTS",
     nameAr: "سجل طلبات الإجازات والغياب المعتمد",
     nameEn: "Leave Requests & History",
@@ -342,30 +686,20 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Chronological log of leave applications, statuses, and approver details.",
     requiredRoles: ["super_admin", "hr_manager", "line_manager", "auditor"],
     availableFilters: ["department", "status", "date_range", "search"],
+    availableColumns: ["reference", "employee_no", "employee_name_ar", "start_date", "end_date", "days", "status"],
+    defaultColumns: ["reference", "employee_name_ar", "start_date", "end_date", "days", "status"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "leaves",
     isActive: true,
     iconName: "event_available",
   },
-  {
-    code: "LEV_UTILIZATION",
-    nameAr: "معدل استهلاك الإجازات حسب الإدارات",
-    nameEn: "Leave Utilization by Department",
-    module: "leaves",
-    categoryNameAr: "الإجازات والغياب",
-    categoryNameEn: "Leaves",
-    descriptionAr: "مؤشرات التخطيط الموسمي للإجازات والعبء التشغيلي للإدارات والأقسام.",
-    descriptionEn: "Departmental leave consumption rate and operational capacity impact.",
-    requiredRoles: ["super_admin", "hr_manager", "finance_officer", "auditor"],
-    availableFilters: ["department", "date_range", "search"],
-    exportFormats: ["csv", "excel", "pdf"],
-    isSensitive: false,
-    isActive: true,
-    iconName: "event_busy",
-  },
 
-  // 4. Payroll Reports (Strict Financial Permission)
+  // --------------------------------------------------------------------------
+  // 4. Payroll & Compensation Group (Strict Financial Permission)
+  // --------------------------------------------------------------------------
   {
+    id: "rep-pay-register",
     code: "PAY_REGISTER",
     nameAr: "مسير الرواتب المعتمد (Payroll Register)",
     nameEn: "Approved Payroll Register",
@@ -376,12 +710,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Complete payroll run register with earnings, deductions, and net payout.",
     requiredRoles: ["super_admin", "hr_manager", "payroll_officer", "finance_officer"],
     availableFilters: ["department", "search"],
+    availableColumns: ["period_year", "period_month", "employee_no", "employee_name_ar", "basic_salary", "housing_allowance", "gross_salary", "total_deductions", "net_salary"],
+    defaultColumns: ["employee_no", "employee_name_ar", "gross_salary", "total_deductions", "net_salary"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: true,
+    drillDownCapability: "payroll",
     isActive: true,
     iconName: "payments",
   },
   {
+    id: "rep-pay-summary",
     code: "PAY_SUMMARY",
     nameAr: "ملخص الرواتب والبدلات حسب مراكز التكلفة",
     nameEn: "Payroll Summary by Cost Center",
@@ -392,12 +730,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Cost center payroll variance, allocation summary, and financial overhead.",
     requiredRoles: ["super_admin", "hr_manager", "payroll_officer", "finance_officer", "auditor"],
     availableFilters: ["department", "search"],
+    availableColumns: ["employee_no", "employee_name_ar", "department_name_ar", "gross_salary", "statutory_employer", "net_salary"],
+    defaultColumns: ["employee_name_ar", "department_name_ar", "gross_salary", "net_salary"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: true,
+    drillDownCapability: "payroll",
     isActive: true,
     iconName: "pie_chart",
   },
   {
+    id: "rep-pay-components",
     code: "PAY_COMPONENTS",
     nameAr: "تفاصيل بنود الراتب والبدلات والاستقطاعات",
     nameEn: "Salary Components Breakdown",
@@ -408,12 +750,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Line-by-line component ledger for earnings, allowances, and loan repayments.",
     requiredRoles: ["super_admin", "hr_manager", "payroll_officer", "finance_officer"],
     availableFilters: ["department", "search"],
+    availableColumns: ["employee_no", "employee_name_ar", "basic_salary", "housing_allowance", "transport_allowance", "overtime_amount", "total_deductions"],
+    defaultColumns: ["employee_no", "employee_name_ar", "basic_salary", "housing_allowance", "transport_allowance"],
     exportFormats: ["csv", "excel"],
     isSensitive: true,
+    drillDownCapability: "payroll",
     isActive: true,
     iconName: "view_list",
   },
   {
+    id: "rep-pay-gosi",
     code: "PAY_GOSI",
     nameAr: "تقرير التأمينات الاجتماعية وحماية الأجور (WPS)",
     nameEn: "Social Insurance (GOSI) & WPS",
@@ -424,64 +770,20 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Statutory GOSI/SANED liabilities, employer contributions, and WPS file data.",
     requiredRoles: ["super_admin", "hr_manager", "payroll_officer", "finance_officer", "auditor"],
     availableFilters: ["department", "search"],
+    availableColumns: ["employee_no", "employee_name_ar", "iban", "gross_salary", "statutory_employee", "statutory_employer"],
+    defaultColumns: ["employee_no", "employee_name_ar", "statutory_employee", "statutory_employer"],
     exportFormats: ["csv", "excel"],
     isSensitive: true,
+    drillDownCapability: "payroll",
     isActive: true,
     iconName: "security",
   },
 
-  // 5. Performance Reports
+  // --------------------------------------------------------------------------
+  // 5. Recruitment & ATS Group
+  // --------------------------------------------------------------------------
   {
-    code: "PRF_RESULTS",
-    nameAr: "نتائج تقييم الأداء والمراجعات السنوية",
-    nameEn: "Performance Evaluation Results",
-    module: "performance",
-    categoryNameAr: "تقييم الأداء",
-    categoryNameEn: "Performance",
-    descriptionAr: "سجل نتائج دورات التقييم، التقديرات النهائية، تقييم المدير والتقييم الذاتي.",
-    descriptionEn: "Performance appraisal outcomes, scores, and finalized rating bands.",
-    requiredRoles: ["super_admin", "hr_manager", "finance_officer", "auditor"],
-    availableFilters: ["department", "status", "search"],
-    exportFormats: ["csv", "excel", "pdf"],
-    isSensitive: false,
-    isActive: true,
-    iconName: "military_tech",
-  },
-  {
-    code: "PRF_GOALS",
-    nameAr: "متابعة إنجاز الأهداف الذكية (OKRs/KPIs)",
-    nameEn: "Goal Completion & Progress",
-    module: "performance",
-    categoryNameAr: "تقييم الأداء",
-    categoryNameEn: "Performance",
-    descriptionAr: "مستوى تحقيق الأهداف الفردية والمؤسسية ونسب الإنجاز المحققة بنهاية الدورة.",
-    descriptionEn: "Individual and strategic goal status, weights, and milestone completion.",
-    requiredRoles: ["super_admin", "hr_manager", "auditor"],
-    availableFilters: ["department", "status", "search"],
-    exportFormats: ["csv", "excel", "pdf"],
-    isSensitive: false,
-    isActive: true,
-    iconName: "flag",
-  },
-  {
-    code: "PRF_DISTRIBUTION",
-    nameAr: "منحنى التوزيع الطبيعي ومصفوفة 9-Box",
-    nameEn: "Rating Distribution & 9-Box Matrix",
-    module: "performance",
-    categoryNameAr: "تقييم الأداء",
-    categoryNameEn: "Performance",
-    descriptionAr: "توزيع تقييمات الموظفين عبر مصفوفة المواهب التساعية والمنحنى الموجه.",
-    descriptionEn: "Talent 9-box calibration, high-potential mapping, and bell curve distribution.",
-    requiredRoles: ["super_admin", "hr_manager", "auditor"],
-    availableFilters: ["department", "search"],
-    exportFormats: ["csv", "excel", "pdf"],
-    isSensitive: false,
-    isActive: true,
-    iconName: "grid_view",
-  },
-
-  // 6. Recruitment Reports
-  {
+    id: "rep-rec-reqs",
     code: "REC_REQUISITIONS",
     nameAr: "شواغر التوظيف والاحتياج الوظيفي",
     nameEn: "Open Job Requisitions",
@@ -492,12 +794,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Approved job postings, opening counts, and recruitment targets.",
     requiredRoles: ["super_admin", "hr_manager", "finance_officer", "auditor"],
     availableFilters: ["department", "status", "search"],
+    availableColumns: ["title_ar", "department_name_ar", "openings_count", "hired_count", "status", "target_date"],
+    defaultColumns: ["title_ar", "department_name_ar", "openings_count", "status"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "recruitment",
     isActive: true,
     iconName: "work",
   },
   {
+    id: "rep-rec-pipeline",
     code: "REC_CANDIDATES",
     nameAr: "مسار المرشحين ومراحل الاستقطاب",
     nameEn: "Candidate Pipeline & Stages",
@@ -508,30 +814,44 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Applicant tracking pipeline across screening, interview, and offer stages.",
     requiredRoles: ["super_admin", "hr_manager", "auditor"],
     availableFilters: ["department", "status", "search"],
+    availableColumns: ["candidate_name_ar", "email", "phone", "job_title_ar", "stage", "rating", "source"],
+    defaultColumns: ["candidate_name_ar", "job_title_ar", "stage", "rating"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "recruitment",
     isActive: true,
     iconName: "recent_actors",
   },
+
+  // --------------------------------------------------------------------------
+  // 6. Performance & Appraisal Group
+  // --------------------------------------------------------------------------
   {
-    code: "REC_HIRES",
-    nameAr: "التعيينات الجديدة ومتوسط زمن التوظيف",
-    nameEn: "New Hires & Time-to-Fill",
-    module: "recruitment",
-    categoryNameAr: "التوظيف والاستقطاب",
-    categoryNameEn: "Recruitment",
-    descriptionAr: "مؤشرات كفاءة التوظيف: متوسط الأيام لشغل الوظيفة وتكلفة الاستقطاب.",
-    descriptionEn: "Time-to-hire metrics, accepted job offers, and recruiter efficiency.",
+    id: "rep-prf-results",
+    code: "PRF_RESULTS",
+    nameAr: "نتائج تقييم الأداء والمراجعات السنوية",
+    nameEn: "Performance Evaluation Results",
+    module: "performance",
+    categoryNameAr: "تقييم الأداء",
+    categoryNameEn: "Performance",
+    descriptionAr: "سجل نتائج دورات التقييم، التقديرات النهائية، تقييم المدير والتقييم الذاتي.",
+    descriptionEn: "Performance appraisal outcomes, scores, and finalized rating bands.",
     requiredRoles: ["super_admin", "hr_manager", "finance_officer", "auditor"],
-    availableFilters: ["department", "date_range", "search"],
+    availableFilters: ["department", "status", "search"],
+    availableColumns: ["employee_no", "employee_name_ar", "department_name_ar", "score", "rating_band", "status"],
+    defaultColumns: ["employee_no", "employee_name_ar", "score", "rating_band"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "performance",
     isActive: true,
-    iconName: "how_to_reg",
+    iconName: "military_tech",
   },
 
-  // 7. Workforce Planning Reports
+  // --------------------------------------------------------------------------
+  // 7. Workforce Planning Group
+  // --------------------------------------------------------------------------
   {
+    id: "rep-wfp-plan",
     code: "WFP_PLAN_VS_ACTUAL",
     nameAr: "مقارنة خطة القوى العاملة بالواقع الفعلي",
     nameEn: "Workforce Plan vs. Actual",
@@ -542,30 +862,20 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Headcount budget variance and target vs. actual capacity alignment.",
     requiredRoles: ["super_admin", "hr_manager", "finance_officer", "auditor"],
     availableFilters: ["department", "search"],
+    availableColumns: ["department_name_ar", "planned_headcount", "actual_headcount", "variance", "budget_status"],
+    defaultColumns: ["department_name_ar", "planned_headcount", "actual_headcount", "variance"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "workforce",
     isActive: true,
     iconName: "insights",
   },
-  {
-    code: "WFP_DEMAND",
-    nameAr: "فجوة التوظيف وتكاليف القوى العاملة التقديرية",
-    nameEn: "Hiring Demand & Budget Variance",
-    module: "workforce",
-    categoryNameAr: "تخطيط القوى العاملة",
-    categoryNameEn: "Workforce Planning",
-    descriptionAr: "تحليل الاحتياج المستقبلي وتكلفة الكوادر الجديدة لتلبية الخطط التشغيلية.",
-    descriptionEn: "Projected staffing requirements and anticipated compensation footprint.",
-    requiredRoles: ["super_admin", "hr_manager", "finance_officer", "auditor"],
-    availableFilters: ["department", "search"],
-    exportFormats: ["csv", "excel", "pdf"],
-    isSensitive: false,
-    isActive: true,
-    iconName: "trending_up",
-  },
 
-  // 8. Expense Reports
+  // --------------------------------------------------------------------------
+  // 8. Expense & Reimbursements Group
+  // --------------------------------------------------------------------------
   {
+    id: "rep-exp-claims",
     code: "EXP_CLAIMS",
     nameAr: "مطالبات العهد والمصروفات المستردة",
     nameEn: "Expense Claims & Reimbursements",
@@ -576,30 +886,20 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Employee expense submissions, receipts status, and reimbursement batches.",
     requiredRoles: ["super_admin", "hr_manager", "finance_officer", "auditor"],
     availableFilters: ["status", "date_range", "search"],
+    availableColumns: ["claim_number", "employee_name_ar", "category_name_ar", "merchant_name", "amount", "vat_amount", "total_amount", "status"],
+    defaultColumns: ["claim_number", "employee_name_ar", "category_name_ar", "total_amount", "status"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "expenses",
     isActive: true,
     iconName: "receipt_long",
   },
-  {
-    code: "EXP_BY_CATEGORY",
-    nameAr: "تحليل المصروفات حسب التصنيف والإدارة",
-    nameEn: "Expenses by Category & Dept",
-    module: "expenses",
-    categoryNameAr: "النفقات والعهد",
-    categoryNameEn: "Expenses",
-    descriptionAr: "توزيع مبالغ السفر، الإعاشة، واللوازم المكتبية على بنود الميزانية ومراكز التكلفة.",
-    descriptionEn: "Expense classification breakdown by travel, per diem, supplies, and cost code.",
-    requiredRoles: ["super_admin", "hr_manager", "finance_officer", "auditor"],
-    availableFilters: ["status", "date_range", "search"],
-    exportFormats: ["csv", "excel", "pdf"],
-    isSensitive: false,
-    isActive: true,
-    iconName: "donut_large",
-  },
 
-  // 9. Asset Reports
+  // --------------------------------------------------------------------------
+  // 9. Assets & Custody Group
+  // --------------------------------------------------------------------------
   {
+    id: "rep-ast-inventory",
     code: "AST_INVENTORY",
     nameAr: "جرد الأصول والمعدات التقنية",
     nameEn: "Hardware & IT Asset Inventory",
@@ -610,12 +910,16 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Complete inventory of hardware assets, serial numbers, and condition.",
     requiredRoles: ["super_admin", "hr_manager", "auditor"],
     availableFilters: ["status", "search"],
+    availableColumns: ["asset_tag", "serial_number", "name_ar", "category", "condition", "status", "location"],
+    defaultColumns: ["asset_tag", "name_ar", "category", "status"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "assets",
     isActive: true,
     iconName: "devices",
   },
   {
+    id: "rep-ast-custody",
     code: "AST_CUSTODY",
     nameAr: "سجل العهد العينية المسندة للموظفين",
     nameEn: "Employee Asset Custody Log",
@@ -626,14 +930,20 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Custody assignment records and clearance verification compliance.",
     requiredRoles: ["super_admin", "hr_manager", "auditor"],
     availableFilters: ["search"],
+    availableColumns: ["asset_tag", "name_ar", "assigned_employee_no", "assigned_employee_name_ar", "acquisition_date", "status"],
+    defaultColumns: ["asset_tag", "name_ar", "assigned_employee_name_ar", "status"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "assets",
     isActive: true,
     iconName: "assignment_ind",
   },
 
-  // 10. Document Reports
+  // --------------------------------------------------------------------------
+  // 10. Documents & Compliance Group
+  // --------------------------------------------------------------------------
   {
+    id: "rep-doc-status",
     code: "DOC_STATUS",
     nameAr: "صلاحية وثائق الموظفين والتنبيهات",
     nameEn: "Employee Documents Expiry Status",
@@ -644,30 +954,20 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Iqama, passport, work permit, and compliance expiry monitoring.",
     requiredRoles: ["super_admin", "hr_manager", "auditor"],
     availableFilters: ["status", "search"],
+    availableColumns: ["employee_no", "employee_name_ar", "document_type", "document_number", "issue_date", "expiry_date", "status"],
+    defaultColumns: ["employee_no", "employee_name_ar", "document_type", "expiry_date", "status"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "documents",
     isActive: true,
     iconName: "folder_shared",
   },
-  {
-    code: "DOC_LETTERS",
-    nameAr: "سجل طلبات وتصاديق الخطابات الرسمية",
-    nameEn: "Official Letter Requests Log",
-    module: "documents",
-    categoryNameAr: "الوثائق والشهادات",
-    categoryNameEn: "Documents",
-    descriptionAr: "أرشيف خطابات التعريف بالراتب، تثبيت المستحقات، والتحقق المشفر عبر QR.",
-    descriptionEn: "Archive of issued salary letters, employment certificates, and QR verification.",
-    requiredRoles: ["super_admin", "hr_manager", "auditor"],
-    availableFilters: ["status", "search"],
-    exportFormats: ["csv", "excel", "pdf"],
-    isSensitive: false,
-    isActive: true,
-    iconName: "verified",
-  },
 
-  // 11. Workflow Reports
+  // --------------------------------------------------------------------------
+  // 11. Workflow & Approvals Group
+  // --------------------------------------------------------------------------
   {
+    id: "rep-wkf-pending",
     code: "WKF_PENDING",
     nameAr: "المعاملات والطلبات المعلقة للاعتماد",
     nameEn: "Pending Approvals & Requests",
@@ -678,31 +978,122 @@ export const REPORT_CATALOG: readonly ReportCatalogItem[] = [
     descriptionEn: "Pending approval backlog, request duration, and assigned decision-makers.",
     requiredRoles: ["super_admin", "hr_manager", "line_manager", "auditor"],
     availableFilters: ["status", "search"],
+    availableColumns: ["reference", "type", "employee_no", "employee_name_ar", "department_name_ar", "created_at", "status"],
+    defaultColumns: ["reference", "type", "employee_name_ar", "created_at", "status"],
     exportFormats: ["csv", "excel", "pdf"],
     isSensitive: false,
+    drillDownCapability: "workflow",
     isActive: true,
     iconName: "pending_actions",
-  },
-  {
-    code: "WKF_SLA",
-    nameAr: "كفاءة سلاسل الاعتماد ومتوسط زمن الإنجاز",
-    nameEn: "Approval SLA & Turnaround",
-    module: "workflow",
-    categoryNameAr: "إجراءات العمل والاعتماد",
-    categoryNameEn: "Workflow",
-    descriptionAr: "مؤشرات قياس زمن الاستجابة، تجاوزات اتفاقية مستوى الخدمة وتفويض الصلاحيات.",
-    descriptionEn: "Turnaround times, SLA breach rates, and delegation activity tracking.",
-    requiredRoles: ["super_admin", "hr_manager", "auditor"],
-    availableFilters: ["status", "search"],
-    exportFormats: ["csv", "excel", "pdf"],
-    isSensitive: false,
-    isActive: true,
-    iconName: "speed",
   },
 ];
 
 // ============================================================================
-// 3. SERVER FETCHERS & COMPUTATION LOGIC
+// 4. ALLOWLISTED SEMANTIC MODEL FOR AD-HOC REPORT BUILDER
+// ============================================================================
+
+export interface SemanticField {
+  key: string;
+  labelAr: string;
+  labelEn: string;
+  type: "string" | "number" | "date" | "boolean";
+  isSensitive: boolean;
+  requiredRoles?: AuthRole[];
+}
+
+export interface SemanticDomain {
+  key: ReportCategory;
+  nameAr: string;
+  nameEn: string;
+  fields: SemanticField[];
+}
+
+export const REPORT_SEMANTIC_DOMAINS: readonly SemanticDomain[] = [
+  {
+    key: "employees",
+    nameAr: "سجل الموظفين والملفات الوظيفية",
+    nameEn: "Employee Master & Profiles",
+    fields: [
+      { key: "employee_no", labelAr: "الرقم الوظيفي", labelEn: "Employee No", type: "string", isSensitive: false },
+      { key: "full_name_ar", labelAr: "الاسم الكامل (عربي)", labelEn: "Full Name (Ar)", type: "string", isSensitive: false },
+      { key: "email", labelAr: "البريد الإلكتروني", labelEn: "Email", type: "string", isSensitive: false },
+      { key: "job_title_ar", labelAr: "المسمى الوظيفي", labelEn: "Job Title", type: "string", isSensitive: false },
+      { key: "department_name_ar", labelAr: "الإدارة / القسم", labelEn: "Department", type: "string", isSensitive: false },
+      { key: "status", labelAr: "حالة الخدمة", labelEn: "Status", type: "string", isSensitive: false },
+      { key: "hire_date", labelAr: "تاريخ المباشرة", labelEn: "Hire Date", type: "date", isSensitive: false },
+      { key: "nationality", labelAr: "الجنسية", labelEn: "Nationality", type: "string", isSensitive: false },
+      { key: "national_id_or_iqama", labelAr: "الهوية / الإقامة", labelEn: "National ID", type: "string", isSensitive: true },
+      { key: "basic_salary", labelAr: "الراتب الأساسي", labelEn: "Basic Salary", type: "number", isSensitive: true },
+      { key: "housing_allowance", labelAr: "بدل السكن", labelEn: "Housing Allowance", type: "number", isSensitive: true },
+      { key: "total_salary", labelAr: "إجمالي الراتب التعاقدي", labelEn: "Total Salary", type: "number", isSensitive: true },
+    ],
+  },
+  {
+    key: "attendance",
+    nameAr: "كشوف الحضور والانصراف والورديات",
+    nameEn: "Attendance & Rosters",
+    fields: [
+      { key: "work_date", labelAr: "تاريخ العمل", labelEn: "Work Date", type: "date", isSensitive: false },
+      { key: "employee_no", labelAr: "الرقم الوظيفي", labelEn: "Employee No", type: "string", isSensitive: false },
+      { key: "employee_name_ar", labelAr: "اسم الموظف", labelEn: "Employee Name", type: "string", isSensitive: false },
+      { key: "department_name_ar", labelAr: "الإدارة", labelEn: "Department", type: "string", isSensitive: false },
+      { key: "check_in", labelAr: "وقت الحضور", labelEn: "Check In", type: "string", isSensitive: false },
+      { key: "check_out", labelAr: "وقت الانصراف", labelEn: "Check Out", type: "string", isSensitive: false },
+      { key: "worked_hours", labelAr: "ساعات العمل الفعلية", labelEn: "Worked Hours", type: "number", isSensitive: false },
+      { key: "overtime_hours", labelAr: "ساعات الإضافي", labelEn: "Overtime Hours", type: "number", isSensitive: false },
+      { key: "status", labelAr: "الحالة (حاضر/متأخر/غائب)", labelEn: "Status", type: "string", isSensitive: false },
+    ],
+  },
+  {
+    key: "payroll",
+    nameAr: "مسيرات الرواتب والمستحقات المالية",
+    nameEn: "Payroll Registers & Payouts",
+    fields: [
+      { key: "period_year", labelAr: "سنة المسير", labelEn: "Year", type: "number", isSensitive: false },
+      { key: "period_month", labelAr: "شهر المسير", labelEn: "Month", type: "number", isSensitive: false },
+      { key: "employee_no", labelAr: "الرقم الوظيفي", labelEn: "Employee No", type: "string", isSensitive: false },
+      { key: "employee_name_ar", labelAr: "اسم الموظف", labelEn: "Employee Name", type: "string", isSensitive: false },
+      { key: "basic_salary", labelAr: "الراتب الأساسي", labelEn: "Basic Salary", type: "number", isSensitive: true },
+      { key: "housing_allowance", labelAr: "بدل السكن", labelEn: "Housing Allowance", type: "number", isSensitive: true },
+      { key: "transport_allowance", labelAr: "بدل النقل", labelEn: "Transport Allowance", type: "number", isSensitive: true },
+      { key: "gross_salary", labelAr: "إجمالي الاستحقاق", labelEn: "Gross Salary", type: "number", isSensitive: true },
+      { key: "total_deductions", labelAr: "إجمالي الخصومات", labelEn: "Deductions", type: "number", isSensitive: true },
+      { key: "net_salary", labelAr: "صافي الراتب المحول", labelEn: "Net Payout", type: "number", isSensitive: true },
+      { key: "iban", labelAr: "الآيبان البنكي (IBAN)", labelEn: "Bank IBAN", type: "string", isSensitive: true },
+    ],
+  },
+  {
+    key: "expenses",
+    nameAr: "مطالبات النفقات والعهد المستردة",
+    nameEn: "Expense Claims",
+    fields: [
+      { key: "claim_number", labelAr: "رقم المطالبة", labelEn: "Claim No", type: "string", isSensitive: false },
+      { key: "employee_name_ar", labelAr: "الموظف", labelEn: "Employee", type: "string", isSensitive: false },
+      { key: "category_name_ar", labelAr: "التصنيف", labelEn: "Category", type: "string", isSensitive: false },
+      { key: "merchant_name", labelAr: "الجهة / المتجر", labelEn: "Merchant", type: "string", isSensitive: false },
+      { key: "amount", labelAr: "المبلغ الأساسي", labelEn: "Amount", type: "number", isSensitive: false },
+      { key: "total_amount", labelAr: "المبلغ الإجمالي (شامل الضريبة)", labelEn: "Total Amount", type: "number", isSensitive: false },
+      { key: "spent_at", labelAr: "تاريخ الإنفاق", labelEn: "Date", type: "date", isSensitive: false },
+      { key: "status", labelAr: "حالة الاعتماد", labelEn: "Status", type: "string", isSensitive: false },
+    ],
+  },
+  {
+    key: "assets",
+    nameAr: "جرد الأصول والعهد العينية",
+    nameEn: "Assets Inventory & Custody",
+    fields: [
+      { key: "asset_tag", labelAr: "رمز الأصل (الباركود)", labelEn: "Asset Tag", type: "string", isSensitive: false },
+      { key: "name_ar", labelAr: "اسم الأصل / الجهاز", labelEn: "Asset Name", type: "string", isSensitive: false },
+      { key: "serial_number", labelAr: "الرقم التسلسلي", labelEn: "Serial Number", type: "string", isSensitive: false },
+      { key: "category", labelAr: "التصنيف", labelEn: "Category", type: "string", isSensitive: false },
+      { key: "assigned_employee_name_ar", labelAr: "المسند إليه", labelEn: "Assigned To", type: "string", isSensitive: false },
+      { key: "status", labelAr: "الحالة التشغيلية", labelEn: "Status", type: "string", isSensitive: false },
+    ],
+  },
+];
+
+// ============================================================================
+// 5. SERVER FETCHERS & COMPUTATION LOGIC
 // ============================================================================
 
 export async function fetchExecutiveKpisServer(
@@ -738,21 +1129,32 @@ export async function fetchExecutiveKpisServer(
         nitaqatBand: (d.nitaqat_band as ExecutiveKpis["nitaqatBand"]) || "platinum",
         newHires: Number(d.new_hires || 0),
         turnoverCount: Number(d.turnover_count || 0),
+        turnoverRate: Number(d.turnover_rate || 0),
         attendanceRate: Number(d.attendance_rate || 100),
         absenceCount: Number(d.absence_count || 0),
+        absenceRate: Number(d.absence_rate || 0),
         latenessCount: Number(d.lateness_count || 0),
         overtimeHours: Number(d.overtime_hours || 0),
         leaveUtilizationDays: Number(d.leave_utilization_days || 0),
         payrollCost: Number(d.payroll_cost || 0),
-        expenseCost: Number(d.expense_cost || 0),
+        averageEmployeeCost: Number(d.average_employee_cost || 0),
+        openPositions: Number(d.open_positions || 0),
         openVacancies: Number(d.open_vacancies || 0),
         recruitmentCandidates: Number(d.recruitment_candidates || 0),
+        offersCount: Number(d.offers_count || 0),
+        hiresCount: Number(d.hires_count || 0),
+        timeToFillDays: Number(d.time_to_fill_days || 0),
+        performanceReviewCompletion: Number(d.performance_review_completion || 0),
+        averageRating: Number(d.average_rating || 0),
+        workforcePlanVariance: Number(d.workforce_plan_variance || 0),
+        expenseCost: Number(d.expense_cost || 0),
+        outstandingAssets: Number(d.outstanding_assets || 0),
+        expiringDocuments: Number(d.expiring_documents || 0),
         pendingApprovals: Number(d.pending_approvals || 0),
         generatedAt: (d.generated_at as string) || new Date().toISOString(),
       };
     }
   } catch (err) {
-    // If running in demo mode or RPC not yet deployed on server, compute authoritative demo fallback
     console.warn("Falling back to demo store for executive KPIs:", err);
   }
 
@@ -768,9 +1170,15 @@ export async function fetchExecutiveKpisServer(
 
   const band = rate >= 40 ? "platinum" : rate >= 30 ? "high_green" : rate >= 20 ? "mid_green" : "red";
 
+  const totalHeadcount = emps.filter((e) => e.status !== "terminated").length;
+  const turnoverCount = emps.filter((e) => e.status === "terminated").length;
+  const turnoverRate = totalHeadcount > 0 ? Number(((turnoverCount / totalHeadcount) * 100).toFixed(2)) : 0;
+
   const totalPayroll = (demoStore.payrollRuns || [])
     .filter((r) => ["locked", "approved", "paid"].includes(r.status))
     .reduce((sum, r) => sum + (r.totalNetSalary || 0) + (r.totalEmployerGosi || 0), 0);
+
+  const avgEmpCost = activeEmps.length > 0 ? Number((totalPayroll / activeEmps.length).toFixed(2)) : 0;
 
   const totalExpenses = (demoStore.expenseClaims || [])
     .filter((c) => c.status === "approved")
@@ -786,23 +1194,35 @@ export async function fetchExecutiveKpisServer(
     companyId,
     startDate: start,
     endDate: end,
-    totalHeadcount: emps.filter((e) => e.status !== "terminated").length,
+    totalHeadcount,
     activeEmployees: activeEmps.length,
     saudiCount: saudiEmps.length,
     expatCount: expatEmps.length,
     saudizationRate: rate,
     nitaqatBand: band,
     newHires: emps.filter((e) => e.hireDate && e.hireDate >= start && e.hireDate <= end).length,
-    turnoverCount: emps.filter((e) => e.status === "terminated").length,
+    turnoverCount,
+    turnoverRate,
     attendanceRate: 98.4,
     absenceCount: 2,
+    absenceRate: 1.6,
     latenessCount: 4,
     overtimeHours: 18.5,
     leaveUtilizationDays: 14,
     payrollCost: totalPayroll,
-    expenseCost: totalExpenses,
+    averageEmployeeCost: avgEmpCost,
+    openPositions: ((demoStore.jobOpenings as any[]) || []).filter((j: any) => j.status === "open").length,
     openVacancies,
     recruitmentCandidates: (demoStore.candidates || []).filter((c) => c.stage !== "rejected").length,
+    offersCount: (demoStore.candidates || []).filter((c) => (c.stage as string) === "job_offer" || (c.stage as string) === "offer").length,
+    hiresCount: (demoStore.candidates || []).filter((c) => c.stage === "hired").length,
+    timeToFillDays: 24.5,
+    performanceReviewCompletion: 87.5,
+    averageRating: 4.1,
+    workforcePlanVariance: 3.2,
+    expenseCost: totalExpenses,
+    outstandingAssets: ((demoStore.assets as any[]) || []).filter((a: any) => a.status === "assigned").length,
+    expiringDocuments: ((demoStore.employeeDocs as any[]) || []).filter((d: any) => d.status === "expiring").length,
     pendingApprovals,
     generatedAt: new Date().toISOString(),
   };
@@ -876,22 +1296,29 @@ export async function fetchReportDataServer(
       total_salary: canViewSensitive ? e.totalSalary : null,
     }));
   } else if (reportCode.startsWith("ATT_")) {
-    rawRows = (demoStore.attendanceRecords || []).map((a) => {
-      const emp = demoStore.employees.find((e) => e.id === a.employeeId || e.employeeNo === a.employeeNo);
-      return {
-        id: a.id,
-        work_date: a.workDate,
-        employee_no: a.employeeNo,
-        employee_name_ar: a.employeeName || (emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : ""),
-        department_name_ar: emp?.departmentName || "العمليات",
-        check_in: a.actualIn || "08:00:00",
-        check_out: a.actualOut || "16:00:00",
-        worked_hours: a.workedHours || 8,
-        status: a.status,
-        overtime_hours: (a.workedHours || 8) > 8 ? (a.workedHours || 8) - 8 : 0,
-        note: a.status === "late" ? "تأخير صباحي" : null,
-      };
-    });
+    rawRows = (demoStore.attendanceRecords || [])
+      .filter((a) => {
+        if (reportCode === "ATT_LATENESS") return a.status === "late";
+        if (reportCode === "ATT_ABSENCE") return a.status === "absent";
+        if (reportCode === "ATT_OVERTIME") return (a.workedHours || 8) > 8;
+        return true;
+      })
+      .map((a) => {
+        const emp = demoStore.employees.find((e) => e.id === a.employeeId || e.employeeNo === a.employeeNo);
+        return {
+          id: a.id,
+          work_date: a.workDate,
+          employee_no: a.employeeNo,
+          employee_name_ar: a.employeeName || (emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : ""),
+          department_name_ar: emp?.departmentName || "العمليات",
+          check_in: a.actualIn || "08:00:00",
+          check_out: a.actualOut || "16:00:00",
+          worked_hours: a.workedHours || 8,
+          status: a.status,
+          overtime_hours: (a.workedHours || 8) > 8 ? (a.workedHours || 8) - 8 : 0,
+          note: a.status === "late" ? "تأخير صباحي" : a.status === "absent" ? "غياب غير مسوغ" : null,
+        };
+      });
   } else if (reportCode.startsWith("LEV_")) {
     if (reportCode === "LEV_BALANCES") {
       rawRows = ((demoStore.leaveBalances as any[]) || []).map((b: any) => {
@@ -1080,11 +1507,10 @@ export async function fetchReportDataServer(
 }
 
 // ============================================================================
-// 4. REACT HOOKS
+// 6. REACT HOOKS
 // ============================================================================
 
 export function useExecutiveKpis(filters?: { startDate?: string; endDate?: string }) {
-  const { session, isDemo } = useAuth();
   const bootstrap = useBootstrapData();
   const companyId = bootstrap.company?.id || "00000000-0000-0000-0000-000000000000";
 
@@ -1103,7 +1529,7 @@ export function useReportData(
   pagination: ReportPaginationState,
   sort: ReportSortState,
 ) {
-  const { session, isDemo, role } = useAuth();
+  const { role } = useAuth();
   const bootstrap = useBootstrapData();
   const companyId = bootstrap.company?.id || "00000000-0000-0000-0000-000000000000";
 
@@ -1129,7 +1555,6 @@ export function useSavedReportFilters(reportCode?: string) {
     queryKey: queryKeys.reports.savedFilters(reportCode),
     queryFn: async () => {
       if (!session || isDemo) {
-        // Return demo saved filters
         const demoFilters: SavedReportFilter[] = [
           {
             id: "flt-demo-1",
@@ -1185,6 +1610,73 @@ export function useSavedReportFilters(reportCode?: string) {
       }));
     },
     staleTime: 60 * 1000,
+  });
+}
+
+export function useReportFavorites() {
+  const { session, isDemo, user } = useAuth();
+  const bootstrap = useBootstrapData();
+  const companyId = bootstrap.company?.id || "00000000-0000-0000-0000-000000000000";
+
+  return useQuery<string[], Error>({
+    queryKey: queryKeys.reports.favorites(user?.id),
+    queryFn: async () => {
+      if (!session || isDemo) {
+        return ["EMP_DIR", "ATT_SUMMARY", "PAY_REGISTER"];
+      }
+
+      const { data, error } = await supabase
+        .from("report_favorites" as any)
+        .select("report_code")
+        .eq("company_id", companyId);
+
+      if (error) throw error;
+      return (data || []).map((r: any) => r.report_code);
+    },
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useRecentReports() {
+  const { session, isDemo, user } = useAuth();
+  const bootstrap = useBootstrapData();
+  const companyId = bootstrap.company?.id || "00000000-0000-0000-0000-000000000000";
+
+  return useQuery<{ reportCode: string; openedAt: string }[], Error>({
+    queryKey: queryKeys.reports.recents(user?.id),
+    queryFn: async () => {
+      if (!session || isDemo) {
+        return [
+          { reportCode: "EMP_DIR", openedAt: new Date(Date.now() - 3600000).toISOString() },
+          { reportCode: "ATT_LATENESS", openedAt: new Date(Date.now() - 7200000).toISOString() },
+          { reportCode: "PAY_REGISTER", openedAt: new Date(Date.now() - 14400000).toISOString() },
+        ];
+      }
+
+      const { data, error } = await supabase
+        .from("report_recents" as any)
+        .select("report_code, opened_at")
+        .eq("company_id", companyId)
+        .order("opened_at", { ascending: false })
+        .limit(6);
+
+      if (error) throw error;
+      return (data || []).map((r: any) => ({
+        reportCode: r.report_code,
+        openedAt: r.opened_at,
+      }));
+    },
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useMetricCatalog() {
+  return useQuery<readonly MetricCatalogItem[], Error>({
+    queryKey: queryKeys.reports.metrics(),
+    queryFn: async () => {
+      return METRIC_CATALOG;
+    },
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -1254,6 +1746,45 @@ export function useReportMutations() {
     },
   });
 
+  const toggleFavorite = useMutation({
+    mutationFn: async (reportCode: string) => {
+      if (!session || isDemo) {
+        return { ok: true, is_favorite: true };
+      }
+
+      const { data, error } = await supabase.rpc("toggle_report_favorite" as any, {
+        p_company_id: companyId,
+        p_report_code: reportCode,
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.reports.favorites(),
+      });
+    },
+  });
+
+  const logRecentAccess = useMutation({
+    mutationFn: async (reportCode: string) => {
+      if (!session || isDemo) return { ok: true };
+
+      const { data, error } = await supabase.rpc("log_recent_report_access" as any, {
+        p_company_id: companyId,
+        p_report_code: reportCode,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.reports.recents(),
+      });
+    },
+  });
+
   const logReportGeneration = useMutation({
     mutationFn: async (input: {
       reportCode: string;
@@ -1283,6 +1814,8 @@ export function useReportMutations() {
   return {
     saveFilter,
     deleteFilter,
+    toggleFavorite,
+    logRecentAccess,
     logReportGeneration,
   };
 }

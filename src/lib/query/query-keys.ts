@@ -4,8 +4,11 @@
  */
 import { reportQueryKeys } from "./report-query-keys";
 import { integrationQueryKeys } from "./integration-query-keys";
+import { notificationQueryKeys } from "./notification-query-keys";
+import { taskQueryKeys } from "./tasks-query-keys";
+import { auditQueryKeys } from "./audit-query-keys";
 
-export { reportQueryKeys, integrationQueryKeys };
+export { reportQueryKeys, integrationQueryKeys, notificationQueryKeys, taskQueryKeys, auditQueryKeys };
 
 export const queryKeys = {
   bootstrap: {
@@ -310,12 +313,9 @@ export const queryKeys = {
     employees: () => [...queryKeys.documents.all, "employees"] as const,
     employee: (id: string) => [...queryKeys.documents.all, "employees", id] as const,
   },
-  audit: {
-    all: ["audit"] as const,
-  },
-  notifications: {
-    all: ["notifications"] as const,
-  },
+  audit: auditQueryKeys,
+  notifications: notificationQueryKeys,
+  tasks: taskQueryKeys,
   integrations: integrationQueryKeys,
   dashboard: {
     all: ["dashboard"] as const,

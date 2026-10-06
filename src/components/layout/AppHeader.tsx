@@ -43,6 +43,11 @@ import {
 } from "../ui/sheet";
 import { useNavigate } from "@tanstack/react-router";
 import { AccountSecurityModal } from "./AccountSecurityModal";
+import {
+  useNotificationsInbox,
+  useUnreadNotificationsCount,
+  useNotificationMutations,
+} from "../../lib/domains/notifications";
 
 interface AppHeaderProps {
   onOpenCommandPalette?: () => void;
@@ -87,7 +92,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const { data: authoritativeNotifications = [] } = useNotificationsInbox();
+  const { data: authoritativeUnreadCount = 0 } = useUnreadNotificationsCount();
+  const { markAsRead: authoritativeMarkRead, markAllAsRead: authoritativeMarkAllRead } =
+    useNotificationMutations();
+
+  const unreadCount = authoritativeUnreadCount;
 
   const roleLabels: Record<UserRole, { ar: string; en: string }> = {
     super_admin: { ar: "مدير عام النظام (Super Admin)", en: "Super Admin" },
@@ -273,27 +283,39 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             className="w-80 sm:w-96 rounded-3xl sm:m-3 p-5 shadow-2xl border-border"
           >
             <SheetHeader>
-              <SheetTitle className="text-base font-black flex items-center justify-between">
-                <span>{language === "ar" ? "التنبيهات" : "Notifications"}</span>
+              <div className="flex items-center justify-between">
+                <SheetTitle className="text-base font-black flex items-center gap-2">
+                  <span>{language === "ar" ? "التنبيهات" : "Notifications"}</span>
+                  {unreadCount > 0 && (
+                    <Badge variant="secondary" className="text-xs font-bold rounded-full px-2.5">
+                      {unreadCount} جديد
+                    </Badge>
+                  )}
+                </SheetTitle>
                 {unreadCount > 0 && (
-                  <Badge variant="secondary" className="text-xs font-bold rounded-full px-2.5">
-                    {unreadCount} جديد
-                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => authoritativeMarkAllRead()}
+                    className="h-7 text-[11px] font-bold text-primary hover:bg-primary/10 rounded-full"
+                  >
+                    تحديد الكل كمقروء
+                  </Button>
                 )}
-              </SheetTitle>
+              </div>
               <SheetDescription className="text-xs">
                 الإشعارات والتنبيهات المباشرة لطلبات الاعتماد وحركات الموظفين
               </SheetDescription>
             </SheetHeader>
 
             <div className="mt-4 space-y-3 max-h-[calc(100vh-140px)] overflow-y-auto">
-              {notifications.length === 0 ? (
+              {authoritativeNotifications.length === 0 ? (
                 <p className="text-center text-xs text-muted-foreground py-8">لا توجد إشعارات</p>
               ) : (
-                notifications.map((n) => (
+                authoritativeNotifications.map((n) => (
                   <div
                     key={n.id}
-                    onClick={() => markNotificationRead(n.id)}
+                    onClick={() => authoritativeMarkRead(n.id)}
                     className={`rounded-2xl border p-3.5 text-xs transition-all cursor-pointer shadow-xs ${
                       n.isRead
                         ? "bg-card text-muted-foreground"
@@ -302,13 +324,21 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   >
                     <div className="flex items-center justify-between font-black">
                       <span>{language === "ar" ? n.titleAr : n.titleEn}</span>
-                      <span className="text-[10px] text-muted-foreground font-normal">
-                        منذ قليل
+                      <span className="text-[10px] text-muted-foreground font-normal font-mono">
+                        {new Date(n.createdAt).toLocaleTimeString("ar-SA", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </span>
                     </div>
                     <p className="mt-1 text-[11px] leading-relaxed">
                       {language === "ar" ? n.messageAr : n.messageEn}
                     </p>
+                    {n.linkPath && (
+                      <span className="text-[10px] text-primary font-bold mt-1 inline-block hover:underline">
+                        عرض التفاصيل ←
+                      </span>
+                    )}
                   </div>
                 ))
               )}

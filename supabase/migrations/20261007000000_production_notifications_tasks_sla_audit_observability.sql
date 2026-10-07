@@ -327,6 +327,7 @@ CREATE OR REPLACE FUNCTION public.log_enterprise_audit_event(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_last_hash text;
@@ -415,6 +416,7 @@ CREATE OR REPLACE FUNCTION public.verify_audit_trail_integrity(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_rec record;
@@ -498,6 +500,7 @@ CREATE OR REPLACE FUNCTION public.send_enterprise_notification(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_notification_id uuid;
@@ -587,6 +590,7 @@ CREATE OR REPLACE FUNCTION public.mark_notification_status(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   UPDATE public.notifications_inbox
@@ -607,6 +611,7 @@ CREATE OR REPLACE FUNCTION public.mark_all_notifications_read(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_count integer;
@@ -644,6 +649,7 @@ CREATE OR REPLACE FUNCTION public.create_operational_task(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_task_id uuid;
@@ -741,6 +747,7 @@ CREATE OR REPLACE FUNCTION public.claim_operational_task(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   UPDATE public.operational_tasks
@@ -763,6 +770,7 @@ CREATE OR REPLACE FUNCTION public.complete_operational_task(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   UPDATE public.operational_tasks
@@ -797,6 +805,7 @@ CREATE OR REPLACE FUNCTION public.escalate_operational_task(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_next_level integer;
@@ -854,6 +863,7 @@ CREATE OR REPLACE FUNCTION public.evaluate_task_slas(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_breached_count integer := 0;
@@ -921,6 +931,7 @@ CREATE OR REPLACE FUNCTION public.enqueue_background_job(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_job_id uuid;
@@ -950,6 +961,7 @@ CREATE OR REPLACE FUNCTION public.retry_dead_letter_job(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_dl record;
@@ -1007,6 +1019,7 @@ CREATE OR REPLACE FUNCTION public.get_operations_health_summary(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_pending_tasks integer := 0;

@@ -14,6 +14,13 @@ export default defineConfig({
     environment: "node",
     hookTimeout: 60000,
     testTimeout: 60000,
+    fileParallelism: false,
+    poolOptions: {
+      forks: {
+        maxForks: 2,
+        minForks: 1,
+      },
+    },
     exclude: ["e2e/**", "node_modules/**", ".output/**"],
     coverage: {
       provider: "v8",

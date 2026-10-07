@@ -43,7 +43,7 @@ describe("Prompt 26: Final Core Release — Production Readiness & Go-Live Certi
       const dangerousEnv = {
         NODE_ENV: "production",
         VITE_SUPABASE_URL: "https://enterprise-prod.supabase.co",
-        VITE_SUPABASE_PUBLISHABLE_KEY: "sb_secret_super_admin_service_role_key",
+        VITE_SUPABASE_PUBLISHABLE_KEY: "service_role_secret_dummy_test_token",
       };
 
       const result = validateEnvironment(dangerousEnv);

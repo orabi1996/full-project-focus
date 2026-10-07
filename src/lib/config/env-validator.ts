@@ -1,6 +1,7 @@
 /**
  * MadarX Enterprise — Production Environment & Runtime Configuration Validator.
  * Enforces strict environment constraints, preventing misconfigured production deployments.
+ * Supports migration from legacy JWT keys to new Supabase Publishable & Secret Key model.
  */
 
 export interface EnvValidationResult {
@@ -11,13 +12,28 @@ export interface EnvValidationResult {
   configSummary: {
     supabaseUrlConfigured: boolean;
     publishableKeyConfigured: boolean;
+    publishableKeyFormat: "new_publishable" | "legacy_jwt" | "missing";
     demoModeActive: boolean;
     httpsEnforced: boolean;
   };
 }
 
+export interface ServerSecretValidationResult {
+  isValid: boolean;
+  keyType: "new_secret" | "legacy_service_role" | "missing";
+  issues: string[];
+}
+
 const PLACEHOLDER_PATTERN = /(your[-_ ]?project|example|placeholder|replace[-_ ]?me|localhost)/i;
 const SERVICE_ROLE_PATTERN = /(service[_-]?role|sb_secret_|secret_key)/i;
+
+/**
+ * Checks if a Supabase key uses the modern opaque key format (sb_publishable_ / sb_secret_).
+ */
+export function isNewSupabaseApiKey(value: string | undefined): boolean {
+  if (!value) return false;
+  return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
+}
 
 /**
  * Validates the runtime environment against enterprise production standards.
@@ -62,6 +78,8 @@ export function validateEnvironment(env: Record<string, string | undefined> = {}
     env.SUPABASE_PUBLISHABLE_KEY ||
     (typeof import.meta !== "undefined" ? import.meta.env?.["VITE_SUPABASE_PUBLISHABLE_KEY"] : undefined);
 
+  let publishableKeyFormat: "new_publishable" | "legacy_jwt" | "missing" = "missing";
+
   if (!publishableKey || publishableKey.trim() === "") {
     issues.push("VITE_SUPABASE_PUBLISHABLE_KEY is missing. Public browser key must be configured.");
   } else {
@@ -72,6 +90,15 @@ export function validateEnvironment(env: Record<string, string | undefined> = {}
     }
     if (isProduction && /(placeholder|replace|example)/i.test(publishableKey)) {
       issues.push("VITE_SUPABASE_PUBLISHABLE_KEY contains placeholder text.");
+    }
+
+    if (publishableKey.startsWith("sb_publishable_")) {
+      publishableKeyFormat = "new_publishable";
+    } else if (publishableKey.startsWith("ey")) {
+      publishableKeyFormat = "legacy_jwt";
+      warnings.push("VITE_SUPABASE_PUBLISHABLE_KEY is using a legacy JWT format. Migration to modern sb_publishable_* format is recommended.");
+    } else {
+      publishableKeyFormat = "new_publishable";
     }
   }
 
@@ -98,10 +125,36 @@ export function validateEnvironment(env: Record<string, string | undefined> = {}
     configSummary: {
       supabaseUrlConfigured: Boolean(supabaseUrl),
       publishableKeyConfigured: Boolean(publishableKey),
+      publishableKeyFormat,
       demoModeActive: !isProduction && demoModeActive,
       httpsEnforced,
     },
   };
+}
+
+/**
+ * Validates backend server-side privileged secret key configuration.
+ * Server environments should supply SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY for fallback).
+ */
+export function validateServerSecretKey(env: Record<string, string | undefined> = {}): ServerSecretValidationResult {
+  const issues: string[] = [];
+  const secretKey = env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!secretKey || secretKey.trim() === "") {
+    issues.push("SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY) is missing. Server admin operations will fail.");
+    return { isValid: false, keyType: "missing", issues };
+  }
+
+  if (secretKey.startsWith("sb_publishable_")) {
+    issues.push("CRITICAL: A publishable key was provided as SUPABASE_SECRET_KEY. Server admin client requires a privileged secret key.");
+    return { isValid: false, keyType: "missing", issues };
+  }
+
+  if (secretKey.startsWith("sb_secret_")) {
+    return { isValid: true, keyType: "new_secret", issues: [] };
+  }
+
+  return { isValid: true, keyType: "legacy_service_role", issues: [] };
 }
 
 /**

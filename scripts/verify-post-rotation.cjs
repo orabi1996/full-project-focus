@@ -82,6 +82,18 @@ async function runVerification() {
     console.log("  ✅ PASS: Demo mode configuration is valid.");
   }
 
+  const secretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (secretKey) {
+    if (secretKey.startsWith("sb_publishable_")) {
+      console.error("  ❌ FAIL: Publishable key passed as SUPABASE_SECRET_KEY.");
+      allPassed = false;
+    } else if (secretKey.startsWith("sb_secret_")) {
+      console.log("  ✅ PASS: Modern SUPABASE_SECRET_KEY configured for server runtime.");
+    } else {
+      console.log("  ✅ PASS: Server privileged key configured.");
+    }
+  }
+
   // 2. HTTP Endpoint Connectivity & SSL Handshake
   console.log("\n[2/5] Testing Supabase Gateway Connectivity...");
   if (supabaseUrl && publishableKey) {

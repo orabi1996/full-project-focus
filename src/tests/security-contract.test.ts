@@ -35,10 +35,12 @@ describe("client-side security contracts", () => {
     expect(context).toContain("عملية الحفظ نفسها قيد التنفيذ بالفعل");
   });
 
-  it("never embeds a Supabase service-role credential in public config", () => {
+  it("never embeds a Supabase service-role or secret key credential in public config", () => {
     const config = source("../integrations/supabase/public-config.ts");
     expect(config).not.toMatch(/SUPABASE_SERVICE_ROLE_KEY\s*=/);
+    expect(config).not.toMatch(/SUPABASE_SECRET_KEY\s*=/);
     expect(config).not.toMatch(/service[_-]?role[_-]?key\s*[:=]/i);
+    expect(config).not.toMatch(/sb_secret_/i);
   });
 
   it("does not contain GitHub personal access tokens in source", () => {

@@ -22,10 +22,10 @@ Until all `CRITICAL_ROTATE_NOW` entries are completed, the release remains tagge
 | # | Provider / Service | Credential Type | Environment Variable | Classification | Rotation Required |
 | :- | :--- | :--- | :--- | :---: | :---: |
 | 1 | **Supabase Auth** | JWT Signing Secret | *Internal to Supabase* | `CRITICAL_ROTATE_NOW` | **YES** |
-| 2 | **Supabase Cloud** | Service-Role / Admin Secret Key | `SUPABASE_SERVICE_ROLE_KEY` | `CRITICAL_ROTATE_NOW` | **YES** |
+| 2 | **Supabase Cloud** | Server Secret / Admin Key | `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`) | `CRITICAL_ROTATE_NOW` | **YES** |
 | 3 | **PostgreSQL (Supabase)** | Database Superuser Password | `DATABASE_URL` / `POSTGRES_PASSWORD` | `CRITICAL_ROTATE_NOW` | **YES** |
 | 4 | **Supabase Auth** | Test User Account Passwords | `SUPABASE_TEST_*_PASSWORD` | `CRITICAL_ROTATE_NOW` | **YES** |
-| 5 | **Supabase API** | Anonymous / Publishable Browser Key | `VITE_SUPABASE_PUBLISHABLE_KEY` | `ROTATE_RECOMMENDED` | **YES** (Rotated with JWT) |
+| 5 | **Supabase API** | Modern Publishable Browser Key | `VITE_SUPABASE_PUBLISHABLE_KEY` | `ROTATE_RECOMMENDED` | **YES** (Rotated with JWT) |
 | 6 | **Webhook Gateway** | Ingress HMAC Signature Secret | `WEBHOOK_SIGNING_SECRET` | `ROTATE_RECOMMENDED` | **YES** (If pre-configured) |
 | 7 | **Supabase API Gateway**| Supabase Project Endpoint URL | `VITE_SUPABASE_URL` | `PUBLIC_NON_SECRET` | **NO** |
 | 8 | **Local Demo Store** | In-Memory Dummy Test Passwords | *N/A (Client Memory Only)* | `NOT_APPLICABLE` | **NO** |
@@ -45,23 +45,23 @@ Until all `CRITICAL_ROTATE_NOW` entries are completed, the release remains tagge
   4. Click **Generate a new JWT secret** (or click **Rotate JWT secret**).
   5. Select **Revoke existing tokens** upon rotation.
 - **Where MadarX Receives New Value:**
-  - Rotating the JWT secret automatically regenerates both the `anon/publishable` key and the `service_role` key in the Supabase console.
+  - Rotating the JWT secret automatically regenerates both the modern `publishable` key and the `secret` key in the Supabase console.
 - **Revocation of Old Credential:** **YES** (Automatic upon rotation; all existing JWTs become immediately invalid).
 - **Verification Method:** Attempting to query the API using old JWT tokens returns `HTTP 401 Unauthorized`.
 
 ---
 
-### Item 2: Supabase Service-Role Admin Key
+### Item 2: Supabase Server Secret Key (Modern: sb_secret_*)
 - **Provider:** Supabase Cloud
 - **Credential Type:** High-Privilege Admin API Secret (Bypasses RLS)
-- **Environment Variable:** `SUPABASE_SERVICE_ROLE_KEY`
+- **Environment Variable:** `SUPABASE_SECRET_KEY` (legacy fallback: `SUPABASE_SERVICE_ROLE_KEY`)
 - **Where Owner Rotates It:**
   1. In Supabase Dashboard -> **Project Settings** -> **API**.
-  2. Verify the newly generated `service_role` secret key produced by the JWT rotation.
+  2. Copy the newly generated `secret` key (`sb_secret_*` format) produced by the JWT rotation.
 - **Where MadarX Receives New Value:**
-  - Store exclusively in the production secure server environment (e.g., Cloudflare Secrets, server environment settings, or backend worker vaults).
+  - Store exclusively in the production secure server environment (e.g., Cloudflare Secrets, server environment settings, or backend worker vaults) under `SUPABASE_SECRET_KEY`.
   - **CRITICAL:** NEVER place this variable into frontend `.env` files or client build configurations.
-- **Revocation of Old Credential:** **YES** (Old service-role key is revoked when JWT secret is rotated).
+- **Revocation of Old Credential:** **YES** (Old secret / service-role key is revoked when JWT secret is rotated).
 - **Verification Method:** Run server maintenance script with new key; old key fails authentication.
 
 ---

@@ -53,10 +53,11 @@ The application runtime strictly checks environment configuration at startup via
 | :--- | :--- | :--- | :--- |
 | `NODE_ENV` | Yes | `production` | Enables production runtime optimizations and strict security. |
 | `VITE_SUPABASE_URL` | Yes | `https://<project-ref>.supabase.co` | Supabase API gateway URL (must be HTTPS; no localhost/placeholders). |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes | `sb_publishable_...` | Public browser API key (client-safe; never provide service-role keys!). |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes | `sb_publishable_...` | Public browser API key (client-safe; never provide secret keys!). |
 | `VITE_ENABLE_DEMO_MODE` | Yes | `false` | Must strictly be `false` in production. Enabling triggers boot blocker. |
 | `VITE_APP_URL` | Recommended | `https://app.madarx.com` | Base URL used for email magic links, password resets, and webhooks. |
 | `VITE_STORAGE_BUCKET_DOCS` | Optional | `documents` | Private bucket name for legal and corporate employee documents. |
+| `SUPABASE_SECRET_KEY` | Server Only | `sb_secret_...` | Privileged admin key for server functions (never expose to client code!). |
 
 ---
 

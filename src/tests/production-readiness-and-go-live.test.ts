@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import fs from "fs";
 import path from "path";
-import { validateEnvironment, assertProductionReadiness } from "../lib/config/env-validator";
+import {
+  validateEnvironment,
+  assertProductionReadiness,
+  validateServerSecretKey,
+  isNewSupabaseApiKey,
+} from "../lib/config/env-validator";
 import { calculateEmployeePayroll } from "../lib/utils/payroll-calculator";
 
 describe("Prompt 26: Final Core Release — Production Readiness & Go-Live Certification", () => {
@@ -75,6 +80,44 @@ describe("Prompt 26: Final Core Release — Production Readiness & Go-Live Certi
       const result = validateEnvironment(placeholderEnv);
       expect(result.isValid).toBe(false);
       expect(result.issues.some((i) => i.includes("invalid placeholder hostname"))).toBe(true);
+    });
+
+    it("1.6 should validate modern SUPABASE_SECRET_KEY server-side", () => {
+      const serverEnv = {
+        SUPABASE_SECRET_KEY: "sb_secret_privileged_production_admin_key_12345",
+      };
+
+      const result = validateServerSecretKey(serverEnv);
+      expect(result.isValid).toBe(true);
+      expect(result.keyType).toBe("new_secret");
+      expect(result.issues).toHaveLength(0);
+    });
+
+    it("1.7 should support backward-compatible fallback to SUPABASE_SERVICE_ROLE_KEY", () => {
+      const legacyServerEnv = {
+        SUPABASE_SERVICE_ROLE_KEY: "legacy_service_role_key_format_token",
+      };
+
+      const result = validateServerSecretKey(legacyServerEnv);
+      expect(result.isValid).toBe(true);
+      expect(result.keyType).toBe("legacy_service_role");
+    });
+
+    it("1.8 should reject publishable key passed as server secret key", () => {
+      const invalidServerEnv = {
+        SUPABASE_SECRET_KEY: "sb_publishable_wrongly_placed_as_secret",
+      };
+
+      const result = validateServerSecretKey(invalidServerEnv);
+      expect(result.isValid).toBe(false);
+      expect(result.issues.some((i) => i.includes("publishable key was provided as SUPABASE_SECRET_KEY"))).toBe(true);
+    });
+
+    it("1.9 should correctly classify new opaque key formats", () => {
+      expect(isNewSupabaseApiKey("sb_publishable_test_token")).toBe(true);
+      expect(isNewSupabaseApiKey("sb_secret_test_token")).toBe(true);
+      expect(isNewSupabaseApiKey("eyJhbGciOi...legacy_jwt")).toBe(false);
+      expect(isNewSupabaseApiKey("")).toBe(false);
     });
   });
 

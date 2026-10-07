@@ -439,7 +439,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (match) return match;
     }
 
-    if (bootstrap.dataMode === "demo" && emps[0]) return emps[0];
+    if (bootstrap.dataMode === "demo") {
+      const demoFallback = emps.find((e) => e.id === "emp-05") || emps.find((e) => e.id === "emp-01");
+      if (demoFallback) return demoFallback;
+    }
 
     return {
       id: "",

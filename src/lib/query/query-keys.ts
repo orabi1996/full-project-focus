@@ -7,8 +7,9 @@ import { integrationQueryKeys } from "./integration-query-keys";
 import { notificationQueryKeys } from "./notification-query-keys";
 import { taskQueryKeys } from "./tasks-query-keys";
 import { auditQueryKeys } from "./audit-query-keys";
+import { essQueryKeys } from "./ess-query-keys";
 
-export { reportQueryKeys, integrationQueryKeys, notificationQueryKeys, taskQueryKeys, auditQueryKeys };
+export { reportQueryKeys, integrationQueryKeys, notificationQueryKeys, taskQueryKeys, auditQueryKeys, essQueryKeys };
 
 export const queryKeys = {
   bootstrap: {
@@ -370,4 +371,5 @@ export const queryKeys = {
       [...queryKeys.workforce.all, "scenarios", companyId, fiscalYear ?? "current"] as const,
   },
   reports: reportQueryKeys,
+  ess: essQueryKeys,
 } as const;

@@ -151,6 +151,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           accentColor: "#7C3AED",
         },
         {
+          id: "onboarding",
+          label: (t.nav as any).onboarding || (language === "ar" ? "التهيئة والتجربة" : "Onboarding"),
+          iconName: "how_to_reg",
+          iconSource: "material",
+          accentColor: "#10B981",
+        },
+        {
           id: "performance",
           label: t.nav.performance,
           iconName: "trending_up",

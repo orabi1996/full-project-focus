@@ -20,6 +20,7 @@ export const MODULE_ROUTE_MAP: Record<string, string> = {
   integrations: "/integrations",
   audit: "/audit",
   ess: "/ess",
+  onboarding: "/onboarding",
 };
 
 export const LEGACY_HASH_MAP: Record<string, string> = {
@@ -44,6 +45,7 @@ export const LEGACY_HASH_MAP: Record<string, string> = {
   "#integrations": "/integrations",
   "#audit": "/audit",
   "#ess": "/ess",
+  "#onboarding": "/onboarding",
 };
 
 /**

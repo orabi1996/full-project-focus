@@ -274,6 +274,19 @@ export const ALL_SYSTEM_SCREENS: readonly ScreenModuleConfig[] = [
     descriptionAr: "الوصول الشخصي للبيانات، كشوف الرواتب، طلبات الإجازات، وتسجيل البصمة والحضور.",
     iconName: "smartphone",
   },
+
+  // 7. Onboarding & Talent Journey
+  {
+    id: "onboarding",
+    code: "M21",
+    category: "talent",
+    categoryNameAr: "المواهب والنمو",
+    categoryNameEn: "Onboarding & Probation",
+    nameAr: "تهيئة الموظفين الجدد وفترة التجربة",
+    nameEn: "New-Hire Onboarding & Probation",
+    descriptionAr: "متابعة مباشرة المنضمين الجدد، المهام التحضيرية، الوثائق، وتأكيد أو تمديد فترة التجربة.",
+    iconName: "how_to_reg",
+  },
 ];
 
 // Helper to build full CRUD permissions for all screens
@@ -354,6 +367,7 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       integrations: { view: true, create: false, edit: false, delete: false, approveExport: false },
       audit: { view: true, create: false, edit: false, delete: false, approveExport: true },
       ess: { view: true, create: true, edit: true, delete: false, approveExport: true },
+      onboarding: { view: true, create: true, edit: true, delete: true, approveExport: true },
     },
   },
   {
@@ -389,6 +403,7 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       integrations: { view: true, create: false, edit: false, delete: false, approveExport: true },
       audit: { view: true, create: false, edit: false, delete: false, approveExport: true },
       ess: { view: true, create: true, edit: true, delete: false, approveExport: true },
+      onboarding: { view: true, create: false, edit: false, delete: false, approveExport: false },
     },
   },
   {
@@ -423,6 +438,7 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       integrations: { view: false, create: false, edit: false, delete: false, approveExport: false },
       audit: { view: false, create: false, edit: false, delete: false, approveExport: false },
       ess: { view: true, create: true, edit: true, delete: false, approveExport: true },
+      onboarding: { view: true, create: false, edit: true, delete: false, approveExport: false },
     },
   },
   {
@@ -457,6 +473,7 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       integrations: { view: false, create: false, edit: false, delete: false, approveExport: false },
       audit: { view: false, create: false, edit: false, delete: false, approveExport: false },
       ess: { view: true, create: true, edit: true, delete: false, approveExport: true },
+      onboarding: { view: true, create: false, edit: false, delete: false, approveExport: false },
     },
   },
   {
@@ -491,6 +508,7 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       integrations: { view: false, create: false, edit: false, delete: false, approveExport: false },
       audit: { view: false, create: false, edit: false, delete: false, approveExport: false },
       ess: { view: true, create: true, edit: true, delete: false, approveExport: true },
+      onboarding: { view: true, create: false, edit: true, delete: false, approveExport: false },
     },
   },
 ];

@@ -1213,6 +1213,7 @@ export function useRecruitmentRepositoryMutations() {
     onSuccess: () => {
       invalidateRecruitment();
       queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+      queryClient.invalidateQueries({ queryKey: ["onboarding"] });
     },
   });
 

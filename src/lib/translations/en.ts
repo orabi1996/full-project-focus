@@ -58,6 +58,7 @@ export const en = {
     integrations: "Integrations & Accounting",
     audit: "Audit Log",
     ess: "Employee Self-Service",
+    onboarding: "Onboarding & Probation",
   },
 
   // Roles

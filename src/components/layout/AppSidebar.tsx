@@ -158,6 +158,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           accentColor: "#10B981",
         },
         {
+          id: "movements",
+          label: (t.nav as any).movements || (language === "ar" ? "تنقلات الموظفين" : "Movements"),
+          iconName: "swap_horiz",
+          iconSource: "material",
+          accentColor: "#8B5CF6",
+        },
+        {
           id: "performance",
           label: t.nav.performance,
           iconName: "trending_up",

@@ -22,6 +22,7 @@ import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
 import { Route as AuthenticatedLeavesRouteImport } from './routes/_authenticated/leaves'
 import { Route as AuthenticatedLoansRouteImport } from './routes/_authenticated/loans'
+import { Route as AuthenticatedMovementsRouteImport } from './routes/_authenticated/movements'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedOrganizationRouteImport } from './routes/_authenticated/organization'
 import { Route as AuthenticatedPerformanceRouteImport } from './routes/_authenticated/performance'
@@ -101,6 +102,11 @@ const AuthenticatedLeavesRoute = AuthenticatedLeavesRouteImport.update({
 const AuthenticatedLoansRoute = AuthenticatedLoansRouteImport.update({
   id: '/loans',
   path: '/loans',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedMovementsRoute = AuthenticatedMovementsRouteImport.update({
+  id: '/movements',
+  path: '/movements',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
@@ -199,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/integrations': typeof AuthenticatedIntegrationsRoute
   '/leaves': typeof AuthenticatedLeavesRoute
   '/loans': typeof AuthenticatedLoansRoute
+  '/movements': typeof AuthenticatedMovementsRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/organization': typeof AuthenticatedOrganizationRoute
   '/performance': typeof AuthenticatedPerformanceRoute
@@ -228,6 +235,7 @@ export interface FileRoutesByTo {
   '/integrations': typeof AuthenticatedIntegrationsRoute
   '/leaves': typeof AuthenticatedLeavesRoute
   '/loans': typeof AuthenticatedLoansRoute
+  '/movements': typeof AuthenticatedMovementsRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/organization': typeof AuthenticatedOrganizationRoute
   '/performance': typeof AuthenticatedPerformanceRoute
@@ -259,6 +267,7 @@ export interface FileRoutesById {
   '/_authenticated/integrations': typeof AuthenticatedIntegrationsRoute
   '/_authenticated/leaves': typeof AuthenticatedLeavesRoute
   '/_authenticated/loans': typeof AuthenticatedLoansRoute
+  '/_authenticated/movements': typeof AuthenticatedMovementsRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/organization': typeof AuthenticatedOrganizationRoute
   '/_authenticated/performance': typeof AuthenticatedPerformanceRoute
@@ -290,6 +299,7 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/leaves'
     | '/loans'
+    | '/movements'
     | '/onboarding'
     | '/organization'
     | '/performance'
@@ -319,6 +329,7 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/leaves'
     | '/loans'
+    | '/movements'
     | '/onboarding'
     | '/organization'
     | '/performance'
@@ -349,6 +360,7 @@ export interface FileRouteTypes {
     | '/_authenticated/integrations'
     | '/_authenticated/leaves'
     | '/_authenticated/loans'
+    | '/_authenticated/movements'
     | '/_authenticated/onboarding'
     | '/_authenticated/organization'
     | '/_authenticated/performance'
@@ -464,6 +476,13 @@ declare module '@tanstack/react-router' {
       path: '/loans'
       fullPath: '/loans'
       preLoaderRoute: typeof AuthenticatedLoansRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/movements': {
+      id: '/_authenticated/movements'
+      path: '/movements'
+      fullPath: '/movements'
+      preLoaderRoute: typeof AuthenticatedMovementsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/onboarding': {
@@ -585,6 +604,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedIntegrationsRoute: typeof AuthenticatedIntegrationsRoute
   AuthenticatedLeavesRoute: typeof AuthenticatedLeavesRoute
   AuthenticatedLoansRoute: typeof AuthenticatedLoansRoute
+  AuthenticatedMovementsRoute: typeof AuthenticatedMovementsRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedOrganizationRoute: typeof AuthenticatedOrganizationRoute
   AuthenticatedPerformanceRoute: typeof AuthenticatedPerformanceRoute
@@ -612,6 +632,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedIntegrationsRoute: AuthenticatedIntegrationsRoute,
   AuthenticatedLeavesRoute: AuthenticatedLeavesRoute,
   AuthenticatedLoansRoute: AuthenticatedLoansRoute,
+  AuthenticatedMovementsRoute: AuthenticatedMovementsRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedOrganizationRoute: AuthenticatedOrganizationRoute,
   AuthenticatedPerformanceRoute: AuthenticatedPerformanceRoute,

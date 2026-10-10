@@ -59,6 +59,7 @@ export const en = {
     audit: "Audit Log",
     ess: "Employee Self-Service",
     onboarding: "Onboarding & Probation",
+    movements: "Employee Movements & Lifecycle",
   },
 
   // Roles

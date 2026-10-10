@@ -450,14 +450,14 @@ describe("Prompt 27: Production Onboarding & Probation Engine", () => {
         `SELECT count(*)::int as count FROM public.onboarding_tasks WHERE case_id = $1::uuid`,
         [result.case_id],
       );
-      expect(tasksRes.rows[0].count).toBeGreaterThanOrEqual(8);
+      expect((tasksRes.rows[0] as any).count).toBeGreaterThanOrEqual(8);
 
       // Check documents seeded
       const docsRes = await db.query(
         `SELECT count(*)::int as count FROM public.onboarding_document_requirements WHERE case_id = $1::uuid`,
         [result.case_id],
       );
-      expect(docsRes.rows[0].count).toBeGreaterThanOrEqual(3);
+      expect((docsRes.rows[0] as any).count).toBeGreaterThanOrEqual(3);
 
       // Check probation case created
       const probRes = await db.query(
@@ -465,8 +465,8 @@ describe("Prompt 27: Production Onboarding & Probation Engine", () => {
         [result.probation_case_id],
       );
       expect(probRes.rows.length).toBe(1);
-      expect(probRes.rows[0].employee_id).toBe(employeeIdA);
-      expect(probRes.rows[0].original_end_date).toBeDefined();
+      expect((probRes.rows[0] as any).employee_id).toBe(employeeIdA);
+      expect((probRes.rows[0] as any).original_end_date).toBeDefined();
     });
 
     it("strictly prevents duplicate onboarding cases for the same employee", async () => {
@@ -550,7 +550,7 @@ describe("Prompt 27: Production Onboarding & Probation Engine", () => {
 
       // Verify employee status updated to active
       const empRes = await db.query(`SELECT status FROM public.employees WHERE id = '${employeeIdA}'`);
-      expect(empRes.rows[0].status).toBe("active");
+      expect((empRes.rows[0] as any).status).toBe("active");
     });
 
     it("processes probation extension with legal limit enforcement", async () => {
@@ -639,14 +639,14 @@ describe("Prompt 27: Production Onboarding & Probation Engine", () => {
         `SELECT id, status FROM public.employees WHERE id = '${empFailId}'`,
       );
       expect(empCheck.rows.length).toBe(1);
-      expect(empCheck.rows[0].status).toBe("terminated");
+      expect((empCheck.rows[0] as any).status).toBe("terminated");
 
       // Offboarding clearance operational task MUST be created
       const taskCheck = await db.query(
         `SELECT * FROM public.operational_tasks WHERE entity_id = '${empFailId}' AND category = 'offboarding'`,
       );
       expect(taskCheck.rows.length).toBe(1);
-      expect(taskCheck.rows[0].priority).toBe("urgent");
+      expect((taskCheck.rows[0] as any).priority).toBe("urgent");
     });
 
     it("returns server-backed governed KPIs via get_onboarding_kpis_atomic", async () => {
@@ -666,7 +666,7 @@ describe("Prompt 27: Production Onboarding & Probation Engine", () => {
       const crossRes = await db.query(
         `SELECT count(*)::int as count FROM public.onboarding_cases WHERE company_id = '${companyB}'`,
       );
-      expect(crossRes.rows[0].count).toBe(0);
+      expect((crossRes.rows[0] as any).count).toBe(0);
     });
   });
 });

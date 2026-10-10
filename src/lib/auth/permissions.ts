@@ -58,6 +58,7 @@ export const moduleAccess: Record<string, UserRole[]> = {
   ess: allRoles,
   onboarding: ["super_admin", "hr_manager", "recruiter", "line_manager", "employee", "auditor"],
   probation: ["super_admin", "hr_manager", "line_manager", "auditor"],
+  movements: ["super_admin", "hr_manager", "line_manager", "employee", "auditor"],
 };
 
 export const moduleManageAccess: Record<string, UserRole[]> = {
@@ -80,6 +81,7 @@ export const moduleManageAccess: Record<string, UserRole[]> = {
   integrations: ["super_admin"],
   onboarding: ["super_admin", "hr_manager"],
   probation: ["super_admin", "hr_manager", "line_manager"],
+  movements: ["super_admin", "hr_manager"],
 };
 
 export function canAccessModule(role: UserRole, moduleId: string) {

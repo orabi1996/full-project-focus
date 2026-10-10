@@ -287,6 +287,19 @@ export const ALL_SYSTEM_SCREENS: readonly ScreenModuleConfig[] = [
     descriptionAr: "متابعة مباشرة المنضمين الجدد، المهام التحضيرية، الوثائق، وتأكيد أو تمديد فترة التجربة.",
     iconName: "how_to_reg",
   },
+
+  // 8. Workforce & Movements
+  {
+    id: "movements",
+    code: "M22",
+    category: "workforce",
+    categoryNameAr: "القوى العاملة والتنقلات",
+    categoryNameEn: "Workforce & Movements",
+    nameAr: "تنقلات الموظفين ودورة الحياة الوظيفية",
+    nameEn: "Employee Movements & Lifecycle",
+    descriptionAr: "إدارة الترقيات، النقل الداخلي، تغيير الإدارات، التكليف المؤقت، وتعديلات العقود المؤرخة.",
+    iconName: "swap_horiz",
+  },
 ];
 
 // Helper to build full CRUD permissions for all screens

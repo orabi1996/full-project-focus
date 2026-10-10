@@ -18,6 +18,11 @@ import {
 } from "../../lib/storage/storage-service";
 import { useEmployee, useEmployeeAvatar } from "../../lib/domains/employees";
 import type { Employee, ContractType, Gender, MaritalStatus } from "../../types";
+import {
+  fetchMovementsList,
+  fetchEmployeeAssignmentHistoryList,
+} from "../../lib/data/movements-repository";
+import type { EmployeeMovement, EmployeeAssignmentHistory } from "../../lib/domains/movements";
 import { IconSymbol } from "../ui/IconSymbol";
 import { OfficialDocumentModal, type DocType } from "../documents/OfficialDocumentModal";
 import {
@@ -61,6 +66,7 @@ import {
   Check,
   Plus,
   Trash2,
+  GitCommit,
   ChevronLeft,
 } from "lucide-react";
 import { Button } from "../ui/button";
@@ -119,6 +125,24 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
 
   // Document Modal state
   const [docModalType, setDocModalType] = useState<DocType | null>(null);
+
+  // Employee Career Movements & Lifecycle History
+  const [empMovements, setEmpMovements] = useState<EmployeeMovement[]>([]);
+  const [empAssignments, setEmpAssignments] = useState<EmployeeAssignmentHistory[]>([]);
+
+  useEffect(() => {
+    if (employee?.companyId && employee?.id) {
+      Promise.all([
+        fetchMovementsList(employee.companyId, { employeeId: employee.id }),
+        fetchEmployeeAssignmentHistoryList(employee.companyId, employee.id),
+      ])
+        .then(([movs, assigns]) => {
+          setEmpMovements(movs);
+          setEmpAssignments(assigns);
+        })
+        .catch(() => {});
+    }
+  }, [employee?.companyId, employee?.id]);
 
   const resolvedAvatarUrl = useEmployeeAvatar(
     formData.avatarStoragePath || employee?.avatarStoragePath,
@@ -1144,6 +1168,97 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   {employee.contractEndDate || "غير محدد"}
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* Career Movements & Effective-Dated Assignment History */}
+          <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <GitCommit className="h-5 w-5 text-purple-600" />
+                <h3 className="font-black text-sm text-foreground">
+                  سجل التنقلات والتاريخ الوظيفي المؤرخ (Career Movements & History)
+                </h3>
+              </div>
+              <Badge variant="outline" className="text-[11px] font-mono">
+                {empAssignments.length} تعيينات مسجلة
+              </Badge>
+            </div>
+
+            {/* Future Scheduled Movements Warning Card */}
+            {empMovements.filter((m) => m.status === "scheduled").length > 0 && (
+              <div className="p-3.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-purple-700 dark:text-purple-400">
+                  <Calendar className="h-4 w-4" />
+                  حركات وظيفية معتمدة مجدولة مستقبلاً (تنتظر تاريخ السريان):
+                </div>
+                <div className="space-y-1.5">
+                  {empMovements
+                    .filter((m) => m.status === "scheduled")
+                    .map((m) => (
+                      <div key={m.id} className="flex items-center justify-between text-xs bg-background/80 p-2 rounded-xl border border-purple-200/50">
+                        <div>
+                          <span className="font-bold font-mono text-purple-600 mr-1.5">{m.movementNumber}</span>
+                          <span className="font-bold">{m.reason}</span>
+                          <span className="text-muted-foreground mr-2">({m.movementType})</span>
+                        </div>
+                        <Badge variant="secondary" className="bg-purple-100 text-purple-800 text-[10px] font-mono">
+                          سريان: {m.effectiveDate}
+                        </Badge>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Chronological Assignment History Timeline */}
+            <div className="space-y-3 pt-1">
+              <h4 className="text-xs font-black text-foreground">التسلسل الزمني للتعيينات والترقيات:</h4>
+              {empAssignments.length === 0 ? (
+                <div className="p-4 rounded-2xl bg-muted/20 text-xs text-muted-foreground text-center">
+                  التعيين الحالي: {employee.departmentName || "—"} / {employee.jobTitleAr || "—"} (تاريخ المباشرة: {employee.hireDate})
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {empAssignments.map((assign, idx) => (
+                    <div
+                      key={assign.id || idx}
+                      className={`p-3.5 rounded-2xl border text-xs transition-colors ${
+                        assign.isCurrent
+                          ? "bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-200 dark:border-emerald-800"
+                          : "bg-muted/30 border-border/60 text-muted-foreground"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-foreground">
+                            {assign.positionTitle || employee.jobTitleAr}
+                          </span>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="font-semibold text-foreground">
+                            {assign.departmentName || employee.departmentName}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {assign.isCurrent && (
+                            <Badge className="bg-emerald-600 text-white text-[10px]">
+                              التعيين الحالي
+                            </Badge>
+                          )}
+                          <span className="font-mono text-[11px]">
+                            {assign.effectiveFrom} ➔ {assign.effectiveTo || "مستمر"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+                        {assign.managerName && <span>المدير: {assign.managerName}</span>}
+                        {assign.locationName && <span>الموقع: {assign.locationName}</span>}
+                        {assign.changeReason && <span className="text-foreground/80 font-medium">السبب: {assign.changeReason}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </TabsContent>

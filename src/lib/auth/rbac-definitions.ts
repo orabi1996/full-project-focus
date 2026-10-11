@@ -313,6 +313,19 @@ export const ALL_SYSTEM_SCREENS: readonly ScreenModuleConfig[] = [
     descriptionAr: "إدارة الدورات التدريبية، بنك المهارات، مصفوفة الجدارات، قياس الفجوات المهارية، والشهادات الاحترافية.",
     iconName: "school",
   },
+
+  // 10. Talent, Career & Succession
+  {
+    id: "talent",
+    code: "M24",
+    category: "talent",
+    categoryNameAr: "المواهب والنمو",
+    categoryNameEn: "Talent & Succession",
+    nameAr: "المواهب وتخطيط التعاقب والتنقل الداخلي",
+    nameEn: "Talent, Succession & Internal Mobility",
+    descriptionAr: "إدارة المسارات المهنية، مصفوفة 9-Box، مجمعات المواهب، خطط التعاقب للوظائف الحرجة، وسوق الفرص الداخلية.",
+    iconName: "workspace_premium",
+  },
 ];
 
 // Helper to build full CRUD permissions for all screens

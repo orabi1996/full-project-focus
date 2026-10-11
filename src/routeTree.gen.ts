@@ -32,6 +32,7 @@ import { Route as AuthenticatedRecruitmentRouteImport } from './routes/_authenti
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedSetupRouteImport } from './routes/_authenticated/setup'
 import { Route as AuthenticatedShiftsRouteImport } from './routes/_authenticated/shifts'
+import { Route as AuthenticatedTalentRouteImport } from './routes/_authenticated/talent'
 import { Route as AuthenticatedWorkflowsRouteImport } from './routes/_authenticated/workflows'
 import { Route as AuthenticatedWorkforceRouteImport } from './routes/_authenticated/workforce'
 import { Route as AuthenticatedEmployeesIndexRouteImport } from './routes/_authenticated/employees/index'
@@ -158,6 +159,11 @@ const AuthenticatedShiftsRoute = AuthenticatedShiftsRouteImport.update({
   path: '/shifts',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedTalentRoute = AuthenticatedTalentRouteImport.update({
+  id: '/talent',
+  path: '/talent',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedWorkflowsRoute = AuthenticatedWorkflowsRouteImport.update({
   id: '/workflows',
   path: '/workflows',
@@ -221,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRoute
   '/setup': typeof AuthenticatedSetupRoute
   '/shifts': typeof AuthenticatedShiftsRoute
+  '/talent': typeof AuthenticatedTalentRoute
   '/workflows': typeof AuthenticatedWorkflowsRoute
   '/workforce': typeof AuthenticatedWorkforceRoute
   '/employees/$employeeId': typeof AuthenticatedEmployeesEmployeeIdRoute
@@ -252,6 +259,7 @@ export interface FileRoutesByTo {
   '/reports': typeof AuthenticatedReportsRoute
   '/setup': typeof AuthenticatedSetupRoute
   '/shifts': typeof AuthenticatedShiftsRoute
+  '/talent': typeof AuthenticatedTalentRoute
   '/workflows': typeof AuthenticatedWorkflowsRoute
   '/workforce': typeof AuthenticatedWorkforceRoute
   '/employees/$employeeId': typeof AuthenticatedEmployeesEmployeeIdRoute
@@ -285,6 +293,7 @@ export interface FileRoutesById {
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/setup': typeof AuthenticatedSetupRoute
   '/_authenticated/shifts': typeof AuthenticatedShiftsRoute
+  '/_authenticated/talent': typeof AuthenticatedTalentRoute
   '/_authenticated/workflows': typeof AuthenticatedWorkflowsRoute
   '/_authenticated/workforce': typeof AuthenticatedWorkforceRoute
   '/_authenticated/employees/$employeeId': typeof AuthenticatedEmployeesEmployeeIdRoute
@@ -318,6 +327,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/setup'
     | '/shifts'
+    | '/talent'
     | '/workflows'
     | '/workforce'
     | '/employees/$employeeId'
@@ -349,6 +359,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/setup'
     | '/shifts'
+    | '/talent'
     | '/workflows'
     | '/workforce'
     | '/employees/$employeeId'
@@ -381,6 +392,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reports'
     | '/_authenticated/setup'
     | '/_authenticated/shifts'
+    | '/_authenticated/talent'
     | '/_authenticated/workflows'
     | '/_authenticated/workforce'
     | '/_authenticated/employees/$employeeId'
@@ -560,6 +572,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedShiftsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/talent': {
+      id: '/_authenticated/talent'
+      path: '/talent'
+      fullPath: '/talent'
+      preLoaderRoute: typeof AuthenticatedTalentRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/workflows': {
       id: '/_authenticated/workflows'
       path: '/workflows'
@@ -633,6 +652,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSetupRoute: typeof AuthenticatedSetupRoute
   AuthenticatedShiftsRoute: typeof AuthenticatedShiftsRoute
+  AuthenticatedTalentRoute: typeof AuthenticatedTalentRoute
   AuthenticatedWorkflowsRoute: typeof AuthenticatedWorkflowsRoute
   AuthenticatedWorkforceRoute: typeof AuthenticatedWorkforceRoute
   AuthenticatedEmployeesEmployeeIdRoute: typeof AuthenticatedEmployeesEmployeeIdRoute
@@ -662,6 +682,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSetupRoute: AuthenticatedSetupRoute,
   AuthenticatedShiftsRoute: AuthenticatedShiftsRoute,
+  AuthenticatedTalentRoute: AuthenticatedTalentRoute,
   AuthenticatedWorkflowsRoute: AuthenticatedWorkflowsRoute,
   AuthenticatedWorkforceRoute: AuthenticatedWorkforceRoute,
   AuthenticatedEmployeesEmployeeIdRoute: AuthenticatedEmployeesEmployeeIdRoute,

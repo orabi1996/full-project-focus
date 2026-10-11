@@ -61,6 +61,7 @@ export const en = {
     onboarding: "Onboarding & Probation",
     movements: "Employee Movements & Lifecycle",
     learning: "Learning, Skills & Certifications",
+    talent: "Talent, Succession & Mobility",
   },
 
   // Roles

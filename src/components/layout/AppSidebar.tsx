@@ -185,6 +185,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           iconSource: "material",
           accentColor: "#8B5CF6",
         },
+        {
+          id: "talent",
+          label: (t.nav as any).talent || (language === "ar" ? "المواهب والتعاقب" : "Talent & Succession"),
+          iconName: "workspace_premium",
+          iconSource: "material",
+          accentColor: "#F59E0B",
+        },
       ],
     },
     {

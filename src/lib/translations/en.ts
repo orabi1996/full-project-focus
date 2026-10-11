@@ -60,6 +60,7 @@ export const en = {
     ess: "Employee Self-Service",
     onboarding: "Onboarding & Probation",
     movements: "Employee Movements & Lifecycle",
+    learning: "Learning, Skills & Certifications",
   },
 
   // Roles

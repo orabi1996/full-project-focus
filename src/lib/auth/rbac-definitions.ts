@@ -300,6 +300,19 @@ export const ALL_SYSTEM_SCREENS: readonly ScreenModuleConfig[] = [
     descriptionAr: "إدارة الترقيات، النقل الداخلي، تغيير الإدارات، التكليف المؤقت، وتعديلات العقود المؤرخة.",
     iconName: "swap_horiz",
   },
+
+  // 9. Learning & Skills
+  {
+    id: "learning",
+    code: "M23",
+    category: "talent",
+    categoryNameAr: "المواهب والنمو",
+    categoryNameEn: "Learning & Development",
+    nameAr: "التدريب والمهارات والشهادات المهنية",
+    nameEn: "Learning, Skills & Certifications",
+    descriptionAr: "إدارة الدورات التدريبية، بنك المهارات، مصفوفة الجدارات، قياس الفجوات المهارية، والشهادات الاحترافية.",
+    iconName: "school",
+  },
 ];
 
 // Helper to build full CRUD permissions for all screens
@@ -381,6 +394,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       audit: { view: true, create: false, edit: false, delete: false, approveExport: true },
       ess: { view: true, create: true, edit: true, delete: false, approveExport: true },
       onboarding: { view: true, create: true, edit: true, delete: true, approveExport: true },
+      movements: { view: true, create: true, edit: true, delete: true, approveExport: true },
+      learning: { view: true, create: true, edit: true, delete: true, approveExport: true },
     },
   },
   {
@@ -417,6 +432,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       audit: { view: true, create: false, edit: false, delete: false, approveExport: true },
       ess: { view: true, create: true, edit: true, delete: false, approveExport: true },
       onboarding: { view: true, create: false, edit: false, delete: false, approveExport: false },
+      movements: { view: true, create: false, edit: false, delete: false, approveExport: false },
+      learning: { view: false, create: false, edit: false, delete: false, approveExport: false },
     },
   },
   {
@@ -452,6 +469,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       audit: { view: false, create: false, edit: false, delete: false, approveExport: false },
       ess: { view: true, create: true, edit: true, delete: false, approveExport: true },
       onboarding: { view: true, create: false, edit: true, delete: false, approveExport: false },
+      movements: { view: true, create: true, edit: true, delete: false, approveExport: false },
+      learning: { view: true, create: true, edit: true, delete: false, approveExport: true },
     },
   },
   {
@@ -487,6 +506,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       audit: { view: false, create: false, edit: false, delete: false, approveExport: false },
       ess: { view: true, create: true, edit: true, delete: false, approveExport: true },
       onboarding: { view: true, create: false, edit: false, delete: false, approveExport: false },
+      movements: { view: true, create: false, edit: false, delete: false, approveExport: false },
+      learning: { view: true, create: false, edit: false, delete: false, approveExport: false },
     },
   },
   {
@@ -522,6 +543,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       audit: { view: false, create: false, edit: false, delete: false, approveExport: false },
       ess: { view: true, create: true, edit: true, delete: false, approveExport: true },
       onboarding: { view: true, create: false, edit: true, delete: false, approveExport: false },
+      movements: { view: true, create: false, edit: false, delete: false, approveExport: false },
+      learning: { view: true, create: true, edit: false, delete: false, approveExport: false },
     },
   },
 ];

@@ -20,6 +20,7 @@ import { Route as AuthenticatedDocumentsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedEssRouteImport } from './routes/_authenticated/ess'
 import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
 import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
+import { Route as AuthenticatedLearningRouteImport } from './routes/_authenticated/learning'
 import { Route as AuthenticatedLeavesRouteImport } from './routes/_authenticated/leaves'
 import { Route as AuthenticatedLoansRouteImport } from './routes/_authenticated/loans'
 import { Route as AuthenticatedMovementsRouteImport } from './routes/_authenticated/movements'
@@ -94,6 +95,11 @@ const AuthenticatedIntegrationsRoute =
     path: '/integrations',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedLearningRoute = AuthenticatedLearningRouteImport.update({
+  id: '/learning',
+  path: '/learning',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedLeavesRoute = AuthenticatedLeavesRouteImport.update({
   id: '/leaves',
   path: '/leaves',
@@ -203,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/ess': typeof AuthenticatedEssRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/integrations': typeof AuthenticatedIntegrationsRoute
+  '/learning': typeof AuthenticatedLearningRoute
   '/leaves': typeof AuthenticatedLeavesRoute
   '/loans': typeof AuthenticatedLoansRoute
   '/movements': typeof AuthenticatedMovementsRoute
@@ -233,6 +240,7 @@ export interface FileRoutesByTo {
   '/ess': typeof AuthenticatedEssRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/integrations': typeof AuthenticatedIntegrationsRoute
+  '/learning': typeof AuthenticatedLearningRoute
   '/leaves': typeof AuthenticatedLeavesRoute
   '/loans': typeof AuthenticatedLoansRoute
   '/movements': typeof AuthenticatedMovementsRoute
@@ -265,6 +273,7 @@ export interface FileRoutesById {
   '/_authenticated/ess': typeof AuthenticatedEssRoute
   '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
   '/_authenticated/integrations': typeof AuthenticatedIntegrationsRoute
+  '/_authenticated/learning': typeof AuthenticatedLearningRoute
   '/_authenticated/leaves': typeof AuthenticatedLeavesRoute
   '/_authenticated/loans': typeof AuthenticatedLoansRoute
   '/_authenticated/movements': typeof AuthenticatedMovementsRoute
@@ -297,6 +306,7 @@ export interface FileRouteTypes {
     | '/ess'
     | '/expenses'
     | '/integrations'
+    | '/learning'
     | '/leaves'
     | '/loans'
     | '/movements'
@@ -327,6 +337,7 @@ export interface FileRouteTypes {
     | '/ess'
     | '/expenses'
     | '/integrations'
+    | '/learning'
     | '/leaves'
     | '/loans'
     | '/movements'
@@ -358,6 +369,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ess'
     | '/_authenticated/expenses'
     | '/_authenticated/integrations'
+    | '/_authenticated/learning'
     | '/_authenticated/leaves'
     | '/_authenticated/loans'
     | '/_authenticated/movements'
@@ -462,6 +474,13 @@ declare module '@tanstack/react-router' {
       path: '/integrations'
       fullPath: '/integrations'
       preLoaderRoute: typeof AuthenticatedIntegrationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/learning': {
+      id: '/_authenticated/learning'
+      path: '/learning'
+      fullPath: '/learning'
+      preLoaderRoute: typeof AuthenticatedLearningRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/leaves': {
@@ -602,6 +621,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedEssRoute: typeof AuthenticatedEssRoute
   AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
   AuthenticatedIntegrationsRoute: typeof AuthenticatedIntegrationsRoute
+  AuthenticatedLearningRoute: typeof AuthenticatedLearningRoute
   AuthenticatedLeavesRoute: typeof AuthenticatedLeavesRoute
   AuthenticatedLoansRoute: typeof AuthenticatedLoansRoute
   AuthenticatedMovementsRoute: typeof AuthenticatedMovementsRoute
@@ -630,6 +650,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedEssRoute: AuthenticatedEssRoute,
   AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
   AuthenticatedIntegrationsRoute: AuthenticatedIntegrationsRoute,
+  AuthenticatedLearningRoute: AuthenticatedLearningRoute,
   AuthenticatedLeavesRoute: AuthenticatedLeavesRoute,
   AuthenticatedLoansRoute: AuthenticatedLoansRoute,
   AuthenticatedMovementsRoute: AuthenticatedMovementsRoute,

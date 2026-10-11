@@ -59,6 +59,14 @@ export const moduleAccess: Record<string, UserRole[]> = {
   onboarding: ["super_admin", "hr_manager", "recruiter", "line_manager", "employee", "auditor"],
   probation: ["super_admin", "hr_manager", "line_manager", "auditor"],
   movements: ["super_admin", "hr_manager", "line_manager", "employee", "auditor"],
+  learning: [
+    "super_admin",
+    "hr_manager",
+    "line_manager",
+    "employee",
+    "performance_lead",
+    "auditor",
+  ],
 };
 
 export const moduleManageAccess: Record<string, UserRole[]> = {
@@ -82,6 +90,7 @@ export const moduleManageAccess: Record<string, UserRole[]> = {
   onboarding: ["super_admin", "hr_manager"],
   probation: ["super_admin", "hr_manager", "line_manager"],
   movements: ["super_admin", "hr_manager"],
+  learning: ["super_admin", "hr_manager"],
 };
 
 export function canAccessModule(role: UserRole, moduleId: string) {
@@ -118,4 +127,8 @@ export function canManageDocuments(role: UserRole): boolean {
 
 export function canExportEmployees(role: UserRole): boolean {
   return role === "super_admin" || role === "hr_manager" || role === "auditor";
+}
+
+export function canManageLearning(role: UserRole): boolean {
+  return role === "super_admin" || role === "hr_manager";
 }

@@ -178,6 +178,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           iconSource: "material",
           accentColor: "#0066FF",
         },
+        {
+          id: "learning",
+          label: (t.nav as any).learning || (language === "ar" ? "التدريب والمهارات" : "Learning & Skills"),
+          iconName: "school",
+          iconSource: "material",
+          accentColor: "#8B5CF6",
+        },
       ],
     },
     {

@@ -62,6 +62,7 @@ export const en = {
     movements: "Employee Movements & Lifecycle",
     learning: "Learning, Skills & Certifications",
     talent: "Talent, Succession & Mobility",
+    engagement: "Employee Engagement & Recognition",
   },
 
   // Roles

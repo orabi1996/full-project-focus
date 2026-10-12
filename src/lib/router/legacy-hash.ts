@@ -24,6 +24,7 @@ export const MODULE_ROUTE_MAP: Record<string, string> = {
   movements: "/movements",
   learning: "/learning",
   talent: "/talent",
+  engagement: "/engagement",
 };
 
 export const LEGACY_HASH_MAP: Record<string, string> = {
@@ -52,6 +53,7 @@ export const LEGACY_HASH_MAP: Record<string, string> = {
   "#movements": "/movements",
   "#learning": "/learning",
   "#talent": "/talent",
+  "#engagement": "/engagement",
 };
 
 /**

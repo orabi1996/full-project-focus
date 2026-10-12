@@ -75,6 +75,7 @@ export const moduleAccess: Record<string, UserRole[]> = {
     "performance_lead",
     "auditor",
   ],
+  engagement: allRoles,
 };
 
 export const moduleManageAccess: Record<string, UserRole[]> = {
@@ -100,6 +101,7 @@ export const moduleManageAccess: Record<string, UserRole[]> = {
   movements: ["super_admin", "hr_manager"],
   learning: ["super_admin", "hr_manager"],
   talent: ["super_admin", "hr_manager", "performance_lead"],
+  engagement: ["super_admin", "hr_manager", "performance_lead"],
 };
 
 export function canAccessModule(role: UserRole, moduleId: string) {
@@ -143,5 +145,9 @@ export function canManageLearning(role: UserRole): boolean {
 }
 
 export function canManageTalent(role: UserRole): boolean {
+  return role === "super_admin" || role === "hr_manager" || role === "performance_lead";
+}
+
+export function canManageEngagement(role: UserRole): boolean {
   return role === "super_admin" || role === "hr_manager" || role === "performance_lead";
 }

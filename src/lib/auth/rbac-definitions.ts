@@ -326,6 +326,19 @@ export const ALL_SYSTEM_SCREENS: readonly ScreenModuleConfig[] = [
     descriptionAr: "إدارة المسارات المهنية، مصفوفة 9-Box، مجمعات المواهب، خطط التعاقب للوظائف الحرجة، وسوق الفرص الداخلية.",
     iconName: "workspace_premium",
   },
+
+  // 11. Employee Engagement, Surveys & Recognition
+  {
+    id: "engagement",
+    code: "M25",
+    category: "talent",
+    categoryNameAr: "المواهب والنمو",
+    categoryNameEn: "Engagement & Culture",
+    nameAr: "الارتباط المؤسسي والنبض والتقدير",
+    nameEn: "Employee Engagement & Recognition",
+    descriptionAr: "استبيانات الارتباط المؤسسي، النبض، مؤشر الولاء eNPS، خطط التحسين، وحائط الشكر والتقدير.",
+    iconName: "sentiment_satisfied",
+  },
 ];
 
 // Helper to build full CRUD permissions for all screens
@@ -409,6 +422,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       onboarding: { view: true, create: true, edit: true, delete: true, approveExport: true },
       movements: { view: true, create: true, edit: true, delete: true, approveExport: true },
       learning: { view: true, create: true, edit: true, delete: true, approveExport: true },
+      talent: { view: true, create: true, edit: true, delete: true, approveExport: true },
+      engagement: { view: true, create: true, edit: true, delete: true, approveExport: true },
     },
   },
   {
@@ -447,6 +462,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       onboarding: { view: true, create: false, edit: false, delete: false, approveExport: false },
       movements: { view: true, create: false, edit: false, delete: false, approveExport: false },
       learning: { view: false, create: false, edit: false, delete: false, approveExport: false },
+      talent: { view: false, create: false, edit: false, delete: false, approveExport: false },
+      engagement: { view: false, create: false, edit: false, delete: false, approveExport: false },
     },
   },
   {
@@ -484,6 +501,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       onboarding: { view: true, create: false, edit: true, delete: false, approveExport: false },
       movements: { view: true, create: true, edit: true, delete: false, approveExport: false },
       learning: { view: true, create: true, edit: true, delete: false, approveExport: true },
+      talent: { view: true, create: true, edit: true, delete: false, approveExport: true },
+      engagement: { view: true, create: true, edit: true, delete: false, approveExport: true },
     },
   },
   {
@@ -521,6 +540,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       onboarding: { view: true, create: false, edit: false, delete: false, approveExport: false },
       movements: { view: true, create: false, edit: false, delete: false, approveExport: false },
       learning: { view: true, create: false, edit: false, delete: false, approveExport: false },
+      talent: { view: false, create: false, edit: false, delete: false, approveExport: false },
+      engagement: { view: true, create: false, edit: false, delete: false, approveExport: false },
     },
   },
   {
@@ -558,6 +579,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       onboarding: { view: true, create: false, edit: true, delete: false, approveExport: false },
       movements: { view: true, create: false, edit: false, delete: false, approveExport: false },
       learning: { view: true, create: true, edit: false, delete: false, approveExport: false },
+      talent: { view: true, create: true, edit: false, delete: false, approveExport: false },
+      engagement: { view: true, create: true, edit: false, delete: false, approveExport: false },
     },
   },
 ];

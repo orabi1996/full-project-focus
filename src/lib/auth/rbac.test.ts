@@ -7,8 +7,8 @@ import {
 } from "./rbac-definitions";
 
 describe("RBAC System Definitions & Screen Catalog", () => {
-  it("contains exactly 24 full enterprise screens covering all modules", () => {
-    expect(ALL_SYSTEM_SCREENS).toHaveLength(24);
+  it("contains exactly 25 full enterprise screens covering all modules", () => {
+    expect(ALL_SYSTEM_SCREENS).toHaveLength(25);
     const codes = ALL_SYSTEM_SCREENS.map((s) => s.code);
     expect(codes).toContain("M01");
     expect(codes).toContain("M05");
@@ -18,6 +18,7 @@ describe("RBAC System Definitions & Screen Catalog", () => {
     expect(codes).toContain("M22");
     expect(codes).toContain("M23");
     expect(codes).toContain("M24");
+    expect(codes).toContain("M25");
   });
 
   it("every screen has complete Arabic and English metadata", () => {
@@ -30,9 +31,9 @@ describe("RBAC System Definitions & Screen Catalog", () => {
     }
   });
 
-  it("createFullAccessScreenMap enables all CRUD actions across all 24 screens", () => {
+  it("createFullAccessScreenMap enables all CRUD actions across all 25 screens", () => {
     const fullMap = createFullAccessScreenMap();
-    expect(Object.keys(fullMap)).toHaveLength(24);
+    expect(Object.keys(fullMap)).toHaveLength(25);
     for (const screen of ALL_SYSTEM_SCREENS) {
       expect(fullMap[screen.id]).toEqual({
         view: true,
@@ -46,7 +47,7 @@ describe("RBAC System Definitions & Screen Catalog", () => {
 
   it("createReadOnlyScreenMap enables only view and export while disabling write operations", () => {
     const readOnlyMap = createReadOnlyScreenMap();
-    expect(Object.keys(readOnlyMap)).toHaveLength(24);
+    expect(Object.keys(readOnlyMap)).toHaveLength(25);
     for (const screen of ALL_SYSTEM_SCREENS) {
       expect(readOnlyMap[screen.id].view).toBe(true);
       expect(readOnlyMap[screen.id].create).toBe(false);

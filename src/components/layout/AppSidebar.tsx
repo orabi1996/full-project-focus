@@ -192,6 +192,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           iconSource: "material",
           accentColor: "#F59E0B",
         },
+        {
+          id: "engagement",
+          label: (t.nav as any).engagement || (language === "ar" ? "الارتباط والتقدير" : "Engagement & Pulse"),
+          iconName: "sentiment_satisfied",
+          iconSource: "material",
+          accentColor: "#EC4899",
+        },
       ],
     },
     {

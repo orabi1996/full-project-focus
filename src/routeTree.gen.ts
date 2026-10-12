@@ -17,6 +17,7 @@ import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDocumentsRouteImport } from './routes/_authenticated/documents'
+import { Route as AuthenticatedEngagementRouteImport } from './routes/_authenticated/engagement'
 import { Route as AuthenticatedEssRouteImport } from './routes/_authenticated/ess'
 import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
 import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
@@ -78,6 +79,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
 const AuthenticatedDocumentsRoute = AuthenticatedDocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedEngagementRoute = AuthenticatedEngagementRouteImport.update({
+  id: '/engagement',
+  path: '/engagement',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedEssRoute = AuthenticatedEssRouteImport.update({
@@ -212,6 +218,7 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AuthenticatedAuditRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documents': typeof AuthenticatedDocumentsRoute
+  '/engagement': typeof AuthenticatedEngagementRoute
   '/ess': typeof AuthenticatedEssRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/integrations': typeof AuthenticatedIntegrationsRoute
@@ -244,6 +251,7 @@ export interface FileRoutesByTo {
   '/audit': typeof AuthenticatedAuditRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documents': typeof AuthenticatedDocumentsRoute
+  '/engagement': typeof AuthenticatedEngagementRoute
   '/ess': typeof AuthenticatedEssRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/integrations': typeof AuthenticatedIntegrationsRoute
@@ -278,6 +286,7 @@ export interface FileRoutesById {
   '/_authenticated/audit': typeof AuthenticatedAuditRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/documents': typeof AuthenticatedDocumentsRoute
+  '/_authenticated/engagement': typeof AuthenticatedEngagementRoute
   '/_authenticated/ess': typeof AuthenticatedEssRoute
   '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
   '/_authenticated/integrations': typeof AuthenticatedIntegrationsRoute
@@ -312,6 +321,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/dashboard'
     | '/documents'
+    | '/engagement'
     | '/ess'
     | '/expenses'
     | '/integrations'
@@ -344,6 +354,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/dashboard'
     | '/documents'
+    | '/engagement'
     | '/ess'
     | '/expenses'
     | '/integrations'
@@ -377,6 +388,7 @@ export interface FileRouteTypes {
     | '/_authenticated/audit'
     | '/_authenticated/dashboard'
     | '/_authenticated/documents'
+    | '/_authenticated/engagement'
     | '/_authenticated/ess'
     | '/_authenticated/expenses'
     | '/_authenticated/integrations'
@@ -465,6 +477,13 @@ declare module '@tanstack/react-router' {
       path: '/documents'
       fullPath: '/documents'
       preLoaderRoute: typeof AuthenticatedDocumentsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/engagement': {
+      id: '/_authenticated/engagement'
+      path: '/engagement'
+      fullPath: '/engagement'
+      preLoaderRoute: typeof AuthenticatedEngagementRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/ess': {
@@ -637,6 +656,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAuditRoute: typeof AuthenticatedAuditRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
+  AuthenticatedEngagementRoute: typeof AuthenticatedEngagementRoute
   AuthenticatedEssRoute: typeof AuthenticatedEssRoute
   AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
   AuthenticatedIntegrationsRoute: typeof AuthenticatedIntegrationsRoute
@@ -667,6 +687,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAuditRoute: AuthenticatedAuditRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
+  AuthenticatedEngagementRoute: AuthenticatedEngagementRoute,
   AuthenticatedEssRoute: AuthenticatedEssRoute,
   AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
   AuthenticatedIntegrationsRoute: AuthenticatedIntegrationsRoute,

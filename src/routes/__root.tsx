@@ -110,7 +110,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "author", content: "MadarX Enterprise Workforce Platform" },
       { property: "og:title", content: "MadarX | منظومة العمل المتكاملة" },
       { property: "og:description", content: "منظومة مدار إكس لإدارة رأس المال البشري وحلول العمل المتكاملة" },
-      { property: "og:image", content: "/madarx-logo.png" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

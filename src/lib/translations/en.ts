@@ -63,6 +63,7 @@ export const en = {
     learning: "Learning, Skills & Certifications",
     talent: "Talent, Succession & Mobility",
     engagement: "Employee Engagement & Recognition",
+    employee_relations: "Employee Relations & Disciplinary",
   },
 
   // Roles

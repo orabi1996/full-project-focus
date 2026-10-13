@@ -225,6 +225,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           iconSource: "material",
           accentColor: "#475569",
         },
+        {
+          id: "employee-relations",
+          label: (t.nav as any).employee_relations || (language === "ar" ? "علاقات الموظفين والتحقيقات" : "Employee Relations"),
+          iconName: "gavel",
+          iconSource: "material",
+          accentColor: "#DC2626",
+        },
       ],
     },
     {

@@ -339,6 +339,19 @@ export const ALL_SYSTEM_SCREENS: readonly ScreenModuleConfig[] = [
     descriptionAr: "استبيانات الارتباط المؤسسي، النبض، مؤشر الولاء eNPS، خطط التحسين، وحائط الشكر والتقدير.",
     iconName: "sentiment_satisfied",
   },
+
+  // 12. Employee Relations, Cases & Disciplinary
+  {
+    id: "employee_relations",
+    code: "M26",
+    category: "governance",
+    categoryNameAr: "الأمان والامتثال",
+    categoryNameEn: "Employee Relations & Compliance",
+    nameAr: "علاقات الموظفين والقضايا والتحقيقات",
+    nameEn: "Employee Relations & Disciplinary",
+    descriptionAr: "إدارة قضايا العمل والشكاوى والتظلمات، محاضر التحقيق، الإنذارات والقرارات التأديبية، وطلبات الاستئناف.",
+    iconName: "gavel",
+  },
 ];
 
 // Helper to build full CRUD permissions for all screens

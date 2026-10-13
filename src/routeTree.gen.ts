@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedAssetsRouteImport } from './routes/_authenticated/assets'
 import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authenticated/attendance'
 import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
+import { Route as AuthenticatedCompensationRouteImport } from './routes/_authenticated/compensation'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDocumentsRouteImport } from './routes/_authenticated/documents'
 import { Route as AuthenticatedEmployeeRelationsRouteImport } from './routes/_authenticated/employee-relations'
@@ -72,6 +73,12 @@ const AuthenticatedAuditRoute = AuthenticatedAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedCompensationRoute =
+  AuthenticatedCompensationRouteImport.update({
+    id: '/compensation',
+    path: '/compensation',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -223,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/assets': typeof AuthenticatedAssetsRoute
   '/attendance': typeof AuthenticatedAttendanceRoute
   '/audit': typeof AuthenticatedAuditRoute
+  '/compensation': typeof AuthenticatedCompensationRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documents': typeof AuthenticatedDocumentsRoute
   '/employee-relations': typeof AuthenticatedEmployeeRelationsRoute
@@ -257,6 +265,7 @@ export interface FileRoutesByTo {
   '/assets': typeof AuthenticatedAssetsRoute
   '/attendance': typeof AuthenticatedAttendanceRoute
   '/audit': typeof AuthenticatedAuditRoute
+  '/compensation': typeof AuthenticatedCompensationRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/documents': typeof AuthenticatedDocumentsRoute
   '/employee-relations': typeof AuthenticatedEmployeeRelationsRoute
@@ -293,6 +302,7 @@ export interface FileRoutesById {
   '/_authenticated/assets': typeof AuthenticatedAssetsRoute
   '/_authenticated/attendance': typeof AuthenticatedAttendanceRoute
   '/_authenticated/audit': typeof AuthenticatedAuditRoute
+  '/_authenticated/compensation': typeof AuthenticatedCompensationRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/documents': typeof AuthenticatedDocumentsRoute
   '/_authenticated/employee-relations': typeof AuthenticatedEmployeeRelationsRoute
@@ -329,6 +339,7 @@ export interface FileRouteTypes {
     | '/assets'
     | '/attendance'
     | '/audit'
+    | '/compensation'
     | '/dashboard'
     | '/documents'
     | '/employee-relations'
@@ -363,6 +374,7 @@ export interface FileRouteTypes {
     | '/assets'
     | '/attendance'
     | '/audit'
+    | '/compensation'
     | '/dashboard'
     | '/documents'
     | '/employee-relations'
@@ -398,6 +410,7 @@ export interface FileRouteTypes {
     | '/_authenticated/assets'
     | '/_authenticated/attendance'
     | '/_authenticated/audit'
+    | '/_authenticated/compensation'
     | '/_authenticated/dashboard'
     | '/_authenticated/documents'
     | '/_authenticated/employee-relations'
@@ -476,6 +489,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/audit'
       preLoaderRoute: typeof AuthenticatedAuditRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/compensation': {
+      id: '/_authenticated/compensation'
+      path: '/compensation'
+      fullPath: '/compensation'
+      preLoaderRoute: typeof AuthenticatedCompensationRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
@@ -674,6 +694,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAssetsRoute: typeof AuthenticatedAssetsRoute
   AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRoute
   AuthenticatedAuditRoute: typeof AuthenticatedAuditRoute
+  AuthenticatedCompensationRoute: typeof AuthenticatedCompensationRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
   AuthenticatedEmployeeRelationsRoute: typeof AuthenticatedEmployeeRelationsRoute
@@ -706,6 +727,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAssetsRoute: AuthenticatedAssetsRoute,
   AuthenticatedAttendanceRoute: AuthenticatedAttendanceRoute,
   AuthenticatedAuditRoute: AuthenticatedAuditRoute,
+  AuthenticatedCompensationRoute: AuthenticatedCompensationRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
   AuthenticatedEmployeeRelationsRoute: AuthenticatedEmployeeRelationsRoute,

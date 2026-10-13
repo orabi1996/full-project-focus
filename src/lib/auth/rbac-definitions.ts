@@ -352,6 +352,19 @@ export const ALL_SYSTEM_SCREENS: readonly ScreenModuleConfig[] = [
     descriptionAr: "إدارة قضايا العمل والشكاوى والتظلمات، محاضر التحقيق، الإنذارات والقرارات التأديبية، وطلبات الاستئناف.",
     iconName: "gavel",
   },
+
+  // 13. Compensation & Total Rewards
+  {
+    id: "compensation",
+    code: "M27",
+    category: "finance",
+    categoryNameAr: "المالية والرواتب",
+    categoryNameEn: "Compensation & Benefits",
+    nameAr: "التعويضات والمزايا وهيكل الرواتب والمكافآت الشاملة",
+    nameEn: "Compensation, Benefits & Total Rewards",
+    descriptionAr: "إدارة هياكل ونطاقات الرواتب، البدلات، حزم التعويضات المؤرخة، دورات مراجعة الرواتب، الحوافز، والمزايا التنافسية.",
+    iconName: "payments",
+  },
 ];
 
 // Helper to build full CRUD permissions for all screens
@@ -437,6 +450,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       learning: { view: true, create: true, edit: true, delete: true, approveExport: true },
       talent: { view: true, create: true, edit: true, delete: true, approveExport: true },
       engagement: { view: true, create: true, edit: true, delete: true, approveExport: true },
+      employee_relations: { view: true, create: true, edit: true, delete: true, approveExport: true },
+      compensation: { view: true, create: true, edit: true, delete: true, approveExport: true },
     },
   },
   {
@@ -477,6 +492,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       learning: { view: false, create: false, edit: false, delete: false, approveExport: false },
       talent: { view: false, create: false, edit: false, delete: false, approveExport: false },
       engagement: { view: false, create: false, edit: false, delete: false, approveExport: false },
+      employee_relations: { view: true, create: false, edit: false, delete: false, approveExport: true },
+      compensation: { view: true, create: true, edit: true, delete: true, approveExport: true },
     },
   },
   {
@@ -516,6 +533,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       learning: { view: true, create: true, edit: true, delete: false, approveExport: true },
       talent: { view: true, create: true, edit: true, delete: false, approveExport: true },
       engagement: { view: true, create: true, edit: true, delete: false, approveExport: true },
+      employee_relations: { view: true, create: true, edit: false, delete: false, approveExport: false },
+      compensation: { view: true, create: true, edit: false, delete: false, approveExport: false },
     },
   },
   {
@@ -555,6 +574,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       learning: { view: true, create: false, edit: false, delete: false, approveExport: false },
       talent: { view: false, create: false, edit: false, delete: false, approveExport: false },
       engagement: { view: true, create: false, edit: false, delete: false, approveExport: false },
+      employee_relations: { view: false, create: false, edit: false, delete: false, approveExport: false },
+      compensation: { view: false, create: false, edit: false, delete: false, approveExport: false },
     },
   },
   {
@@ -594,6 +615,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       learning: { view: true, create: true, edit: false, delete: false, approveExport: false },
       talent: { view: true, create: true, edit: false, delete: false, approveExport: false },
       engagement: { view: true, create: true, edit: false, delete: false, approveExport: false },
+      employee_relations: { view: true, create: true, edit: false, delete: false, approveExport: false },
+      compensation: { view: true, create: false, edit: false, delete: false, approveExport: false },
     },
   },
 ];

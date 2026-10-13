@@ -125,6 +125,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           accentColor: "#059669",
         },
         {
+          id: "compensation",
+          label: (t.nav as any).compensation || (language === "ar" ? "التعويضات والمزايا" : "Compensation & Benefits"),
+          iconName: "payments",
+          iconSource: "material",
+          accentColor: "#059669",
+        },
+        {
           id: "loans",
           label: t.nav.loans,
           iconName: "credit_card",

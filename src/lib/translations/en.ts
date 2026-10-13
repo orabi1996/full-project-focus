@@ -64,6 +64,7 @@ export const en = {
     talent: "Talent, Succession & Mobility",
     engagement: "Employee Engagement & Recognition",
     employee_relations: "Employee Relations & Disciplinary",
+    compensation: "Compensation, Benefits & Total Rewards",
   },
 
   // Roles

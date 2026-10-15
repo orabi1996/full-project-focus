@@ -65,6 +65,7 @@ export const en = {
     engagement: "Employee Engagement & Recognition",
     employee_relations: "Employee Relations & Disciplinary",
     compensation: "Compensation, Benefits & Total Rewards",
+    country_packs: "Country Packs & Statutory Compliance",
   },
 
   // Roles

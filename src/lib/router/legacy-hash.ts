@@ -28,6 +28,8 @@ export const MODULE_ROUTE_MAP: Record<string, string> = {
   "employee-relations": "/employee-relations",
   employee_relations: "/employee-relations",
   compensation: "/compensation",
+  "country-packs": "/country-packs",
+  country_packs: "/country-packs",
 };
 
 export const LEGACY_HASH_MAP: Record<string, string> = {
@@ -60,6 +62,8 @@ export const LEGACY_HASH_MAP: Record<string, string> = {
   "#employee-relations": "/employee-relations",
   "#employee_relations": "/employee-relations",
   "#compensation": "/compensation",
+  "#country-packs": "/country-packs",
+  "#country_packs": "/country-packs",
 };
 
 /**

@@ -78,6 +78,7 @@ export const moduleAccess: Record<string, UserRole[]> = {
   engagement: allRoles,
   employee_relations: allRoles,
   compensation: allRoles,
+  country_packs: allRoles,
 };
 
 export const moduleManageAccess: Record<string, UserRole[]> = {
@@ -106,6 +107,7 @@ export const moduleManageAccess: Record<string, UserRole[]> = {
   engagement: ["super_admin", "hr_manager", "performance_lead"],
   employee_relations: ["super_admin", "hr_manager"],
   compensation: ["super_admin", "hr_manager", "payroll_officer", "finance_officer"],
+  country_packs: ["super_admin", "hr_manager", "payroll_officer", "finance_officer", "auditor"],
 };
 
 export function canAccessModule(role: UserRole, moduleId: string) {
@@ -162,4 +164,8 @@ export function canManageEmployeeRelations(role: UserRole): boolean {
 
 export function canManageCompensation(role: UserRole): boolean {
   return role === "super_admin" || role === "hr_manager" || role === "payroll_officer" || role === "finance_officer";
+}
+
+export function canManageCountryPacks(role: UserRole): boolean {
+  return role === "super_admin" || role === "hr_manager" || role === "payroll_officer" || role === "finance_officer" || role === "auditor";
 }

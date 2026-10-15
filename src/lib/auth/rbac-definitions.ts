@@ -365,6 +365,19 @@ export const ALL_SYSTEM_SCREENS: readonly ScreenModuleConfig[] = [
     descriptionAr: "إدارة هياكل ونطاقات الرواتب، البدلات، حزم التعويضات المؤرخة، دورات مراجعة الرواتب، الحوافز، والمزايا التنافسية.",
     iconName: "payments",
   },
+
+  // 14. Multi-Country Packs & Statutory Compliance
+  {
+    id: "country_packs",
+    code: "M28",
+    category: "governance",
+    categoryNameAr: "الامتثال والتشريعات",
+    categoryNameEn: "Statutory & Country Packs",
+    nameAr: "حزم الدول والامتثال القانوني والتأمينات",
+    nameEn: "Country Packs & Statutory Compliance",
+    descriptionAr: "إدارة تشريعات الدول (مصر، السعودية، قطر، عمان، البحرين)، التأمينات الاجتماعية، الضرائب، حماية الأجور WPS، والإجازات.",
+    iconName: "globe",
+  },
 ];
 
 // Helper to build full CRUD permissions for all screens

@@ -239,6 +239,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           iconSource: "material",
           accentColor: "#DC2626",
         },
+        {
+          id: "country-packs",
+          label: (t.nav as any).country_packs || (language === "ar" ? "حزم الدول والامتثال" : "Country Packs & Compliance"),
+          iconName: "public",
+          iconSource: "material",
+          accentColor: "#0284C7",
+        },
       ],
     },
     {

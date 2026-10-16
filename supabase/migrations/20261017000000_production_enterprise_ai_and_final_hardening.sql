@@ -228,7 +228,7 @@ CREATE TABLE IF NOT EXISTS public.ai_evaluations (
   actual_outcome text NOT NULL,
   is_passed boolean NOT NULL DEFAULT true,
   latency_ms integer NOT NULL DEFAULT 0,
-  evaluation_score numeric(4,2) NOT NULL DEFAULT 100.00,
+  evaluation_score numeric(5,2) NOT NULL DEFAULT 100.00,
   details jsonb DEFAULT '{}'::jsonb,
   evaluated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -351,6 +351,7 @@ CREATE OR REPLACE FUNCTION public.record_ai_usage_atomic(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_config record;
@@ -423,6 +424,7 @@ CREATE OR REPLACE FUNCTION public.execute_ai_tool_action_atomic(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_existing record;
@@ -539,6 +541,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   RETURN QUERY
@@ -582,6 +585,7 @@ CREATE OR REPLACE FUNCTION public.generate_proactive_ai_insights_atomic(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_count integer := 0;
@@ -690,6 +694,7 @@ CREATE OR REPLACE FUNCTION public.get_ai_dashboard_kpis_atomic(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_total_requests bigint := 0;
@@ -761,6 +766,7 @@ CREATE OR REPLACE FUNCTION public.manage_ai_insight_status_atomic(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_new_status text;

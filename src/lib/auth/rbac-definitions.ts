@@ -478,6 +478,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       engagement: { view: true, create: true, edit: true, delete: true, approveExport: true },
       employee_relations: { view: true, create: true, edit: true, delete: true, approveExport: true },
       compensation: { view: true, create: true, edit: true, delete: true, approveExport: true },
+      country_packs: { view: true, create: true, edit: true, delete: false, approveExport: true },
+      ai_copilot: { view: true, create: true, edit: true, delete: false, approveExport: true },
     },
   },
   {
@@ -520,6 +522,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       engagement: { view: false, create: false, edit: false, delete: false, approveExport: false },
       employee_relations: { view: true, create: false, edit: false, delete: false, approveExport: true },
       compensation: { view: true, create: true, edit: true, delete: true, approveExport: true },
+      country_packs: { view: true, create: true, edit: true, delete: false, approveExport: true },
+      ai_copilot: { view: true, create: true, edit: false, delete: false, approveExport: false },
     },
   },
   {
@@ -561,6 +565,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       engagement: { view: true, create: true, edit: true, delete: false, approveExport: true },
       employee_relations: { view: true, create: true, edit: false, delete: false, approveExport: false },
       compensation: { view: true, create: true, edit: false, delete: false, approveExport: false },
+      country_packs: { view: true, create: false, edit: false, delete: false, approveExport: false },
+      ai_copilot: { view: true, create: true, edit: false, delete: false, approveExport: false },
     },
   },
   {
@@ -602,6 +608,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       engagement: { view: true, create: false, edit: false, delete: false, approveExport: false },
       employee_relations: { view: false, create: false, edit: false, delete: false, approveExport: false },
       compensation: { view: false, create: false, edit: false, delete: false, approveExport: false },
+      country_packs: { view: false, create: false, edit: false, delete: false, approveExport: false },
+      ai_copilot: { view: true, create: true, edit: false, delete: false, approveExport: false },
     },
   },
   {
@@ -643,6 +651,8 @@ export const INITIAL_ENTERPRISE_GROUPS: PermissionGroup[] = [
       engagement: { view: true, create: true, edit: false, delete: false, approveExport: false },
       employee_relations: { view: true, create: true, edit: false, delete: false, approveExport: false },
       compensation: { view: true, create: false, edit: false, delete: false, approveExport: false },
+      country_packs: { view: false, create: false, edit: false, delete: false, approveExport: false },
+      ai_copilot: { view: true, create: true, edit: false, delete: false, approveExport: false },
     },
   },
 ];

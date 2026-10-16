@@ -21,6 +21,18 @@ const ROUTE_PATH_MAP: Record<string, string> = {
   integrations: "/integrations",
   audit: "/audit",
   ess: "/ess",
+  onboarding: "/onboarding",
+  movements: "/movements",
+  learning: "/learning",
+  talent: "/talent",
+  engagement: "/engagement",
+  "employee-relations": "/employee-relations",
+  employee_relations: "/employee-relations",
+  compensation: "/compensation",
+  "country-packs": "/country-packs",
+  country_packs: "/country-packs",
+  "ai-copilot": "/ai-copilot",
+  ai_copilot: "/ai-copilot",
 };
 
 export async function enterDemo(page: Page) {

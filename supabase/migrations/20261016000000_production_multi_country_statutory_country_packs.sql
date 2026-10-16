@@ -390,6 +390,7 @@ CREATE OR REPLACE FUNCTION calculate_statutory_social_insurance_atomic(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_profile social_insurance_profiles%ROWTYPE;
@@ -473,6 +474,7 @@ CREATE OR REPLACE FUNCTION calculate_statutory_income_tax_atomic(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_rule_set_id UUID;
@@ -569,6 +571,7 @@ CREATE OR REPLACE FUNCTION calculate_statutory_eos_atomic(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_days_total INT;
@@ -679,6 +682,7 @@ CREATE OR REPLACE FUNCTION run_payroll_preclose_compliance_check_atomic(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_missing_ids INT := 0;
@@ -758,6 +762,7 @@ CREATE OR REPLACE FUNCTION generate_wps_batch_atomic(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_batch_id UUID;
@@ -868,6 +873,7 @@ CREATE OR REPLACE FUNCTION get_country_pack_dashboard_kpis_atomic(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_active_packs INT := 0;

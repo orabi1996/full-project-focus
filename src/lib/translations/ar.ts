@@ -66,6 +66,7 @@ export const ar = {
     employee_relations: "علاقات الموظفين والقضايا والتحقيقات",
     compensation: "التعويضات والمزايا والمكافآت الشاملة",
     country_packs: "حزم الدول والامتثال القانوني والتأمينات",
+    ai_copilot: "مساعد MadarX الذكي ومركز العمليات",
   },
 
   // Roles

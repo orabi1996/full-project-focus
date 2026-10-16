@@ -378,6 +378,19 @@ export const ALL_SYSTEM_SCREENS: readonly ScreenModuleConfig[] = [
     descriptionAr: "إدارة تشريعات الدول (مصر، السعودية، قطر، عمان، البحرين)، التأمينات الاجتماعية، الضرائب، حماية الأجور WPS، والإجازات.",
     iconName: "globe",
   },
+
+  // 15. Enterprise AI Copilot & Operations Studio
+  {
+    id: "ai_copilot",
+    code: "M29",
+    category: "governance",
+    categoryNameAr: "الذكاء الاصطناعي والحوكمة",
+    categoryNameEn: "AI Intelligence & Copilot",
+    nameAr: "مساعد MadarX الذكي ومركز العمليات",
+    nameEn: "MadarX AI Copilot & Intelligence",
+    descriptionAr: "المساعد الذكي لإدارة القوى العاملة، استرجاع سياسات العمل RAG، تحليلات البيانات الطبيعية، والأتمتة الآمنة.",
+    iconName: "smart_toy",
+  },
 ];
 
 // Helper to build full CRUD permissions for all screens

@@ -30,6 +30,9 @@ export const MODULE_ROUTE_MAP: Record<string, string> = {
   compensation: "/compensation",
   "country-packs": "/country-packs",
   country_packs: "/country-packs",
+  "ai-copilot": "/ai-copilot",
+  ai_copilot: "/ai-copilot",
+  ai: "/ai-copilot",
 };
 
 export const LEGACY_HASH_MAP: Record<string, string> = {
@@ -64,6 +67,9 @@ export const LEGACY_HASH_MAP: Record<string, string> = {
   "#compensation": "/compensation",
   "#country-packs": "/country-packs",
   "#country_packs": "/country-packs",
+  "#ai-copilot": "/ai-copilot",
+  "#ai_copilot": "/ai-copilot",
+  "#ai": "/ai-copilot",
 };
 
 /**

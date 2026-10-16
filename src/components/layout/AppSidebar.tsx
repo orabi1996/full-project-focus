@@ -246,6 +246,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           iconSource: "material",
           accentColor: "#0284C7",
         },
+        {
+          id: "ai-copilot",
+          label: (t.nav as any).ai_copilot || (language === "ar" ? "مساعد MadarX الذكي" : "MadarX AI Copilot"),
+          iconName: "smart_toy",
+          iconSource: "material",
+          accentColor: "#8B5CF6",
+        },
       ],
     },
     {

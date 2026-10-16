@@ -66,6 +66,7 @@ export const en = {
     employee_relations: "Employee Relations & Disciplinary",
     compensation: "Compensation, Benefits & Total Rewards",
     country_packs: "Country Packs & Statutory Compliance",
+    ai_copilot: "MadarX AI Copilot & Operations",
   },
 
   // Roles

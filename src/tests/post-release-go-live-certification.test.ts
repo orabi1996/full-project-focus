@@ -893,7 +893,7 @@ describe("POST-RELEASE PRODUCTION GO-LIVE CERTIFICATION (v1.0.0-enterprise)", ()
         daysInMonth: 30,
         isSaudiNational: true,
         overtimeHours: 2,
-        loanDeduction: 500,
+        loanInstallment: 500,
       });
 
       // GOSI Contributory = 16,000 + 3,500 = 19,500 SAR -> 9.75% = 1,901.25 SAR

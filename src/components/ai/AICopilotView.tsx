@@ -100,6 +100,9 @@ export function AICopilotView() {
         </div>
       </div>
 
+      {/* Employee AI Summary (HR-only) */}
+      <EmployeeAiSummaryPanel />
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
         <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">

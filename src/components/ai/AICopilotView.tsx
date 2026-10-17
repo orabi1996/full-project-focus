@@ -35,6 +35,7 @@ import {
   useManageInsightStatus,
 } from "../../lib/data/ai-repository";
 import { SEEDED_KNOWLEDGE_BASE } from "../../lib/ai/retrieval";
+import { EmployeeAiSummaryPanel } from "./EmployeeAiSummaryPanel";
 import { GOVERNED_AI_TOOLS } from "../../lib/ai/tools/registry";
 import { toast } from "sonner";
 

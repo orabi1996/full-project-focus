@@ -35,6 +35,7 @@ import {
   useManageInsightStatus,
 } from "../../lib/data/ai-repository";
 import { SEEDED_KNOWLEDGE_BASE } from "../../lib/ai/retrieval";
+import { EmployeeAiSummaryPanel } from "./EmployeeAiSummaryPanel";
 import { GOVERNED_AI_TOOLS } from "../../lib/ai/tools/registry";
 import { toast } from "sonner";
 
@@ -98,6 +99,9 @@ export function AICopilotView() {
           </span>
         </div>
       </div>
+
+      {/* Employee AI Summary (HR-only) */}
+      <EmployeeAiSummaryPanel />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">

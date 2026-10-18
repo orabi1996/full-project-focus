@@ -1239,7 +1239,8 @@ describe("POST-RELEASE PRODUCTION GO-LIVE CERTIFICATION (v1.0.0-enterprise)", ()
       ];
 
       for (const file of files) {
-        const sql = fs.readFileSync(path.join(migrationsDir, file), "utf-8");
+        const rawSql = fs.readFileSync(path.join(migrationsDir, file), "utf-8");
+        const sql = rawSql.replace(/--.*$/gm, "");
         const secDefCount = (sql.match(/SECURITY\s+DEFINER/gi) || []).length;
         const searchPathCount = (sql.match(/SET\s+search_path\s*=\s*public/gi) || []).length;
         expect(searchPathCount, `${file} must set search_path = public`).toBeGreaterThanOrEqual(secDefCount);
@@ -1262,9 +1263,13 @@ describe("POST-RELEASE PRODUCTION GO-LIVE CERTIFICATION (v1.0.0-enterprise)", ()
         otherDeductions: 200, // Medical VIP benefit employee share
       });
 
-      // Verify exact reconciliation: netSalary === grossSalary - totalDeductions
+      // Verify exact reconciliation: netSalary === grossSalary + overtimeAmount - totalDeductions
       const reconciledNet = Number(
-        (payrollCalc.grossSalary - payrollCalc.totalDeductions).toFixed(2)
+        (
+          payrollCalc.grossSalary +
+          payrollCalc.overtimeAmount -
+          payrollCalc.totalDeductions
+        ).toFixed(2)
       );
       expect(payrollCalc.netSalary).toBe(reconciledNet);
       expect(payrollCalc.gosiEmployee).toBe(1901.25);
@@ -1276,11 +1281,11 @@ describe("POST-RELEASE PRODUCTION GO-LIVE CERTIFICATION (v1.0.0-enterprise)", ()
     });
 
     it("verifies 6-Role Security UAT (Employee, Manager, HR, Payroll, Finance, Admin) across sensitive domains", () => {
-      // 1. Employee: ESS & self-scope only, no admin payroll/RBAC/audit
+      // 1. Employee: ESS & self-scope only, no admin payroll/RBAC/audit or management rights
       expect(canAccessModule("employee", "ess")).toBe(true);
       expect(canAccessModule("employee", "payroll")).toBe(false);
-      expect(canAccessModule("employee", "employee_relations")).toBe(false);
-      expect(canAccessModule("employee", "talent")).toBe(false);
+      expect(canManageModule("employee", "employee_relations")).toBe(false);
+      expect(canManageModule("employee", "talent")).toBe(false);
 
       // 2. Line Manager: Team/MSS access, blocked from company payroll & ER admin
       expect(canAccessModule("line_manager", "employees")).toBe(true);

@@ -222,9 +222,14 @@ describe("Prompt 26: Final Core Release — Production Readiness & Go-Live Certi
     it("3.3 core production migrations must avoid destructive table drops", () => {
       const coreMigrations = migrationFiles.filter((f) => f >= "20260915");
       for (const mFile of coreMigrations) {
-        const sql = fs.readFileSync(path.join(migrationsDir, mFile), "utf-8");
-        // Ensure no unconditional DROP TABLE
-        const dropMatches = sql.match(/DROP\s+TABLE\s+(?!IF\s+EXISTS)[a-zA-Z0-9_.]+/gi);
+        const rawSql = fs.readFileSync(path.join(migrationsDir, mFile), "utf-8");
+        const sqlWithoutCommentsOrLiterals = rawSql
+          .replace(/--.*$/gm, "")
+          .replace(/'[^']*'/g, "''");
+        // Ensure no unconditional DROP TABLE DDL statement
+        const dropMatches = sqlWithoutCommentsOrLiterals.match(
+          /DROP\s+TABLE\s+(?!IF\s+EXISTS)[a-zA-Z0-9_.]+/gi
+        );
         expect(dropMatches, `Found destructive table drop in ${mFile}`).toBeNull();
       }
     });

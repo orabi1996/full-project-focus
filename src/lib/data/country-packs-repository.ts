@@ -349,3 +349,206 @@ export function useRunComplianceCheck() {
     },
   });
 }
+
+// ============================================================================
+// PROMPT 37: GOVERNMENT REGULATORY CONNECTORS & SUBMISSIONS REPOSITORY
+// ============================================================================
+
+export interface GovernmentConnectorConfigRow {
+  id: string;
+  organization_id: string;
+  country_code: CountryCode;
+  provider: string;
+  mode: "api" | "official_file_export" | "manual_portal" | "rpa_assisted";
+  status: "not_configured" | "configured" | "testing" | "connected" | "degraded" | "failed" | "disabled";
+  environment: "sandbox" | "production";
+  establishment_registration_no?: string | null;
+  secret_env_reference?: string | null;
+  cert_issuer?: string | null;
+  cert_subject?: string | null;
+  cert_valid_from?: string | null;
+  cert_valid_to?: string | null;
+  cert_fingerprint_sha256?: string | null;
+  strict_separation_of_duties: boolean;
+  last_tested_at?: string | null;
+  last_connected_at?: string | null;
+}
+
+export interface GovernmentSubmissionRow {
+  id: string;
+  organization_id: string;
+  country_code: CountryCode;
+  provider: string;
+  submission_type: string;
+  source_period: string;
+  source_reference: string;
+  mode: "api" | "official_file_export" | "manual_portal" | "rpa_assisted";
+  status:
+    | "draft"
+    | "ready"
+    | "queued"
+    | "submitting"
+    | "submitted"
+    | "acknowledged"
+    | "accepted"
+    | "partially_accepted"
+    | "rejected"
+    | "failed"
+    | "cancelled";
+  correlation_id: string;
+  idempotency_key: string;
+  payload_hash_sha256: string;
+  record_count: number;
+  accepted_count: number;
+  rejected_count: number;
+  total_amount: number;
+  currency_code: string;
+  official_reference_number?: string | null;
+  export_filename?: string | null;
+  retry_count: number;
+  dead_lettered: boolean;
+  submitted_at?: string | null;
+  acknowledged_at?: string | null;
+  created_at: string;
+}
+
+export async function fetchGovernmentConnectorConfigs(
+  companyId: string,
+  countryCode?: string
+): Promise<GovernmentConnectorConfigRow[]> {
+  try {
+    let query = db
+      .from("government_connector_configs")
+      .select("*")
+      .eq("organization_id", companyId);
+    if (countryCode && countryCode !== "all") {
+      query = query.eq("country_code", countryCode);
+    }
+    const { data, error } = await query.order("country_code", { ascending: true });
+    if (error) return [];
+    return (data || []) as GovernmentConnectorConfigRow[];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchGovernmentSubmissions(
+  companyId: string,
+  countryCode?: string
+): Promise<GovernmentSubmissionRow[]> {
+  try {
+    let query = db
+      .from("government_submissions")
+      .select("*")
+      .eq("organization_id", companyId);
+    if (countryCode && countryCode !== "all") {
+      query = query.eq("country_code", countryCode);
+    }
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) return [];
+    return (data || []) as GovernmentSubmissionRow[];
+  } catch {
+    return [];
+  }
+}
+
+export async function testGovernmentConnectorConnection(payload: {
+  companyId: string;
+  countryCode: CountryCode;
+  provider: string;
+}): Promise<any> {
+  const { data, error } = await db.rpc("test_government_connector_connection_atomic", {
+    p_organization_id: payload.companyId,
+    p_country_code: payload.countryCode,
+    p_provider: payload.provider,
+  });
+  if (error) {
+    return {
+      provider: payload.provider,
+      country_code: payload.countryCode,
+      status: "not_configured",
+      live_connected: false,
+      message: `الموصل الحكومي (${payload.provider}) غير مهيأ ببيانات اعتماد حية (NOT_CONFIGURED). متاح وضع التصدير الرسمي المعتمد.`,
+    };
+  }
+  return data;
+}
+
+export async function submitGovernmentRegulatoryPackage(payload: {
+  companyId: string;
+  countryCode: CountryCode;
+  provider: string;
+  submissionType: string;
+  sourcePeriod: string;
+  sourceReference: string;
+  mode: string;
+  idempotencyKey: string;
+  payloadHashSha256: string;
+  recordCount: number;
+  totalAmount: number;
+  currencyCode: string;
+  exportFilename?: string;
+  validationSummary?: Record<string, unknown>;
+}): Promise<any> {
+  const { data, error } = await db.rpc("submit_government_regulatory_package_atomic", {
+    p_organization_id: payload.companyId,
+    p_country_code: payload.countryCode,
+    p_provider: payload.provider,
+    p_submission_type: payload.submissionType,
+    p_source_period: payload.sourcePeriod,
+    p_source_reference: payload.sourceReference,
+    p_mode: payload.mode,
+    p_idempotency_key: payload.idempotencyKey,
+    p_payload_hash_sha256: payload.payloadHashSha256,
+    p_record_count: payload.recordCount,
+    p_total_amount: payload.totalAmount,
+    p_currency_code: payload.currencyCode,
+    p_export_filename: payload.exportFilename || null,
+    p_validation_summary: payload.validationSummary || {},
+  });
+  if (error) throw error;
+  return data;
+}
+
+export function useGovernmentConnectorConfigs(companyId: string, countryCode?: string) {
+  return useQuery({
+    queryKey: countryPackQueryKeys.govConnectors(companyId, countryCode),
+    queryFn: () => fetchGovernmentConnectorConfigs(companyId, countryCode),
+    enabled: Boolean(companyId),
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useGovernmentSubmissions(companyId: string, countryCode?: string) {
+  return useQuery({
+    queryKey: countryPackQueryKeys.govSubmissions(companyId, countryCode),
+    queryFn: () => fetchGovernmentSubmissions(companyId, countryCode),
+    enabled: Boolean(companyId),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useTestGovernmentConnector() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: testGovernmentConnectorConnection,
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: countryPackQueryKeys.govConnectors(vars.companyId),
+      });
+    },
+  });
+}
+
+export function useSubmitGovernmentPackage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: submitGovernmentRegulatoryPackage,
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: countryPackQueryKeys.govSubmissions(vars.companyId),
+      });
+    },
+  });
+}
+

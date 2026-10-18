@@ -175,3 +175,40 @@ export function canManageCountryPacks(role: UserRole): boolean {
 export function canManageAI(role: UserRole): boolean {
   return role === "super_admin" || role === "hr_manager";
 }
+
+export type GovernmentIntegrationPermission =
+  | "government_integrations:view"
+  | "government_integrations:manage"
+  | "government_integrations:submit"
+  | "government_integrations:configure"
+  | "government_integrations:audit";
+
+export const GOVERNMENT_INTEGRATION_PERMISSION_MATRIX: Record<
+  GovernmentIntegrationPermission,
+  UserRole[]
+> = {
+  "government_integrations:view": [
+    "super_admin",
+    "hr_manager",
+    "payroll_officer",
+    "finance_officer",
+    "auditor",
+  ],
+  "government_integrations:manage": ["super_admin", "hr_manager", "payroll_officer"],
+  "government_integrations:submit": [
+    "super_admin",
+    "hr_manager",
+    "payroll_officer",
+    "finance_officer",
+  ],
+  "government_integrations:configure": ["super_admin", "hr_manager"],
+  "government_integrations:audit": ["super_admin", "auditor", "finance_officer"],
+};
+
+export function hasGovernmentIntegrationPermission(
+  role: UserRole,
+  permission: GovernmentIntegrationPermission
+): boolean {
+  return GOVERNMENT_INTEGRATION_PERMISSION_MATRIX[permission]?.includes(role) ?? false;
+}
+

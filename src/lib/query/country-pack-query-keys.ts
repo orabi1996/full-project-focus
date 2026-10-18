@@ -20,4 +20,8 @@ export const countryPackQueryKeys = {
     [...countryPackQueryKeys.all, "holidays", countryCode || "all", year || "current"] as const,
   complianceChecks: (companyId: string, payrollRunId?: string) =>
     [...countryPackQueryKeys.all, "compliance_checks", companyId, payrollRunId || "latest"] as const,
+  govConnectors: (companyId: string, countryCode?: string) =>
+    [...countryPackQueryKeys.all, "gov_connectors", companyId, countryCode || "all"] as const,
+  govSubmissions: (companyId: string, countryCode?: string) =>
+    [...countryPackQueryKeys.all, "gov_submissions", companyId, countryCode || "all"] as const,
 };

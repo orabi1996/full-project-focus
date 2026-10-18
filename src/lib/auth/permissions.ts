@@ -181,7 +181,16 @@ export type GovernmentIntegrationPermission =
   | "government_integrations:manage"
   | "government_integrations:submit"
   | "government_integrations:configure"
-  | "government_integrations:audit";
+  | "government_integrations:audit"
+  | "government_integrations.view"
+  | "government_integrations.configure"
+  | "government_integrations.credentials.manage"
+  | "government_integrations.verify"
+  | "government_integrations.activate"
+  | "government_integrations.suspend"
+  | "government_integrations.operations"
+  | "government_integrations.dlq.manage"
+  | "government_integrations.audit.view";
 
 export const GOVERNMENT_INTEGRATION_PERMISSION_MATRIX: Record<
   GovernmentIntegrationPermission,
@@ -203,6 +212,27 @@ export const GOVERNMENT_INTEGRATION_PERMISSION_MATRIX: Record<
   ],
   "government_integrations:configure": ["super_admin", "hr_manager"],
   "government_integrations:audit": ["super_admin", "auditor", "finance_officer"],
+  "government_integrations.view": [
+    "super_admin",
+    "hr_manager",
+    "payroll_officer",
+    "finance_officer",
+    "auditor",
+  ],
+  "government_integrations.configure": ["super_admin", "hr_manager"],
+  // Section 57: Even users with normal integration access do not automatically get secret-management permission
+  "government_integrations.credentials.manage": ["super_admin"],
+  "government_integrations.verify": ["super_admin", "hr_manager", "payroll_officer"],
+  "government_integrations.activate": ["super_admin", "hr_manager"],
+  "government_integrations.suspend": ["super_admin", "hr_manager"],
+  "government_integrations.operations": [
+    "super_admin",
+    "hr_manager",
+    "payroll_officer",
+    "finance_officer",
+  ],
+  "government_integrations.dlq.manage": ["super_admin", "hr_manager", "payroll_officer"],
+  "government_integrations.audit.view": ["super_admin", "auditor", "finance_officer"],
 };
 
 export function hasGovernmentIntegrationPermission(

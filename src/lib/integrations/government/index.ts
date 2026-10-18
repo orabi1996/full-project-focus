@@ -22,6 +22,7 @@ export * from "./eg";
 export * from "./qa";
 export * from "./om";
 export * from "./bh";
+export * from "./activation-engine";
 
 export const GOVERNMENT_CONNECTOR_REGISTRY: Record<
   GovernmentProviderCode,

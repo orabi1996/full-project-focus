@@ -56,6 +56,7 @@ import {
 import { toast } from "sonner";
 import { GenerateWpsModal } from "./GenerateWpsModal";
 import { ComplianceDrilldownModal } from "./ComplianceDrilldownModal";
+import { GovernmentConnectorOperationsModal } from "./GovernmentConnectorOperationsModal";
 
 export function CountryPacksView() {
   const { company, payrollRuns = [] } = useBootstrapData();
@@ -68,6 +69,9 @@ export function CountryPacksView() {
   // Modals state
   const [wpsModalOpen, setWpsModalOpen] = useState(false);
   const [complianceModalOpen, setComplianceModalOpen] = useState(false);
+  const [opsModalOpen, setOpsModalOpen] = useState(false);
+  const [selectedOpsProvider, setSelectedOpsProvider] =
+    useState<GovernmentProviderCode | null>(null);
 
   // Queries
   const { data: kpis } = useCountryPackKPIs(companyId);
@@ -764,12 +768,48 @@ export function CountryPacksView() {
             <Lock className="h-4 w-4 text-amber-700 mt-0.5 shrink-0" />
             <div className="space-y-1">
               <strong className="block font-bold">
-                مبدأ الشفافية والأمان للربط الحكومي المباشر (Prompt 37 Governance)
+                مبدأ الشفافية والأمان للربط الحكومي المباشر (Prompts 37 &amp; 38 Governance)
               </strong>
               <p>
                 جميع الموصلات الحكومية التي تتطلب شهادات رقمية خاصة بالمنشأة (X.509 / mTLS) أو مفاتيح بوابات رسمية تظهر بحالة{" "}
-                <span className="font-mono font-bold">NOT_CONFIGURED</span> حتى يتم تزويد المرجع البيئي الآمن للمنشأة، مع إتاحة التوليد الفوري للحزم الرسمية المعتمدة (SIF / CSV) مع الفحص المسبق الصارم وعدم تكرار الإرسال (Idempotency).
+                <span className="font-mono font-bold">WAITING_FOR_CUSTOMER_CREDENTIALS</span> حتى يتم تزويد المرجع البيئي الآمن للمنشأة والتحقق الفعلي من البوابة، مع إتاحة التوليد الفوري للحزم الرسمية المعتمدة (SIF / CSV) وبوابة الإرسال المغلقة افتراضياً (Fail-Closed Submission Gate).
               </p>
+            </div>
+          </div>
+
+          {/* Prompt 38 Operations Dashboard Summary Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+            <div className="p-3 rounded-xl border bg-card">
+              <span className="text-[10px] text-muted-foreground block">إجمالي الموصلات الحكومية</span>
+              <span className="text-lg font-black font-mono">{govAdapters.length}</span>
+            </div>
+            <div className="p-3 rounded-xl border bg-card">
+              <span className="text-[10px] text-muted-foreground block">بانتظار اعتماد العميل</span>
+              <span className="text-lg font-black font-mono text-amber-600">
+                {govAdapters.filter((a) => !govConfigs.some((c) => c.provider === a.spec.provider && c.status === "connected")).length}
+              </span>
+            </div>
+            <div className="p-3 rounded-xl border bg-card">
+              <span className="text-[10px] text-muted-foreground block">الموصلات الحية النشطة (Active)</span>
+              <span className="text-lg font-black font-mono text-emerald-600">
+                {govConfigs.filter((c) => c.status === "connected").length}
+              </span>
+            </div>
+            <div className="p-3 rounded-xl border bg-card">
+              <span className="text-[10px] text-muted-foreground block">شهادات X.509 تقترب من الانتهاء</span>
+              <span className="text-lg font-black font-mono">0</span>
+            </div>
+            <div className="p-3 rounded-xl border bg-card">
+              <span className="text-[10px] text-muted-foreground block">طابور المراجعة (DLQ)</span>
+              <span className="text-lg font-black font-mono">
+                {govSubmissions.filter((s) => s.dead_lettered).length}
+              </span>
+            </div>
+            <div className="p-3 rounded-xl border bg-card">
+              <span className="text-[10px] text-muted-foreground block">الإرساليات الموثقة</span>
+              <span className="text-lg font-black font-mono text-primary">
+                {govSubmissions.length}
+              </span>
             </div>
           </div>
 
@@ -798,7 +838,9 @@ export function CountryPacksView() {
                             variant={status === "connected" || status === "configured" ? "default" : "secondary"}
                             className="text-[10px] font-mono"
                           >
-                            {status.toUpperCase()}
+                            {status === "not_configured"
+                              ? "WAITING_FOR_CUSTOMER_CREDENTIALS"
+                              : status.toUpperCase()}
                           </Badge>
                         </div>
                         <h4 className="font-bold text-xs text-foreground mt-1">{spec.portalNameAr}</h4>
@@ -839,7 +881,19 @@ export function CountryPacksView() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-2 border-t">
+                  <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full h-8 text-xs gap-1"
+                      onClick={() => {
+                        setSelectedOpsProvider(spec.provider);
+                        setOpsModalOpen(true);
+                      }}
+                    >
+                      <Lock className="h-3.5 w-3.5" />
+                      تهيئة الاعتماد والشهادة والتفعيل
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
@@ -944,6 +998,13 @@ export function CountryPacksView() {
         open={complianceModalOpen}
         onOpenChange={setComplianceModalOpen}
         checks={complianceChecks}
+      />
+
+      <GovernmentConnectorOperationsModal
+        open={opsModalOpen}
+        onOpenChange={setOpsModalOpen}
+        providerCode={selectedOpsProvider}
+        companyId={companyId}
       />
     </div>
   );

@@ -73,9 +73,17 @@ export interface CertificateMetadata {
 }
 
 export interface CertificateExpiryEvaluation {
-  status: "valid" | "expiring_90d" | "expiring_60d" | "expiring_30d" | "expiring_7d" | "expired" | "not_configured";
+  status:
+    | "valid"
+    | "expiring_90d"
+    | "expiring_60d"
+    | "expiring_30d"
+    | "expiring_14d"
+    | "expiring_7d"
+    | "expired"
+    | "not_configured";
   daysRemaining: number | null;
-  alertThresholdDays: 90 | 60 | 30 | 7 | 0 | null;
+  alertThresholdDays: 90 | 60 | 30 | 14 | 7 | 0 | null;
   blocksLiveSubmission: boolean;
   messageAr: string;
 }
@@ -279,6 +287,16 @@ export function evaluateCertificateExpiry(
       alertThresholdDays: 7,
       blocksLiveSubmission: false,
       messageAr: `تنبيه حرج (7 أيام): تنتهي شهادة الربط خلال ${daysRemaining} أيام. يرجى التجديد الفوري.`,
+    };
+  }
+
+  if (daysRemaining <= 14) {
+    return {
+      status: "expiring_14d",
+      daysRemaining,
+      alertThresholdDays: 14,
+      blocksLiveSubmission: false,
+      messageAr: `تنبيه عاجل (14 يوماً): تنتهي شهادة الربط خلال ${daysRemaining} يوماً.`,
     };
   }
 

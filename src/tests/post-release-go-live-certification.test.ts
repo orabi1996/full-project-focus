@@ -1287,8 +1287,9 @@ describe("POST-RELEASE PRODUCTION GO-LIVE CERTIFICATION (v1.0.0-enterprise)", ()
       expect(canManageModule("employee", "employee_relations")).toBe(false);
       expect(canManageModule("employee", "talent")).toBe(false);
 
-      // 2. Line Manager: Team/MSS access, blocked from company payroll & ER admin
-      expect(canAccessModule("line_manager", "employees")).toBe(true);
+      // 2. Line Manager: Team/MSS workflow & leaves access, blocked from company payroll & admin employees
+      expect(canAccessModule("line_manager", "workflow")).toBe(true);
+      expect(canAccessModule("line_manager", "leaves")).toBe(true);
       expect(canAccessModule("line_manager", "payroll")).toBe(false);
       expect(canManageModule("line_manager", "compensation")).toBe(false);
 

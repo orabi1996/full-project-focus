@@ -29,6 +29,13 @@
       "when": 1791237773015,
       "tag": "0003_companies_profile_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792359158646,
+      "tag": "0004_add_record_self_punch",
+      "breakpoints": true
     }
   ]
 }

@@ -3009,6 +3009,16 @@ export type Database = {
         Args: { p_access_type: string; p_file_id: string }
         Returns: Json
       }
+      record_self_punch: {
+        Args: {
+          p_accuracy?: number
+          p_client_event_id?: string
+          p_latitude?: number
+          p_longitude?: number
+          p_punch_type: string
+        }
+        Returns: Json
+      }
       reject_attendance_correction: {
         Args: { p_request_id: string }
         Returns: Json

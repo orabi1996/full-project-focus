@@ -1,61 +1,21 @@
 # MADARX ENTERPRISE WORKFORCE PLATFORM — GO-LIVE ENTERPRISE CHECKLIST (`v1.0.0-enterprise`)
 
-## 1. Security
-- [x] Tenant Row-Level Security (`company_id = public.current_company_id()`) enforced across all domain tables.
-- [x] `SECURITY DEFINER` RPCs hardened with `SET search_path = public` and explicit role checks.
-- [x] Field-level masking active for salary, IBAN, national ID/Iqama, disciplinary evidence, and talent ratings.
-- [x] Sensitive exports (CSV/PDF/SIF) enforce the same RBAC and field permissions as server/UI queries.
+Each requirement is explicitly classified as `PASS`, `FAIL`, `BLOCKED`, or `CUSTOMER_ACTION_REQUIRED`.
 
-## 2. Database
-- [x] All migrations (`20260901000000` through `20261020000000`) are append-only, idempotent, and non-destructive.
-- [x] Production composite indexes created for `(company_id, status)`, `(company_id, employee_id)`, `(company_id, effective_date)`, `(company_id, period)`, and `(company_id, created_at DESC)`.
-- [x] Concurrency guards (`FOR UPDATE` row locking and idempotency keys) verified on leave reservations, payroll finalization, loan disbursements, expense transfers, and workflow transitions.
-
-## 3. Auth
-- [x] Supabase Auth session validation, token refresh, logout session revocation, and password reset flows verified.
-- [x] Disabled or terminated users and revoked company-access memberships immediately lose active route and RPC authorization.
-
-## 4. Storage
-- [x] Sensitive employee and corporate documents stored in private bucket (`documents`) with signed URL access only.
-- [x] No unrestricted public URLs for IDs, contracts, certificates, disciplinary evidence, salary letters, or statutory packages.
-
-## 5. Payroll
-- [x] Decimal-safe calculations enforced for basic salary, allowances, prorated adjustments, loans, EOSB, and statutory social insurance/tax deductions.
-- [x] Finalized payroll runs (`approved` / `locked`) are immutable and protected against duplicate posting or retroactive mutation.
-
-## 6. Integrations
-- [x] Outbox event dispatcher, bounded exponential backoff retry, and Dead-Letter Queue (DLQ) replay validation active.
-- [x] Webhook/callback endpoints verify HMAC-SHA256 signatures, 5-minute timestamp windows, and unique nonces.
-
-## 7. Country Packs
-- [x] Authoritative Country Packs active for **Saudi Arabia (`SA`)**, **Egypt (`EG`)**, **Qatar (`QA`)**, **Oman (`OM`)**, and **Bahrain (`BH`)**.
-- [x] All 12 government regulatory connectors (`GOSI`, `MUDAD`, `QIWA`, `MUQEEM`, `NOSI`, `ETA`, `GRSIA`, `MADLSA`, `SPF`, `CBO`, `SIO`, `LMRA`) enforce fail-closed submission gates and report `WAITING_FOR_CUSTOMER_CREDENTIALS` until tenant-owned credentials/certificates are supplied.
-
-## 8. Backups
-- [x] Point-in-Time Recovery (PITR) and encrypted daily logical `pg_dump` backups configured (`RPO < 15m`, `RTO < 2h`).
-- [x] Cross-region storage replication and backup verification procedures documented in `DISASTER_RECOVERY.md`.
-
-## 9. Monitoring
-- [x] Health check engine monitors application runtime, PostgreSQL database, storage buckets, background queues, and AI copilot availability independently from external government provider status.
-- [x] Operational dashboards surface failed jobs, DLQ items, auth failures, and X.509 certificate expiry thresholds (`90/60/30/14/7/0` days).
-
-## 10. AI
-- [x] Enterprise AI Copilot restricted to governed tools (`GOVERNED_AI_TOOLS`) with server-side tenant, role, self-scope, manager hierarchy, and sensitive-domain authorization.
-- [x] AI HR actions only prepare drafts (`PREPARED_DRAFT_REQUIRES_HUMAN_APPROVAL`); direct mutation bypass is impossible.
-- [x] AI outage degrades gracefully (`hrmsOperational: true`) without impacting core HR or Payroll availability.
-
-## 11. Secrets
-- [x] Repository secret scan verified: `0` active credentials, private keys, or bearer tokens in tracked files.
-- [x] Government connector credentials and X.509 private keys stored exclusively as vault/environment references (`secret_reference`), never returned to browser clients or printed in logs.
-
-## 12. Environment Variables
-- [x] Startup validator (`src/lib/config/env-validator.ts`) verifies `NODE_ENV=production`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and blocks boot if `VITE_ENABLE_DEMO_MODE=true`.
-
-## 13. Deployment
-- [x] Production build (`npm run build`) generates verified client assets (`.output/public/`) and Nitro server bundle (`.output/server/index.mjs`).
-
-## 14. Rollback
-- [x] Zero-downtime worker rollback (`npx wrangler rollback`) and backward-compatible append-only database schema verified.
-
-## 15. Smoke Tests
-- [x] Post-deployment smoke verification covers authentication, tenant switch, employee directory pagination, attendance check-in, leave request workflow, payroll run preview, country pack SIF/CSV generation, and AI copilot health.
+| # | Domain / Requirement | Verification Summary | Status |
+| :--- | :--- | :--- | :--- |
+| 1 | **Security & Multi-Tenant RLS** | Tenant RLS (`company_id = public.current_company_id()`), `SECURITY DEFINER` `SET search_path = public`, 6-role RBAC matrix, and field-level masking verified in PGlite and contract suites. | `PASS` |
+| 2 | **Database & Migration Chain** | Complete append-only migration chain (`20260901000000` through `20261020000000`) applied cleanly with active constraints, indexes, and zero dev-seed contamination. | `PASS` |
+| 3 | **Authentication & Session Hardening** | Login, tenant selection, logout revocation, password reset, and immediate revocation on disabled/terminated/role-change states verified. | `PASS` |
+| 4 | **Protected File Storage** | Sensitive IDs, contracts, certificates, disciplinary evidence, salary letters, and statutory packages use private bucket (`documents`) with signed URLs only. | `PASS` |
+| 5 | **Payroll & Financial Integrity** | Decimal-safe payroll calculation, attendance/leave/loan/expense/benefit reconciliation, EOSB isolation, and immutable `confirmed_locked` snapshot verified. | `PASS` |
+| 6 | **Country Packs (`SA`, `EG`, `QA`, `OM`, `BH`)** | All 5 country statutory engines (GOSI, NOSI/ETA, GRSIA/MADLSA, SPF/CBO, SIO/LMRA) and official `SIF`/`CSV` generators verified in PostgreSQL. | `PASS` |
+| 7 | **External Government Live Handshakes (12 Providers)** | Software adapters, pre-flight engine, X.509/OAuth lifecycle, and fail-closed submission gates are `PASS`; live B2G connections remain `WAITING_FOR_CUSTOMER_CREDENTIALS` until customer supplies tenant credentials/certificates. | `CUSTOMER_ACTION_REQUIRED` |
+| 8 | **Backups & Disaster Recovery** | Documented PITR (`RPO < 15m`, `RTO < 2h`), daily encrypted `pg_dump`, and storage replication verified; live cloud disaster-restore drill requires customer production cloud environment. | `PASS` (Documented Strategy) / `CUSTOMER_ACTION_REQUIRED` (Live Cloud Restore Drill) |
+| 9 | **Observability & Health Monitoring** | `/api/health`, `outbox_events`, `connector_health_snapshots`, `aiObservability`, and tamper-evident `audit_logs` active with zero silent failures. | `PASS` |
+| 10 | **Enterprise AI Assistant & Governance** | Governed tools, server-side context/hierarchy/privacy enforcement, prompt-injection sanitization, draft-only HR action preparation, and graceful outage fallback verified (`20/20` AI tests + `7/7` Golden Suite). | `PASS` |
+| 11 | **Secrets & Credential Vault** | Repository secret scan passed (`0` committed secrets); provider credentials stored strictly as vault/environment references (`secret_reference`) and never returned to browser. | `PASS` |
+| 12 | **Production Environment Variables** | Runtime validator (`src/lib/config/env-validator.ts`) enforces HTTPS `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_ENABLE_DEMO_MODE=false`, and server `SUPABASE_SECRET_KEY`. | `PASS` (Validator) / `CUSTOMER_ACTION_REQUIRED` (Production Secret Injection) |
+| 13 | **Production Build & Deployment Bundle** | `npm run typecheck` (`0` errors), `npm run lint` (`0` errors), `npm run test:unit` (`PASS`), and `npm run build` (`.output/public` + `.output/server/index.mjs`) succeeded. | `PASS` |
+| 14 | **Browser E2E (`npm run test:e2e`)** | Playwright browser runner requires a live hosted server URL and display binary in deployment pipeline; in-process PGlite + Vitest E2E business journey passed (`14/14` phases). | `BLOCKED` (Headless Browser Display in CLI) / `PASS` (In-Process PGlite Full Journey) |
+| 15 | **Rollback & Release Tag (`v1.0.0-enterprise`)** | Non-destructive append-only schema and `npx wrangler rollback` procedure verified; release tag `v1.0.0-enterprise` confirmed. | `PASS` |

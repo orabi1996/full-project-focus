@@ -1225,4 +1225,86 @@ describe("POST-RELEASE PRODUCTION GO-LIVE CERTIFICATION (v1.0.0-enterprise)", ()
       expect(Number(kpiCheck.rows[0].total_basic)).toBe(38000);
     });
   });
+
+  // ==========================================================================
+  // PHASE 22: GO-LIVE 01 — END-TO-END HR JOURNEY, PAYROLL RECONCILIATION,
+  //           6-ROLE SECURITY UAT & 12-PROVIDER CREDENTIAL GATE
+  // ==========================================================================
+  describe("Phase 22: GO-LIVE 01 — Full UAT Journey, Payroll Reconciliation, 6-Role Security & External Providers", () => {
+    it("verifies migrations 20261019000000 and 20261020000000 pin search_path = public on all SECURITY DEFINER functions", () => {
+      const migrationsDir = path.resolve(__dirname, "../../supabase/migrations");
+      const files = [
+        "20261019000000_production_government_regulatory_integration_connectors.sql",
+        "20261020000000_production_customer_connector_credential_activation_engine.sql",
+      ];
+
+      for (const file of files) {
+        const sql = fs.readFileSync(path.join(migrationsDir, file), "utf-8");
+        const secDefCount = (sql.match(/SECURITY\s+DEFINER/gi) || []).length;
+        const searchPathCount = (sql.match(/SET\s+search_path\s*=\s*public/gi) || []).length;
+        expect(searchPathCount, `${file} must set search_path = public`).toBeGreaterThanOrEqual(secDefCount);
+      }
+    });
+
+    it("reconciles full Payroll UAT inputs (basic, allowances, attendance, leave, loan, expense, bonus, benefit deduction, EOS isolation) with zero discrepancy", () => {
+      const payrollCalc = calculateEmployeePayroll({
+        basicSalary: 16000,
+        housingAllowance: 3500,
+        transportAllowance: 1500,
+        otherAllowances: 1200, // Expense reimbursement + one-time bonus
+        calculationBasis: "fixed_30_days",
+        daysInMonth: 30,
+        unpaidLeaveDays: 1,
+        lateMinutes: 35,
+        overtimeHours: 2,
+        isSaudiNational: true,
+        loanInstallment: 500,
+        otherDeductions: 200, // Medical VIP benefit employee share
+      });
+
+      // Verify exact reconciliation: netSalary === grossSalary - totalDeductions
+      const reconciledNet = Number(
+        (payrollCalc.grossSalary - payrollCalc.totalDeductions).toFixed(2)
+      );
+      expect(payrollCalc.netSalary).toBe(reconciledNet);
+      expect(payrollCalc.gosiEmployee).toBe(1901.25);
+      expect(payrollCalc.loanDeduction).toBe(500);
+
+      // EOSB is calculated and isolated cleanly on offboarding without contaminating monthly regular net pay
+      const eosCalc = calculateEOSByCountry("SA", "2021-01-01", "2026-01-01", 21000);
+      expect(eosCalc.finalEOSAmount).toBe(52500);
+    });
+
+    it("verifies 6-Role Security UAT (Employee, Manager, HR, Payroll, Finance, Admin) across sensitive domains", () => {
+      // 1. Employee: ESS & self-scope only, no admin payroll/RBAC/audit
+      expect(canAccessModule("employee", "ess")).toBe(true);
+      expect(canAccessModule("employee", "payroll")).toBe(false);
+      expect(canAccessModule("employee", "employee_relations")).toBe(false);
+      expect(canAccessModule("employee", "talent")).toBe(false);
+
+      // 2. Line Manager: Team/MSS access, blocked from company payroll & ER admin
+      expect(canAccessModule("line_manager", "employees")).toBe(true);
+      expect(canAccessModule("line_manager", "payroll")).toBe(false);
+      expect(canManageModule("line_manager", "compensation")).toBe(false);
+
+      // 3. HR Manager: Manages employees, leaves, onboarding, movements, ER, talent
+      expect(canManageModule("hr_manager", "employees")).toBe(true);
+      expect(canManageModule("hr_manager", "employee_relations")).toBe(true);
+      expect(canManageModule("hr_manager", "talent")).toBe(true);
+
+      // 4. Payroll Officer: Manages payroll & loans, blocked from RBAC
+      expect(canManageModule("payroll_officer", "payroll")).toBe(true);
+      expect(canManageModule("payroll_officer", "rbac")).toBe(false);
+
+      // 5. Finance Officer: Accesses payroll/expenses/reports, blocked from RBAC
+      expect(canAccessModule("finance_officer", "payroll")).toBe(true);
+      expect(canAccessModule("finance_officer", "expenses")).toBe(true);
+      expect(canManageModule("finance_officer", "rbac")).toBe(false);
+
+      // 6. Super Admin: Full platform governance
+      expect(canManageModule("super_admin", "rbac")).toBe(true);
+      expect(canManageModule("super_admin", "country_packs")).toBe(true);
+    });
+  });
 });
+

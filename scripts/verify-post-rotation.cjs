@@ -82,7 +82,11 @@ async function runVerification() {
     console.log("  ✅ PASS: Demo mode configuration is valid.");
   }
 
-  const secretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const secretKey = process.env.SUPABASE_SECRET_KEY;
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY) {
+    console.error("  ❌ FAIL: Legacy SUPABASE_SERVICE_ROLE_KEY / VITE_SUPABASE_ANON_KEY detected. Use SUPABASE_SECRET_KEY and VITE_SUPABASE_PUBLISHABLE_KEY.");
+    allPassed = false;
+  }
   if (secretKey) {
     if (secretKey.startsWith("sb_publishable_")) {
       console.error("  ❌ FAIL: Publishable key passed as SUPABASE_SECRET_KEY.");

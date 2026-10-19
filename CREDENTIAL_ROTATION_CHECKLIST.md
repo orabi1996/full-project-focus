@@ -22,12 +22,12 @@ Until all `CRITICAL_ROTATE_NOW` entries are completed, the release remains tagge
 | # | Provider / Service | Credential Type | Environment Variable | Classification | Rotation Required |
 | :- | :--- | :--- | :--- | :---: | :---: |
 | 1 | **Supabase Auth** | JWT Signing Secret | *Internal to Supabase* | `CRITICAL_ROTATE_NOW` | **YES** |
-| 2 | **Supabase Cloud** | Server Secret / Admin Key | `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`) | `CRITICAL_ROTATE_NOW` | **YES** |
+| 2 | **Supabase Cloud** | Server Secret / Admin Key | `SUPABASE_SECRET_KEY` | `CRITICAL_ROTATE_NOW` | **YES** |
 | 3 | **PostgreSQL (Supabase)** | Database Superuser Password | `DATABASE_URL` / `POSTGRES_PASSWORD` | `CRITICAL_ROTATE_NOW` | **YES** |
 | 4 | **Supabase Auth** | Test User Account Passwords | `SUPABASE_TEST_*_PASSWORD` | `CRITICAL_ROTATE_NOW` | **YES** |
 | 5 | **Supabase API** | Modern Publishable Browser Key | `VITE_SUPABASE_PUBLISHABLE_KEY` | `ROTATE_RECOMMENDED` | **YES** (Rotated with JWT) |
 | 6 | **Webhook Gateway** | Ingress HMAC Signature Secret | `WEBHOOK_SIGNING_SECRET` | `ROTATE_RECOMMENDED` | **YES** (If pre-configured) |
-| 7 | **Supabase API Gateway**| Supabase Project Endpoint URL | `VITE_SUPABASE_URL` | `PUBLIC_NON_SECRET` | **NO** |
+| 7 | **Supabase API Gateway**| Supabase Project Endpoint URL | `VITE_SUPABASE_URL` / `SUPABASE_URL` | `PUBLIC_NON_SECRET` | **NO** |
 | 8 | **Local Demo Store** | In-Memory Dummy Test Passwords | *N/A (Client Memory Only)* | `NOT_APPLICABLE` | **NO** |
 
 ---
@@ -54,7 +54,7 @@ Until all `CRITICAL_ROTATE_NOW` entries are completed, the release remains tagge
 ### Item 2: Supabase Server Secret Key (Modern: sb_secret_*)
 - **Provider:** Supabase Cloud
 - **Credential Type:** High-Privilege Admin API Secret (Bypasses RLS)
-- **Environment Variable:** `SUPABASE_SECRET_KEY` (legacy fallback: `SUPABASE_SERVICE_ROLE_KEY`)
+- **Environment Variable:** `SUPABASE_SECRET_KEY` (legacy `SUPABASE_SERVICE_ROLE_KEY` is deprecated/removed)
 - **Where Owner Rotates It:**
   1. In Supabase Dashboard -> **Project Settings** -> **API**.
   2. Copy the newly generated `secret` key (`sb_secret_*` format) produced by the JWT rotation.

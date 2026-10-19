@@ -93,14 +93,25 @@ describe("Prompt 26: Final Core Release — Production Readiness & Go-Live Certi
       expect(result.issues).toHaveLength(0);
     });
 
-    it("1.7 should support backward-compatible fallback to SUPABASE_SERVICE_ROLE_KEY", () => {
+    it("1.7 should reject deprecated legacy SUPABASE_SERVICE_ROLE_KEY and VITE_SUPABASE_ANON_KEY", () => {
       const legacyServerEnv = {
         SUPABASE_SERVICE_ROLE_KEY: "legacy_service_role_key_format_token",
       };
 
       const result = validateServerSecretKey(legacyServerEnv);
-      expect(result.isValid).toBe(true);
-      expect(result.keyType).toBe("legacy_service_role");
+      expect(result.isValid).toBe(false);
+      expect(result.keyType).toBe("deprecated_legacy_rejected");
+      expect(result.issues.some((i) => i.includes("LEGACY_KEY_DEPRECATED"))).toBe(true);
+
+      const legacyClientEnv = {
+        NODE_ENV: "production",
+        VITE_SUPABASE_URL: "https://enterprise-prod.supabase.co",
+        VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_prod_token",
+        VITE_SUPABASE_ANON_KEY: "legacy_anon_key_token",
+      };
+      const clientRes = validateEnvironment(legacyClientEnv);
+      expect(clientRes.isValid).toBe(false);
+      expect(clientRes.configSummary.legacyApiKeyDependency).toBe(true);
     });
 
     it("1.8 should reject publishable key passed as server secret key", () => {

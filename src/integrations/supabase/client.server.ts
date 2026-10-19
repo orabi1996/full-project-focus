@@ -1,4 +1,4 @@
-// Server-side Supabase client with secret / service role key - bypasses RLS.
+// Server-side Supabase client with modern secret key (sb_secret_*) - bypasses RLS.
 // Use this for admin operations in server functions and server routes only.
 // For user-authenticated queries (with RLS), use the auth middleware instead.
 import { createClient } from "@supabase/supabase-js";
@@ -33,24 +33,25 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseAdminClient() {
-  const SUPABASE_URL = process.env["SUPABASE_URL"] || DEFAULT_SUPABASE_URL;
-  // Modern standard: SUPABASE_SECRET_KEY; fallback for legacy: SUPABASE_SERVICE_ROLE_KEY
-  const SUPABASE_SECRET_KEY =
-    process.env["SUPABASE_SECRET_KEY"] || process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  const SUPABASE_URL =
+    process.env["SUPABASE_URL"] ||
+    process.env["VITE_SUPABASE_URL"] ||
+    DEFAULT_SUPABASE_URL;
+  const SUPABASE_SECRET_KEY = process.env["SUPABASE_SECRET_KEY"];
 
   if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
     const missing = [
       ...(!SUPABASE_URL ? ["SUPABASE_URL"] : []),
-      ...(!SUPABASE_SECRET_KEY ? ["SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY)"] : []),
+      ...(!SUPABASE_SECRET_KEY ? ["SUPABASE_SECRET_KEY"] : []),
     ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(", ")}. Configure SUPABASE_SECRET_KEY in server secrets.`;
+    const message = `Missing Supabase server environment variable(s): ${missing.join(", ")}. Configure SUPABASE_URL and SUPABASE_SECRET_KEY in trusted server secrets.`;
     console.error(`[Supabase] ${message}`);
     throw new Error(message);
   }
 
   if (SUPABASE_SECRET_KEY.startsWith("sb_publishable_")) {
     throw new Error(
-      "CRITICAL: A publishable key was passed as SUPABASE_SECRET_KEY. Server admin client requires a secret key."
+      "CRITICAL: A publishable key was passed as SUPABASE_SECRET_KEY. Server admin client requires a privileged secret key (sb_secret_*)."
     );
   }
 

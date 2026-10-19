@@ -1311,6 +1311,141 @@ describe("POST-RELEASE PRODUCTION GO-LIVE CERTIFICATION (v1.0.0-enterprise)", ()
       expect(canManageModule("super_admin", "rbac")).toBe(true);
       expect(canManageModule("super_admin", "country_packs")).toBe(true);
     });
+
+    it("executes idempotent bootstrap_enterprise_tenant, 8-point bootstrap verification, 18-domain read-only smoke test, backup drill, and Go-Live closure contract", async () => {
+      const {
+        BOOTSTRAP_ENTERPRISE_TENANT_SQL,
+        PRODUCTION_SMOKE_DOMAINS,
+        validateTenantBootstrapInput,
+        verifyEnterpriseTenantBootstrapInDb,
+        runProductionSmokeVerificationInDb,
+        evaluateBackupRecoveryDrillStatus,
+        reconcileGovernmentIntegrationStatuses,
+        evaluateGoLiveReleaseClassification,
+      } = await import("../lib/config/production-deployment-contract");
+
+      // 1. Install bootstrap_enterprise_tenant in PostgreSQL
+      await db.exec(BOOTSTRAP_ENTERPRISE_TENANT_SQL);
+
+      // Validate input guard rejects empty customer input
+      expect(validateTenantBootstrapInput({})).not.toHaveLength(0);
+
+      // 2. Run bootstrap_enterprise_tenant FIRST time for a clean production tenant
+      const firstRun = await db.query<{ result: any }>(
+        `SELECT public.bootstrap_enterprise_tenant(
+          'MDX-CLEAN-PROD',
+          'Al-Madar Enterprise Holdings',
+          'شركة المدار القابضة للموارد البشرية',
+          'SA',
+          'SAR',
+          'LE-SA-HQ',
+          'الكيان القانوني الرئيسي - الرياض',
+          'Riyadh Principal Legal Entity',
+          'ORG-ROOT',
+          'الإدارة العامة التنفيذية',
+          'Executive Headquarters',
+          $1
+        ) AS result`,
+        [hrAdminUserId]
+      );
+      expect(firstRun.rows[0].result.ok).toBe(true);
+      expect(firstRun.rows[0].result.idempotent).toBe(false);
+      const cleanCompanyId = firstRun.rows[0].result.company_id;
+      const cleanLeId = firstRun.rows[0].result.legal_entity_id;
+      const cleanOrgRootId = firstRun.rows[0].result.org_root_department_id;
+
+      // 3. Run bootstrap_enterprise_tenant SECOND time with identical inputs -> idempotent, safe to rerun, same IDs
+      const secondRun = await db.query<{ result: any }>(
+        `SELECT public.bootstrap_enterprise_tenant(
+          'MDX-CLEAN-PROD',
+          'Al-Madar Enterprise Holdings',
+          'شركة المدار القابضة للموارد البشرية',
+          'SA',
+          'SAR',
+          'LE-SA-HQ',
+          'الكيان القانوني الرئيسي - الرياض',
+          'Riyadh Principal Legal Entity',
+          'ORG-ROOT',
+          'الإدارة العامة التنفيذية',
+          'Executive Headquarters',
+          $1
+        ) AS result`,
+        [hrAdminUserId]
+      );
+      expect(secondRun.rows[0].result.ok).toBe(true);
+      expect(secondRun.rows[0].result.idempotent).toBe(true);
+      expect(secondRun.rows[0].result.company_id).toBe(cleanCompanyId);
+      expect(secondRun.rows[0].result.legal_entity_id).toBe(cleanLeId);
+      expect(secondRun.rows[0].result.org_root_department_id).toBe(cleanOrgRootId);
+
+      // 4. Verify all 8 mandatory bootstrap artifacts + zero fake seed/demo data
+      const bootstrapCheck = await verifyEnterpriseTenantBootstrapInDb(db, cleanCompanyId, hrAdminUserId);
+      expect(bootstrapCheck.verified).toBe(true);
+      expect(bootstrapCheck.tenantIsolated).toBe(true);
+      expect(bootstrapCheck.companyVerified).toBe(true);
+      expect(bootstrapCheck.legalEntityVerified).toBe(true);
+      expect(bootstrapCheck.adminUserVerified).toBe(true);
+      expect(bootstrapCheck.organizationRootVerified).toBe(true);
+      expect(bootstrapCheck.rolesVerified).toBe(true);
+      expect(bootstrapCheck.permissionsVerified).toBe(true);
+      expect(bootstrapCheck.defaultConfigurationsVerified).toBe(true);
+      expect(bootstrapCheck.noFakeSeedOrDemoData).toBe(true);
+
+      // 5. Execute 18-domain READ-ONLY post-deployment smoke test
+      const smokeReport = await runProductionSmokeVerificationInDb(db, tenantACompanyId, hrAdminUserId);
+      expect(smokeReport.allPassed).toBe(true);
+      expect(smokeReport.readOnlyEnforced).toBe(true);
+      expect(smokeReport.mutatedRows).toBe(0);
+      expect(smokeReport.totalDomainsChecked).toBe(18);
+      expect(smokeReport.results.map((r) => r.domain)).toEqual([...PRODUCTION_SMOKE_DOMAINS]);
+
+      // 6. Verify staging backup/restore drill & honest cloud PITR classification
+      const stagingDrill = evaluateBackupRecoveryDrillStatus({
+        stagingBackupTimestamp: "2026-10-19T12:00:00Z",
+        stagingRestoreStart: "2026-10-19T12:00:05Z",
+        stagingRestoreCompletion: "2026-10-19T12:00:09Z",
+        liveCloudPitrMeasured: false,
+      });
+      expect(stagingDrill.verificationResult).toBe("PASS_STAGING_DRILL");
+      expect(stagingDrill.actualRtoSeconds).toBe(4);
+      expect(stagingDrill.actualRpoSeconds).toBe(5);
+      expect(stagingDrill.liveCloudPitrStatus).toBe("CUSTOMER_INFRA_ACTION_REQUIRED");
+      expect(stagingDrill.isSoftwareBlocker).toBe(false);
+
+      // 7. Verify 12 optional government integrations & Core Go-Live classification
+      const govStatuses = reconcileGovernmentIntegrationStatuses({});
+      expect(govStatuses).toHaveLength(12);
+      expect(govStatuses.every((g) => g.classification === "CUSTOMER_CREDENTIAL_REQUIRED")).toBe(true);
+      expect(govStatuses.every((g) => g.blocksCoreGoLive === false)).toBe(true);
+
+      const releaseStatus = evaluateGoLiveReleaseClassification({
+        p0Blockers: 0,
+        p1Blockers: 0,
+        migrationValidationPassed: true,
+        clientEnv: {
+          NODE_ENV: "production",
+          VITE_SUPABASE_URL: "https://enterprise-prod.supabase.co",
+          VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_prod_valid_key_001",
+          VITE_ENABLE_DEMO_MODE: "false",
+        },
+        serverEnv: {
+          SUPABASE_URL: "https://enterprise-prod.supabase.co",
+          SUPABASE_SECRET_KEY: "sb_secret_prod_valid_admin_key_001",
+        },
+        secretScanPassed: true,
+        buildPassed: true,
+      });
+
+      expect(releaseStatus.classification.A_SOFTWARE_READY).toBe("YES");
+      expect(releaseStatus.classification.B_PRODUCTION_ENVIRONMENT_READY).toBe("YES");
+      expect(releaseStatus.classification.C_OPTIONAL_EXTERNAL_INTEGRATIONS_READY).toBe(
+        "CUSTOMER_CREDENTIAL_REQUIRED"
+      );
+      expect(releaseStatus.MADARX_CORE_GO_LIVE_READY).toBe("YES");
+      expect(releaseStatus.legacyApiKeyDependencyRemaining).toBe("NO");
+      expect(releaseStatus.clientSecretExposure).toBe("NO");
+    });
   });
 });
+
 

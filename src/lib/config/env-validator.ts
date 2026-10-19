@@ -1,7 +1,10 @@
 /**
  * MadarX Enterprise — Production Environment & Runtime Configuration Validator.
  * Enforces strict environment constraints, preventing misconfigured production deployments.
- * Supports migration from legacy JWT keys to new Supabase Publishable & Secret Key model.
+ * Authoritative Supabase API Key Contract:
+ *   - Client/Browser: VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY
+ *   - Trusted Server: SUPABASE_URL, SUPABASE_SECRET_KEY
+ * Legacy VITE_SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are formally deprecated and rejected.
  */
 
 export interface EnvValidationResult {
@@ -15,12 +18,15 @@ export interface EnvValidationResult {
     publishableKeyFormat: "new_publishable" | "legacy_jwt" | "missing";
     demoModeActive: boolean;
     httpsEnforced: boolean;
+    legacyApiKeyDependency: boolean;
+    clientSecretExposure: boolean;
   };
 }
 
 export interface ServerSecretValidationResult {
   isValid: boolean;
-  keyType: "new_secret" | "legacy_service_role" | "missing";
+  keyType: "new_secret" | "deprecated_legacy_rejected" | "missing";
+  supabaseUrlConfigured: boolean;
   issues: string[];
 }
 
@@ -45,6 +51,34 @@ export function validateEnvironment(env: Record<string, string | undefined> = {}
   const nodeEnv = (env.NODE_ENV || import.meta.env?.MODE || "development").toLowerCase();
   const isProduction = nodeEnv === "production" || import.meta.env?.PROD === true;
   const mode = isProduction ? "production" : nodeEnv === "test" ? "test" : "development";
+
+  // 0. Check for forbidden legacy or leaked client variables
+  const hasLegacyAnonKey = Boolean(env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY);
+  const hasLegacyServiceRoleKey = Boolean(env.SUPABASE_SERVICE_ROLE_KEY || env.VITE_SUPABASE_SERVICE_ROLE_KEY);
+  const hasClientSecretLeak = Boolean(
+    env.VITE_SUPABASE_SECRET_KEY ||
+      env.VITE_SUPABASE_SERVICE_ROLE_KEY ||
+      env.VITE_DATABASE_URL ||
+      env.VITE_POSTGRES_PASSWORD
+  );
+
+  if (hasLegacyAnonKey) {
+    issues.push(
+      "LEGACY_KEY_DEPRECATED: VITE_SUPABASE_ANON_KEY / SUPABASE_ANON_KEY is deprecated and unsupported. Use VITE_SUPABASE_PUBLISHABLE_KEY."
+    );
+  }
+
+  if (hasLegacyServiceRoleKey) {
+    issues.push(
+      "LEGACY_KEY_DEPRECATED: SUPABASE_SERVICE_ROLE_KEY is deprecated and unsupported. Use SUPABASE_SECRET_KEY on trusted server only."
+    );
+  }
+
+  if (hasClientSecretLeak) {
+    issues.push(
+      "CRITICAL SECURITY DEFECT: Server secret variable prefixed with VITE_ detected. Never expose SUPABASE_SECRET_KEY or database credentials to browser bundles!"
+    );
+  }
 
   // 1. Supabase URL Validation
   const supabaseUrl =
@@ -79,11 +113,13 @@ export function validateEnvironment(env: Record<string, string | undefined> = {}
     (typeof import.meta !== "undefined" ? import.meta.env?.["VITE_SUPABASE_PUBLISHABLE_KEY"] : undefined);
 
   let publishableKeyFormat: "new_publishable" | "legacy_jwt" | "missing" = "missing";
+  let keyIsSecret = false;
 
   if (!publishableKey || publishableKey.trim() === "") {
     issues.push("VITE_SUPABASE_PUBLISHABLE_KEY is missing. Public browser key must be configured.");
   } else {
     if (SERVICE_ROLE_PATTERN.test(publishableKey)) {
+      keyIsSecret = true;
       issues.push(
         "CRITICAL SECURITY DEFECT: A service-role or secret key was provided as publishable key. Never expose admin keys on client!"
       );
@@ -96,7 +132,9 @@ export function validateEnvironment(env: Record<string, string | undefined> = {}
       publishableKeyFormat = "new_publishable";
     } else if (publishableKey.startsWith("ey")) {
       publishableKeyFormat = "legacy_jwt";
-      warnings.push("VITE_SUPABASE_PUBLISHABLE_KEY is using a legacy JWT format. Migration to modern sb_publishable_* format is recommended.");
+      warnings.push(
+        "VITE_SUPABASE_PUBLISHABLE_KEY is using a legacy JWT format. Migration to modern sb_publishable_* format is recommended."
+      );
     } else {
       publishableKeyFormat = "new_publishable";
     }
@@ -128,33 +166,65 @@ export function validateEnvironment(env: Record<string, string | undefined> = {}
       publishableKeyFormat,
       demoModeActive: !isProduction && demoModeActive,
       httpsEnforced,
+      legacyApiKeyDependency: hasLegacyAnonKey || hasLegacyServiceRoleKey,
+      clientSecretExposure: hasClientSecretLeak || keyIsSecret,
     },
   };
 }
 
 /**
  * Validates backend server-side privileged secret key configuration.
- * Server environments should supply SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY for fallback).
+ * Trusted server environments MUST supply SUPABASE_SECRET_KEY (and SUPABASE_URL).
+ * Legacy SUPABASE_SERVICE_ROLE_KEY is formally deprecated and rejected.
  */
 export function validateServerSecretKey(env: Record<string, string | undefined> = {}): ServerSecretValidationResult {
   const issues: string[] = [];
-  const secretKey = env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_URL;
+  const secretKey = env.SUPABASE_SECRET_KEY;
+  const legacyServiceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (legacyServiceRoleKey) {
+    issues.push(
+      "LEGACY_KEY_DEPRECATED: SUPABASE_SERVICE_ROLE_KEY is deprecated and removed. Configure SUPABASE_SECRET_KEY (sb_secret_*) instead."
+    );
+    if (!secretKey) {
+      return {
+        isValid: false,
+        keyType: "deprecated_legacy_rejected",
+        supabaseUrlConfigured: Boolean(supabaseUrl),
+        issues,
+      };
+    }
+  }
 
   if (!secretKey || secretKey.trim() === "") {
-    issues.push("SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY) is missing. Server admin operations will fail.");
-    return { isValid: false, keyType: "missing", issues };
+    issues.push("SUPABASE_SECRET_KEY is missing. Trusted server admin operations require SUPABASE_SECRET_KEY.");
+    return {
+      isValid: false,
+      keyType: "missing",
+      supabaseUrlConfigured: Boolean(supabaseUrl),
+      issues,
+    };
   }
 
   if (secretKey.startsWith("sb_publishable_")) {
-    issues.push("CRITICAL: A publishable key was provided as SUPABASE_SECRET_KEY. Server admin client requires a privileged secret key.");
-    return { isValid: false, keyType: "missing", issues };
+    issues.push(
+      "CRITICAL: A publishable key was provided as SUPABASE_SECRET_KEY. Server admin client requires a privileged secret key (sb_secret_*)."
+    );
+    return {
+      isValid: false,
+      keyType: "missing",
+      supabaseUrlConfigured: Boolean(supabaseUrl),
+      issues,
+    };
   }
 
-  if (secretKey.startsWith("sb_secret_")) {
-    return { isValid: true, keyType: "new_secret", issues: [] };
-  }
-
-  return { isValid: true, keyType: "legacy_service_role", issues: [] };
+  return {
+    isValid: issues.length === 0,
+    keyType: "new_secret",
+    supabaseUrlConfigured: Boolean(supabaseUrl),
+    issues,
+  };
 }
 
 /**

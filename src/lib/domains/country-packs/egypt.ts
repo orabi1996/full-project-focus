@@ -60,6 +60,15 @@ export interface EgyptTaxBracket {
   rate: number;
 }
 
+export interface EgyptTaxBracketSlice {
+  order: number;
+  lowerBound: number;
+  upperBound: number | null;
+  rate: number;
+  taxableSliceAmount: number;
+  annualSliceTax: number;
+}
+
 export const EGYPT_TAX_BRACKETS: EgyptTaxBracket[] = [
   { order: 1, lowerBound: 0, upperBound: 40000, rate: 0.00 },
   { order: 2, lowerBound: 40000, upperBound: 55000, rate: 0.10 },
@@ -70,47 +79,126 @@ export const EGYPT_TAX_BRACKETS: EgyptTaxBracket[] = [
   { order: 7, lowerBound: 1200000, upperBound: null, rate: 0.275 },
 ];
 
-export function calculateEgyptPayrollTax(monthlyGrossTaxable: number): {
+export const EGYPT_TAX_BRACKETS_2027: EgyptTaxBracket[] = [
+  { order: 1, lowerBound: 0, upperBound: 50000, rate: 0.00 },
+  { order: 2, lowerBound: 50000, upperBound: 65000, rate: 0.10 },
+  { order: 3, lowerBound: 65000, upperBound: 80000, rate: 0.15 },
+  { order: 4, lowerBound: 80000, upperBound: 200000, rate: 0.20 },
+  { order: 5, lowerBound: 200000, upperBound: 400000, rate: 0.225 },
+  { order: 6, lowerBound: 400000, upperBound: 1200000, rate: 0.25 },
+  { order: 7, lowerBound: 1200000, upperBound: null, rate: 0.275 },
+];
+
+export function calculateEgyptPayrollTax(
+  monthlyGrossTaxable: number,
+  options?: {
+    ruleVersion?: string;
+    effectiveDate?: string;
+    personalExemptionOverride?: number;
+    socialInsuranceDeductionMonthly?: number;
+  }
+): {
   monthlyTax: number;
   annualTax: number;
   taxableNetAnnual: number;
   personalExemption: number;
+  effectiveRate: number;
+  ruleVersion: string;
+  bracketBreakdown: EgyptTaxBracketSlice[];
 } {
-  const annualGross = monthlyGrossTaxable * 12;
-  const personalExemption = 20000;
+  const is2027 =
+    options?.ruleVersion === "EG-2027-V1" ||
+    (options?.effectiveDate && options.effectiveDate >= "2027-01-01" && !options?.ruleVersion);
+  const ruleVersion = options?.ruleVersion ?? (is2027 ? "EG-2027-V1" : "EG-2024-V1");
+  const brackets = is2027 ? EGYPT_TAX_BRACKETS_2027 : EGYPT_TAX_BRACKETS;
+  const personalExemption = options?.personalExemptionOverride ?? (is2027 ? 24000 : 20000);
+  const netMonthlyAfterPreTax = Math.max(0, monthlyGrossTaxable - (options?.socialInsuranceDeductionMonthly ?? 0));
+  const annualGross = netMonthlyAfterPreTax * 12;
   const taxableNetAnnual = Math.max(0, annualGross - personalExemption);
 
   if (taxableNetAnnual <= 0) {
-    return { monthlyTax: 0, annualTax: 0, taxableNetAnnual: 0, personalExemption };
+    return {
+      monthlyTax: 0,
+      annualTax: 0,
+      taxableNetAnnual: 0,
+      personalExemption,
+      effectiveRate: 0,
+      ruleVersion,
+      bracketBreakdown: [],
+    };
   }
 
   let totalAnnualTax = 0;
-  for (const b of EGYPT_TAX_BRACKETS) {
+  const bracketBreakdown: EgyptTaxBracketSlice[] = [];
+  for (const b of brackets) {
     if (taxableNetAnnual > b.lowerBound) {
-      const taxableSlice = b.upperBound ? Math.min(taxableNetAnnual, b.upperBound) - b.lowerBound : taxableNetAnnual - b.lowerBound;
-      totalAnnualTax += taxableSlice * b.rate;
+      const taxableSlice = b.upperBound
+        ? Math.min(taxableNetAnnual, b.upperBound) - b.lowerBound
+        : taxableNetAnnual - b.lowerBound;
+      const annualSliceTax = Math.round(taxableSlice * b.rate * 100) / 100;
+      totalAnnualTax += annualSliceTax;
+      bracketBreakdown.push({
+        order: b.order,
+        lowerBound: b.lowerBound,
+        upperBound: b.upperBound,
+        rate: b.rate,
+        taxableSliceAmount: Math.round(taxableSlice * 100) / 100,
+        annualSliceTax,
+      });
     }
   }
 
   const monthlyTax = Math.round((totalAnnualTax / 12) * 100) / 100;
+  const effectiveRate = annualGross > 0 ? Math.round((totalAnnualTax / annualGross) * 10000) / 100 : 0;
+
   return {
     monthlyTax,
     annualTax: Math.round(totalAnnualTax * 100) / 100,
     taxableNetAnnual: Math.round(taxableNetAnnual * 100) / 100,
     personalExemption,
+    effectiveRate,
+    ruleVersion,
+    bracketBreakdown,
   };
 }
 
-export function calculateEgyptSocialInsurance(grossWage: number): {
+export function calculateEgyptSocialInsurance(
+  grossWage: number,
+  options?: {
+    ruleVersion?: string;
+    effectiveDate?: string;
+    isExempt?: boolean;
+  }
+): {
   insurableWage: number;
   employeeContribution: number;
   employerContribution: number;
   martyrsFund: number;
   emergencyFund: number;
   totalEmployeeDeduction: number;
+  totalEmployerCost: number;
+  ruleVersion: string;
 } {
-  const minBasis = 2000;
-  const maxBasis = 12600;
+  const is2027 =
+    options?.ruleVersion === "EG-2027-V1" ||
+    (options?.effectiveDate && options.effectiveDate >= "2027-01-01" && !options?.ruleVersion);
+  const ruleVersion = options?.ruleVersion ?? (is2027 ? "EG-2027-V1" : "EG-2024-V1");
+
+  if (options?.isExempt) {
+    return {
+      insurableWage: 0,
+      employeeContribution: 0,
+      employerContribution: 0,
+      martyrsFund: 0,
+      emergencyFund: 0,
+      totalEmployeeDeduction: 0,
+      totalEmployerCost: 0,
+      ruleVersion,
+    };
+  }
+
+  const minBasis = is2027 ? 2300 : 2000;
+  const maxBasis = is2027 ? 14500 : 12600;
   const insurableWage = Math.min(maxBasis, Math.max(minBasis, grossWage));
 
   const employeeRate = 0.11; // 11%
@@ -130,5 +218,8 @@ export function calculateEgyptSocialInsurance(grossWage: number): {
     martyrsFund,
     emergencyFund,
     totalEmployeeDeduction: Math.round((employeeContribution + martyrsFund) * 100) / 100,
+    totalEmployerCost: Math.round((employerContribution + emergencyFund) * 100) / 100,
+    ruleVersion,
   };
 }
+

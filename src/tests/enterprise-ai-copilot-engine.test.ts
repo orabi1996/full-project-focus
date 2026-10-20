@@ -24,6 +24,18 @@ import {
 import { searchKnowledgeBase } from "../lib/ai/retrieval";
 import { runAIEvaluationSuite } from "../lib/ai/evaluation";
 import { aiObservability } from "../lib/ai/observability";
+import {
+  evaluateDomainAISafety,
+  resolveCountryStatutoryGrounding,
+  getCopilotPersonaCapabilities,
+  mapNaturalLanguageToGovernedReport,
+  executeEnterpriseAISearch,
+  generateGovernedAIDraft,
+  buildAIActionConfirmationCard,
+  evaluateAIRateLimitAndFlags,
+  validateAndSanitizeToolArguments,
+  runComprehensiveAIEvaluationAndAdversarialSuite,
+} from "../lib/ai";
 import { METRIC_CATALOG } from "../lib/data/reports-repository";
 
 describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
@@ -388,5 +400,138 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       ).toBe("WAITING_FOR_CUSTOMER_CREDENTIALS");
     });
   });
+
+  describe("9. Persona Copilots, Country Statutory Grounding, NL Reporting, Search, Drafting & Rate Limits", () => {
+    it("enforces persona-specific capabilities for Employee, Manager, HR, and Executive Copilots", () => {
+      const empPersona = getCopilotPersonaCapabilities("employee");
+      const mgrPersona = getCopilotPersonaCapabilities("manager");
+      const hrPersona = getCopilotPersonaCapabilities("hr");
+      const execPersona = getCopilotPersonaCapabilities("executive");
+
+      expect(empPersona.scopeRule).toBe("SELF_ONLY");
+      expect(empPersona.allowedToolIds).not.toContain("get_payroll_summary");
+      expect(mgrPersona.scopeRule).toBe("DIRECT_REPORTS_ONLY");
+      expect(mgrPersona.allowedToolIds).not.toContain("get_open_cases");
+      expect(hrPersona.scopeRule).toBe("TENANT_HR_GOVERNED");
+      expect(hrPersona.allowedToolIds).toContain("get_open_cases");
+      expect(execPersona.scopeRule).toBe("EXECUTIVE_AGGREGATED");
+      expect(execPersona.allowedToolIds).toContain("get_workforce_metrics");
+    });
+
+    it("grounds statutory compliance answers in configured Country Packs (EG, SA, QA, OM, BH) and never hallucinates unconfigured laws", () => {
+      for (const code of ["EG", "SA", "QA", "OM", "BH"]) {
+        const res = resolveCountryStatutoryGrounding(code, "2026-10-01");
+        expect(res.isGroundedInActiveCountryPack).toBe(true);
+        expect(res.hasUncertainOrUnconfiguredLaw).toBe(false);
+        expect(res.citations.length).toBeGreaterThan(0);
+      }
+
+      const unknown = resolveCountryStatutoryGrounding("FR", "2026-10-01");
+      expect(unknown.isGroundedInActiveCountryPack).toBe(false);
+      expect(unknown.hasUncertainOrUnconfiguredLaw).toBe(true);
+      expect(unknown.citations.length).toBe(0);
+    });
+
+    it("enforces domain AI safety boundaries across Recruitment, Performance, Talent, ER, Compensation, and Payroll", () => {
+      expect(evaluateDomainAISafety("Auto-reject candidate now", "recruitment").allowed).toBe(false);
+      expect(evaluateDomainAISafety("Assign final rating 5 to employee", "performance").allowed).toBe(false);
+      expect(evaluateDomainAISafety("Finalize 9-box placement automatically", "talent").allowed).toBe(false);
+      expect(evaluateDomainAISafety("Determine guilt and terminate employee", "employee_relations").allowed).toBe(false);
+      expect(evaluateDomainAISafety("Approve salary increase of 25%", "compensation").allowed).toBe(false);
+      expect(evaluateDomainAISafety("Override net pay and disburse payroll", "payroll").allowed).toBe(false);
+      expect(evaluateDomainAISafety("Summarize interview rubric criteria for Senior Engineer", "recruitment").allowed).toBe(true);
+    });
+
+    it("maps natural-language reporting queries to governed report definitions without raw SQL", () => {
+      const r1 = mapNaturalLanguageToGovernedReport("Show employees with documents expiring in 60 days", "SA");
+      expect(r1.reportKey).toBe("expat_document_expiry");
+      expect(r1.usesRawSql).toBe(false);
+      expect(r1.filters.withinDays).toBe(60);
+
+      const r2 = mapNaturalLanguageToGovernedReport("Compare overtime by department", "EG");
+      expect(r2.reportKey).toBe("overtime_by_department");
+      expect(r2.usesRawSql).toBe(false);
+    });
+
+    it("executes permission-aware Enterprise AI Search with pagination and generates governed drafts", () => {
+      const searchRes = executeEnterpriseAISearch({
+        query: "payroll",
+        userPermissions: ["dashboard.view"],
+        isSuperAdmin: false,
+        page: 1,
+        pageSize: 5,
+      });
+      // Without payroll.view, payroll navigation item is filtered out
+      expect(searchRes.items.some((i) => i.id === "nav-payroll")).toBe(false);
+
+      const hrSearchRes = executeEnterpriseAISearch({
+        query: "payroll",
+        userPermissions: ["payroll.view"],
+        isSuperAdmin: false,
+        page: 1,
+        pageSize: 5,
+      });
+      expect(hrSearchRes.items.some((i) => i.id === "nav-payroll")).toBe(true);
+
+      const jdDraft = generateGovernedAIDraft({
+        draftType: "job_description",
+        roleOrSubjectAr: "مهندس برمجيات أول",
+        roleOrSubjectEn: "Senior Software Engineer",
+        departmentName: "Engineering",
+        countryCode: "SA",
+      });
+      expect(jdDraft.status).toBe("DRAFT_ONLY_REQUIRES_HUMAN_APPROVAL");
+      expect(jdDraft.autoSent).toBe(false);
+      expect(jdDraft.autoSigned).toBe(false);
+      expect(jdDraft.autoFinalized).toBe(false);
+    });
+
+    it("enforces rate limits, feature flags, tool argument validation, and passes the full Section 44/45 evaluation suite", () => {
+      const disabledFlag = evaluateAIRateLimitAndFlags(
+        { userId: "u-1", tenantId: "t-1", requestsInCurrentWindow: 1, tokensUsedToday: 100 },
+        { copilotEnabled: false }
+      );
+      expect(disabledFlag.allowed).toBe(false);
+      expect(disabledFlag.reasonCode).toBe("FEATURE_DISABLED");
+
+      const rpmExceeded = evaluateAIRateLimitAndFlags(
+        { userId: "u-1", tenantId: "t-1", requestsInCurrentWindow: 30, tokensUsedToday: 100 },
+        { requestsPerMinuteLimit: 30 }
+      );
+      expect(rpmExceeded.allowed).toBe(false);
+      expect(rpmExceeded.reasonCode).toBe("RPM_LIMIT_EXCEEDED");
+
+      const confirmCard = buildAIActionConfirmationCard({
+        toolName: "draft_employee_movement",
+        actionTitleAr: "تأكيد مسودة نقل موظف",
+        actionTitleEn: "Confirm Employee Transfer Draft",
+        targetRecordSummary: "EMP-2026-0001 -> Finance",
+        proposedFields: { targetDepartment: "Finance" },
+        requiredPermission: "employees.edit",
+      });
+      expect(confirmCard.requiresExplicitUserClick).toBe(true);
+      expect(confirmCard.status).toBe("AWAITING_HUMAN_CONFIRMATION");
+
+      const argCheck = validateAndSanitizeToolArguments(
+        "get_employee_summary",
+        { tenantId: "foreign-tenant", employeeId: "emp-1" },
+        {
+          actorUserId: "u-1",
+          actorEmployeeId: "emp-1",
+          actorCompanyId: "tenant-a",
+          actorRole: "employee",
+          targetCompanyId: "tenant-a",
+        }
+      );
+      expect(argCheck.valid).toBe(false);
+
+      const fullScorecard = runComprehensiveAIEvaluationAndAdversarialSuite();
+      expect(fullScorecard.failedTests).toBe(0);
+      expect(fullScorecard.overallScorePct).toBe(100);
+      expect(fullScorecard.section44CategoriesPassed).toBe(10);
+      expect(fullScorecard.section45AdversarialPassed).toBe(8);
+    });
+  });
 });
+
 

@@ -1260,7 +1260,7 @@ describe("POST-RELEASE PRODUCTION GO-LIVE CERTIFICATION (v1.0.0-enterprise)", ()
         overtimeHours: 2,
         isSaudiNational: true,
         loanInstallment: 500,
-        otherDeductions: 200, // Medical VIP benefit employee share
+        penaltiesAmount: 200, // Medical VIP benefit employee share
       });
 
       // Verify exact reconciliation: netSalary === grossSalary + overtimeAmount - totalDeductions

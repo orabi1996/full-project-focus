@@ -101,3 +101,15 @@ Run `runProductionSmokeVerificationInDb` (or `npm run verify:rotation`) after de
 - **Government Connectors (12 Optional Providers):** `GOSI`, `MUDAD`, `QIWA`, `MUQEEM`, `NOSI`, `ETA`, `GRSIA`, `MADLSA`, `SPF`, `CBO`, `SIO`, `LMRA` are classified as `CUSTOMER_CREDENTIAL_REQUIRED` (`SANDBOX_READY` adapters) and never block Core Go-Live; official `SIF`/`CSV` exports operate immediately.
 - **Application Rollback:** Run `npx wrangler rollback` (all database migrations are append-only and backward-compatible).
 - **AI Fallback:** `executeAIWithSafeFallback` guarantees `hrmsOperational: true` during any external LLM outage.
+
+---
+
+## 7. Cross-Referenced Operational Documentation
+
+For detailed procedures, policies, and operational runbooks, refer to the authoritative documents:
+1. **[PRODUCTION_BACKUP_AND_RESTORE.md](./PRODUCTION_BACKUP_AND_RESTORE.md)** — Production Cloud PITR, daily logical snapshots, RPO (< 5m), RTO (< 30m), and staging drill procedures.
+2. **[PRODUCTION_ROLLBACK_PLAN.md](./PRODUCTION_ROLLBACK_PLAN.md)** — Forward-fix policy, immutable append-only migrations, application rollback via Nitro/Wrangler, and incident triage criteria.
+3. **[TECHNICAL_DEBT_BASELINE.md](./TECHNICAL_DEBT_BASELINE.md)** — Comprehensive categorization of historical lint warnings (0 security, 0 correctness).
+4. **[POST_GO_LIVE_30_DAY_PLAN.md](./POST_GO_LIVE_30_DAY_PLAN.md)** — Day 0, First 24h, First 7d, Days 8–30 operational monitoring, alerting thresholds, and escalation matrices.
+5. **[RELEASE_NOTES_V1_ENTERPRISE.md](./RELEASE_NOTES_V1_ENTERPRISE.md)** — Release notes cataloging enterprise capabilities across Prompts 1–35.
+

@@ -319,12 +319,12 @@ describe.sequential("Prompt 13: Production Shifts, Rosters & Scheduling Engine (
         ('${companyB}', 'شركة النور للمقاولات', 'Asia/Riyadh')
       ON CONFLICT DO NOTHING;
 
-      INSERT INTO public.employees (id, user_id, company_id, manager_id, employee_no, first_name_ar, last_name_ar) VALUES
-        ('${empIdMgrA}', '${userMgrA}', '${companyA}', NULL, 'MGR-001', 'سعد', 'المدير'),
-        ('${empId1A}', '${userEmp1A}', '${companyA}', '${empIdMgrA}', 'EMP-001', 'أحمد', 'السعيد'),
-        ('${empId2A}', '${userEmp2A}', '${companyA}', NULL, 'EMP-002', 'محمد', 'العلي'),
-        ('${empId1B}', '${userHrB}', '${companyB}', NULL, 'EMP-901', 'خالد', 'الغامدي'),
-        ('${empIdEmpB}', '${userEmpB}', '${companyB}', NULL, 'EMP-902', 'ياسر', 'الشهري')
+      INSERT INTO public.employees (id, user_id, company_id, manager_id, employee_no, first_name_ar, last_name_ar, hire_date) VALUES
+        ('${empIdMgrA}', '${userMgrA}', '${companyA}', NULL, 'MGR-001', 'سعد', 'المدير', '2026-01-01'),
+        ('${empId1A}', '${userEmp1A}', '${companyA}', '${empIdMgrA}', 'EMP-001', 'أحمد', 'السعيد', '2026-01-01'),
+        ('${empId2A}', '${userEmp2A}', '${companyA}', NULL, 'EMP-002', 'محمد', 'العلي', '2026-01-01'),
+        ('${empId1B}', '${userHrB}', '${companyB}', NULL, 'EMP-901', 'خالد', 'الغامدي', '2026-01-01'),
+        ('${empIdEmpB}', '${userEmpB}', '${companyB}', NULL, 'EMP-902', 'ياسر', 'الشهري', '2026-01-01')
       ON CONFLICT DO NOTHING;
 
       INSERT INTO public.employee_roles (user_id, company_id, role) VALUES

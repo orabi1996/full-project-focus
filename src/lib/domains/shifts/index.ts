@@ -50,9 +50,8 @@ import {
   saveRosterCoverageRequirement,
   deleteRosterCoverageRequirement,
 } from "../../data/shifts-repository";
-import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
+import { executeReliableMutation } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
-import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
 
 // ----------------------------------------------------------------------------
@@ -60,9 +59,8 @@ import { toast } from "sonner";
 // ----------------------------------------------------------------------------
 
 export function useShiftDefinitions(companyId?: string) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoShifts = useDemoStore((s) => s.shifts);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   const query = useQuery({
     queryKey: queryKeys.shifts.definitions({ companyId }),
@@ -71,7 +69,7 @@ export function useShiftDefinitions(companyId?: string) {
     staleTime: 1000 * 60 * 5, // 5 mins
   });
 
-  const shifts: ShiftDefinition[] = isLive ? query.data ?? [] : demoShifts;
+  const shifts: ShiftDefinition[] = query.data ?? [];
 
   return {
     shifts,
@@ -86,38 +84,31 @@ export function useShiftDefinitions(companyId?: string) {
 export const useShifts = useShiftDefinitions;
 
 export function useShiftDefinition(id: string) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoShifts = useDemoStore((s) => s.shifts);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   return useQuery({
     queryKey: queryKeys.shifts.definition(id),
     queryFn: () => fetchShiftDefinitionById(id),
     enabled: isLive && Boolean(id),
-    initialData: !isLive ? demoShifts.find((s) => s.id === id) : undefined,
   });
 }
 
 export function useShiftMutations(companyId?: string) {
-  const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const getNewShiftCode = useCallback(async (): Promise<string> => {
-    if (mode === "live") {
-      try {
-        return await generateShiftCode(companyId);
-      } catch {
-        return `SH-${Math.floor(100 + Math.random() * 900)}`;
-      }
+    try {
+      return await generateShiftCode(companyId);
+    } catch {
+      return `SH-${Math.floor(100 + Math.random() * 900)}`;
     }
-    return `SH-${Math.floor(100 + Math.random() * 900)}`;
-  }, [mode, companyId]);
+  }, [companyId]);
 
   const addShift = useCallback(
     async (shift: Partial<ShiftDefinition>): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-shift-${shift.nameAr || Date.now()}`,
         operation: async () => {
           const created = await createShiftDefinition({
@@ -127,36 +118,6 @@ export function useShiftMutations(companyId?: string) {
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return created;
-        },
-        demoOperation: () => {
-          const newShift: ShiftDefinition = {
-            id: `sh-${Date.now()}`,
-            code: shift.code || `SH-${Math.floor(100 + Math.random() * 900)}`,
-            nameAr: shift.nameAr || "",
-            nameEn: shift.nameEn || shift.nameAr || "",
-            color: shift.color || "#0284c7",
-            type: shift.type || "fixed",
-            startTime: shift.startTime || "09:00",
-            endTime: shift.endTime || "17:00",
-            flexibleHours: shift.flexibleHours,
-            splitSecondStartTime: shift.splitSecondStartTime,
-            splitSecondEndTime: shift.splitSecondEndTime,
-            graceMinutesArrival: shift.graceMinutesArrival ?? 0,
-            graceMinutesDeparture: shift.graceMinutesDeparture ?? 0,
-            allowSinglePunch: Boolean(shift.allowSinglePunch),
-            overtimeEligible: Boolean(shift.overtimeEligible),
-            version: 1,
-            status: "active",
-            effectiveFrom: shift.effectiveFrom,
-            effectiveTo: shift.effectiveTo,
-            breakType: shift.breakType || "none",
-            autoDeductBreaks: Boolean(shift.autoDeductBreaks),
-            minRestHoursAfter: shift.minRestHoursAfter ?? undefined,
-            segments: shift.segments,
-          };
-          demoStore.shifts = [...demoStore.shifts, newShift];
-          demoStore.notify();
-          return newShift;
         },
         onCommitted: () => {
           toast.success("تم إنشاء وحفظ وردية العمل بنجاح");
@@ -168,25 +129,18 @@ export function useShiftMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, companyId, queryClient],
+    [companyId, queryClient],
   );
 
   const updateShift = useCallback(
     async (shiftId: string, shift: Partial<ShiftDefinition>): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `update-shift-${shiftId}`,
         operation: async () => {
           await updateShiftDefinition(shiftId, shift);
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.shifts = demoStore.shifts.map((s) =>
-            s.id === shiftId ? { ...s, ...shift, version: (s.version || 1) + 1 } : s,
-          );
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -199,26 +153,19 @@ export function useShiftMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const archiveShift = useCallback(
     async (shiftId: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `archive-shift-${shiftId}`,
         operation: async () => {
           const archived = await archiveShiftDefinition(shiftId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return archived;
-        },
-        demoOperation: () => {
-          demoStore.shifts = demoStore.shifts.map((s) =>
-            s.id === shiftId ? { ...s, status: "archived" } : s,
-          );
-          demoStore.notify();
-          return true;
         },
         onCommitted: () => {
           toast.success("تم أرشفة الوردية بنجاح");
@@ -230,7 +177,7 @@ export function useShiftMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   return {
@@ -246,8 +193,8 @@ export function useShiftMutations(companyId?: string) {
 // ----------------------------------------------------------------------------
 
 export function useRosterPeriods(filters?: { companyId?: string; status?: string }) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   const query = useQuery({
     queryKey: queryKeys.shifts.rosters(filters),
@@ -266,8 +213,8 @@ export function useRosterPeriods(filters?: { companyId?: string; status?: string
 }
 
 export function useRosterPeriod(id: string) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   return useQuery({
     queryKey: queryKeys.shifts.roster(id),
@@ -290,8 +237,8 @@ export function useRosterAssignments(
     status?: "draft" | "published";
   },
 ) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   const query = useQuery({
     queryKey: queryKeys.shifts.assignments(rosterPeriodId, filters),
@@ -314,8 +261,8 @@ export function useRosterAssignments(
 // ----------------------------------------------------------------------------
 
 export function useRosterExceptions(rosterPeriodId?: string, unresolvedOnly: boolean = false) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   const query = useQuery({
     queryKey: queryKeys.shifts.exceptions(rosterPeriodId),
@@ -338,8 +285,8 @@ export function useRosterExceptions(rosterPeriodId?: string, unresolvedOnly: boo
 // ----------------------------------------------------------------------------
 
 export function useShiftSwapRequests(filters?: { companyId?: string; status?: string; employeeId?: string }) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   const query = useQuery({
     queryKey: queryKeys.shifts.swapRequests(filters),
@@ -362,8 +309,8 @@ export function useShiftSwapRequests(filters?: { companyId?: string; status?: st
 // ----------------------------------------------------------------------------
 
 export function useCompanyWorkweek(companyId?: string) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   const query = useQuery({
     queryKey: queryKeys.shifts.workweek(),
@@ -386,14 +333,12 @@ export function useCompanyWorkweek(companyId?: string) {
 // ----------------------------------------------------------------------------
 
 export function useRosterMutations(companyId?: string) {
-  const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const createPeriod = useCallback(
     async (period: Partial<RosterPeriod>): Promise<RosterPeriod | null> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-roster-period-${period.name}`,
         operation: async () => {
           const created = await createRosterPeriod({
@@ -402,23 +347,6 @@ export function useRosterMutations(companyId?: string) {
           });
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all });
           return created;
-        },
-        demoOperation: () => {
-          return {
-            id: `roster-${Date.now()}`,
-            companyId: companyId || "demo-co",
-            name: period.name || "فترة جديدة",
-            startDate: period.startDate || new Date().toISOString().substring(0, 10),
-            endDate: period.endDate || new Date().toISOString().substring(0, 10),
-            timezone: period.timezone || "UTC",
-            status: "draft",
-            version: 1,
-            publishedAt: null,
-            publishedBy: null,
-            lockedAt: null,
-            createdBy: null,
-            notes: period.notes || null,
-          } as RosterPeriod;
         },
         onCommitted: () => {
           toast.success("تم إنشاء فترة الجدولة بنجاح");
@@ -430,20 +358,19 @@ export function useRosterMutations(companyId?: string) {
 
       return result.data ?? null;
     },
-    [mode, companyId, queryClient],
+    [companyId, queryClient],
   );
 
   const updatePeriod = useCallback(
     async (id: string, updates: Partial<RosterPeriod>): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `update-roster-period-${id}`,
         operation: async () => {
           await updateRosterPeriod(id, updates);
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all });
           return true;
         },
-        demoOperation: () => true,
         onCommitted: () => {
           toast.success("تم تحديث بيانات فترة الجدولة");
         },
@@ -454,7 +381,7 @@ export function useRosterMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const createAmendment = useCallback(
@@ -463,19 +390,13 @@ export function useRosterMutations(companyId?: string) {
       notes?: string,
     ): Promise<{ ok: boolean; newRosterPeriodId: string; newVersion: number; message: string } | null> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `amendment-roster-${rosterPeriodId}`,
         operation: async () => {
           const res = await createRosterAmendment(rosterPeriodId, notes);
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all });
           return res;
         },
-        demoOperation: () => ({
-          ok: true,
-          newRosterPeriodId: `roster-${Date.now()}`,
-          newVersion: 2,
-          message: "تم إنشاء مسودة تعديل جديدة للجدول (V+1) بنجاح",
-        }),
         onCommitted: () => {
           toast.success("تم إنشاء مسودة تعديل جديدة للجدول (V+1) بنجاح");
         },
@@ -486,13 +407,13 @@ export function useRosterMutations(companyId?: string) {
 
       return result.data ?? null;
     },
-    [mode, companyId, queryClient],
+    [queryClient],
   );
 
   const saveAssignment = useCallback(
     async (assignment: Partial<ScheduleAssignment>): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `save-assignment-${assignment.employeeId}-${assignment.date}`,
         operation: async () => {
           await upsertScheduleAssignment({
@@ -502,7 +423,6 @@ export function useRosterMutations(companyId?: string) {
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.assignments() });
           return true;
         },
-        demoOperation: () => true,
         onCommitted: () => {
           toast.success("تم حفظ إسناد الوردية بنجاح");
         },
@@ -513,13 +433,13 @@ export function useRosterMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, companyId, queryClient],
+    [companyId, queryClient],
   );
 
   const batchSaveAssignments = useCallback(
     async (assignments: Partial<ScheduleAssignment>[]): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `batch-save-assignments-${Date.now()}`,
         operation: async () => {
           await batchUpsertScheduleAssignments(
@@ -531,7 +451,6 @@ export function useRosterMutations(companyId?: string) {
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.assignments() });
           return true;
         },
-        demoOperation: () => true,
         onCommitted: () => {
           toast.success(`تم حفظ ${assignments.length} إسناد بنجاح`);
         },
@@ -542,20 +461,19 @@ export function useRosterMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, companyId, queryClient],
+    [companyId, queryClient],
   );
 
   const removeAssignment = useCallback(
     async (id: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `remove-assignment-${id}`,
         operation: async () => {
           await deleteScheduleAssignment(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.assignments() });
           return true;
         },
-        demoOperation: () => true,
         onCommitted: () => {
           toast.success("تم حذف إسناد الوردية بنجاح");
         },
@@ -566,38 +484,34 @@ export function useRosterMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const checkConflicts = useCallback(
     async (rosterPeriodId: string) => {
-      if (mode === "live") {
-        try {
-          const res = await detectRosterConflicts(rosterPeriodId);
-          await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.exceptions(rosterPeriodId) });
-          if (res.conflictCount === 0) {
-            toast.success("جدول الورديات متوافق بالكامل ولا توجد أي تعارضات أو مخالفات");
-          } else if (res.errorsCount > 0) {
-            toast.error(`تم رصد ${res.errorsCount} تعارض حرج يمنع النشر و${res.warningsCount} تنبيه`);
-          } else {
-            toast.warning(`الجدول صالح للنشر مع وجود ${res.warningsCount} تنبيه/توجيه`);
-          }
-          return res;
-        } catch (err: any) {
-          toast.error(err.message || "تعذر فحص التعارضات");
-          return null;
+      try {
+        const res = await detectRosterConflicts(rosterPeriodId);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.exceptions(rosterPeriodId) });
+        if (res.conflictCount === 0) {
+          toast.success("جدول الورديات متوافق بالكامل ولا توجد أي تعارضات أو مخالفات");
+        } else if (res.errorsCount > 0) {
+          toast.error(`تم رصد ${res.errorsCount} تعارض حرج يمنع النشر و${res.warningsCount} تنبيه`);
+        } else {
+          toast.warning(`الجدول صالح للنشر مع وجود ${res.warningsCount} تنبيه/توجيه`);
         }
+        return res;
+      } catch (err: any) {
+        toast.error(err.message || "تعذر فحص التعارضات");
+        return null;
       }
-      toast.success("الجدول متوافق (وضع تجريبي)");
-      return { ok: true, conflictCount: 0, errorsCount: 0, warningsCount: 0, exceptions: [] };
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const publish = useCallback(
     async (rosterPeriodId: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `publish-roster-${rosterPeriodId}`,
         operation: async () => {
           const res = await publishRosterPeriod(rosterPeriodId);
@@ -605,7 +519,6 @@ export function useRosterMutations(companyId?: string) {
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
           return res;
         },
-        demoOperation: () => ({ ok: true, publishedAssignments: 10, rosterVersion: 1, message: "تم النشر تجريبياً" }),
         onCommitted: (data) => {
           toast.success(data?.message || "تم نشر جدول الورديات واعتماده كجدول رسمي لوحدة الحضور والانصراف");
         },
@@ -616,7 +529,7 @@ export function useRosterMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const copyPeriod = useCallback(
@@ -627,14 +540,13 @@ export function useRosterMutations(companyId?: string) {
       newName?: string,
     ): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `copy-roster-${sourcePeriodId}`,
         operation: async () => {
           const res = await copyRosterPeriod(sourcePeriodId, newStartDate, newEndDate, newName);
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all });
           return res;
         },
-        demoOperation: () => ({ ok: true, newRosterPeriodId: `roster-${Date.now()}`, copiedAssignmentsCount: 15 }),
         onCommitted: (data) => {
           toast.success(`تم نسخ الفترة بنجاح مع تكرار ${data?.copiedAssignmentsCount ?? 0} إسناد عمل`);
         },
@@ -645,20 +557,19 @@ export function useRosterMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const resolveException = useCallback(
     async (exceptionId: string, notes?: string, rosterPeriodId?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `resolve-exception-${exceptionId}`,
         operation: async () => {
           await resolveRosterException(exceptionId, notes);
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.exceptions(rosterPeriodId) });
           return true;
         },
-        demoOperation: () => true,
         onCommitted: () => {
           toast.success("تم تسوية وتجاهل التعارض بنجاح");
         },
@@ -669,13 +580,13 @@ export function useRosterMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const createSwap = useCallback(
     async (payload: Partial<ShiftSwapRequest>): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `swap-request-${payload.requesterEmployeeId || payload.requesterId}-${Date.now()}`,
         operation: async () => {
           await createShiftSwapRequest({
@@ -685,7 +596,6 @@ export function useRosterMutations(companyId?: string) {
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.swapRequests() });
           return true;
         },
-        demoOperation: () => true,
         onCommitted: () => {
           toast.success("تم إرسال طلب تبديل الوردية بنجاح");
         },
@@ -696,13 +606,13 @@ export function useRosterMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, companyId, queryClient],
+    [companyId, queryClient],
   );
 
   const approveSwap = useCallback(
     async (swapRequestId: string, notes?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `approve-swap-${swapRequestId}`,
         operation: async () => {
           const res = await approveShiftSwap(swapRequestId, notes);
@@ -710,7 +620,6 @@ export function useRosterMutations(companyId?: string) {
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
           return res;
         },
-        demoOperation: () => ({ ok: true, message: "تمت الموافقة تجريبياً" }),
         onCommitted: () => {
           toast.success("تمت الموافقة على تبديل الورديتين وتحديث جدول العمل فوراً");
         },
@@ -721,20 +630,19 @@ export function useRosterMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const rejectSwap = useCallback(
     async (swapRequestId: string, notes?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `reject-swap-${swapRequestId}`,
         operation: async () => {
           await rejectShiftSwap(swapRequestId, notes);
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.swapRequests() });
           return true;
         },
-        demoOperation: () => true,
         onCommitted: () => {
           toast.success("تم رفض طلب تبديل الوردية");
         },
@@ -745,7 +653,7 @@ export function useRosterMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const saveWorkweek = useCallback(
@@ -755,14 +663,13 @@ export function useRosterMutations(companyId?: string) {
         return false;
       }
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `update-workweek-${companyId}`,
         operation: async () => {
           await updateCompanyWorkweek(companyId, config);
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.workweek() });
           return true;
         },
-        demoOperation: () => true,
         onCommitted: () => {
           toast.success("تم حفظ إعدادات أسبوع العمل للمنشأة بنجاح");
         },
@@ -773,7 +680,7 @@ export function useRosterMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, companyId, queryClient],
+    [companyId, queryClient],
   );
 
   const generateFromTemplate = useCallback(
@@ -786,7 +693,7 @@ export function useRosterMutations(companyId?: string) {
       endDate: string;
     }): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `generate-template-${params.rosterPeriodId}`,
         operation: async () => {
           const templateOrRotationId = params.templateId || params.rotationPatternId || "";
@@ -794,12 +701,6 @@ export function useRosterMutations(companyId?: string) {
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.assignments() });
           return res;
         },
-        demoOperation: () => ({
-          ok: true,
-          createdCount: params.employeeIds.length * 7,
-          skippedCount: 0,
-          message: "تم توليد الورديات بنجاح",
-        }),
         onCommitted: (data) => {
           toast.success(`تم توليد ${data?.createdCount ?? 0} إسناد وردية بنجاح`);
         },
@@ -810,7 +711,7 @@ export function useRosterMutations(companyId?: string) {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   return {
@@ -837,8 +738,8 @@ export function useRosterMutations(companyId?: string) {
 // ----------------------------------------------------------------------------
 
 export function useRosterTemplates(companyId?: string) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   const query = useQuery({
     queryKey: queryKeys.shifts.templates(),
@@ -857,14 +758,12 @@ export function useRosterTemplates(companyId?: string) {
 }
 
 export function useTemplateMutations(companyId?: string) {
-  const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const saveTemplate = useCallback(
     async (template: Partial<RosterTemplate>): Promise<RosterTemplate | null> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `save-template-${template.name || Date.now()}`,
         operation: async () => {
           const res = await saveRosterTemplate({
@@ -874,14 +773,6 @@ export function useTemplateMutations(companyId?: string) {
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.templates() });
           return res;
         },
-        demoOperation: () => ({
-          id: `tpl-${Date.now()}`,
-          companyId: companyId || "demo-co",
-          name: template.name || "قالب ورديات",
-          templateType: template.templateType || "weekly",
-          pattern: template.pattern || [],
-          isActive: true,
-        } as RosterTemplate),
         onCommitted: () => {
           toast.success("تم حفظ قالب جدول الورديات بنجاح");
         },
@@ -891,20 +782,19 @@ export function useTemplateMutations(companyId?: string) {
       });
       return result.data ?? null;
     },
-    [mode, companyId, queryClient],
+    [companyId, queryClient],
   );
 
   const removeTemplate = useCallback(
     async (id: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `delete-template-${id}`,
         operation: async () => {
           await deleteRosterTemplate(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.templates() });
           return true;
         },
-        demoOperation: () => true,
         onCommitted: () => {
           toast.success("تم حذف القالب بنجاح");
         },
@@ -914,7 +804,7 @@ export function useTemplateMutations(companyId?: string) {
       });
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   return { saveTemplate, removeTemplate };
@@ -925,8 +815,8 @@ export function useTemplateMutations(companyId?: string) {
 // ----------------------------------------------------------------------------
 
 export function useRotationPatterns(companyId?: string) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   const query = useQuery({
     queryKey: queryKeys.shifts.rotations(),
@@ -945,14 +835,12 @@ export function useRotationPatterns(companyId?: string) {
 }
 
 export function useRotationMutations(companyId?: string) {
-  const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const savePattern = useCallback(
     async (pattern: Partial<RotationPattern>): Promise<RotationPattern | null> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `save-rotation-${pattern.name || Date.now()}`,
         operation: async () => {
           const res = await saveRotationPattern({
@@ -962,14 +850,6 @@ export function useRotationMutations(companyId?: string) {
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.rotations() });
           return res;
         },
-        demoOperation: () => ({
-          id: `rot-${Date.now()}`,
-          companyId: companyId || "demo-co",
-          name: pattern.name || "نمط تدوير",
-          cycleDays: pattern.cycleDays || 7,
-          pattern: pattern.pattern || [],
-          patternSequence: pattern.patternSequence,
-        } as RotationPattern),
         onCommitted: () => {
           toast.success("تم حفظ نمط التدوير بنجاح");
         },
@@ -979,20 +859,19 @@ export function useRotationMutations(companyId?: string) {
       });
       return result.data ?? null;
     },
-    [mode, companyId, queryClient],
+    [companyId, queryClient],
   );
 
   const removePattern = useCallback(
     async (id: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `delete-rotation-${id}`,
         operation: async () => {
           await deleteRotationPattern(id);
           await queryClient.invalidateQueries({ queryKey: queryKeys.shifts.rotations() });
           return true;
         },
-        demoOperation: () => true,
         onCommitted: () => {
           toast.success("تم حذف نمط التدوير بنجاح");
         },
@@ -1002,7 +881,7 @@ export function useRotationMutations(companyId?: string) {
       });
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   return { savePattern, removePattern };
@@ -1013,8 +892,8 @@ export function useRotationMutations(companyId?: string) {
 // ----------------------------------------------------------------------------
 
 export function useRosterCoverageRequirements(companyId?: string, rosterPeriodId?: string) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   const query = useQuery({
     queryKey: rosterPeriodId ? queryKeys.shifts.coverage(rosterPeriodId) : [...queryKeys.shifts.all, "coverage", "all"],
@@ -1033,14 +912,12 @@ export function useRosterCoverageRequirements(companyId?: string, rosterPeriodId
 }
 
 export function useCoverageMutations(companyId?: string) {
-  const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const saveRequirement = useCallback(
     async (req: Partial<RosterCoverageRequirement>): Promise<RosterCoverageRequirement | null> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `save-coverage-${req.id || Date.now()}`,
         operation: async () => {
           const res = await saveRosterCoverageRequirement({
@@ -1050,14 +927,6 @@ export function useCoverageMutations(companyId?: string) {
           await queryClient.invalidateQueries({ queryKey: [...queryKeys.shifts.all, "coverage"] });
           return res;
         },
-        demoOperation: () => ({
-          id: `cov-${Date.now()}`,
-          companyId: companyId || "demo-co",
-          rosterPeriodId: req.rosterPeriodId,
-          shiftId: req.shiftId || "",
-          minHeadcount: req.minHeadcount || 1,
-          isMandatory: req.isMandatory ?? true,
-        } as RosterCoverageRequirement),
         onCommitted: () => {
           toast.success("تم حفظ متطلبات التغطية التشغيلية بنجاح");
         },
@@ -1067,20 +936,19 @@ export function useCoverageMutations(companyId?: string) {
       });
       return result.data ?? null;
     },
-    [mode, companyId, queryClient],
+    [companyId, queryClient],
   );
 
   const removeRequirement = useCallback(
     async (id: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `delete-coverage-${id}`,
         operation: async () => {
           await deleteRosterCoverageRequirement(id);
           await queryClient.invalidateQueries({ queryKey: [...queryKeys.shifts.all, "coverage"] });
           return true;
         },
-        demoOperation: () => true,
         onCommitted: () => {
           toast.success("تم حذف متطلب التغطية");
         },
@@ -1090,7 +958,7 @@ export function useCoverageMutations(companyId?: string) {
       });
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   return { saveRequirement, removeRequirement };

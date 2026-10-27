@@ -26,7 +26,9 @@ import {
   Check,
   Play,
   Lock,
+  Settings,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
@@ -62,6 +64,7 @@ import {
 } from "../../lib/domains/performance";
 
 export const PerformanceView: React.FC = () => {
+  const navigate = useNavigate();
   const { employees, currentUser, currentRole, openEmployeeProfile, language, t } = useApp();
   const canManage = canManageModule(currentRole, "performance");
   const [activeTab, setActiveTab] = useState("cycles");
@@ -407,12 +410,12 @@ export const PerformanceView: React.FC = () => {
               <IconSymbol name="trending_up" source="material" filled size={24} className="text-primary" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-black text-foreground">
                   {t.performance.cycles} وإدارة الأداء الشامل (360° & OKRs)
                 </h1>
-                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
-                  Enterprise Grade
+                <Badge variant="outline" className="text-[11px] font-bold border-emerald-500/30 text-emerald-700 bg-emerald-500/10 rounded-full px-2.5 py-0.5">
+                  شاشة العمليات وتنفيذ التقييمات الدورية
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground font-medium mt-0.5">
@@ -423,6 +426,15 @@ export const PerformanceView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            onClick={() => navigate({ to: "/setup?tab=performance_talent_setup" as any })}
+            variant="outline"
+            size="sm"
+            className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
+          >
+            <Settings className="h-4 w-4 text-primary" />
+            تهيئة دورات الأداء وأطر الكفاءات
+          </Button>
           {/* Active Cycle Selector */}
           {cycles.length > 0 && (
             <div className="flex items-center gap-1.5 bg-card border border-border/80 rounded-2xl px-3 py-1.5 shadow-xs">

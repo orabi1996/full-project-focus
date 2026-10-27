@@ -60,7 +60,9 @@ import {
   Layers,
   Database,
   Share2,
+  Settings,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { createSignedDownloadUrl, getSignedUrlForFileId } from "../../lib/storage";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -84,6 +86,7 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({
   section = "ats",
   initialTab = "dashboard",
 }) => {
+  const navigate = useNavigate();
   const { orgUnits, workLocations, company, currentRole, language, t } = useApp();
   const domain = useRecruitmentDomain();
 
@@ -600,10 +603,10 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({
               />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-black text-foreground">
-                  نظام التوظيف واستقطاب الكفاءات (ATS & Hiring Engine)
-                </h1>
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+                  شاشة العمليات ومتابعة خط أنابيب التوظيف
+                </span>
                 <Badge
                   variant="outline"
                   className="bg-primary/5 text-primary border-primary/20 text-[10px] font-bold py-0.5 rounded-full"
@@ -611,6 +614,9 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({
                   محرك معتمد
                 </Badge>
               </div>
+              <h1 className="text-xl font-black text-foreground">
+                نظام التوظيف واستقطاب الكفاءات (ATS & Hiring Engine)
+              </h1>
               <p className="text-xs text-muted-foreground font-medium mt-0.5">
                 إدارة دورة حياة التوظيف المتكاملة من طلبات الاحتياج والفرز الذكي حتى إصدار العروض والتعيين الفوري
               </p>
@@ -619,7 +625,16 @@ export const RecruitmentView: React.FC<RecruitmentViewProps> = ({
         </div>
 
         {/* Global Quick Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate({ to: "/setup?tab=recruitment_setup" as any })}
+            className="rounded-full text-xs font-bold gap-1.5 h-9"
+          >
+            <Settings className="h-3.5 w-3.5 text-primary" />
+            تهيئة معايير التقييم وبنك المواهب
+          </Button>
           {canManageRecruitment && (
             <>
               <Button

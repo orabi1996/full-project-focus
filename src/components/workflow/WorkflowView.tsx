@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
 import type {
@@ -35,6 +36,7 @@ import {
   ClockAlert,
   Laptop,
   UserX,
+  Settings,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -68,6 +70,7 @@ export const WorkflowView: React.FC = () => {
     isSaving,
   } = useApp();
 
+  const navigate = useNavigate();
   const canApprove = canManageModule(currentRole, "workflow");
 
   const [activeTab, setActiveTab] = useState<"inbox" | "my_requests" | "chains" | "delegations">(
@@ -462,10 +465,13 @@ export const WorkflowView: React.FC = () => {
               <IconSymbol name="approval" source="material" filled size={24} className="text-primary" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-black text-foreground">
                   محرك الطلبات ومسارات الاعتماد المؤسسية
                 </h1>
+                <Badge className="text-[11px] font-bold border-emerald-500/30 text-emerald-600 bg-emerald-500/10 rounded-full px-2.5 py-0.5">
+                  شاشة العمليات وصندوق الاعتمادات اليومي
+                </Badge>
                 <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
                   معتمد وموثق رقمياً
                 </Badge>
@@ -478,6 +484,17 @@ export const WorkflowView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {canApprove && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate({ to: "/setup?tab=workflows" as any })}
+              className="rounded-full font-bold text-xs gap-1.5 border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 h-10 px-4 cursor-pointer"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              تهيئة مسارات الاعتماد والتفويض
+            </Button>
+          )}
           <Button
             onClick={() => setIsNewRequestOpen(true)}
             className="classera-btn-primary rounded-full font-bold text-xs gap-1.5 shadow-xs h-10 px-5 cursor-pointer"
@@ -950,6 +967,28 @@ export const WorkflowView: React.FC = () => {
 
         {/* TAB 3: Approval Chains Designer */}
         <TabsContent value="chains" className="space-y-4">
+          <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                <Settings className="h-4.5 w-4.5 text-amber-600" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-foreground">إدارة وتهيئة سلاسل الموافقات وقواعد التفويض المركزية</h4>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                  لضبط مسارات الاعتماد متعددة المستويات وقواعد التفويض ضمن مركز التهيئة الموحد للمنشأة:
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate({ to: "/setup?tab=workflows" as any })}
+              className="h-8 text-[11px] font-bold rounded-xl gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 shrink-0"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              فتح شاشة تهيئة مسارات الاعتماد
+            </Button>
+          </div>
           <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-border/60 pb-4">
               <div>
@@ -1061,6 +1100,28 @@ export const WorkflowView: React.FC = () => {
 
         {/* TAB 4: Delegation of Authority */}
         <TabsContent value="delegations" className="space-y-4">
+          <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                <Settings className="h-4.5 w-4.5 text-amber-600" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-foreground">إدارة قواعد التفويض في مركز التهيئة</h4>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                  يمكنك أيضاً مراجعة وإدارة تفويض الصلاحيات وسلاسل الموافقات مباشرة من مركز التهيئة:
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate({ to: "/setup?tab=workflows" as any })}
+              className="h-8 text-[11px] font-bold rounded-xl gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 shrink-0"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              فتح شاشة تهيئة مسارات الاعتماد
+            </Button>
+          </div>
           <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-border/60 pb-4">
               <div>

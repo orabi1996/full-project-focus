@@ -31,7 +31,9 @@ import {
   Calendar,
   Briefcase,
   Users,
+  Settings,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 
 import {
   useErKpis,
@@ -75,6 +77,7 @@ interface EmployeeRelationsViewProps {
 export const EmployeeRelationsView: React.FC<EmployeeRelationsViewProps> = ({
   companyId: propCompanyId,
 }) => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [companyId, setCompanyId] = useState<string>(propCompanyId || "");
   const [activeTab, setActiveTab] = useState<"cases" | "investigations" | "warnings" | "appeals" | "caps">("cases");
@@ -163,6 +166,11 @@ export const EmployeeRelationsView: React.FC<EmployeeRelationsViewProps> = ({
               <Scale className="w-6 h-6 text-primary" />
             </div>
             <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+                  شاشة العمليات وسجل القضايا والتحقيقات
+                </span>
+              </div>
               <h1 className="text-xl sm:text-2xl font-black text-foreground">
                 علاقات الموظفين والقضايا والتحقيقات
               </h1>
@@ -173,7 +181,17 @@ export const EmployeeRelationsView: React.FC<EmployeeRelationsViewProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate({ to: "/setup?tab=learning_er_setup" as any })}
+            className="gap-1.5 h-9 font-bold text-xs"
+          >
+            <Settings className="w-4 h-4 text-primary" />
+            <span>تهيئة لائحة الجزاءات وسياسات SLA</span>
+          </Button>
+
           <Button
             variant="outline"
             size="sm"

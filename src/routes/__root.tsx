@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { MaterialDesignProvider } from "../lib/theme/MaterialDesignProvider";
 import { AuthProvider } from "../lib/auth/AuthContext";
+import { AppMotion } from "../lib/theme/AppMotion";
 import { Toaster } from "sonner";
 
 function NotFoundComponent() {
@@ -162,6 +163,7 @@ function RootComponent() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <AppMotion />
           <Outlet />
           <Toaster position="top-center" richColors dir="rtl" />
         </AuthProvider>

@@ -95,7 +95,8 @@ export const LeavesView: React.FC = () => {
     expireCarryoverBalances,
   } = useLeaveMutations();
 
-  const [activeTab, setActiveTab] = useState("balances");
+  const [activeTab, setActiveTab] = useState("requests");
+  const [companyBalanceSearch, setCompanyBalanceSearch] = useState("");
 
   // Modals state
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
@@ -147,6 +148,27 @@ export const LeavesView: React.FC = () => {
     { enabled: canManage },
   );
   const filteredAdjustEmployees = directoryData?.items ?? [];
+
+  const empMap = useMemo(() => {
+    const map = new Map<string, EmployeeDirectoryItem>();
+    filteredAdjustEmployees.forEach((emp) => {
+      map.set(emp.id, emp);
+    });
+    return map;
+  }, [filteredAdjustEmployees]);
+
+  const filteredCompanyBalances = useMemo(() => {
+    if (!companyBalanceSearch.trim()) return companyBalances;
+    const q = companyBalanceSearch.trim().toLowerCase();
+    return companyBalances.filter((b) => {
+      const emp = b.employeeId ? empMap.get(b.employeeId) : undefined;
+      const empName = emp ? `${emp.firstNameAr} ${emp.lastNameAr}`.toLowerCase() : "";
+      const empNo = (emp?.employeeNo || "").toLowerCase();
+      const typeName = (b.leaveTypeNameAr || "").toLowerCase();
+      const dept = (emp?.departmentName || "").toLowerCase();
+      return empName.includes(q) || empNo.includes(q) || typeName.includes(q) || dept.includes(q);
+    });
+  }, [companyBalances, companyBalanceSearch, empMap]);
 
   // Returned Requests for resubmission (derived from dedicated myLeaveRequests)
   const returnedLeaveRequests = useMemo(() => {
@@ -475,14 +497,17 @@ export const LeavesView: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-black text-foreground">
-                  {t.leaves.balance} وإدارة العطلات والغياب
+                  {t.leaves.balance} وإدارة العمليات اليومية للإجازات والغياب
                 </h1>
                 <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                  شاشة العمليات والطلبات اليومية
+                </Badge>
+                <Badge variant="secondary" className="text-[11px] font-bold rounded-full px-2.5 py-0.5">
                   سياسة الإجازات المعتمدة
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                إدارة أرصدة الإجازات السنوية والمرضية، التقديم، وحجز الرصيد وفق لائحة وسياسة العمل المعتمدة
+                تقديم طلبات الإجازات ومتابعة الاستحقاق المتاح وجدول إجازات الفريق وإدارة أرصدة الموظفين
               </p>
             </div>
           </div>
@@ -499,6 +524,15 @@ export const LeavesView: React.FC = () => {
           </Button>
           {canManage && (
             <>
+              <Button
+                onClick={() => navigate({ to: "/setup?tab=leaves" as any })}
+                size="sm"
+                variant="outline"
+                className="rounded-full font-bold text-xs gap-1.5 border-primary/40 bg-primary/5 text-primary hover:bg-primary/10 h-10 px-4 shadow-xs cursor-pointer"
+              >
+                <Settings className="h-4 w-4" />
+                تهيئة سياسات ولوائح الإجازات
+              </Button>
               <Button
                 onClick={() => {
                   if (!hasValidTimezone) {
@@ -686,13 +720,27 @@ export const LeavesView: React.FC = () => {
 
       {/* Tabs Layout */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="classera-tabs-strip max-w-lg">
+        <TabsList className="classera-tabs-strip max-w-3xl flex-wrap h-auto p-1.5 gap-1">
+          <TabsTrigger
+            value="requests"
+            className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
+          >
+            طلباتي وسجل الإجازات ({myLeaveRequests.length})
+          </TabsTrigger>
           <TabsTrigger
             value="balances"
             className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
           >
-            التقويم والجدولة
+            التقويم وجدول الفريق
           </TabsTrigger>
+          {canManage && (
+            <TabsTrigger
+              value="company_balances"
+              className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
+            >
+              أرصدة منسوبي المنشأة ({companyBalances.length})
+            </TabsTrigger>
+          )}
           <TabsTrigger
             value="types"
             className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4"
@@ -707,7 +755,135 @@ export const LeavesView: React.FC = () => {
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab 1: Calendar & Team Schedule */}
+        {/* Tab 1: My Requests History & Tracking */}
+        <TabsContent value="requests" className="space-y-4 pt-4">
+          <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <div>
+                <h2 className="text-sm font-black text-foreground flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-primary" />
+                  سجل طلبات الإجازات وتتبع الموافقات
+                </h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  تتبع حالة طلباتك ومراحل الاعتماد والطلبات المعاد تصحيحها لعام {currentYear}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setIsApplyModalOpen(true)}
+                className="rounded-full text-xs font-bold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-3.5"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                تقديم طلب جديد
+              </Button>
+            </div>
+
+            {myLeaveRequests.length === 0 ? (
+              <div className="py-10 text-center text-xs text-muted-foreground border border-dashed border-border/60 rounded-2xl p-6 space-y-2">
+                <Calendar className="h-8 w-8 text-muted-foreground/40 mx-auto" />
+                <p className="font-bold text-foreground">لا توجد طلبات إجازة مسجلة لحسابك في هذه السنة</p>
+                <p className="text-[11px] text-muted-foreground">
+                  عند تقديم أي طلب إجازة، ستظهر حالته وسلسلة اعتماده هنا مباشرة
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {myLeaveRequests.map((req) => {
+                  const statusColors: Record<string, string> = {
+                    approved: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
+                    pending: "bg-amber-500/10 text-amber-700 border-amber-200",
+                    returned: "bg-rose-500/10 text-rose-700 border-rose-200",
+                    rejected: "bg-destructive/10 text-destructive border-destructive/20",
+                    cancelled: "bg-muted text-muted-foreground border-border",
+                  };
+                  const statusLabels: Record<string, string> = {
+                    approved: "معتمد",
+                    pending: "قيد الاعتماد",
+                    returned: "معاد للتعديل",
+                    rejected: "مرفوض",
+                    cancelled: "ملغي",
+                  };
+
+                  return (
+                    <div
+                      key={req.id}
+                      className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-3 hover:border-primary/40 transition-all text-xs"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/40 pb-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <span className="font-mono font-bold text-foreground">
+                            {req.referenceNo || req.id.slice(0, 8)}
+                          </span>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="font-black text-primary">
+                            {String(req.payload?.leaveTypeName || "إجازة")}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                              statusColors[req.status] || "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {statusLabels[req.status] || req.status}
+                          </Badge>
+                          {req.status === "returned" && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleOpenResubmit(req)}
+                              className="rounded-full text-[11px] font-bold h-7 px-3 bg-amber-600 hover:bg-amber-700 text-white gap-1"
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                              تعديل وإعادة التقديم
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-muted-foreground font-mono">
+                        <div>
+                          <span className="font-sans text-[11px]">الفترة: </span>
+                          <span className="font-bold text-foreground">
+                            {String(req.payload?.startDate || "—")} إلى {String(req.payload?.endDate || "—")}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-sans text-[11px]">أيام العمل: </span>
+                          <span className="font-bold text-foreground font-sans">
+                            {String(req.payload?.totalDays ?? "—")} يوماً
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-sans text-[11px]">السبب: </span>
+                          <span className="font-bold text-foreground font-sans truncate">
+                            {String(req.payload?.reason || "—")}
+                          </span>
+                        </div>
+                      </div>
+
+                      {req.timeline && req.timeline.length > 0 && (
+                        <div className="border-t border-border/40 pt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+                          <span className="font-bold text-foreground">آخر إجراء:</span>
+                          <span>
+                            {req.timeline[req.timeline.length - 1].actorName} ({req.timeline[req.timeline.length - 1].action})
+                          </span>
+                          {req.timeline[req.timeline.length - 1].note && (
+                            <span className="italic text-amber-600">
+                              «{req.timeline[req.timeline.length - 1].note}»
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Tab 2: Calendar & Team Schedule */}
         <TabsContent value="balances" className="space-y-4 pt-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Team Leaves Calendar List */}
@@ -793,8 +969,125 @@ export const LeavesView: React.FC = () => {
           </div>
         </TabsContent>
 
-        {/* Tab 2: Leave Types List */}
+        {/* Tab 3: Company Balances (Managers only) */}
+        {canManage && (
+          <TabsContent value="company_balances" className="space-y-4 pt-4">
+            <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
+                <div>
+                  <h2 className="text-sm font-black text-foreground flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    أرصدة إجازات منسوبي المنشأة ({currentYear})
+                  </h2>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    استعراض تفصيلي لأرصدة الموظفين المستحقة، المستخدمة، والمحجوزة لشركة «{company?.legalNameAr || "الأندلس"}»
+                  </p>
+                </div>
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute right-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="ابحث بالاسم أو الرقم الوظيفي..."
+                    value={companyBalanceSearch}
+                    onChange={(e) => setCompanyBalanceSearch(e.target.value)}
+                    className="w-full h-8 rounded-xl border border-border/80 bg-muted/40 pr-8 pl-3 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+              </div>
+
+              {filteredCompanyBalances.length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground border border-dashed border-border/60 rounded-2xl p-6">
+                  لا توجد سجلات أرصدة مطابقة للبحث
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-right">
+                    <thead>
+                      <tr className="border-b border-border/60 text-muted-foreground font-bold">
+                        <th className="py-2.5 px-3">الموظف</th>
+                        <th className="py-2.5 px-3">الإدارة</th>
+                        <th className="py-2.5 px-3">نوع الإجازة</th>
+                        <th className="py-2.5 px-3 font-mono">المستحق</th>
+                        <th className="py-2.5 px-3 font-mono">المستخدم</th>
+                        <th className="py-2.5 px-3 font-mono">المحجوز</th>
+                        <th className="py-2.5 px-3 font-mono">المرحّل</th>
+                        <th className="py-2.5 px-3 font-mono">المتاح</th>
+                        <th className="py-2.5 px-3 text-center">إجراءات</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/40 font-mono">
+                      {filteredCompanyBalances.map((bal, idx) => {
+                        const emp = bal.employeeId ? empMap.get(bal.employeeId) : undefined;
+                        const empName = emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : (bal.employeeId ? bal.employeeId.slice(0, 8) : "موظف");
+                        const empNo = emp?.employeeNo || "";
+                        const deptName = emp?.departmentName || "—";
+                        return (
+                          <tr key={`${bal.employeeId || "emp"}-${bal.leaveTypeId}-${idx}`} className="hover:bg-muted/30">
+                            <td className="py-3 px-3 font-sans font-bold text-foreground">
+                              {empName}
+                              {empNo ? ` (${empNo})` : ""}
+                            </td>
+                            <td className="py-3 px-3 font-sans text-muted-foreground">
+                              {deptName}
+                            </td>
+                            <td className="py-3 px-3 font-sans">
+                              <span className="font-semibold" style={{ color: bal.color || undefined }}>
+                                {bal.leaveTypeNameAr || bal.leaveTypeNameEn}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 font-bold text-foreground">{bal.annualEntitlement}</td>
+                            <td className="py-3 px-3 text-muted-foreground">{bal.usedDays}</td>
+                            <td className="py-3 px-3 text-amber-600 font-bold">{bal.reservedDays}</td>
+                            <td className="py-3 px-3 text-muted-foreground">{bal.carriedOverDays}</td>
+                            <td className="py-3 px-3 font-black text-emerald-600 font-mono">{bal.availableBalance}</td>
+                            <td className="py-3 px-3 text-center">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setAdjustEmpId(bal.employeeId || "");
+                                  setSelectedTypeId(bal.leaveTypeId);
+                                  setIsAdjustBalanceOpen(true);
+                                }}
+                                className="rounded-full text-[11px] font-bold h-7 px-2.5 hover:bg-secondary font-sans"
+                              >
+                                تعديل رصيد
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        )}
+
+        {/* Tab 4: Leave Types List */}
         <TabsContent value="types" className="space-y-4 pt-4">
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <Info className="h-5 w-5 text-primary shrink-0" />
+              <div className="text-xs">
+                <span className="font-bold text-foreground">تهيئة وإدارة السياسات المركزية</span>
+                <p className="text-muted-foreground mt-0.5">
+                  تُدار سياسات الإجازات، الاستحقاقات السنوية، والترحيل المركزي من خلال شاشة تهيئة النظام الموحدة.
+                </p>
+              </div>
+            </div>
+            {canManage && (
+              <Button
+                size="sm"
+                onClick={() => navigate({ to: "/setup?tab=leaves" as any })}
+                className="rounded-full text-xs font-bold gap-1.5 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                الانتقال إلى تهيئة سياسات الإجازات
+              </Button>
+            )}
+          </div>
           {leaveTypes.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-border/80 bg-card p-12 text-center">
               <div className="flex flex-col items-center justify-center gap-3">

@@ -1,10 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import type { EvaluationRecord, PerformanceCycle } from "../../../types";
-import { useAuth } from "../../auth/AuthContext";
-import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
+import { executeReliableMutation } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
-import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
 import {
   usePerformanceCycles as useRepoCycles,
@@ -22,58 +20,46 @@ export * from "../../data/performance-repository";
  * Enterprise Performance hook delegating to the production database repository.
  */
 export function usePerformance() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-
   const repoCycles = useRepoCycles();
   const repoKPIs = useRepoKPIs();
   const repoNineBox = useRepoNineBox();
   const repoAssignments = useRepoAssignments();
 
-  const demoData = useDemoStore((s) => ({
-    performanceCycles: s.performanceCycles,
-    evaluations: s.evaluations,
+  const performanceCycles = (repoCycles.data || []).map((c) => ({
+    id: c.id,
+    titleAr: c.titleAr,
+    titleEn: c.titleEn,
+    periodType: c.periodType,
+    startDate: c.startDate,
+    endDate: c.endDate,
+    status: c.status,
+    participantsCount: c.participantsCount,
+    completionRate: c.completionRate,
   }));
 
-  const performanceCycles = isLive
-    ? (repoCycles.data || []).map((c) => ({
-        id: c.id,
-        titleAr: c.titleAr,
-        titleEn: c.titleEn,
-        periodType: c.periodType,
-        startDate: c.startDate,
-        endDate: c.endDate,
-        status: c.status,
-        participantsCount: c.participantsCount,
-        completionRate: c.completionRate,
-      }))
-    : demoData.performanceCycles;
-
-  const evaluations: EvaluationRecord[] = isLive
-    ? (repoAssignments.data || []).map((a) => ({
-        id: a.id,
-        cycleId: a.cycleId,
-        employeeId: a.employeeId,
-        employeeName: a.employeeName,
-        evaluatorId: a.reviewerEmployeeId,
-        evaluatorName: a.reviewerName,
-        evaluationType: a.reviewType,
-        overallScore: a.review?.overallScore ?? 0,
-        competencyScores: {},
-        notes: a.review?.generalFeedback || a.review?.strengthsSummary || "",
-        status: a.status === "submitted" || a.status === "locked" ? "submitted" : "pending",
-        submittedAt: a.submittedAt || a.review?.submittedAt,
-      }))
-    : demoData.evaluations;
+  const evaluations: EvaluationRecord[] = (repoAssignments.data || []).map((a) => ({
+    id: a.id,
+    cycleId: a.cycleId,
+    employeeId: a.employeeId,
+    employeeName: a.employeeName,
+    evaluatorId: a.reviewerEmployeeId,
+    evaluatorName: a.reviewerName,
+    evaluationType: a.reviewType,
+    overallScore: a.review?.overallScore ?? 0,
+    competencyScores: {},
+    notes: a.review?.generalFeedback || a.review?.strengthsSummary || "",
+    status: a.status === "submitted" || a.status === "locked" ? "submitted" : "pending",
+    submittedAt: a.submittedAt || a.review?.submittedAt,
+  }));
 
   return {
     performanceCycles,
     evaluations,
     kpis: repoKPIs.data,
     nineBox: repoNineBox.data,
-    isLoading: isLive ? (repoCycles.isLoading || repoAssignments.isLoading) : false,
-    isError: isLive ? (repoCycles.isError || repoAssignments.isError) : false,
-    error: isLive ? (repoCycles.error || repoAssignments.error) : null,
+    isLoading: repoCycles.isLoading || repoAssignments.isLoading,
+    isError: repoCycles.isError || repoAssignments.isError,
+    error: repoCycles.error || repoAssignments.error,
     refetch: async () => {
       await Promise.all([
         repoCycles.refetch(),
@@ -89,15 +75,13 @@ export function usePerformance() {
  * Production-grade performance mutation hook wrapping operations in executeReliableMutation.
  */
 export function usePerformanceMutations() {
-  const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
   const repo = useRepoMutations();
 
   const addPerformanceCycle = useCallback(
     async (cycle: Omit<PerformanceCycle, "id">): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-cycle-${cycle.titleAr}-${cycle.startDate}`,
         operation: async () => {
           await repo.createCycle.mutateAsync({
@@ -110,15 +94,6 @@ export function usePerformanceMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.performance.all });
           return true;
         },
-        demoOperation: () => {
-          const newCycle: PerformanceCycle = {
-            ...cycle,
-            id: `cyc-${Date.now()}`,
-          };
-          demoStore.performanceCycles = [...demoStore.performanceCycles, newCycle];
-          demoStore.notify();
-          return true;
-        },
         onCommitted: () => {
           toast.success("تم إنشاء دورة التقييم بنجاح");
         },
@@ -129,18 +104,17 @@ export function usePerformanceMutations() {
 
       return result.ok;
     },
-    [mode, queryClient, repo.createCycle],
+    [queryClient, repo.createCycle],
   );
 
   const addEvaluation = useCallback(
     async (evaluation: Omit<EvaluationRecord, "id">): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-eval-${evaluation.cycleId}-${evaluation.employeeId}`,
         operation: async () => {
-          // If assignment id is passed, submit review
           await repo.submitReview.mutateAsync({
-            assignmentId: evaluation.cycleId, // fallback or direct assignment ID
+            assignmentId: evaluation.cycleId,
             scores: [
               {
                 item_type: "competency",
@@ -155,15 +129,6 @@ export function usePerformanceMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.performance.all });
           return true;
         },
-        demoOperation: () => {
-          const newEval: EvaluationRecord = {
-            ...evaluation,
-            id: `eval-${Date.now()}`,
-          };
-          demoStore.evaluations = [...demoStore.evaluations, newEval];
-          demoStore.notify();
-          return true;
-        },
         onCommitted: () => {
           toast.success("تم حفظ تقييم الأداء بنجاح");
         },
@@ -174,25 +139,17 @@ export function usePerformanceMutations() {
 
       return result.ok;
     },
-    [mode, queryClient, repo.submitReview],
+    [queryClient, repo.submitReview],
   );
 
   const launchCycle = useCallback(
     async (cycleId: string, targetDepartmentIds?: string[]): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `launch-cycle-${cycleId}`,
         operation: async () => {
           await repo.launchCycle.mutateAsync({ cycleId, targetDepartmentIds });
           await queryClient.invalidateQueries({ queryKey: queryKeys.performance.all });
-          return true;
-        },
-        demoOperation: () => {
-          const target = demoStore.performanceCycles.find((c) => c.id === cycleId);
-          if (target) {
-            target.status = "active";
-            demoStore.notify();
-          }
           return true;
         },
         onCommitted: () => {
@@ -204,13 +161,13 @@ export function usePerformanceMutations() {
       });
       return result.ok;
     },
-    [mode, queryClient, repo.launchCycle],
+    [queryClient, repo.launchCycle],
   );
 
   const assignPeerReviewers = useCallback(
     async (cycleId: string, targetEmployeeId: string, peerEmployeeIds: string[], isAnonymous = true): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `assign-peers-${cycleId}-${targetEmployeeId}`,
         operation: async () => {
           await repo.assignPeerReviewers.mutateAsync({
@@ -222,9 +179,6 @@ export function usePerformanceMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.performance.all });
           return true;
         },
-        demoOperation: () => {
-          return true;
-        },
         onCommitted: () => {
           toast.success("تم تعيين مقيمي الزملاء (360°) بنجاح");
         },
@@ -234,7 +188,7 @@ export function usePerformanceMutations() {
       });
       return result.ok;
     },
-    [mode, queryClient, repo.assignPeerReviewers],
+    [queryClient, repo.assignPeerReviewers],
   );
 
   const submitGoal = useCallback(
@@ -253,14 +207,11 @@ export function usePerformanceMutations() {
       weight: number;
     }): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `submit-goal-${goal.cycleId}-${goal.employeeId}-${goal.titleAr}`,
         operation: async () => {
           await repo.submitGoal.mutateAsync(goal);
           await queryClient.invalidateQueries({ queryKey: queryKeys.performance.all });
-          return true;
-        },
-        demoOperation: () => {
           return true;
         },
         onCommitted: () => {
@@ -272,13 +223,13 @@ export function usePerformanceMutations() {
       });
       return result.ok;
     },
-    [mode, queryClient, repo.submitGoal],
+    [queryClient, repo.submitGoal],
   );
 
   const updateGoalProgress = useCallback(
     async (goalId: string, newValue: number, percentage: number, note?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `update-goal-progress-${goalId}`,
         operation: async () => {
           await repo.updateGoalProgress.mutateAsync({
@@ -290,9 +241,6 @@ export function usePerformanceMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.performance.all });
           return true;
         },
-        demoOperation: () => {
-          return true;
-        },
         onCommitted: () => {
           toast.success("تم تحديث نسبة إنجاز الهدف وتوثيق السجل التاريخي");
         },
@@ -302,7 +250,7 @@ export function usePerformanceMutations() {
       });
       return result.ok;
     },
-    [mode, queryClient, repo.updateGoalProgress],
+    [queryClient, repo.updateGoalProgress],
   );
 
   const submitReview = useCallback(
@@ -320,14 +268,11 @@ export function usePerformanceMutations() {
       generalFeedback?: string;
     }): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `submit-review-${review.assignmentId}`,
         operation: async () => {
           await repo.submitReview.mutateAsync(review);
           await queryClient.invalidateQueries({ queryKey: queryKeys.performance.all });
-          return true;
-        },
-        demoOperation: () => {
           return true;
         },
         onCommitted: () => {
@@ -339,7 +284,7 @@ export function usePerformanceMutations() {
       });
       return result.ok;
     },
-    [mode, queryClient, repo.submitReview],
+    [queryClient, repo.submitReview],
   );
 
   const adjustCalibration = useCallback(
@@ -351,14 +296,11 @@ export function usePerformanceMutations() {
       calibrationReason: string;
     }): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `adjust-calibration-${adjustment.sessionId}-${adjustment.participantId}`,
         operation: async () => {
           await repo.adjustCalibration.mutateAsync(adjustment);
           await queryClient.invalidateQueries({ queryKey: queryKeys.performance.all });
-          return true;
-        },
-        demoOperation: () => {
           return true;
         },
         onCommitted: () => {
@@ -370,7 +312,7 @@ export function usePerformanceMutations() {
       });
       return result.ok;
     },
-    [mode, queryClient, repo.adjustCalibration],
+    [queryClient, repo.adjustCalibration],
   );
 
   const assessPotential = useCallback(
@@ -386,14 +328,11 @@ export function usePerformanceMutations() {
       rationale?: string;
     }): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `assess-potential-${assessment.cycleId}-${assessment.participantId}`,
         operation: async () => {
           await repo.assessPotential.mutateAsync(assessment);
           await queryClient.invalidateQueries({ queryKey: queryKeys.performance.all });
-          return true;
-        },
-        demoOperation: () => {
           return true;
         },
         onCommitted: () => {
@@ -405,25 +344,17 @@ export function usePerformanceMutations() {
       });
       return result.ok;
     },
-    [mode, queryClient, repo.assessPotential],
+    [queryClient, repo.assessPotential],
   );
 
   const finalizeCycle = useCallback(
     async (cycleId: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `finalize-cycle-${cycleId}`,
         operation: async () => {
           await repo.finalizeCycle.mutateAsync(cycleId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.performance.all });
-          return true;
-        },
-        demoOperation: () => {
-          const cyc = demoStore.performanceCycles.find((c) => c.id === cycleId);
-          if (cyc) {
-            cyc.status = "completed";
-            demoStore.notify();
-          }
           return true;
         },
         onCommitted: () => {
@@ -435,7 +366,7 @@ export function usePerformanceMutations() {
       });
       return result.ok;
     },
-    [mode, queryClient, repo.finalizeCycle],
+    [queryClient, repo.finalizeCycle],
   );
 
   const saveDevelopmentPlan = useCallback(
@@ -454,14 +385,11 @@ export function usePerformanceMutations() {
       }>;
     }): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `save-idp-${plan.employeeId}-${plan.titleAr}`,
         operation: async () => {
           await repo.saveDevelopmentPlan.mutateAsync(plan);
           await queryClient.invalidateQueries({ queryKey: queryKeys.performance.all });
-          return true;
-        },
-        demoOperation: () => {
           return true;
         },
         onCommitted: () => {
@@ -473,7 +401,7 @@ export function usePerformanceMutations() {
       });
       return result.ok;
     },
-    [mode, queryClient, repo.saveDevelopmentPlan],
+    [queryClient, repo.saveDevelopmentPlan],
   );
 
   const createPIP = useCallback(
@@ -489,14 +417,11 @@ export function usePerformanceMutations() {
       hrNotes?: string;
     }): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-pip-${pip.employeeId}-${pip.startDate}`,
         operation: async () => {
           await repo.createPIP.mutateAsync(pip);
           await queryClient.invalidateQueries({ queryKey: queryKeys.performance.all });
-          return true;
-        },
-        demoOperation: () => {
           return true;
         },
         onCommitted: () => {
@@ -508,7 +433,7 @@ export function usePerformanceMutations() {
       });
       return result.ok;
     },
-    [mode, queryClient, repo.createPIP],
+    [queryClient, repo.createPIP],
   );
 
   return {

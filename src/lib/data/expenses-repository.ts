@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { queryKeys } from "../query/query-keys";
 import { useAuth } from "../auth/AuthContext";
 import { uploadExpenseReceiptFile, rollbackUploadedFile } from "../storage";
-import { demoStore, useDemoStore } from "../domains/demo/demo-store";
+
 
 // ============================================================================
 // 1. DOMAIN INTERFACES & TYPES
@@ -211,27 +211,13 @@ export interface ExpenseFilterParams {
 // ============================================================================
 
 export function useExpenseCategories() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoData = useDemoStore((s) => s.expenseCategories);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   return useQuery({
     queryKey: queryKeys.expenses.categories(),
     queryFn: async (): Promise<ExpenseCategory[]> => {
-      if (!isLive) {
-        return (demoData || []).map((cat) => ({
-          id: cat.id,
-          code: cat.nameEn?.toUpperCase().replace(/\s+/g, "_") || "EXP",
-          nameAr: cat.nameAr,
-          nameEn: cat.nameEn || cat.nameAr,
-          maxLimitWarning: cat.maxLimitWarning,
-          maxLimitBlock: cat.maxLimitBlock,
-          requiresReceipt: cat.requiresReceipt,
-          currency: "SAR",
-          accountingAccountCode: "510100",
-          isActive: true,
-        }));
-      }
+      if (!isLive) return [];
 
       const { data, error } = await (supabase as any)
         .from("expense_categories")
@@ -255,6 +241,7 @@ export function useExpenseCategories() {
         description: r.description,
       }));
     },
+    enabled: isLive,
     staleTime: 60_000,
   });
 }
@@ -299,9 +286,8 @@ export function useExpensePolicies() {
 }
 
 export function useExpenseClaims(filters: ExpenseFilterParams = {}) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoData = useDemoStore((s) => s.expenseClaims);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   return useQuery({
     queryKey: queryKeys.expenses.claims(filters as Record<string, unknown>),
@@ -313,52 +299,12 @@ export function useExpenseClaims(filters: ExpenseFilterParams = {}) {
       totalPages: number;
     }> => {
       if (!isLive) {
-        let claims: ExpenseClaim[] = (demoData || []).map((c) => ({
-          id: c.id,
-          employeeId: c.employeeId,
-          employeeName: "موظف النظام",
-          categoryNameAr: c.categoryNameAr,
-          categoryNameEn: c.categoryNameEn || c.categoryNameAr,
-          claimNumber: `EXP-${c.id.slice(0, 8)}`,
-          title: `مطالبة ${c.merchantName}`,
-          paymentMethod: "employee_paid",
-          isReimbursable: true,
-          amount: c.amount,
-          currency: c.currency || "SAR",
-          exchangeRate: 1,
-          convertedAmount: c.amount,
-          spentAt: c.spentAt,
-          merchantName: c.merchantName,
-          receiptUrl: c.receiptUrl,
-          receiptFileId: c.receiptFileId,
-          description: c.description,
-          status: c.status as ExpenseClaimStatus,
-          policyWarningTriggered: Boolean(c.policyWarningTriggered),
-          reimbursementStatus: (c.status === "approved" ? "unreimbursed" : "unreimbursed") as ExpenseReimbursementStatus,
-          version: 1,
-          createdAt: c.spentAt || new Date().toISOString(),
-        }));
-
-        if (filters.search) {
-          const q = filters.search.toLowerCase();
-          claims = claims.filter(
-            (c) =>
-              c.merchantName.toLowerCase().includes(q) ||
-              c.description.toLowerCase().includes(q) ||
-              c.categoryNameAr.toLowerCase().includes(q)
-          );
-        }
-
-        if (filters.status && filters.status !== "all") {
-          claims = claims.filter((c) => c.status === filters.status);
-        }
-
         return {
-          data: claims,
-          total: claims.length,
+          data: [],
+          total: 0,
           page: 1,
-          pageSize: 50,
-          totalPages: 1,
+          pageSize: filters.pageSize || 50,
+          totalPages: 0,
         };
       }
 
@@ -572,29 +518,23 @@ export function useReimbursementBatches(filters: Record<string, unknown> = {}) {
 }
 
 export function useExpenseKpis() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoData = useDemoStore((s) => s.expenseClaims);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   return useQuery({
     queryKey: queryKeys.expenses.kpis(),
     queryFn: async (): Promise<ExpenseKpis> => {
       if (!isLive) {
-        const claims = demoData || [];
-        const total = claims.reduce((acc, c) => acc + c.amount, 0);
-        const approved = claims.filter((c) => c.status === "approved");
-        const pending = claims.filter((c) => c.status !== "approved");
-
         return {
-          totalSubmittedAmount: total,
-          totalSubmittedCount: claims.length,
-          pendingApprovalCount: pending.length,
-          approvedCount: approved.length,
-          approvedAmount: approved.reduce((acc, c) => acc + c.amount, 0),
+          totalSubmittedAmount: 0,
+          totalSubmittedCount: 0,
+          pendingApprovalCount: 0,
+          approvedCount: 0,
+          approvedAmount: 0,
           rejectedCount: 0,
           returnedCount: 0,
-          awaitingReimbursementCount: approved.length,
-          awaitingReimbursementAmount: approved.reduce((acc, c) => acc + c.amount, 0),
+          awaitingReimbursementCount: 0,
+          awaitingReimbursementAmount: 0,
           confirmedReimbursedCount: 0,
           confirmedReimbursedAmount: 0,
           categoriesBreakdown: [],
@@ -711,28 +651,6 @@ export function useExpenseMutations() {
           receiptFileId,
           taxAmount: item.taxAmount || 0,
         });
-      }
-
-      // Demo fallback
-      if (!isLive) {
-        const first = preparedItems[0];
-        const newClaim = {
-          id: `exp-${Date.now()}`,
-          employeeId: session?.user?.id || "demo-emp",
-          categoryId: first?.categoryId,
-          categoryNameAr: "نفقات أعمال",
-          categoryNameEn: "Business",
-          amount: preparedItems.reduce((acc, i) => acc + i.amount, 0),
-          currency: first?.currency || "SAR",
-          spentAt: first?.itemDate || new Date().toISOString().split("T")[0],
-          merchantName: first?.merchantName || "مورد",
-          description: params.justification || "مصروف أعمال",
-          status: "submitted",
-          policyWarningTriggered: false,
-        };
-        demoStore.expenseClaims = [newClaim as any, ...demoStore.expenseClaims];
-        demoStore.notify();
-        return { ok: true, claim_id: newClaim.id };
       }
 
       // Live RPC
@@ -915,21 +833,6 @@ export function useExpenseMutations() {
       accountingAccountCode?: string;
       description?: string;
     }) => {
-      if (!isLive) {
-        const cat = {
-          id: `cat-${Date.now()}`,
-          nameAr: params.nameAr,
-          nameEn: params.nameEn || params.nameAr,
-          icon: "Receipt",
-          maxLimitWarning: params.warningLimit,
-          maxLimitBlock: params.blockLimit,
-          requiresReceipt: params.requiresReceipt ?? true,
-        };
-        demoStore.expenseCategories = [...demoStore.expenseCategories, cat as any];
-        demoStore.notify();
-        return cat;
-      }
-
       const { data, error } = await (supabase as any).from("expense_categories").insert({
         name_ar: params.nameAr,
         name_en: params.nameEn || params.nameAr,

@@ -412,37 +412,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Derive Current User Representation
   const currentUser: Employee = useMemo(() => {
     const emps = bootstrap.employees;
-    if (bootstrap.dataMode === "live") {
-      const match = emps.find(
-        (e) =>
-          (session?.user?.id && e.customFields?.userId === session.user.id) ||
-          (session?.user?.email &&
-            e.email &&
-            e.email.toLowerCase() === session.user.email.toLowerCase()),
-      );
-      if (match) return match;
-    } else {
-      const match = emps.find((e) => {
-        if (
-          session?.user?.email &&
+    const match = emps.find(
+      (e) =>
+        (session?.user?.id && e.customFields?.userId === session.user.id) ||
+        (session?.user?.email &&
           e.email &&
-          e.email.toLowerCase() === session.user.email.toLowerCase()
-        ) {
-          return true;
-        }
-        if (currentRole === "super_admin" || currentRole === "hr_manager") return e.id === "emp-04";
-        if (currentRole === "payroll_officer" || currentRole === "finance_officer")
-          return e.id === "emp-02";
-        if (currentRole === "line_manager") return e.id === "emp-01";
-        return e.id === "emp-05";
-      });
-      if (match) return match;
-    }
-
-    if (bootstrap.dataMode === "demo") {
-      const demoFallback = emps.find((e) => e.id === "emp-05") || emps.find((e) => e.id === "emp-01");
-      if (demoFallback) return demoFallback;
-    }
+          e.email.toLowerCase() === session.user.email.toLowerCase()),
+    );
+    if (match) return match;
 
     return {
       id: "",

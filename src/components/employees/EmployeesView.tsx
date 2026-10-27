@@ -65,6 +65,8 @@ import {
   ShieldCheck,
   UserCheck,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { Settings } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -121,6 +123,7 @@ const EmployeeAvatar: React.FC<{
 };
 
 export const EmployeesView: React.FC = () => {
+  const navigate = useNavigate();
   const {
     activeEmployeeModalId,
     closeEmployeeProfile,
@@ -531,6 +534,7 @@ export const EmployeesView: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 mb-1">شاشة العمليات وسجل الموظفين اليومي</span>
                 <h1 className="text-xl font-black text-foreground">
                   دليل وملفات الموظفين الموحد
                 </h1>
@@ -546,6 +550,24 @@ export const EmployeesView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            onClick={() => navigate({ to: "/setup?tab=org" as any })}
+            variant="outline"
+            size="sm"
+            className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
+          >
+            <Settings className="h-4 w-4 text-primary" />
+            تهيئة الهيكل والمناصب
+          </Button>
+          <Button
+            onClick={() => navigate({ to: "/setup?tab=users" as any })}
+            variant="outline"
+            size="sm"
+            className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
+          >
+            <Settings className="h-4 w-4 text-indigo-600" />
+            حوكمة الصلاحيات
+          </Button>
           <Button
             onClick={handleExportSelectedOrAll}
             variant="outline"

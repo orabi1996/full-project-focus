@@ -4,8 +4,6 @@ import { supabase } from "../../integrations/supabase/client";
 import { useAuth } from "../auth/AuthContext";
 import { useBootstrapData } from "../domains/bootstrap/use-bootstrap";
 import { auditQueryKeys } from "../query/audit-query-keys";
-import { demoStore, useDemoStore } from "../domains/demo/demo-store";
-import type { AuditLogEntry } from "../../types";
 
 const db = supabase as any;
 
@@ -493,58 +491,15 @@ export function useEnterpriseAuditEvents(filters?: {
   isSensitive?: boolean;
   searchTerm?: string;
 }) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
   const bootstrap = useBootstrapData();
   const companyId = bootstrap.company?.id;
-  const demoLogs = useDemoStore((s) => s.auditLogs);
 
   return useQuery<EnterpriseAuditEvent[]>({
     queryKey: auditQueryKeys.list(companyId, filters),
     queryFn: async () => {
-      if (!isLive) {
-        let list: EnterpriseAuditEvent[] = demoLogs.map((l, i) => ({
-          id: l.id,
-          actorId: l.actorId,
-          actorName: l.actorName,
-          actorRole: l.actorRole,
-          action: l.action,
-          entityType: l.entityType,
-          entityId: l.entityId,
-          entityName: l.entityName,
-          severity: (l.action.includes("حذف") || l.action.includes("تعديل أمني")
-            ? "warning"
-            : l.action.includes("دخول") || l.action.includes("صلاحيات")
-              ? "security"
-              : "info") as AuditSeverity,
-          changesSummary: l.changesSummary,
-          ipAddress: l.ipAddress || "192.168.1.105",
-          isSensitive: l.action.includes("راتب") || l.action.includes("أمان"),
-          prevEventHash: `hash_prev_0${i}`,
-          eventHash: `hash_evt_0${i}`,
-          timestamp: l.timestamp,
-        }));
-
-        if (filters?.entityType && filters.entityType !== "all") {
-          list = list.filter((l) => l.entityType === filters.entityType);
-        }
-        if (filters?.severity && filters.severity !== "all") {
-          list = list.filter((l) => l.severity === filters.severity);
-        }
-        if (filters?.isSensitive) {
-          list = list.filter((l) => l.isSensitive);
-        }
-        if (filters?.searchTerm) {
-          const q = filters.searchTerm.toLowerCase();
-          list = list.filter(
-            (l) =>
-              l.actorName.toLowerCase().includes(q) ||
-              l.action.toLowerCase().includes(q) ||
-              (l.changesSummary || "").toLowerCase().includes(q),
-          );
-        }
-        return list;
-      }
+      if (!isLive) return [];
       return fetchAuditEventsServer({
         companyId,
         entityType: filters?.entityType,
@@ -553,13 +508,14 @@ export function useEnterpriseAuditEvents(filters?: {
         searchTerm: filters?.searchTerm,
       });
     },
+    enabled: isLive,
     staleTime: 15_000,
   });
 }
 
 export function useAuditIntegrityCheck() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
   const bootstrap = useBootstrapData();
   const companyId = bootstrap.company?.id;
 
@@ -570,53 +526,56 @@ export function useAuditIntegrityCheck() {
         return {
           isValid: true,
           status: "verified",
-          totalRecords: 14,
-          validRecords: 14,
+          totalRecords: 0,
+          validRecords: 0,
           verifiedAt: new Date().toISOString(),
         };
       }
       return verifyAuditIntegrityServer(companyId);
     },
+    enabled: isLive,
     staleTime: 60_000,
   });
 }
 
 export function useBackgroundJobs() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
   const bootstrap = useBootstrapData();
   const companyId = bootstrap.company?.id || "demo-company";
 
   return useQuery<BackgroundJob[]>({
     queryKey: auditQueryKeys.backgroundJobs(companyId),
     queryFn: async () => {
-      if (!isLive) return DEMO_BACKGROUND_JOBS;
+      if (!isLive) return [];
       return fetchBackgroundJobsServer(companyId);
     },
+    enabled: isLive,
     staleTime: 10_000,
     refetchInterval: 20_000,
   });
 }
 
 export function useDeadLetterJobs() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
   const bootstrap = useBootstrapData();
   const companyId = bootstrap.company?.id || "demo-company";
 
   return useQuery<DeadLetterJob[]>({
     queryKey: auditQueryKeys.deadLetterJobs(companyId),
     queryFn: async () => {
-      if (!isLive) return DEMO_DEAD_LETTERS;
+      if (!isLive) return [];
       return fetchDeadLetterJobsServer(companyId);
     },
+    enabled: isLive,
     staleTime: 15_000,
   });
 }
 
 export function useOperationsHealthSummary() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
   const bootstrap = useBootstrapData();
   const companyId = bootstrap.company?.id || "demo-company";
 
@@ -626,22 +585,23 @@ export function useOperationsHealthSummary() {
       if (!isLive) {
         return {
           companyId,
-          pendingTasks: 2,
+          pendingTasks: 0,
           overdueTasks: 0,
           slaBreachedTasks: 0,
-          slaComplianceRate: 98.5,
-          queuedJobs: 1,
-          runningJobs: 1,
+          slaComplianceRate: 100,
+          queuedJobs: 0,
+          runningJobs: 0,
           failedJobs: 0,
-          deadLetterCount: 1,
-          unreadNotifications: 3,
-          auditEventsToday: 42,
-          securityEventsToday: 2,
+          deadLetterCount: 0,
+          unreadNotifications: 0,
+          auditEventsToday: 0,
+          securityEventsToday: 0,
           observedAt: new Date().toISOString(),
         };
       }
       return fetchOperationsHealthSummaryServer(companyId);
     },
+    enabled: isLive,
     staleTime: 15_000,
     refetchInterval: 30_000,
   });
@@ -649,8 +609,6 @@ export function useOperationsHealthSummary() {
 
 export function useAuditMutations() {
   const queryClient = useQueryClient();
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
   const bootstrap = useBootstrapData();
   const companyId = bootstrap.company?.id;
 
@@ -669,26 +627,6 @@ export function useAuditMutations() {
         isSensitive?: boolean;
       },
     ): Promise<void> => {
-      if (!isLive) {
-        const newLog: AuditLogEntry = {
-          id: `aud-${Date.now()}`,
-          actorId: actor?.id || "usr-01",
-          actorName: actor?.name || "المستخدم الحالي",
-          actorRole: actor?.role || "super_admin",
-          action,
-          entityType,
-          entityId,
-          entityName,
-          changesSummary,
-          ipAddress: "127.0.0.1",
-          timestamp: new Date().toISOString(),
-        };
-        demoStore.auditLogs = [newLog, ...demoStore.auditLogs];
-        demoStore.notify();
-        await queryClient.invalidateQueries({ queryKey: auditQueryKeys.all });
-        return;
-      }
-
       await logEnterpriseAuditEventRecord({
         companyId,
         actorId: actor?.id,
@@ -707,21 +645,15 @@ export function useAuditMutations() {
 
       await queryClient.invalidateQueries({ queryKey: auditQueryKeys.all });
     },
-    [isLive, queryClient, companyId],
+    [queryClient, companyId],
   );
 
   const retryDeadLetterJob = useCallback(
     async (deadLetterId: string) => {
-      if (!isLive) {
-        const found = DEMO_DEAD_LETTERS.find((d) => d.id === deadLetterId);
-        if (found) found.resolved = true;
-        await queryClient.invalidateQueries({ queryKey: auditQueryKeys.all });
-        return;
-      }
       await retryDeadLetterJobRecord(deadLetterId);
       await queryClient.invalidateQueries({ queryKey: auditQueryKeys.all });
     },
-    [isLive, queryClient],
+    [queryClient],
   );
 
   return {

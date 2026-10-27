@@ -131,7 +131,7 @@ export const ShiftsView: React.FC = () => {
   const totalPages = Math.ceil(totalEmployees / pageSize) || 1;
 
   // Tab State
-  const [activeTab, setActiveTab] = useState("definitions");
+  const [activeTab, setActiveTab] = useState("scheduler");
 
   // Modals
   const [isAddShiftOpen, setIsAddShiftOpen] = useState(false);
@@ -336,17 +336,23 @@ export const ShiftsView: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-black text-foreground">
-                  {t.nav.shifts} ومحرك الجدولة والورديات
+                  {t.nav.shifts} ومحرك الجدولة والورديات اليومية
                 </h1>
                 <Badge
                   variant="outline"
                   className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5"
                 >
+                  شاشة العمليات والجدولة اليومية
+                </Badge>
+                <Badge
+                  variant="secondary"
+                  className="text-[11px] font-bold rounded-full px-2.5 py-0.5"
+                >
                   محرك معتمد للمنشأة
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                إدارة الورديات وجداول العمل لشركة «{companyName}» مع الفحص التلقائي للتعارضات وحماية ثبات الجداول
+                إدارة جداول عمل الموظفين، توزيع الورديات، وطلبات التبديل لشركة «{companyName}» مع الفحص التلقائي للتعارضات
               </p>
             </div>
           </div>
@@ -355,24 +361,33 @@ export const ShiftsView: React.FC = () => {
         {canManage && (
           <div className="flex flex-wrap items-center gap-2.5">
             <Button
+              onClick={() => setIsCreatePeriodOpen(true)}
+              size="sm"
+              className="classera-btn-primary rounded-full font-bold text-xs gap-1.5 shadow-xs h-10 px-5 cursor-pointer"
+            >
+              <Calendar className="h-4 w-4" />
+              فترة جدولة جديدة
+            </Button>
+            <Button
+              onClick={() => navigate({ to: "/setup?tab=shifts" as any })}
+              variant="outline"
+              size="sm"
+              className="rounded-full font-bold text-xs gap-1.5 border-primary/40 bg-primary/5 text-primary hover:bg-primary/10 h-10 px-4 shadow-xs cursor-pointer"
+            >
+              <Sliders className="h-4 w-4" />
+              تهيئة قوالب الورديات وأيام العمل
+            </Button>
+            <Button
               onClick={() => {
                 setEditingShift(null);
                 setIsAddShiftOpen(true);
               }}
-              size="sm"
-              className="classera-btn-primary rounded-full font-bold text-xs gap-1.5 shadow-xs h-10 px-5 cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              إنشاء وردية دوام جديدة
-            </Button>
-            <Button
-              onClick={() => setIsCreatePeriodOpen(true)}
               variant="outline"
               size="sm"
               className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs cursor-pointer"
             >
-              <Calendar className="h-4 w-4 text-primary" />
-              فترة جدولة جديدة
+              <Plus className="h-4 w-4 text-primary" />
+              إنشاء وردية دوام جديدة
             </Button>
           </div>
         )}
@@ -455,18 +470,18 @@ export const ShiftsView: React.FC = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
-        <TabsList className="classera-tabs-strip max-w-2xl flex-wrap">
-          <TabsTrigger value="definitions" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
-            {t.attendance.shiftsManagement} ({shifts.length})
-          </TabsTrigger>
+        <TabsList className="classera-tabs-strip max-w-3xl flex-wrap h-auto p-1.5 gap-1">
           <TabsTrigger value="scheduler" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
             جدولة الورديات (Roster Grid)
+          </TabsTrigger>
+          <TabsTrigger value="swaps" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
+            طلبات التبديل ({swapRequests.length})
           </TabsTrigger>
           <TabsTrigger value="coverage" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
             متطلبات التغطية ({coverageRequirements.length})
           </TabsTrigger>
-          <TabsTrigger value="swaps" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
-            طلبات التبديل ({swapRequests.length})
+          <TabsTrigger value="definitions" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
+            {t.attendance.shiftsManagement} ({shifts.length})
           </TabsTrigger>
           <TabsTrigger value="policy" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-4">
             سياسة العمل والأسبوع
@@ -477,6 +492,27 @@ export const ShiftsView: React.FC = () => {
         {/* TAB 1: Shift Master Definitions */}
         {/* ========================================================================= */}
         <TabsContent value="definitions" className="space-y-4">
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <Sliders className="h-5 w-5 text-primary shrink-0" />
+              <div className="text-xs">
+                <span className="font-bold text-foreground">تهيئة قوالب الورديات وسياسات أيام العمل المركزية</span>
+                <p className="text-muted-foreground mt-0.5">
+                  تُدار قوالب الورديات الرسمية، فترات السماح، وأيام الأسبوع والراحة المعتمدة من خلال شاشة تهيئة النظام الموحدة.
+                </p>
+              </div>
+            </div>
+            {canManage && (
+              <Button
+                size="sm"
+                onClick={() => navigate({ to: "/setup?tab=shifts" as any })}
+                className="rounded-full text-xs font-bold gap-1.5 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Sliders className="h-3.5 w-3.5" />
+                الانتقال إلى تهيئة الورديات
+              </Button>
+            )}
+          </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card p-3 rounded-2xl border border-border/80 shadow-xs">
             <div className="flex items-center gap-2">
               <div className="relative flex-1 sm:w-64">

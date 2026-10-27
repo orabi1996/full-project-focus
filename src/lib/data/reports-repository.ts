@@ -3,7 +3,7 @@ import { supabase } from "../../integrations/supabase/client";
 import { queryKeys, reportQueryKeys } from "../query/query-keys";
 import { useAuth, type AuthRole } from "../auth/AuthContext";
 import { useBootstrapData } from "../domains/bootstrap/use-bootstrap";
-import { demoStore } from "../domains/demo/demo-store";
+
 
 // ============================================================================
 // 1. REPORT CATALOG & CORE INTERFACES
@@ -2004,75 +2004,43 @@ export async function fetchExecutiveKpisServer(
       };
     }
   } catch (err) {
-    console.warn("Falling back to demo store for executive KPIs:", err);
+    console.warn("get_executive_kpis_atomic error, returning zeroed KPIs:", err);
   }
-
-  // Authoritative Demo Calculation (strictly grounded in store records, no randoms)
-  const emps = demoStore.employees || [];
-  const activeEmps = emps.filter((e) => e.status === "active");
-  const saudiEmps = activeEmps.filter((e) =>
-    ["SA", "SAUDI", "SAUDI ARABIA", "سعودي", "سعودية"].includes(String(e.nationality || "").toUpperCase()),
-  );
-  const expatEmps = activeEmps.filter((e) => !saudiEmps.includes(e));
-  const rate =
-    activeEmps.length > 0 ? Number(((saudiEmps.length / activeEmps.length) * 100).toFixed(2)) : 0;
-
-  const band = rate >= 40 ? "platinum" : rate >= 30 ? "high_green" : rate >= 20 ? "mid_green" : "red";
-
-  const totalHeadcount = emps.filter((e) => e.status !== "terminated").length;
-  const turnoverCount = emps.filter((e) => e.status === "terminated").length;
-  const turnoverRate = totalHeadcount > 0 ? Number(((turnoverCount / totalHeadcount) * 100).toFixed(2)) : 0;
-
-  const totalPayroll = (demoStore.payrollRuns || [])
-    .filter((r) => ["locked", "approved", "paid"].includes(r.status))
-    .reduce((sum, r) => sum + (r.totalNetSalary || 0) + (r.totalEmployerGosi || 0), 0);
-
-  const avgEmpCost = activeEmps.length > 0 ? Number((totalPayroll / activeEmps.length).toFixed(2)) : 0;
-
-  const totalExpenses = (demoStore.expenseClaims || [])
-    .filter((c) => c.status === "approved")
-    .reduce((sum, c) => sum + (c.amount || 0), 0);
-
-  const openVacancies = ((demoStore.jobOpenings as any[]) || [])
-    .filter((j: any) => j.status === "open")
-    .reduce((sum: number, j: any) => sum + (j.openingsCount || 1), 0);
-
-  const pendingApprovals = (demoStore.requests || []).filter((r) => r.status === "pending").length;
 
   return {
     companyId,
     startDate: start,
     endDate: end,
-    totalHeadcount,
-    activeEmployees: activeEmps.length,
-    saudiCount: saudiEmps.length,
-    expatCount: expatEmps.length,
-    saudizationRate: rate,
-    nitaqatBand: band,
-    newHires: emps.filter((e) => e.hireDate && e.hireDate >= start && e.hireDate <= end).length,
-    turnoverCount,
-    turnoverRate,
-    attendanceRate: 98.4,
-    absenceCount: 2,
-    absenceRate: 1.6,
-    latenessCount: 4,
-    overtimeHours: 18.5,
-    leaveUtilizationDays: 14,
-    payrollCost: totalPayroll,
-    averageEmployeeCost: avgEmpCost,
-    openPositions: ((demoStore.jobOpenings as any[]) || []).filter((j: any) => j.status === "open").length,
-    openVacancies,
-    recruitmentCandidates: (demoStore.candidates || []).filter((c) => c.stage !== "rejected").length,
-    offersCount: (demoStore.candidates || []).filter((c) => (c.stage as string) === "job_offer" || (c.stage as string) === "offer").length,
-    hiresCount: (demoStore.candidates || []).filter((c) => c.stage === "hired").length,
-    timeToFillDays: 24.5,
-    performanceReviewCompletion: 87.5,
-    averageRating: 4.1,
-    workforcePlanVariance: 3.2,
-    expenseCost: totalExpenses,
-    outstandingAssets: ((demoStore.assets as any[]) || []).filter((a: any) => a.status === "assigned").length,
-    expiringDocuments: ((demoStore.employeeDocs as any[]) || []).filter((d: any) => d.status === "expiring").length,
-    pendingApprovals,
+    totalHeadcount: 0,
+    activeEmployees: 0,
+    saudiCount: 0,
+    expatCount: 0,
+    saudizationRate: 0,
+    nitaqatBand: "high_green",
+    newHires: 0,
+    turnoverCount: 0,
+    turnoverRate: 0,
+    attendanceRate: 100,
+    absenceCount: 0,
+    absenceRate: 0,
+    latenessCount: 0,
+    overtimeHours: 0,
+    leaveUtilizationDays: 0,
+    payrollCost: 0,
+    averageEmployeeCost: 0,
+    openPositions: 0,
+    openVacancies: 0,
+    recruitmentCandidates: 0,
+    offersCount: 0,
+    hiresCount: 0,
+    timeToFillDays: 0,
+    performanceReviewCompletion: 0,
+    averageRating: 0,
+    workforcePlanVariance: 0,
+    expenseCost: 0,
+    outstandingAssets: 0,
+    expiringDocuments: 0,
+    pendingApprovals: 0,
     generatedAt: new Date().toISOString(),
   };
 }
@@ -2118,245 +2086,24 @@ export async function fetchReportDataServer(
       };
     }
   } catch (err) {
-    console.warn("Falling back to demo store for report data:", err);
+    console.warn("query_report_data_atomic error:", err);
   }
-
-  // Authoritative Demo Fallback Mapping
-  let rawRows: Record<string, unknown>[] = [];
-
-  if (reportCode.startsWith("EMP_")) {
-    rawRows = (demoStore.employees || []).map((e) => ({
-      id: e.id,
-      employee_no: e.employeeNo,
-      full_name_ar: `${e.firstNameAr} ${e.lastNameAr}`,
-      full_name_en: `${e.firstNameEn || ""} ${e.lastNameEn || ""}`.trim() || e.firstNameAr,
-      email: e.email,
-      job_title_ar: e.jobTitleAr,
-      department_name_ar: e.departmentName,
-      status: e.status,
-      hire_date: e.hireDate,
-      nationality: e.nationality,
-      contract_type: e.contractType,
-      work_type: e.workType,
-      national_id_or_iqama: canViewSensitive ? e.nationalIdOrIqama : "********",
-      basic_salary: canViewSensitive ? e.basicSalary : null,
-      housing_allowance: canViewSensitive ? e.housingAllowance : null,
-      transportation_allowance: canViewSensitive ? e.transportAllowance : null,
-      total_salary: canViewSensitive ? e.totalSalary : null,
-    }));
-  } else if (reportCode.startsWith("ATT_")) {
-    rawRows = (demoStore.attendanceRecords || [])
-      .filter((a) => {
-        if (reportCode === "ATT_LATENESS") return a.status === "late";
-        if (reportCode === "ATT_ABSENCE") return a.status === "absent";
-        if (reportCode === "ATT_OVERTIME") return (a.workedHours || 8) > 8;
-        return true;
-      })
-      .map((a) => {
-        const emp = demoStore.employees.find((e) => e.id === a.employeeId || e.employeeNo === a.employeeNo);
-        return {
-          id: a.id,
-          work_date: a.workDate,
-          employee_no: a.employeeNo,
-          employee_name_ar: a.employeeName || (emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : ""),
-          department_name_ar: emp?.departmentName || "العمليات",
-          check_in: a.actualIn || "08:00:00",
-          check_out: a.actualOut || "16:00:00",
-          worked_hours: a.workedHours || 8,
-          status: a.status,
-          overtime_hours: (a.workedHours || 8) > 8 ? (a.workedHours || 8) - 8 : 0,
-          note: a.status === "late" ? "تأخير صباحي" : a.status === "absent" ? "غياب غير مسوغ" : null,
-        };
-      });
-  } else if (reportCode.startsWith("LEV_")) {
-    if (reportCode === "LEV_BALANCES") {
-      rawRows = ((demoStore.leaveBalances as any[]) || []).map((b: any) => {
-        const emp = demoStore.employees.find((e) => e.id === b.employeeId);
-        return {
-          id: b.id,
-          employee_no: emp?.employeeNo || "EMP-001",
-          employee_name_ar: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "موظف",
-          department_name_ar: emp?.departmentName || "الإدارة",
-          leave_type_name_ar: "إجازة سنوية اعتيادية",
-          year: b.year || 2026,
-          entitlement_days: b.entitlementDays || b.totalDays || 30,
-          used_days: b.usedDays || 0,
-          pending_days: b.pendingDays || 0,
-          carried_over_days: b.carriedOverDays || 0,
-          remaining_days: (b.entitlementDays || b.totalDays || 30) + (b.carriedOverDays || 0) - (b.usedDays || 0),
-        };
-      });
-    } else {
-      rawRows = ((demoStore.requests as any[]) || [])
-        .filter((r: any) => r.type === "leave")
-        .map((r: any) => {
-          const emp = demoStore.employees.find((e) => e.id === r.employeeId);
-          return {
-            id: r.id,
-            reference: r.reference,
-            employee_no: emp?.employeeNo || "EMP-001",
-            employee_name_ar: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "موظف",
-            department_name_ar: emp?.departmentName || "الإدارة",
-            start_date: r.startDate || r.start_date || "2026-03-01",
-            end_date: r.endDate || r.end_date || "2026-03-05",
-            days: r.days || 4,
-            reason: r.reason || "إجازة اعتيادية",
-            status: r.status,
-            created_at: r.createdAt || r.created_at || new Date().toISOString(),
-          };
-        });
-    }
-  } else if (reportCode.startsWith("PAY_")) {
-    rawRows = (demoStore.payrollDetails || []).map((d) => ({
-      id: d.id,
-      period_year: 2026,
-      period_month: 3,
-      employee_no: d.employeeNo,
-      employee_name_ar: d.employeeName,
-      department_name_ar: d.departmentName || "المالية",
-      is_saudi: true,
-      iban: canViewSensitive ? d.iban : "SA******************",
-      basic_salary: canViewSensitive ? d.basicSalary : null,
-      housing_allowance: canViewSensitive ? d.housingAllowance : null,
-      transport_allowance: canViewSensitive ? d.transportAllowance : null,
-      other_allowances: canViewSensitive ? 0 : null,
-      overtime_amount: canViewSensitive ? d.overtimeAmount : null,
-      gross_salary: canViewSensitive ? d.basicSalary + d.housingAllowance + d.transportAllowance : null,
-      statutory_employee: canViewSensitive ? (d.basicSalary + d.housingAllowance) * 0.0975 : null,
-      statutory_employer: canViewSensitive ? (d.basicSalary + d.housingAllowance) * 0.1175 : null,
-      total_deductions: canViewSensitive ? d.totalDeductions : null,
-      net_salary: canViewSensitive ? d.netSalary : null,
-      status: "approved",
-    }));
-  } else if (reportCode.startsWith("REC_")) {
-    if (reportCode === "REC_REQUISITIONS") {
-      rawRows = ((demoStore.jobOpenings as any[]) || []).map((j: any) => ({
-        id: j.id,
-        title_ar: j.titleAr,
-        title_en: j.titleEn,
-        department_name_ar: j.departmentName || "التقنية",
-        openings_count: j.openingsCount || 1,
-        hired_count: j.hiredCount || 0,
-        status: j.status || "open",
-        target_date: j.targetDate || "2026-06-30",
-        created_at: j.createdAt || new Date().toISOString(),
-      }));
-    } else {
-      rawRows = ((demoStore.candidates as any[]) || []).map((c: any) => ({
-        id: c.id,
-        candidate_name_ar: `${c.firstNameAr || c.nameAr || "مرشح"} ${c.lastNameAr || ""}`.trim(),
-        email: c.email,
-        phone: c.phone,
-        job_title_ar: c.jobTitleAr || c.jobTitle || "مهندس نظم",
-        department_name_ar: "تقنية المعلومات",
-        stage: c.stage,
-        rating: c.rating || 4,
-        source: c.source || "LinkedIn",
-        application_date: c.createdAt || new Date().toISOString(),
-      }));
-    }
-  } else if (reportCode.startsWith("EXP_")) {
-    rawRows = ((demoStore.expenseClaims as any[]) || []).map((c: any) => {
-      const emp = demoStore.employees.find((e) => e.id === c.employeeId);
-      return {
-        id: c.id,
-        claim_number: c.claimNumber || `EXP-${c.id.slice(0, 6)}`,
-        employee_no: emp?.employeeNo || "EMP-001",
-        employee_name_ar: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "موظف",
-        category_name_ar: c.categoryNameAr,
-        merchant_name: c.merchantName,
-        amount: c.amount,
-        vat_amount: c.vatAmount || 0,
-        total_amount: c.amount + (c.vatAmount || 0),
-        currency: c.currency || "SAR",
-        spent_at: c.spentAt,
-        status: c.status,
-        description: c.description,
-      };
-    });
-  } else if (reportCode.startsWith("AST_")) {
-    rawRows = ((demoStore.assets as any[]) || []).map((a: any) => {
-      const emp = demoStore.employees.find((e) => e.id === a.assignedToEmployeeId);
-      return {
-        id: a.id,
-        asset_tag: a.assetTag,
-        serial_number: a.serialNumber,
-        name_ar: a.nameAr,
-        category: a.category,
-        condition: a.condition || "good",
-        status: a.status,
-        location: a.location || "المقر الرئيسي",
-        assigned_employee_no: emp?.employeeNo,
-        assigned_employee_name_ar: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : undefined,
-        acquisition_date: a.acquisitionDate || "2024-01-01",
-        purchase_value: a.purchaseValue || 5000,
-      };
-    });
-  } else if (reportCode.startsWith("DOC_")) {
-    rawRows = ((demoStore.employeeDocs as any[]) || []).map((d: any) => {
-      const emp = demoStore.employees.find((e) => e.id === d.employeeId);
-      return {
-        id: d.id,
-        employee_no: emp?.employeeNo || "EMP-001",
-        employee_name_ar: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "موظف",
-        document_type: d.documentType || d.type || "إقامة",
-        document_number: d.documentNumber,
-        issue_date: d.issueDate,
-        expiry_date: d.expiryDate,
-        status: d.status,
-        confidentiality: d.confidentiality,
-      };
-    });
-  } else if (reportCode.startsWith("WKF_")) {
-    rawRows = ((demoStore.requests as any[]) || []).map((r: any) => {
-      const emp = demoStore.employees.find((e) => e.id === r.employeeId);
-      return {
-        id: r.id,
-        reference: r.reference,
-        type: r.type,
-        status: r.status,
-        employee_no: emp?.employeeNo || "EMP-001",
-        employee_name_ar: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "موظف",
-        department_name_ar: emp?.departmentName || "الإدارة العامة",
-        created_at: r.createdAt || r.created_at || new Date().toISOString(),
-        start_date: r.startDate || r.start_date || null,
-        end_date: r.endDate || r.end_date || null,
-        amount: r.amount || null,
-        reason: r.reason || "معاملة إدارية",
-      };
-    });
-  }
-
-  // Filter in memory for demo
-  let filtered = [...rawRows];
-  if (filters.search) {
-    const q = filters.search.toLowerCase();
-    filtered = filtered.filter((row) =>
-      Object.values(row).some((val) => typeof val === "string" && val.toLowerCase().includes(q)),
-    );
-  }
-  if (filters.status && filters.status !== "all") {
-    filtered = filtered.filter((row) => String(row.status || "").toLowerCase() === filters.status?.toLowerCase());
-  }
-
-  const total = filtered.length;
-  const offset = (page - 1) * pageSize;
-  const paged = filtered.slice(offset, offset + pageSize);
 
   return {
     reportCode,
     companyId,
     page,
     pageSize,
-    totalCount: total,
-    totalPages: Math.ceil(total / pageSize),
-    data: paged,
+    totalCount: 0,
+    totalPages: 0,
+    data: [],
     sensitiveDataMasked: !canViewSensitive,
   };
 }
 
 // ============================================================================
 // 6. REACT HOOKS
+// ============================================================================
 // ============================================================================
 
 export function useExecutiveKpis(filters?: { startDate?: string; endDate?: string }) {

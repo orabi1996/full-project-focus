@@ -31,7 +31,9 @@ import {
   XCircle,
   FileText,
   Filter,
+  Settings,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -86,6 +88,7 @@ interface TalentViewProps {
 }
 
 export const TalentView: React.FC<TalentViewProps> = ({ companyId: propCompanyId }) => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
   const [searchTerm, setSearchTerm] = useState("");
@@ -358,6 +361,11 @@ export const TalentView: React.FC<TalentViewProps> = ({ companyId: propCompanyId
               <Compass className="h-6 w-6" />
             </div>
             <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+                  شاشة العمليات وتنفيذ خطط التعاقب والتنقل
+                </span>
+              </div>
               <h1 className="text-2xl font-black tracking-tight text-foreground">
                 المواهب وتخطيط التعاقب والتنقل الداخلي
               </h1>
@@ -370,6 +378,16 @@ export const TalentView: React.FC<TalentViewProps> = ({ companyId: propCompanyId
 
         {/* Global Quick Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate({ to: "/setup?tab=performance_talent_setup" as any })}
+            className="gap-1.5 text-xs font-bold"
+          >
+            <Settings className="h-4 w-4 text-primary" />
+            تهيئة المسارات وأطر الكفاءات
+          </Button>
+
           <Button
             size="sm"
             variant="outline"

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { ShieldCheck, Clock, MapPin, Save, AlertTriangle, Layers, Globe, CheckCircle2, XCircle } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { ShieldCheck, Clock, MapPin, Save, AlertTriangle, Layers, Globe, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { toast } from "sonner";
@@ -177,6 +178,7 @@ const TriStateToggle: React.FC<TriStateToggleProps> = ({
 };
 
 export const AttendancePolicySetupPanel: React.FC = () => {
+  const navigate = useNavigate();
   const { policy, isLoading } = useAttendancePolicies();
   const { updatePolicy } = useAttendanceMutations();
   const [form, setForm] = useState<Partial<AttendancePolicy>>({});
@@ -263,26 +265,42 @@ export const AttendancePolicySetupPanel: React.FC = () => {
             <Clock className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="font-black text-sm text-foreground">
-              تهيئة سياسات وقواعد الحضور والعمل
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-black text-sm md:text-base text-foreground">
+                تهيئة سياسات وقواعد الحضور والعمل
+              </h2>
+              <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+                شاشة التهيئة والحوكمة
+              </Badge>
+            </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              تحديد ساعات العمل الرسمية، فترات السماح، مضاعفات العمل الإضافي، ونطاق السياج الجغرافي GPS
+              تحديد ساعات العمل الرسمية، فترات السماح، مضاعفات العمل الإضافي، ونطاق السياج الجغرافي GPS بمعزل عن سجلات الدوام اليومية
             </p>
           </div>
         </div>
 
-        {policy ? (
-          <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-300 rounded-full text-xs font-bold gap-1 self-start sm:self-center">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            النسخة المعتمدة v{policy.version} (سارية من {policy.effectiveFrom})
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300 rounded-full text-xs font-bold gap-1 self-start sm:self-center">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            لم يتم حفظ سياسة بعد
-          </Badge>
-        )}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {policy ? (
+            <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-300 rounded-full text-xs font-bold gap-1">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              النسخة المعتمدة v{policy.version} (سارية من {policy.effectiveFrom})
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300 rounded-full text-xs font-bold gap-1">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              لم يتم حفظ سياسة بعد
+            </Badge>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate({ to: "/attendance" })}
+            className="rounded-full text-xs font-bold gap-1.5 h-9 px-4 cursor-pointer border-border/80 hover:bg-secondary"
+          >
+            الانتقال لسجل الدوام والبصمة اليومي
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Starting Templates Disclaimer & Selector */}

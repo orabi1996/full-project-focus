@@ -22,35 +22,18 @@ import {
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
-import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
 
 export function useMyLeaveBalances(year?: number, employeeId?: string) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
   const targetYear = year || new Date().getFullYear();
-
-  const demoBalances = useDemoStore((s) => s.leaveBalances);
 
   const query = useQuery({
     queryKey: queryKeys.leaves.myBalances(targetYear),
     queryFn: () => fetchMyLeaveBalancesRecord(targetYear, employeeId),
-    enabled: isLive,
+    enabled: Boolean(session),
     staleTime: 60 * 1000,
   });
-
-  if (!isLive) {
-    const filtered = employeeId
-      ? demoBalances.filter((b) => b.employeeId === employeeId)
-      : demoBalances;
-    return {
-      balances: filtered,
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: async () => ({ data: filtered }),
-    };
-  }
 
   return {
     balances: query.data ?? [],
@@ -66,28 +49,15 @@ export function useCompanyLeaveBalances(
   departmentId?: string,
   options?: { enabled?: boolean },
 ) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
   const targetYear = year || new Date().getFullYear();
-
-  const demoBalances = useDemoStore((s) => s.leaveBalances);
 
   const query = useQuery({
     queryKey: queryKeys.leaves.adminBalances({ year: targetYear, departmentId }),
     queryFn: () => fetchCompanyLeaveBalancesRecord(targetYear, departmentId),
-    enabled: isLive && (options?.enabled ?? true),
+    enabled: Boolean(session) && (options?.enabled ?? true),
     staleTime: 60 * 1000,
   });
-
-  if (!isLive) {
-    return {
-      balances: demoBalances,
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: async () => ({ data: demoBalances }),
-    };
-  }
 
   return {
     balances: query.data ?? [],
@@ -99,35 +69,15 @@ export function useCompanyLeaveBalances(
 }
 
 export function useMyLeaveRequests(year?: number) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
   const targetYear = year || new Date().getFullYear();
-
-  const demoRequests = useDemoStore((s) => s.requests);
 
   const query = useQuery({
     queryKey: ["my-leave-requests", targetYear],
     queryFn: () => fetchMyLeaveRequestsRecord(targetYear),
-    enabled: isLive,
+    enabled: Boolean(session),
     staleTime: 60 * 1000,
   });
-
-  if (!isLive) {
-    const filtered = demoRequests.filter(
-      (r) =>
-        r.type === "leave" &&
-        (!targetYear ||
-          (r.payload?.startDate &&
-            new Date(String(r.payload.startDate)).getFullYear() === targetYear)),
-    );
-    return {
-      requests: filtered,
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: async () => ({ data: filtered }),
-    };
-  }
 
   return {
     requests: query.data ?? [],
@@ -139,17 +89,14 @@ export function useMyLeaveRequests(year?: number) {
 }
 
 export function useLeaveTypes() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
   const bootstrap = useBootstrapData();
-  const demoTypes = useDemoStore((s) => s.leaveTypes);
 
-  const leaveTypes = isLive ? (bootstrap.leaveTypes as LeaveTypePolicy[]) : demoTypes;
+  const leaveTypes = (bootstrap.leaveTypes as LeaveTypePolicy[]) ?? [];
 
   return {
     leaveTypes,
-    isLoading: isLive ? bootstrap.isLoading : false,
-    isError: isLive ? bootstrap.isError : false,
+    isLoading: bootstrap.isLoading,
+    isError: bootstrap.isError,
     error: queryError(bootstrap),
     refetch: bootstrap.refreshCoreData,
   };
@@ -164,26 +111,14 @@ export function useLeaveTeamCalendar(
   endDate: string,
   departmentId?: string,
 ) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
 
   const query = useQuery({
     queryKey: queryKeys.leaves.teamCalendar({ startDate, endDate, departmentId }),
     queryFn: () => fetchTeamLeaveCalendarRecord(startDate, endDate, departmentId),
-    enabled: isLive && Boolean(startDate && endDate),
+    enabled: Boolean(session && startDate && endDate),
     staleTime: 60 * 1000,
   });
-
-  if (!isLive) {
-    const demoItems: TeamLeaveCalendarItem[] = [];
-    return {
-      calendarItems: demoItems,
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: async () => ({ data: demoItems }),
-    };
-  }
 
   return {
     calendarItems: query.data ?? [],
@@ -195,30 +130,20 @@ export function useLeaveTeamCalendar(
 }
 
 export function useLeaves() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
   const bootstrap = useBootstrapData();
-  const demoData = useDemoStore((s) => ({
-    leaveTypes: s.leaveTypes,
-    leaveBalances: s.leaveBalances,
-  }));
-
-  const leaveTypes = isLive ? (bootstrap.leaveTypes as LeaveTypePolicy[]) : demoData.leaveTypes;
-  const leaveBalances = isLive ? bootstrap.leaveBalances : demoData.leaveBalances;
 
   return {
-    leaveTypes,
-    leaveBalances,
-    isLoading: isLive ? bootstrap.isLoading : false,
-    isError: isLive ? bootstrap.isError : false,
-    error: isLive ? bootstrap.error : null,
+    leaveTypes: (bootstrap.leaveTypes as LeaveTypePolicy[]) ?? [],
+    leaveBalances: bootstrap.leaveBalances ?? [],
+    isLoading: bootstrap.isLoading,
+    isError: bootstrap.isError,
+    error: bootstrap.error,
     refetch: bootstrap.refreshCoreData,
   };
 }
 
 export function useLeaveMutations() {
-  const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
+  const mode: MutationDataMode = "live";
   const queryClient = useQueryClient();
 
   const applyLeave = useCallback(
@@ -237,10 +162,7 @@ export function useLeaveMutations() {
       },
       employeeId?: string,
     ): Promise<boolean> => {
-      const empId = employeeId || demoStore.employees[0]?.id || "emp-01";
-      const targetBalanceIndex = demoStore.leaveBalances.findIndex(
-        (b) => b.employeeId === empId && b.leaveTypeId === payload.leaveTypeId,
-      );
+      const empId = employeeId || "";
 
       const result = await executeReliableMutation({
         mode,
@@ -260,15 +182,6 @@ export function useLeaveMutations() {
           });
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
-          return true;
-        },
-        demoOperation: () => {
-          const days = payload.totalDays || 1;
-          if (targetBalanceIndex >= 0) {
-            demoStore.leaveBalances[targetBalanceIndex].reservedDays += days;
-            demoStore.leaveBalances[targetBalanceIndex].availableBalance -= days;
-          }
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -388,11 +301,6 @@ export function useLeaveMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
           return true;
         },
-        demoOperation: () => {
-          demoStore.leaveTypes = [...demoStore.leaveTypes, newType];
-          demoStore.notify();
-          return true;
-        },
         onCommitted: () => {
           toast.success("تم إضافة نوع وسياسة الإجازة بنجاح");
         },
@@ -421,20 +329,6 @@ export function useLeaveMutations() {
           await adjustLeaveBalanceRecord(employeeId, leaveTypeId, days, reason, year);
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.leaveBalances = demoStore.leaveBalances.map((b) => {
-            if (b.employeeId === employeeId && b.leaveTypeId === leaveTypeId) {
-              return {
-                ...b,
-                accruedDays: b.accruedDays + days,
-                availableBalance: b.availableBalance + days,
-              };
-            }
-            return b;
-          });
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {

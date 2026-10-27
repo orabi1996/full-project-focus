@@ -8,7 +8,7 @@ import type {
   ServiceRequest,
 } from "../../types";
 import { useAuth } from "../auth/AuthContext";
-import { demoStore, useDemoStore } from "../domains/demo/demo-store";
+
 import { toast } from "sonner";
 import { useCallback } from "react";
 
@@ -365,6 +365,9 @@ export async function revokeDelegationRuleAtomicRecord(
   return { ok: true, id: (data as any).id, status: (data as any).status };
 }
 
+export const createDelegationRuleRecord = createDelegationRuleAtomicRecord;
+export const revokeDelegationRuleRecord = revokeDelegationRuleAtomicRecord;
+
 export async function saveApprovalChainRecord(
   chainData: Record<string, unknown>,
 ): Promise<{ ok: boolean; id: string; version: number }> {
@@ -414,139 +417,128 @@ export async function bulkDecideWorkflowRequestsRecord(payload: {
 // ----------------------------------------------------------------------------
 
 export function useApprovalInbox(filters: WorkflowRequestFilters = {}) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoRequests = useDemoStore((s) => s.requests);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   return useQuery({
     queryKey: queryKeys.workflow.inbox(filters as Record<string, unknown>),
     queryFn: async () => {
       if (!isLive) {
-        const pending = demoRequests.filter((r) => r.status === "pending_approval");
         return {
-          data: pending,
-          totalCount: pending.length,
+          data: [],
+          totalCount: 0,
           page: filters.page || 1,
           pageSize: filters.pageSize || 20,
         };
       }
       return fetchWorkflowInboxRecord(filters);
     },
+    enabled: isLive,
     staleTime: 30_000,
   });
 }
 
 export function useMyRequests(filters: WorkflowRequestFilters = {}) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoRequests = useDemoStore((s) => s.requests);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   return useQuery({
     queryKey: queryKeys.workflow.myRequests(filters as Record<string, unknown>),
     queryFn: async () => {
       if (!isLive) {
         return {
-          data: demoRequests,
-          totalCount: demoRequests.length,
+          data: [],
+          totalCount: 0,
           page: filters.page || 1,
           pageSize: filters.pageSize || 20,
         };
       }
       return fetchMyWorkflowRequestsRecord(filters);
     },
+    enabled: isLive,
     staleTime: 30_000,
   });
 }
 
 export function useRequestDetail(id: string | null) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoRequests = useDemoStore((s) => s.requests);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   return useQuery({
     queryKey: queryKeys.workflow.request(id || "none"),
     queryFn: async () => {
-      if (!id) return null;
-      if (!isLive) {
-        return demoRequests.find((r) => r.id === id) || null;
-      }
+      if (!id || !isLive) return null;
       return fetchWorkflowRequestDetailRecord(id);
     },
-    enabled: Boolean(id),
+    enabled: Boolean(id) && isLive,
   });
 }
 
 export function useApprovalChains(filters: { companyId?: string; status?: string } = {}) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoChains = useDemoStore((s) => s.approvalChains);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   return useQuery({
     queryKey: queryKeys.workflow.chains(filters as Record<string, unknown>),
     queryFn: async () => {
-      if (!isLive) {
-        return demoChains;
-      }
+      if (!isLive) return [];
       return fetchApprovalChainsRecord(filters);
     },
+    enabled: isLive,
     staleTime: 60_000,
   });
 }
 
 export function useMyDelegations() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoDelegations = useDemoStore((s) => s.delegationRules);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   return useQuery({
     queryKey: queryKeys.workflow.myDelegations(),
     queryFn: async () => {
-      if (!isLive) {
-        return demoDelegations;
-      }
+      if (!isLive) return [];
       return fetchMyDelegationsRecord();
     },
+    enabled: isLive,
     staleTime: 60_000,
   });
 }
 
 export function useDelegationsAdmin(filters: { companyId?: string } = {}) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoDelegations = useDemoStore((s) => s.delegationRules);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   return useQuery({
     queryKey: queryKeys.workflow.delegations(filters as Record<string, unknown>),
     queryFn: async () => {
-      if (!isLive) {
-        return demoDelegations;
-      }
+      if (!isLive) return [];
       return fetchDelegationsAdminRecord(filters);
     },
+    enabled: isLive,
     staleTime: 60_000,
   });
 }
 
 export function useWorkflowKpis(companyId?: string) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoRequests = useDemoStore((s) => s.requests);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
 
   return useQuery({
     queryKey: queryKeys.workflow.kpis(companyId),
     queryFn: async () => {
       if (!isLive) {
         return {
-          inboxPending: demoRequests.filter((r) => r.status === "pending_approval").length,
-          myPending: demoRequests.filter((r) => r.status === "pending_approval").length,
-          myApproved: demoRequests.filter((r) => r.status === "approved").length,
-          myRejected: demoRequests.filter((r) => r.status === "rejected").length,
-          myReturned: demoRequests.filter((r) => r.status === "returned").length,
+          inboxPending: 0,
+          myPending: 0,
+          myApproved: 0,
+          myRejected: 0,
+          myReturned: 0,
           overdueCount: 0,
         };
       }
       return fetchWorkflowKpisRecord(companyId);
     },
+    enabled: isLive,
     staleTime: 30_000,
   });
 }
@@ -557,8 +549,6 @@ export function useWorkflowKpis(companyId?: string) {
 
 export function useWorkflowEngineMutations() {
   const queryClient = useQueryClient();
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
 
   const invalidateWorkflowQueries = useCallback(async () => {
     await Promise.all([
@@ -573,40 +563,6 @@ export function useWorkflowEngineMutations() {
       onBehalfOfEmployeeId?: string;
     }): Promise<boolean> => {
       try {
-        if (!isLive) {
-          const emp = demoStore.employees[0];
-          const newReq: ServiceRequest = {
-            id: `req-${Date.now()}`,
-            referenceNo: `REQ-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-            type: payload.type,
-            requesterId: emp?.id || "emp-01",
-            requesterName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "الموظف",
-            requesterJobTitle: emp?.jobTitleAr || "موظف",
-            status: "pending_approval",
-            currentStepIndex: 1,
-            totalSteps: 2,
-            currentApproverRole: "المدير المباشر",
-            submittedAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            payload: payload.payload as any,
-            timeline: [
-              {
-                id: `tl-${Date.now()}`,
-                stepNumber: 1,
-                actorId: emp?.id || "emp-01",
-                actorName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "الموظف",
-                actorRole: "مقدم الطلب",
-                action: "submitted",
-                timestamp: new Date().toISOString(),
-              },
-            ],
-          };
-          demoStore.requests = [newReq, ...demoStore.requests];
-          demoStore.notify();
-          toast.success("تم إرسال الطلب بنجاح وهو الآن قيد المراجعة والاعتماد");
-          return true;
-        }
-
         await submitWorkflowRequestRecord({
           requestType: payload.type,
           payload: payload.payload,
@@ -621,7 +577,7 @@ export function useWorkflowEngineMutations() {
         return false;
       }
     },
-    [isLive, invalidateWorkflowQueries],
+    [invalidateWorkflowQueries],
   );
 
   const decideRequest = useCallback(
@@ -632,24 +588,6 @@ export function useWorkflowEngineMutations() {
       internalNote?: string,
     ): Promise<boolean> => {
       try {
-        if (!isLive) {
-          demoStore.requests = demoStore.requests.map((r) =>
-            r.id === requestId
-              ? {
-                  ...r,
-                  status: decision === "approved" ? "approved" : decision,
-                  decisionNote: note,
-                  updatedAt: new Date().toISOString(),
-                }
-              : r,
-          );
-          demoStore.notify();
-          const label =
-            decision === "approved" ? "تم اعتماد الطلب بنجاح" : decision === "rejected" ? "تم رفض الطلب" : "تمت إعادة الطلب للاستكمال";
-          toast.success(label);
-          return true;
-        }
-
         await decideWorkflowRequestRecord({
           requestId,
           decision,
@@ -667,7 +605,7 @@ export function useWorkflowEngineMutations() {
         return false;
       }
     },
-    [isLive, invalidateWorkflowQueries],
+    [invalidateWorkflowQueries],
   );
 
   const resubmitRequest = useCallback(
@@ -677,22 +615,6 @@ export function useWorkflowEngineMutations() {
       note?: string,
     ): Promise<boolean> => {
       try {
-        if (!isLive) {
-          demoStore.requests = demoStore.requests.map((r) =>
-            r.id === requestId
-              ? {
-                  ...r,
-                  status: "pending_approval",
-                  payload: payload as any,
-                  updatedAt: new Date().toISOString(),
-                }
-              : r,
-          );
-          demoStore.notify();
-          toast.success("تمت إعادة تقديم الطلب للمراجعة بنجاح");
-          return true;
-        }
-
         await resubmitWorkflowRequestRecord({
           requestId,
           payload,
@@ -707,27 +629,12 @@ export function useWorkflowEngineMutations() {
         return false;
       }
     },
-    [isLive, invalidateWorkflowQueries],
+    [invalidateWorkflowQueries],
   );
 
   const withdrawRequest = useCallback(
     async (requestId: string, reason: string): Promise<boolean> => {
       try {
-        if (!isLive) {
-          demoStore.requests = demoStore.requests.map((r) =>
-            r.id === requestId
-              ? {
-                  ...r,
-                  status: "cancelled",
-                  updatedAt: new Date().toISOString(),
-                }
-              : r,
-          );
-          demoStore.notify();
-          toast.success("تم سحب الطلب بنجاح");
-          return true;
-        }
-
         await withdrawWorkflowRequestRecord({
           requestId,
           reason,
@@ -741,7 +648,7 @@ export function useWorkflowEngineMutations() {
         return false;
       }
     },
-    [isLive, invalidateWorkflowQueries],
+    [invalidateWorkflowQueries],
   );
 
   const createDelegation = useCallback(
@@ -754,26 +661,6 @@ export function useWorkflowEngineMutations() {
       reason?: string;
     }): Promise<boolean> => {
       try {
-        if (!isLive) {
-          const newRule: DelegationRule = {
-            id: `del-${Date.now()}`,
-            delegatorId: demoStore.employees[0]?.id || "emp-01",
-            delegatorName: "المدير المباشر",
-            delegateId: rule.delegateId,
-            delegateName: demoStore.employees.find((e) => e.id === rule.delegateId)?.firstNameAr || "المفوض",
-            startDate: rule.startDate,
-            endDate: rule.endDate,
-            reason: rule.reason || "",
-            status: "active",
-            scope: rule.scope as any,
-            createdAt: new Date().toISOString(),
-          };
-          demoStore.delegationRules = [newRule, ...demoStore.delegationRules];
-          demoStore.notify();
-          toast.success("تم تفعيل التفويض بنجاح");
-          return true;
-        }
-
         await createDelegationRuleAtomicRecord(rule);
         await invalidateWorkflowQueries();
         toast.success("تم تفعيل التفويض بنجاح");
@@ -783,21 +670,12 @@ export function useWorkflowEngineMutations() {
         return false;
       }
     },
-    [isLive, invalidateWorkflowQueries],
+    [invalidateWorkflowQueries],
   );
 
   const revokeDelegation = useCallback(
     async (ruleId: string): Promise<boolean> => {
       try {
-        if (!isLive) {
-          demoStore.delegationRules = demoStore.delegationRules.map((d) =>
-            d.id === ruleId ? { ...d, status: "revoked" } : d,
-          );
-          demoStore.notify();
-          toast.success("تم إلغاء التفويض بنجاح");
-          return true;
-        }
-
         await revokeDelegationRuleAtomicRecord(ruleId);
         await invalidateWorkflowQueries();
         toast.success("تم إلغاء التفويض بنجاح");
@@ -807,30 +685,12 @@ export function useWorkflowEngineMutations() {
         return false;
       }
     },
-    [isLive, invalidateWorkflowQueries],
+    [invalidateWorkflowQueries],
   );
 
   const saveChain = useCallback(
     async (chainData: Record<string, unknown>): Promise<boolean> => {
       try {
-        if (!isLive) {
-          const newChain: ApprovalChain = {
-            id: `chain-${Date.now()}`,
-            requestType: chainData.request_type as RequestCategory,
-            nameAr: chainData.name_ar as string,
-            nameEn: (chainData.name_en as string) || (chainData.name_ar as string),
-            scopeType: (chainData.scope_type as any) || "all_employees",
-            scopeValues: (chainData.scope_values as any) || [],
-            steps: (chainData.steps as any) || [],
-            isDefault: Boolean(chainData.is_default),
-            status: "active",
-          };
-          demoStore.approvalChains = [newChain, ...demoStore.approvalChains];
-          demoStore.notify();
-          toast.success("تم حفظ وتفعيل مسار الاعتماد بنجاح");
-          return true;
-        }
-
         await saveApprovalChainRecord(chainData);
         await invalidateWorkflowQueries();
         toast.success("تم حفظ وتفعيل مسار الاعتماد بنجاح");
@@ -840,19 +700,12 @@ export function useWorkflowEngineMutations() {
         return false;
       }
     },
-    [isLive, invalidateWorkflowQueries],
+    [invalidateWorkflowQueries],
   );
 
   const archiveChain = useCallback(
     async (chainId: string): Promise<boolean> => {
       try {
-        if (!isLive) {
-          demoStore.approvalChains = demoStore.approvalChains.filter((c) => c.id !== chainId);
-          demoStore.notify();
-          toast.success("تم أرشفة مسار الاعتماد");
-          return true;
-        }
-
         await archiveApprovalChainRecord(chainId);
         await invalidateWorkflowQueries();
         toast.success("تم أرشفة مسار الاعتماد");
@@ -862,7 +715,7 @@ export function useWorkflowEngineMutations() {
         return false;
       }
     },
-    [isLive, invalidateWorkflowQueries],
+    [invalidateWorkflowQueries],
   );
 
   const bulkDecide = useCallback(
@@ -872,15 +725,6 @@ export function useWorkflowEngineMutations() {
       note: string,
     ): Promise<{ ok: boolean; successCount: number; failureCount: number }> => {
       try {
-        if (!isLive) {
-          demoStore.requests = demoStore.requests.map((r) =>
-            requestIds.includes(r.id) ? { ...r, status: decision === "approved" ? "approved" : "rejected" } : r,
-          );
-          demoStore.notify();
-          toast.success(`تمت معالجة ${requestIds.length} طلبات بنجاح`);
-          return { ok: true, successCount: requestIds.length, failureCount: 0 };
-        }
-
         const res = await bulkDecideWorkflowRequestsRecord({
           requestIds,
           decision,
@@ -899,7 +743,7 @@ export function useWorkflowEngineMutations() {
         return { ok: false, successCount: 0, failureCount: requestIds.length };
       }
     },
-    [isLive, invalidateWorkflowQueries],
+    [invalidateWorkflowQueries],
   );
 
   return {

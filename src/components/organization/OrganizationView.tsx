@@ -5,6 +5,7 @@ import { CompanyProfilePanel } from "./CompanyProfilePanel";
 import { WorkforcePlanningView } from "../workforce/WorkforcePlanningView";
 import { useApp } from "../../lib/context/AppContext";
 import { canAccessModule, canManageModule } from "../../lib/auth/permissions";
+import { useNavigate } from "@tanstack/react-router";
 import { isEmployedWorkforce } from "../../lib/domains/organization";
 import {
   Building2,
@@ -32,6 +33,7 @@ import {
   Compass,
   ArrowUpDown,
   Building,
+  Settings,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -92,6 +94,7 @@ export const OrganizationView: React.FC = () => {
     isSaving,
   } = useApp();
 
+  const navigate = useNavigate();
   const canManage = canManageModule(currentRole, "organization");
   const [activeTab, setActiveTab] = useState("structure");
 
@@ -726,6 +729,15 @@ export const OrganizationView: React.FC = () => {
 
         {canManage && (
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate({ to: "/setup?tab=company" as any })}
+              className="rounded-full font-bold text-xs gap-1.5 border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 h-10 px-4 cursor-pointer"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              مركز تأسيس المنشأة
+            </Button>
             <Button
               onClick={() => {
                 resetDeptForm();
@@ -1699,6 +1711,28 @@ export const OrganizationView: React.FC = () => {
 
         {/* ==================== TAB 7: COMPANY PROFILE ==================== */}
         <TabsContent value="company" className="space-y-4 pt-4">
+          <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                <Settings className="h-4.5 w-4.5 text-amber-600" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-foreground">مركز التهيئة وتأسيس الكيان القانوني</h4>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                  لمراجعة نسبة جاهزية تأسيس المنشأة واستكمال ربط السجلات التجارية والحسابات البنكية عبر مركز التهيئة:
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate({ to: "/setup?tab=company" as any })}
+              className="h-8 text-[11px] font-bold rounded-xl gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 shrink-0"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              فتح شاشة تهيئة المنشأة
+            </Button>
+          </div>
           <CompanyProfilePanel />
         </TabsContent>
 

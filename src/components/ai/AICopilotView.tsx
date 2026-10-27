@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import {
   Sparkles,
   Send,
@@ -40,6 +41,7 @@ import { GOVERNED_AI_TOOLS } from "../../lib/ai/tools/registry";
 import { toast } from "sonner";
 
 export function AICopilotView() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
     "copilot" | "insights" | "knowledge" | "evaluations" | "observability" | "settings"
   >("copilot");
@@ -89,7 +91,15 @@ export function AICopilotView() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/setup?tab=ai_governance" as any })}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-card border border-border/80 text-foreground hover:bg-secondary cursor-pointer shadow-xs transition-colors"
+          >
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+            تهيئة سياسات ومزودي الذكاء الاصطناعي
+          </button>
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
             <ShieldCheck className="h-3.5 w-3.5" />
             نظام آمن ومحكوم بالكامل

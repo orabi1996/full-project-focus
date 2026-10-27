@@ -30,7 +30,9 @@ import {
   FileText,
   Filter,
   Check,
+  Settings,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -80,6 +82,7 @@ interface LearningViewProps {
 }
 
 export const LearningView: React.FC<LearningViewProps> = ({ companyId: propCompanyId }) => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
   const [searchTerm, setSearchTerm] = useState("");
@@ -272,6 +275,11 @@ export const LearningView: React.FC<LearningViewProps> = ({ companyId: propCompa
               <GraduationCap className="h-6 w-6" />
             </div>
             <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+                  شاشة العمليات والجلسات التدريبية اليومية
+                </span>
+              </div>
               <h1 className="text-2xl font-black text-foreground tracking-tight">
                 منظومة التعليم، المهارات والشهادات الاحترافية
               </h1>
@@ -283,6 +291,16 @@ export const LearningView: React.FC<LearningViewProps> = ({ companyId: propCompa
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate({ to: "/setup?tab=learning_er_setup" as any })}
+            className="gap-1.5 text-xs font-bold"
+          >
+            <Settings className="h-4 w-4 text-primary" />
+            تهيئة التدريب الإلزامي ودليل المهارات
+          </Button>
+
           <Button
             variant="outline"
             size="sm"

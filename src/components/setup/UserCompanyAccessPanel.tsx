@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
+import { useNavigate } from "@tanstack/react-router";
 import {
   Users,
   ShieldCheck,
@@ -11,6 +12,7 @@ import {
   Plus,
   RefreshCw,
   AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -38,6 +40,7 @@ export interface UserAccessItem {
 
 export const UserCompanyAccessPanel: React.FC = () => {
   const { company, currentRole, employees, roles } = useApp();
+  const navigate = useNavigate();
   const canManage = currentRole === "super_admin";
 
   const [accessList, setAccessList] = useState<UserAccessItem[]>([]);
@@ -150,16 +153,30 @@ export const UserCompanyAccessPanel: React.FC = () => {
       {/* Header Info */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
         <div>
-          <h2 className="text-base font-black text-foreground flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            حوكمة وربط المستخدمين بشركة «{company?.legalNameAr || "الأندلس"}»
-          </h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-base font-black text-foreground flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              حوكمة وربط المستخدمين بشركة «{company?.legalNameAr || "الأندلس"}»
+            </h2>
+            <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[10px] font-bold">
+              شاشة التهيئة والحوكمة
+            </Badge>
+          </div>
           <p className="text-xs text-muted-foreground mt-1">
             ربط صريح بين حسابات الدخول المعتمدة ونطاق الشركة. لا يتم الاعتماد على أول شركة مسجلة ولا على حقول قابلة للتعديل.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate({ to: "/rbac" })}
+            className="rounded-full text-xs font-bold gap-1.5 h-9 px-3.5 border-primary/30 text-primary hover:bg-primary/5 cursor-pointer"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            الانتقال لمصفوفة الصلاحيات والأدوار
+          </Button>
           <Button
             size="sm"
             variant="outline"

@@ -34,7 +34,9 @@ import {
   ChevronRight,
   Building2,
   UserPlus,
+  Settings,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { useApp } from "@/lib/context/AppContext";
 import {
   useWorkforcePlans,
@@ -855,6 +857,7 @@ interface WorkforcePlanningViewProps {
 }
 
 export function WorkforcePlanningView({ companyId }: WorkforcePlanningViewProps) {
+  const navigate = useNavigate();
   const { company } = useApp();
   const effectiveCompanyId = companyId || company?.id;
 
@@ -903,13 +906,27 @@ export function WorkforcePlanningView({ companyId }: WorkforcePlanningViewProps)
             <BarChart3 className="h-5 w-5" />
           </div>
           <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+                شاشة العمليات ومتابعة الفجوات التشغيلية
+              </span>
+            </div>
             <h2 className="text-base font-black text-foreground">التخطيط الاستراتيجي للقوى العاملة</h2>
             <p className="text-xs text-muted-foreground font-medium">
               خطط الموارد البشرية • ميزانية الرواتب • الاحتياج البشري • التوقعات الشهرية
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate({ to: "/setup?tab=org" as any })}
+            className="rounded-xl text-xs font-bold gap-1.5"
+          >
+            <Settings className="h-3.5 w-3.5 text-primary" />
+            تهيئة الهيكل والمقار
+          </Button>
           <Button
             size="sm"
             variant="outline"

@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV } from "../../lib/utils/export-helpers";
 import { canManageModule } from "../../lib/auth/permissions";
@@ -72,6 +73,7 @@ interface NewItemLine {
 
 export const ExpensesView: React.FC = () => {
   const { currentUser, currentRole, language, t } = useApp();
+  const navigate = useNavigate();
   const canManage = canManageModule(currentRole, "expenses");
   const isFinanceOrAdmin = [
     "super_admin",
@@ -562,11 +564,14 @@ export const ExpensesView: React.FC = () => {
       {/* Header */}
       <div className="classera-page-header">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
               <IconSymbol name="receipt_long" source="material" filled size={16} />
               منظومة المصروفات والتعويضات المالية
             </span>
+            <Badge className="text-[11px] font-bold border-emerald-500/30 text-emerald-600 bg-emerald-500/10 rounded-full px-2.5 py-0.5">
+              شاشة العمليات والمطالبات المالية اليومية
+            </Badge>
           </div>
           <h1 className="text-2xl font-black text-foreground mt-2">
             إدارة النفقات والتعويضات المؤسسية
@@ -577,6 +582,17 @@ export const ExpensesView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap gap-2.5">
+          {canManage && (
+            <Button
+              onClick={() => navigate({ to: "/setup?tab=expenses_setup" as any })}
+              variant="outline"
+              size="sm"
+              className="rounded-full font-bold text-xs gap-1.5 border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 h-10 px-4 shadow-xs"
+            >
+              <Settings className="h-4 w-4" />
+              تهيئة فئات وسياسات النفقات
+            </Button>
+          )}
           {canSubmitClaim && (
             <Button
               onClick={() => setIsClaimModalOpen(true)}
@@ -1185,6 +1201,28 @@ export const ExpensesView: React.FC = () => {
         {/* TAB 3: CATEGORIES & POLICIES */}
         {/* ==================================================================== */}
         <TabsContent value="policies" className="space-y-6">
+          <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                <Settings className="h-4.5 w-4.5 text-amber-600" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-foreground">تهيئة فئات وسياسات النفقات في مركز التهيئة</h4>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                  لضبط حدود التحذير والمنع، السقوف الائتمانية، ورموز حسابات الأستاذ العام (GL) من مركز التهيئة الموحد للمنشأة:
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate({ to: "/setup?tab=expenses_setup" as any })}
+              className="h-8 text-[11px] font-bold rounded-xl gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 shrink-0"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              فتح شاشة تهيئة النفقات
+            </Button>
+          </div>
           {/* Categories Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             {categories.map((cat) => (

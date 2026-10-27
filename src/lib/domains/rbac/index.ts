@@ -6,21 +6,15 @@ import {
   type PermissionGroup,
   type ScreenActionPermissions,
 } from "../../auth/rbac-definitions";
-import { useAuth } from "../../auth/AuthContext";
 import { createRoleDefinitionRecord } from "../../data/operational-repository";
-import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
+import { executeReliableMutation } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
-import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
 
 export function useRbac() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
   const bootstrap = useBootstrapData();
-  const demoRoles = useDemoStore((s) => s.roles);
-
-  const roles = isLive ? bootstrap.roles : demoRoles;
+  const roles = bootstrap.roles;
 
   const [permissionGroups, setPermissionGroups] = useState<PermissionGroup[]>(() => {
     try {
@@ -72,9 +66,9 @@ export function useRbac() {
     userPermissionOverrides,
     setPermissionGroups,
     setUserPermissionOverrides,
-    isLoading: isLive ? bootstrap.isLoading : false,
-    isError: isLive ? bootstrap.isError : false,
-    error: isLive ? bootstrap.error : null,
+    isLoading: bootstrap.isLoading,
+    isError: bootstrap.isError,
+    error: bootstrap.error,
     refetch: bootstrap.refreshCoreData,
   };
 }
@@ -85,8 +79,6 @@ export function useRbacMutations(
     React.SetStateAction<Record<string, Record<string, ScreenActionPermissions>>>
   >,
 ) {
-  const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const addRole = useCallback(
@@ -103,7 +95,7 @@ export function useRbacMutations(
       };
 
       const result = await executeReliableMutation<RoleDefinition>({
-        mode,
+        mode: "live",
         mutationKey: `create-role-${roleInput.code}`,
         operation: async () => {
           await createRoleDefinitionRecord({
@@ -119,11 +111,6 @@ export function useRbacMutations(
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return newRole;
         },
-        demoOperation: () => {
-          demoStore.roles = [...demoStore.roles, newRole];
-          demoStore.notify();
-          return newRole;
-        },
         onCommitted: () => {
           toast.success("تم حفظ الدور الوظيفي بنجاح");
         },
@@ -137,7 +124,7 @@ export function useRbacMutations(
       }
       return result.data;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const createPermissionGroup = useCallback(

@@ -52,7 +52,10 @@ import {
   Send,
   PlugZap,
   Lock,
+  Settings,
+  ExternalLink,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { GenerateWpsModal } from "./GenerateWpsModal";
 import { ComplianceDrilldownModal } from "./ComplianceDrilldownModal";
@@ -60,6 +63,7 @@ import { GovernmentConnectorOperationsModal } from "./GovernmentConnectorOperati
 
 export function CountryPacksView() {
   const { company, payrollRuns = [] } = useBootstrapData();
+  const navigate = useNavigate();
   const companyId = company?.id || "";
 
   const [activeTab, setActiveTab] = useState<string>("overview");
@@ -222,7 +226,25 @@ export function CountryPacksView() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+            onClick={() => navigate({ to: "/setup?tab=payroll_statutory" as any })}
+          >
+            <Settings className="h-4 w-4" />
+            مركز تهيئة الرواتب والأنظمة
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => navigate({ to: "/payroll" })}
+          >
+            <ExternalLink className="h-4 w-4 text-primary" />
+            شاشة مسيرات الرواتب
+          </Button>
           <Button
             variant="outline"
             className="gap-2"

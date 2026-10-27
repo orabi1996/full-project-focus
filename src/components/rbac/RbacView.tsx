@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
+import { useNavigate } from "@tanstack/react-router";
 import { IconSymbol } from "../ui/IconSymbol";
 import {
   ShieldCheck,
@@ -11,8 +12,10 @@ import {
   FileCheck,
   History,
   Lock,
+  Settings,
 } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
 import { ALL_SYSTEM_SCREENS } from "../../lib/auth/rbac-definitions";
 import { GroupPermissionsPanel } from "./GroupPermissionsPanel";
 import { UserPermissionsPanel } from "./UserPermissionsPanel";
@@ -20,6 +23,7 @@ import { GlobalRbacMatrixPanel } from "./GlobalRbacMatrixPanel";
 
 export const RbacView: React.FC = () => {
   const { currentRole, permissionGroups, auditLogs, employees, language, t } = useApp();
+  const navigate = useNavigate();
   const canManage = canManageModule(currentRole, "rbac");
 
   const [activeTab, setActiveTab] = useState<
@@ -74,7 +78,18 @@ export const RbacView: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {canManage && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate({ to: "/setup?tab=users" as any })}
+              className="rounded-full font-bold text-xs gap-1.5 border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 h-9 px-3.5 cursor-pointer"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              حوكمة ربط المستخدمين بالمنشأة
+            </Button>
+          )}
           <Badge
             variant="outline"
             className="rounded-full px-3 py-1 font-bold text-xs gap-1.5 border-primary/30 text-primary bg-primary/5 shadow-xs"

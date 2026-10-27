@@ -14,7 +14,9 @@ import {
   Plus,
   Shield,
   Upload,
+  Settings,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
@@ -28,6 +30,7 @@ import {
 } from "../ui/dialog";
 
 export const AssetsView: React.FC = () => {
+  const navigate = useNavigate();
   const {
     assets,
     companyDocs,
@@ -152,10 +155,13 @@ export const AssetsView: React.FC = () => {
       {/* Header */}
       <div className="classera-page-header">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
               <IconSymbol name="devices" source="material" filled size={16} />
               إدارة الأصول واللوائح
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+              شاشة العمليات وسجل العهد المسلمة
             </span>
           </div>
           <h1 className="text-2xl font-black text-foreground mt-2">
@@ -165,27 +171,38 @@ export const AssetsView: React.FC = () => {
             إدارة عهد الموظفين والأجهزة، تتبع إخلاء الطرف، واللوائح الداخلية وإقرارات الموظفين
           </p>
         </div>
-        {canManage && (
-          <div className="flex flex-wrap gap-2.5">
-            <Button
-              onClick={() => setIsAddAssetOpen(true)}
-              size="sm"
-              className="classera-btn-primary h-10 px-5 text-xs gap-1.5"
-            >
-              <Plus className="h-4 w-4" />
-              تسجيل عهدة جديدة
-            </Button>
-            <Button
-              onClick={() => setIsAddDocOpen(true)}
-              variant="outline"
-              size="sm"
-              className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
-            >
-              <Plus className="h-4 w-4 text-primary" />
-              نشر لائحة / وثيقة جديدة
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2.5">
+          <Button
+            onClick={() => navigate({ to: "/setup?tab=assets_docs_setup" as any })}
+            variant="outline"
+            size="sm"
+            className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
+          >
+            <Settings className="h-4 w-4 text-primary" />
+            تهيئة اللوائح وتصنيفات العهد
+          </Button>
+          {canManage && (
+            <>
+              <Button
+                onClick={() => setIsAddAssetOpen(true)}
+                size="sm"
+                className="classera-btn-primary h-10 px-5 text-xs gap-1.5"
+              >
+                <Plus className="h-4 w-4" />
+                تسجيل عهدة جديدة
+              </Button>
+              <Button
+                onClick={() => setIsAddDocOpen(true)}
+                variant="outline"
+                size="sm"
+                className="rounded-full font-bold text-xs gap-1.5 border-border/80 hover:bg-secondary h-10 px-4 shadow-xs"
+              >
+                <Plus className="h-4 w-4 text-primary" />
+                نشر لائحة / وثيقة جديدة
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -253,6 +270,22 @@ export const AssetsView: React.FC = () => {
 
         {/* Tab 2: Company Documents */}
         <TabsContent value="docs" className="space-y-4 pt-4">
+          <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-foreground">حوكمة اللوائح الداخلية ومكتبة الوثائق</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                لنشر لائحة جديدة أو ضبط سياسات الإقرار الإلزامي بالاطلاع وتصنيفات العهد، انتقل إلى شاشة التهيئة.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => navigate({ to: "/setup?tab=assets_docs_setup" as any })}
+              className="rounded-full text-xs font-bold gap-1.5 shrink-0"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              فتح شاشة تهيئة اللوائح والعهد
+            </Button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {companyDocs.map((doc) => (
               <div key={doc.id} className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs space-y-3 hover:border-primary/40 transition-all">

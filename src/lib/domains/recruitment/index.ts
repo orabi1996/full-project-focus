@@ -1,7 +1,6 @@
 /**
  * Recruitment, ATS, Offers & Hiring Engine Domain Facade
  * Delegates to recruitment-repository.ts via executeReliableMutation
- * Does NOT use AppContext / demoStore as live financial/applicant authority
  */
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,8 +11,6 @@ import type {
   CandidateStage,
   JobOffer,
   JobOpening,
-  WorkforcePlan,
-  ContractType,
 } from "../../../types";
 import { useAuth } from "../../auth/AuthContext";
 import {
@@ -46,10 +43,9 @@ import {
   type EmploymentType,
   type WorkType,
 } from "../../data/recruitment-repository";
-import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
+import { executeReliableMutation } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
-import { demoStore, useDemoStore } from "../demo/demo-store";
 import { uploadCandidateCvFile, uploadJobOfferFile, rollbackUploadedFile } from "../../storage";
 import {
   convertDemoCandidate,
@@ -100,11 +96,10 @@ export {
 
 /**
  * Unified Recruitment Domain Hook
- * Provides reliable, server-authoritative mutations with demo fallback.
+ * Provides reliable, server-authoritative mutations.
  */
 export function useRecruitmentDomain(explicitCompanyId?: string) {
-  const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
+  const { session } = useAuth();
   const queryClient = useQueryClient();
   const repoMutations = useRecruitmentRepositoryMutations();
 
@@ -129,7 +124,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       headcountRequestId?: string;
     }) => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-requisition-${params.titleAr}-${Date.now()}`,
         operation: async () => {
           const res = await repoMutations.createRequisition.mutateAsync({
@@ -137,9 +132,6 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
             ...params,
           });
           return res;
-        },
-        demoOperation: () => {
-          return { ok: true, id: `req-demo-${Date.now()}`, requisitionNo: "REQ-2026-0001" };
         },
         onCommitted: () => {
           toast.success("تم إنشاء طلب الاحتياج الوظيفي بنجاح");
@@ -150,13 +142,13 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       });
       return result;
     },
-    [mode, activeCompanyId, repoMutations.createRequisition],
+    [activeCompanyId, repoMutations.createRequisition],
   );
 
   const approveRequisition = useCallback(
     async (params: { requisitionId: string; decision: "approve" | "reject"; reason?: string }) => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `approve-requisition-${params.requisitionId}-${params.decision}`,
         operation: async () => {
           const res = await repoMutations.approveRequisition.mutateAsync({
@@ -166,9 +158,6 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
             reason: params.reason,
           });
           return res;
-        },
-        demoOperation: () => {
-          return { ok: true, status: params.decision === "approve" ? "approved" : "rejected" };
         },
         onCommitted: () => {
           toast.success(
@@ -183,7 +172,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       });
       return result;
     },
-    [mode, activeCompanyId, repoMutations.approveRequisition],
+    [activeCompanyId, repoMutations.approveRequisition],
   );
 
   // Job Openings
@@ -206,7 +195,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       hiringManagerId?: string;
     }) => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-job-opening-${params.titleAr}-${Date.now()}`,
         operation: async () => {
           const res = await repoMutations.createJobOpening.mutateAsync({
@@ -214,31 +203,6 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
             ...params,
           });
           return res;
-        },
-        demoOperation: () => {
-          const newJob: JobOpening = {
-            id: `job-demo-${Date.now()}`,
-            titleAr: params.titleAr,
-            titleEn: params.titleEn || params.titleAr,
-            departmentId: params.departmentId || "",
-            departmentName: "الإدارة",
-            locationId: params.locationId || "",
-            locationName: "المقر الرئيسي",
-            employmentType: (params.employmentType as any) || "full_time",
-            requirementsAr: params.requirementsAr || "",
-            requirementsEn: "",
-            openingsCount: params.openingsCount,
-            filledCount: 0,
-            salaryMin: params.salaryMin ?? 0,
-            salaryMax: params.salaryMax ?? 0,
-            descriptionAr: params.descriptionAr || "",
-            descriptionEn: "",
-            publishedStatus: "draft",
-            publishedAt: new Date().toISOString().split("T")[0],
-          };
-          demoStore.jobOpenings = [newJob, ...demoStore.jobOpenings];
-          demoStore.notify();
-          return { ok: true, id: newJob.id, jobReference: "JOB-2026-0001" };
         },
         onCommitted: () => {
           toast.success("تم إنشاء الوظيفة الشاغرة بنجاح");
@@ -249,13 +213,13 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       });
       return result;
     },
-    [mode, activeCompanyId, repoMutations.createJobOpening],
+    [activeCompanyId, repoMutations.createJobOpening],
   );
 
   const publishJobOpening = useCallback(
     async (params: { jobId: string; action: "publish" | "pause" | "close" }) => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `publish-job-opening-${params.jobId}-${params.action}`,
         operation: async () => {
           const res = await repoMutations.publishJobOpening.mutateAsync({
@@ -263,18 +227,6 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
             ...params,
           });
           return res;
-        },
-        demoOperation: () => {
-          demoStore.jobOpenings = demoStore.jobOpenings.map((j) =>
-            j.id === params.jobId
-              ? {
-                  ...j,
-                  publishedStatus: (params.action === "publish" ? "published" : "draft") as any,
-                }
-              : j,
-          );
-          demoStore.notify();
-          return { ok: true, status: params.action };
         },
         onCommitted: () => {
           const labels: Record<string, string> = {
@@ -290,7 +242,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       });
       return result;
     },
-    [mode, activeCompanyId, repoMutations.publishJobOpening],
+    [activeCompanyId, repoMutations.publishJobOpening],
   );
 
   // Candidates & Applications
@@ -326,7 +278,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       }
 
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `apply-candidate-${candidate.email}-${candidate.jobId}`,
         operation: async () => {
           try {
@@ -345,26 +297,6 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
             throw insertErr;
           }
         },
-        demoOperation: () => {
-          const newCand: Candidate = {
-            id: `cand-demo-${Date.now()}`,
-            jobId: candidate.jobId,
-            jobTitle: "وظيفة تجريبية",
-            fullName: candidate.fullName,
-            email: candidate.email,
-            phone: candidate.phone || "",
-            stage: "applied",
-            ratingScore: 5.0,
-            appliedDate: new Date().toISOString().split("T")[0],
-            source: (candidate.source as any) || "website",
-            notesCount: 0,
-            cvFileId,
-            cvUrl,
-          };
-          demoStore.candidates = [newCand, ...demoStore.candidates];
-          demoStore.notify();
-          return { ok: true, candidateId: newCand.id, candidateCode: "CND-2026-0001" };
-        },
         onCommitted: () => {
           toast.success("تم استلام طلب التقديم وإدراجه في مرحلة الفرز الأولي");
         },
@@ -374,13 +306,13 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       });
       return result;
     },
-    [mode, activeCompanyId, repoMutations.applyCandidate],
+    [activeCompanyId, repoMutations.applyCandidate],
   );
 
   const moveCandidateStage = useCallback(
     async (params: { candidateId: string; newStage: CandidateStage; reason?: string }) => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `move-stage-${params.candidateId}-${params.newStage}`,
         operation: async () => {
           const res = await repoMutations.moveCandidateStage.mutateAsync({
@@ -388,13 +320,6 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
             ...params,
           });
           return res;
-        },
-        demoOperation: () => {
-          demoStore.candidates = demoStore.candidates.map((c) =>
-            c.id === params.candidateId ? { ...c, stage: params.newStage } : c,
-          );
-          demoStore.notify();
-          return { ok: true, stage: params.newStage };
         },
         onCommitted: () => {
           toast.success(`تم نقل المرشح بنجاح إلى مرحلة: ${params.newStage}`);
@@ -405,7 +330,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       });
       return result;
     },
-    [mode, activeCompanyId, repoMutations.moveCandidateStage],
+    [activeCompanyId, repoMutations.moveCandidateStage],
   );
 
   // Interviews & Scorecards
@@ -422,7 +347,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       interviewerIds?: string[];
     }) => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `schedule-interview-${params.candidateId}-${params.scheduledAt}`,
         operation: async () => {
           const res = await repoMutations.scheduleInterview.mutateAsync({
@@ -430,9 +355,6 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
             ...params,
           });
           return res;
-        },
-        demoOperation: () => {
-          return { ok: true, interviewId: `int-demo-${Date.now()}` };
         },
         onCommitted: () => {
           toast.success("تم جدولة المقابلة وإشعار لجنة المقابلات بنجاح");
@@ -443,7 +365,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       });
       return result;
     },
-    [mode, activeCompanyId, repoMutations.scheduleInterview],
+    [activeCompanyId, repoMutations.scheduleInterview],
   );
 
   const submitScorecard = useCallback(
@@ -457,7 +379,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       criteria?: Array<{ criterion_name: string; score: number; weight_pct?: number; comments?: string }>;
     }) => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `submit-scorecard-${params.interviewId}`,
         operation: async () => {
           const res = await repoMutations.submitScorecard.mutateAsync({
@@ -465,9 +387,6 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
             ...params,
           });
           return res;
-        },
-        demoOperation: () => {
-          return { ok: true, scorecardId: `sc-demo-${Date.now()}`, overallScore: 4.5 };
         },
         onCommitted: () => {
           toast.success("تم حفظ بطاقة تقييم المقابلة وتحديث سجل المرشح");
@@ -478,7 +397,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       });
       return result;
     },
-    [mode, activeCompanyId, repoMutations.submitScorecard],
+    [activeCompanyId, repoMutations.submitScorecard],
   );
 
   // Offers
@@ -516,7 +435,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       }
 
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-offer-${params.candidateId}-${Date.now()}`,
         operation: async () => {
           try {
@@ -533,22 +452,6 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
             throw err;
           }
         },
-        demoOperation: () => {
-          const newOffer: JobOffer = {
-            id: `off-demo-${Date.now()}`,
-            candidateId: params.candidateId,
-            candidateName: "مرشح تجريبي",
-            jobTitle: "وظيفة تجريبية",
-            basicSalary: params.basicSalary,
-            housingAllowance: params.housingAllowance || 0,
-            transportAllowance: params.transportAllowance || 0,
-            proposedStartDate: params.proposedStartDate || "",
-            status: "draft",
-          };
-          demoStore.jobOffers = [newOffer, ...demoStore.jobOffers];
-          demoStore.notify();
-          return { ok: true, offerId: newOffer.id, offerCode: "OFF-2026-0001" };
-        },
         onCommitted: () => {
           toast.success("تم إنشاء مسودة العرض الوظيفي بنجاح");
         },
@@ -558,7 +461,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       });
       return result;
     },
-    [mode, activeCompanyId, repoMutations.createJobOffer],
+    [activeCompanyId, repoMutations.createJobOffer],
   );
 
   const updateOfferStatus = useCallback(
@@ -568,7 +471,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       reason?: string;
     }) => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `update-offer-${params.offerId}-${params.action}`,
         operation: async () => {
           const res = await repoMutations.updateOfferStatus.mutateAsync({
@@ -576,20 +479,6 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
             ...params,
           });
           return res;
-        },
-        demoOperation: () => {
-          const statusMap: Record<string, JobOffer["status"]> = {
-            approve: "draft",
-            send: "sent_to_candidate",
-            accept: "accepted",
-            decline: "declined",
-            withdraw: "draft",
-          };
-          demoStore.jobOffers = demoStore.jobOffers.map((o) =>
-            o.id === params.offerId ? { ...o, status: statusMap[params.action] || o.status } : o,
-          );
-          demoStore.notify();
-          return { ok: true, status: statusMap[params.action] };
         },
         onCommitted: () => {
           const labels: Record<string, string> = {
@@ -607,7 +496,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       });
       return result;
     },
-    [mode, activeCompanyId, repoMutations.updateOfferStatus],
+    [activeCompanyId, repoMutations.updateOfferStatus],
   );
 
   // Candidate -> Employee Conversion
@@ -616,7 +505,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       try {
         validateCandidateConversion(input);
         const result = await executeReliableMutation({
-          mode,
+          mode: "live",
           mutationKey: `convert-candidate-${input.candidateId}`,
           operation: async () => {
             const res = await repoMutations.convertCandidateToEmployee.mutateAsync({
@@ -635,13 +524,6 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
             });
             return res;
           },
-          demoOperation: () => {
-            const next = convertDemoCandidate(input, demoStore.candidates, demoStore.employees);
-            demoStore.employees = next.employees;
-            demoStore.candidates = next.candidates;
-            demoStore.notify();
-            return { ok: true, employeeId: next.id, employeeNo: "EMP-2026-0001" };
-          },
           onRejected: (err) => {
             toast.error(err.message);
           },
@@ -653,11 +535,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
           queryClient.invalidateQueries({ queryKey: queryKeys.recruitment.all }),
           queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all }),
         ]);
-        toast.success(
-          mode === "demo"
-            ? "تم تحويل المرشح لمسودة موظف (وضع العرض التجريبي)"
-            : "تم تحويل المرشح وإنشاء مسودة الموظف وتوليد الرقم الوظيفي بنجاح",
-        );
+        toast.success("تم تحويل المرشح وإنشاء مسودة الموظف وتوليد الرقم الوظيفي بنجاح");
         if (refresh.some((r) => r.status === "rejected")) {
           toast.warning("تم الحفظ؛ يرجى تحديث الصفحة لعرض أحدث البيانات");
         }
@@ -667,7 +545,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
         return false;
       }
     },
-    [mode, activeCompanyId, queryClient, repoMutations.convertCandidateToEmployee],
+    [activeCompanyId, queryClient, repoMutations.convertCandidateToEmployee],
   );
 
   // Talent Pool
@@ -679,7 +557,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       retentionMonths?: number;
     }) => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `add-talent-pool-${params.candidateId}`,
         operation: async () => {
           const res = await repoMutations.addToTalentPool.mutateAsync({
@@ -687,9 +565,6 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
             ...params,
           });
           return res;
-        },
-        demoOperation: () => {
-          return { ok: true, poolId: `tp-demo-${Date.now()}` };
         },
         onCommitted: () => {
           toast.success("تم إدراج المرشح في بنك المواهب وتوثيق مدة الاحتفاظ بنجاح");
@@ -700,7 +575,7 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
       });
       return result;
     },
-    [mode, activeCompanyId, repoMutations.addToTalentPool],
+    [activeCompanyId, repoMutations.addToTalentPool],
   );
 
   return {
@@ -723,29 +598,16 @@ export function useRecruitmentDomain(explicitCompanyId?: string) {
  * Backward compatibility hook for existing views and components
  */
 export function useRecruitment() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
   const bootstrap = useBootstrapData();
-  const demoData = useDemoStore((s) => ({
-    jobOpenings: s.jobOpenings,
-    candidates: s.candidates,
-    jobOffers: s.jobOffers,
-    workforcePlans: s.workforcePlans,
-  }));
-
-  const jobOpenings = isLive ? bootstrap.jobOpenings : demoData.jobOpenings;
-  const candidates = isLive ? bootstrap.candidates : demoData.candidates;
-  const jobOffers = isLive ? bootstrap.jobOffers : demoData.jobOffers;
-  const workforcePlans = isLive ? bootstrap.workforcePlans : demoData.workforcePlans;
 
   return {
-    jobOpenings,
-    candidates,
-    jobOffers,
-    workforcePlans,
-    isLoading: isLive ? bootstrap.isLoading : false,
-    isError: isLive ? bootstrap.isError : false,
-    error: isLive ? bootstrap.error : null,
+    jobOpenings: bootstrap.jobOpenings,
+    candidates: bootstrap.candidates,
+    jobOffers: bootstrap.jobOffers,
+    workforcePlans: bootstrap.workforcePlans,
+    isLoading: bootstrap.isLoading,
+    isError: bootstrap.isError,
+    error: bootstrap.error,
     refetch: bootstrap.refreshCoreData,
   };
 }

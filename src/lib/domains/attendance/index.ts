@@ -52,7 +52,6 @@ import {
 import { processAttendanceServer } from "../../business/attendance.functions";
 import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
-import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
 
 // ----------------------------------------------------------------------------
@@ -65,48 +64,14 @@ export function useAttendanceRecords(filters?: {
   status?: string;
   searchTerm?: string;
 }) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoRecords = useDemoStore((s) => s.attendanceRecords);
+  const { session } = useAuth();
 
   const query = useQuery({
     queryKey: queryKeys.attendance.records(filters),
     queryFn: () => fetchAttendanceRecordsRecord(filters),
-    enabled: isLive,
+    enabled: Boolean(session),
     staleTime: 30 * 1000,
   });
-
-  if (!isLive) {
-    let filtered = demoRecords;
-    if (filters?.employeeId) {
-      filtered = filtered.filter((r) => r.employeeId === filters.employeeId);
-    }
-    if (filters?.status && filters.status !== "all") {
-      filtered = filtered.filter((r) => r.status === filters.status);
-    }
-    if (filters?.fromDate) {
-      filtered = filtered.filter((r) => r.workDate >= filters.fromDate!);
-    }
-    if (filters?.toDate) {
-      filtered = filtered.filter((r) => r.workDate <= filters.toDate!);
-    }
-    if (filters?.searchTerm) {
-      const term = filters.searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (r) =>
-          r.employeeName.toLowerCase().includes(term) ||
-          r.employeeNo.toLowerCase().includes(term) ||
-          r.departmentName.toLowerCase().includes(term),
-      );
-    }
-    return {
-      records: filtered,
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: async () => ({ data: filtered }),
-    };
-  }
 
   return {
     records: query.data ?? [],
@@ -121,59 +86,14 @@ export function useAttendanceRecords(filters?: {
 // HOOK: Server-Paginated Attendance Records
 // ----------------------------------------------------------------------------
 export function usePaginatedAttendanceRecords(filters?: AttendanceRecordFilters) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoRecords = useDemoStore((s) => s.attendanceRecords);
+  const { session } = useAuth();
 
   const query = useQuery({
     queryKey: [...queryKeys.attendance.records(filters as any), "paginated", filters?.page, filters?.pageSize],
     queryFn: () => fetchPaginatedAttendanceRecordsRecord(filters),
-    enabled: isLive,
+    enabled: Boolean(session),
     staleTime: 30 * 1000,
   });
-
-  if (!isLive) {
-    let filtered = demoRecords;
-    if (filters?.employeeId) {
-      filtered = filtered.filter((r) => r.employeeId === filters.employeeId);
-    }
-    if (filters?.status && filters.status !== "all") {
-      filtered = filtered.filter((r) => r.status === filters.status);
-    }
-    if (filters?.fromDate) {
-      filtered = filtered.filter((r) => r.workDate >= filters.fromDate!);
-    }
-    if (filters?.toDate) {
-      filtered = filtered.filter((r) => r.workDate <= filters.toDate!);
-    }
-    if (filters?.searchTerm) {
-      const term = filters.searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (r) =>
-          r.employeeName.toLowerCase().includes(term) ||
-          r.employeeNo.toLowerCase().includes(term) ||
-          r.departmentName.toLowerCase().includes(term),
-      );
-    }
-
-    const page = filters?.page || 1;
-    const pageSize = filters?.pageSize || 20;
-    const totalCount = filtered.length;
-    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-    const paginatedRecords = filtered.slice((page - 1) * pageSize, page * pageSize);
-
-    return {
-      records: paginatedRecords,
-      totalCount,
-      page,
-      pageSize,
-      totalPages,
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: async () => ({ data: { records: paginatedRecords, totalCount, page, pageSize, totalPages } }),
-    };
-  }
 
   return {
     records: query.data?.records ?? [],
@@ -192,48 +112,15 @@ export function usePaginatedAttendanceRecords(filters?: AttendanceRecordFilters)
 // HOOK: Attendance Summary KPIs
 // ----------------------------------------------------------------------------
 export function useAttendanceSummary(dateStr?: string) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoRecords = useDemoStore((s) => s.attendanceRecords);
-  const demoEmployees = useDemoStore((s) => s.employees);
+  const { session } = useAuth();
   const targetDate = dateStr || new Date().toISOString().slice(0, 10);
 
   const query = useQuery({
     queryKey: queryKeys.attendance.summary(targetDate),
     queryFn: () => fetchAttendanceSummaryKPIsRecord(targetDate),
-    enabled: isLive,
+    enabled: Boolean(session),
     staleTime: 30 * 1000,
   });
-
-  if (!isLive) {
-    const dayRecords = demoRecords.filter((r) => r.workDate === targetDate);
-    const totalEmployees = demoEmployees.length || 10;
-    const presentCount = dayRecords.filter((r) => r.status === "present").length;
-    const lateCount = dayRecords.filter((r) => r.status === "late").length;
-    const leaveCount = dayRecords.filter((r) => r.status === "leave").length;
-    const absentCount = Math.max(0, totalEmployees - presentCount - lateCount - leaveCount);
-    const attendanceRate = totalEmployees > 0 ? Math.round(((presentCount + lateCount) / totalEmployees) * 100) : 0;
-
-    const summary: AttendanceSummaryKPIs = {
-      totalEmployees,
-      presentCount,
-      lateCount,
-      absentCount,
-      leaveCount,
-      attendanceRate,
-      totalOvertimeHours: 6.5,
-      openExceptionsCount: lateCount + absentCount,
-      isPolicyConfigured: true,
-    };
-
-    return {
-      summary,
-      isLoading: false,
-      isError: false,
-      error: null,
-      refetch: async () => ({ data: summary }),
-    };
-  }
 
   const defaultSummary: AttendanceSummaryKPIs = {
     totalEmployees: 0,
@@ -494,9 +381,7 @@ export function usePunches(filters?: {
 // HOOK: Overtime Records
 // ----------------------------------------------------------------------------
 export function useOvertimeRecords(filters?: { employeeId?: string; status?: string }) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoOvertime = useDemoStore((s) => s.overtimeRecords);
+  const { session } = useAuth();
 
   const query = useQuery({
     queryKey: queryKeys.attendance.overtime(filters),
@@ -533,15 +418,15 @@ export function useOvertimeRecords(filters?: { employeeId?: string; status?: str
         createdAt: row.created_at,
       }));
     },
-    enabled: isLive,
+    enabled: Boolean(session),
     staleTime: 30 * 1000,
   });
 
   return {
-    overtimeRecords: isLive ? (query.data ?? []) : demoOvertime,
-    isLoading: isLive ? query.isLoading : false,
-    isError: isLive ? query.isError : false,
-    error: isLive ? query.error : null,
+    overtimeRecords: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
     refetch: query.refetch,
   };
 }
@@ -550,9 +435,7 @@ export function useOvertimeRecords(filters?: { employeeId?: string; status?: str
 // HOOK: Attendance Corrections
 // ----------------------------------------------------------------------------
 export function useAttendanceCorrections(filters?: { employeeId?: string; status?: string }) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-  const demoCorrections = useDemoStore((s) => s.attendanceCorrections);
+  const { session } = useAuth();
 
   const query = useQuery({
     queryKey: queryKeys.attendance.corrections(filters),
@@ -592,15 +475,15 @@ export function useAttendanceCorrections(filters?: { employeeId?: string; status
         };
       });
     },
-    enabled: isLive,
+    enabled: Boolean(session),
     staleTime: 30 * 1000,
   });
 
   return {
-    attendanceCorrections: isLive ? (query.data ?? []) : demoCorrections,
-    isLoading: isLive ? query.isLoading : false,
-    isError: isLive ? query.isError : false,
-    error: isLive ? query.error : null,
+    attendanceCorrections: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
     refetch: query.refetch,
   };
 }
@@ -610,15 +493,13 @@ export function useAttendanceCorrections(filters?: { employeeId?: string; status
 // ----------------------------------------------------------------------------
 export function useAttendance() {
   const { records, isLoading, isError, error, refetch } = useAttendanceRecords();
-  const demoData = useDemoStore((s) => ({
-    overtimeRecords: s.overtimeRecords,
-    attendanceCorrections: s.attendanceCorrections,
-  }));
+  const { overtimeRecords } = useOvertimeRecords();
+  const { attendanceCorrections } = useAttendanceCorrections();
 
   return {
     attendanceRecords: records,
-    overtimeRecords: demoData.overtimeRecords,
-    attendanceCorrections: demoData.attendanceCorrections,
+    overtimeRecords,
+    attendanceCorrections,
     isLoading,
     isError,
     error,
@@ -630,8 +511,7 @@ export function useAttendance() {
 // HOOK: useAttendanceMutations
 // ----------------------------------------------------------------------------
 export function useAttendanceMutations() {
-  const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
+  const mode: MutationDataMode = "live";
   const queryClient = useQueryClient();
 
   const punchInOut = useCallback(
@@ -663,62 +543,6 @@ export function useAttendanceMutations() {
             message: res.message,
             geofenceValid: res.geofenceValid,
           };
-        },
-        demoOperation: () => {
-          const emp = demoStore.employees[0];
-          const empId = emp?.id || "emp-01";
-          const existingIndex = demoStore.attendanceRecords.findIndex(
-            (r) => r.workDate === today && r.employeeId === empId,
-          );
-
-          if (type === "in") {
-            if (existingIndex >= 0) {
-              demoStore.attendanceRecords[existingIndex].actualIn = timeStr;
-            } else {
-              demoStore.attendanceRecords = [
-                {
-                  id: `att-${Date.now()}`,
-                  employeeId: empId,
-                  employeeNo: emp?.employeeNo || "EMP-001",
-                  employeeName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "الموظف",
-                  departmentName: emp?.departmentName || "عام",
-                  workDate: today,
-                  actualIn: timeStr,
-                  status: "present",
-                  lateMinutes: 0,
-                  earlyDepartureMinutes: 0,
-                  workedHours: 8,
-                  overtimeHours: 0,
-                  punchSource: "mobile_gps",
-                  geofenceValid: true,
-                  violationsCount: 0,
-                  reviewedByPayroll: false,
-                },
-                ...demoStore.attendanceRecords,
-              ];
-            }
-            demoStore.notify();
-            return {
-              success: true,
-              message: `تم تسجيل الدخول بنجاح الساعة ${timeStr}`,
-              geofenceValid: true,
-            };
-          } else {
-            if (existingIndex >= 0) {
-              demoStore.attendanceRecords[existingIndex].actualOut = timeStr;
-              demoStore.notify();
-              return {
-                success: true,
-                message: `تم تسجيل الانصراف بنجاح الساعة ${timeStr}`,
-                geofenceValid: true,
-              };
-            }
-            return {
-              success: false,
-              message: "لم يتم العثور على حركة حضور سابقة لهذا اليوم",
-              geofenceValid: true,
-            };
-          }
         },
         onCommitted: (res) => {
           if (res?.geofenceValid) {
@@ -757,28 +581,11 @@ export function useAttendanceMutations() {
       reason: string;
       employeeId?: string;
     }): Promise<boolean> => {
-      const empId = payload.employeeId || (mode === "demo" ? demoStore.employees[0]?.id || "emp-01" : "");
+      const empId = payload.employeeId || "";
       if (!empId) {
         toast.error("يرجى تحديد الموظف المطلوب لتقديم طلب التصحيح");
         return false;
       }
-      const emp = demoStore.employees.find((e) => e.id === empId);
-
-      const newCorrection: AttendanceCorrectionRequest = {
-        id: `corr-${Date.now()}`,
-        employeeId: empId,
-        employeeNo: emp?.employeeNo || "EMP-001",
-        employeeName: emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : "موظف",
-        departmentName: emp?.departmentName || "عام",
-        workDate: payload.workDate,
-        originalIn: "",
-        originalOut: "",
-        correctInTime: payload.correctIn || "",
-        correctOutTime: payload.correctOut || "",
-        reason: payload.reason,
-        status: "pending",
-        submittedAt: new Date().toISOString(),
-      };
 
       const result = await executeReliableMutation({
         mode,
@@ -793,11 +600,6 @@ export function useAttendanceMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.corrections() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.attendanceCorrections = [newCorrection, ...demoStore.attendanceCorrections];
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -828,13 +630,6 @@ export function useAttendanceMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
-        demoOperation: () => {
-          demoStore.attendanceCorrections = demoStore.attendanceCorrections.map((c) =>
-            c.id === id ? { ...c, status: "approved" as const } : c,
-          );
-          demoStore.notify();
-          return true;
-        },
         onCommitted: () => {
           toast.success("تم اعتماد تصحيح البصمة وتحديث السجلات");
         },
@@ -860,13 +655,6 @@ export function useAttendanceMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
-        demoOperation: () => {
-          demoStore.attendanceCorrections = demoStore.attendanceCorrections.map((c) =>
-            c.id === id ? { ...c, status: "rejected" as const } : c,
-          );
-          demoStore.notify();
-          return true;
-        },
         onCommitted: () => {
           toast.success("تم رفض طلب تصحيح البصمة");
         },
@@ -882,13 +670,6 @@ export function useAttendanceMutations() {
 
   const submitOvertimeRequest = useCallback(
     async (record: Omit<OvertimeRecord, "id" | "status" | "createdAt">): Promise<boolean> => {
-      const newOT: OvertimeRecord = {
-        ...record,
-        id: `ot-${Date.now()}`,
-        status: "pending",
-        createdAt: new Date().toISOString(),
-      };
-
       const result = await executeReliableMutation({
         mode,
         mutationKey: `ot-${record.employeeId}-${record.workDate}-${record.hours}`,
@@ -898,11 +679,6 @@ export function useAttendanceMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.overtimeRecords = [newOT, ...demoStore.overtimeRecords];
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -931,13 +707,6 @@ export function useAttendanceMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
-        demoOperation: () => {
-          demoStore.overtimeRecords = demoStore.overtimeRecords.map((o) =>
-            o.id === id ? { ...o, status: "approved" as const } : o,
-          );
-          demoStore.notify();
-          return true;
-        },
         onCommitted: () => {
           toast.success("تم اعتماد طلب العمل الإضافي وتحديث السجلات");
         },
@@ -961,13 +730,6 @@ export function useAttendanceMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.attendance.overtime() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.workflow.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.overtimeRecords = demoStore.overtimeRecords.map((o) =>
-            o.id === id ? { ...o, status: "rejected" as const } : o,
-          );
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {

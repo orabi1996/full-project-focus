@@ -19,8 +19,10 @@ import {
   REVIEW_CYCLE_STATUS_LABELS_AR,
 } from "../../lib/domains/compensation";
 import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { useNavigate } from "@tanstack/react-router";
 import {
   DollarSign,
   TrendingUp,
@@ -35,6 +37,7 @@ import {
   FileText,
   Search,
   Filter,
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CreateSalaryChangeModal } from "./CreateSalaryChangeModal";
@@ -45,6 +48,7 @@ import { TotalRewardsStatementModal } from "./TotalRewardsStatementModal";
 
 export function CompensationView() {
   const { company, employees = [] } = useBootstrapData();
+  const navigate = useNavigate();
   const companyId = company?.id || "";
 
   const [activeTab, setActiveTab] = useState<string>("overview");
@@ -128,16 +132,30 @@ export function CompensationView() {
       {/* Header section */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-4">
         <div>
-          <h1 className="text-2xl font-black text-foreground flex items-center gap-2.5">
-            <DollarSign className="h-7 w-7 text-primary" />
-            التعويضات والمزايا والمكافآت الشاملة (Compensation & Total Rewards)
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-black text-foreground flex items-center gap-2.5">
+              <DollarSign className="h-7 w-7 text-primary" />
+              التعويضات والمزايا والمكافآت الشاملة (Compensation & Total Rewards)
+            </h1>
+            <Badge className="text-[11px] font-bold border-emerald-500/30 text-emerald-600 bg-emerald-500/10 rounded-full px-2.5 py-0.5">
+              شاشة العمليات وحزم رواتب الموظفين
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
             إدارة هياكل ونطاقات الرواتب، البدلات، حزم التعويضات المؤرخة، دورات مراجعة الرواتب السنوية، والمزايا المؤسسية.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate({ to: "/setup?tab=compensation_setup" as any })}
+            className="gap-1.5 border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+          >
+            <Settings className="h-4 w-4" />
+            تهيئة سلالم الرواتب والمزايا
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -326,6 +344,28 @@ export function CompensationView() {
 
         {/* Tab 2: Salary Ranges & Pay Bands */}
         <TabsContent value="salary_ranges" className="space-y-4">
+          <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                <Settings className="h-4.5 w-4.5 text-amber-600" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-foreground">تهيئة سلالم ونطاقات الرواتب المركزية</h4>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                  لضبط الدرجات الوظيفية، نطاقات الرواتب (Min/Mid/Max)، وكتالوج خطط المزايا من مركز التهيئة الموحد للمنشأة:
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate({ to: "/setup?tab=compensation_setup" as any })}
+              className="h-8 text-[11px] font-bold rounded-xl gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 shrink-0"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              فتح شاشة تهيئة سلالم الرواتب
+            </Button>
+          </div>
           <div className="flex justify-between items-center">
             <div>
               <h3 className="font-bold text-base">نطاقات الرواتب وهيكل الدرجات الوظيفية</h3>

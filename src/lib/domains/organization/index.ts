@@ -1,8 +1,13 @@
-
 /** Canonical workforce employed definition: active, probation, on_leave (excludes terminated, suspended) */
 export const isEmployedWorkforce = (status?: string | null): boolean => {
   return status === "active" || status === "probation" || status === "on_leave";
 };
+
+/** Demo/offline identity generator using crypto.randomUUID() */
+export const generateEntityId = (): string =>
+  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : "00000000-0000-4000-8000-000000000000";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import type {
@@ -13,7 +18,6 @@ import type {
   Subsidiary,
   WorkLocation,
 } from "../../../types";
-import { useAuth } from "../../auth/AuthContext";
 import {
   archiveCostCenterRecord,
   archiveJobPositionRecord,
@@ -25,11 +29,6 @@ import {
   createOrganizationUnitRecord,
   createSubsidiaryRecord,
   createWorkLocationRecord,
-  deleteCostCenterRecord,
-  deleteJobPositionRecord,
-  deleteOrganizationUnitRecord,
-  deleteSubsidiaryRecord,
-  deleteWorkLocationRecord,
   getMasterDataDependenciesRecord,
   updateCompanyRecord,
   updateCostCenterRecord,
@@ -38,55 +37,36 @@ import {
   updateSubsidiaryRecord,
   updateWorkLocationRecord,
 } from "../../data/operational-repository";
-import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
+import { executeReliableMutation } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
 import { useBootstrapData } from "../bootstrap/use-bootstrap";
-import { demoStore, useDemoStore } from "../demo/demo-store";
+
 import { toast } from "sonner";
 
 export function useOrganization() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
   const bootstrap = useBootstrapData();
-  const demoData = useDemoStore((s) => ({
-    company: s.company,
-    subsidiaries: s.subsidiaries,
-    orgUnits: s.orgUnits,
-    workLocations: s.workLocations,
-    costCenters: s.costCenters,
-    jobPositions: s.jobPositions,
-  }));
-
-  const company = isLive ? bootstrap.company : demoData.company;
-  const subsidiaries = isLive ? bootstrap.subsidiaries : demoData.subsidiaries;
-  const orgUnits = isLive ? bootstrap.orgUnits : demoData.orgUnits;
-  const workLocations = isLive ? bootstrap.workLocations : demoData.workLocations;
-  const costCenters = isLive ? bootstrap.costCenters : demoData.costCenters;
-  const jobPositions = isLive ? bootstrap.jobPositions : demoData.jobPositions;
 
   return {
-    company,
-    subsidiaries,
-    orgUnits,
-    workLocations,
-    costCenters,
-    jobPositions,
-    isLoading: isLive ? bootstrap.isLoading : false,
-    isError: isLive ? bootstrap.isError : false,
-    error: isLive ? bootstrap.error : null,
+    company: bootstrap.company,
+    subsidiaries: bootstrap.subsidiaries,
+    orgUnits: bootstrap.orgUnits,
+    workLocations: bootstrap.workLocations,
+    costCenters: bootstrap.costCenters,
+    jobPositions: bootstrap.jobPositions,
+    isLoading: bootstrap.isLoading,
+    isError: bootstrap.isError,
+    error: bootstrap.error,
     refetch: bootstrap.refreshCoreData,
   };
 }
 
 export function useOrganizationMutations() {
-  const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
 
   const updateCompany = useCallback(
     async (profile: CompanyProfile): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `update-company-${profile.id || "main"}`,
         operation: async () => {
           await updateCompanyRecord(profile);
@@ -94,17 +74,8 @@ export function useOrganizationMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return true;
         },
-        demoOperation: () => {
-          demoStore.company = { ...profile };
-          demoStore.notify();
-          return true;
-        },
         onCommitted: () => {
-          toast.success(
-            mode === "live"
-              ? "تم حفظ بيانات المنشأة بنجاح"
-              : "تم تحديث بيانات المنشأة بنجاح (وضع العرض التجريبي)",
-          );
+          toast.success("تم حفظ بيانات المنشأة بنجاح");
         },
         onRejected: (err) => {
           toast.error(err.message || "تعذر حفظ بيانات المنشأة");
@@ -113,29 +84,18 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const addOrgUnit = useCallback(
     async (unit: Omit<OrgUnit, "id" | "employeeCount">): Promise<boolean> => {
-      let createdUnit: OrgUnit | null = null;
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-org-unit-${unit.code || unit.nameAr}`,
         operation: async () => {
-          createdUnit = await createOrganizationUnitRecord(unit);
+          await createOrganizationUnitRecord(unit);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.units() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          createdUnit = {
-            ...unit,
-            id: crypto.randomUUID(),
-            employeeCount: 0,
-          };
-          demoStore.orgUnits = [...demoStore.orgUnits, createdUnit];
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -148,25 +108,18 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const updateOrgUnit = useCallback(
     async (id: string, unit: Omit<OrgUnit, "id" | "employeeCount">): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `update-org-unit-${id}`,
         operation: async () => {
           await updateOrganizationUnitRecord(id, unit);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.units() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.orgUnits = demoStore.orgUnits.map((u) =>
-            u.id === id ? { ...u, ...unit } : u,
-          );
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -179,7 +132,7 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const archiveOrgUnit = useCallback(
@@ -189,22 +142,12 @@ export function useOrganizationMutations() {
       reparentChildrenTo?: string,
     ): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `archive-org-unit-${id}`,
         operation: async () => {
           await archiveOrganizationUnitRecord(id, reassignDeptId, reparentChildrenTo);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.units() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.orgUnits = demoStore.orgUnits.filter((u) => u.id !== id);
-          if (reassignDeptId) {
-            demoStore.employees = demoStore.employees.map((e) =>
-              e.departmentId === id ? { ...e, departmentId: reassignDeptId } : e,
-            );
-          }
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -217,7 +160,7 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const deleteOrgUnit = useCallback(
@@ -229,24 +172,13 @@ export function useOrganizationMutations() {
 
   const addSubsidiary = useCallback(
     async (subsidiary: Omit<Subsidiary, "id" | "employeeCount">): Promise<boolean> => {
-      let createdSub: Subsidiary | null = null;
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-subsidiary-${subsidiary.code || subsidiary.nameAr}`,
         operation: async () => {
-          createdSub = await createSubsidiaryRecord(subsidiary);
+          await createSubsidiaryRecord(subsidiary);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.subsidiaries() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          createdSub = {
-            ...subsidiary,
-            id: crypto.randomUUID(),
-            employeeCount: 0,
-          };
-          demoStore.subsidiaries = [...demoStore.subsidiaries, createdSub];
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -259,25 +191,18 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const updateSubsidiary = useCallback(
     async (id: string, subsidiary: Omit<Subsidiary, "id" | "employeeCount">): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `update-subsidiary-${id}`,
         operation: async () => {
           await updateSubsidiaryRecord(id, subsidiary);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.subsidiaries() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.subsidiaries = demoStore.subsidiaries.map((s) =>
-            s.id === id ? { ...s, ...subsidiary } : s,
-          );
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -290,23 +215,18 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const archiveSubsidiary = useCallback(
     async (id: string, reassignSubId?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `archive-subsidiary-${id}`,
         operation: async () => {
           await archiveSubsidiaryRecord(id, reassignSubId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.subsidiaries() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.subsidiaries = demoStore.subsidiaries.filter((s) => s.id !== id);
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -319,7 +239,7 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const deleteSubsidiary = useCallback(
@@ -331,23 +251,13 @@ export function useOrganizationMutations() {
 
   const addWorkLocation = useCallback(
     async (location: Omit<WorkLocation, "id">): Promise<boolean> => {
-      let createdLoc: WorkLocation | null = null;
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-location-${location.code || location.nameAr}`,
         operation: async () => {
-          createdLoc = await createWorkLocationRecord(location);
+          await createWorkLocationRecord(location);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.locations() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          createdLoc = {
-            ...location,
-            id: crypto.randomUUID(),
-          };
-          demoStore.workLocations = [...demoStore.workLocations, createdLoc];
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -360,25 +270,18 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const updateWorkLocation = useCallback(
     async (id: string, location: Omit<WorkLocation, "id">): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `update-location-${id}`,
         operation: async () => {
           await updateWorkLocationRecord(id, location);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.locations() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.workLocations = demoStore.workLocations.map((l) =>
-            l.id === id ? { ...l, ...location } : l,
-          );
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -391,23 +294,18 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const archiveWorkLocation = useCallback(
     async (id: string, reassignLocId?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `archive-location-${id}`,
         operation: async () => {
           await archiveWorkLocationRecord(id, reassignLocId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.locations() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.workLocations = demoStore.workLocations.filter((l) => l.id !== id);
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -420,7 +318,7 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const deleteWorkLocation = useCallback(
@@ -432,24 +330,13 @@ export function useOrganizationMutations() {
 
   const addCostCenter = useCallback(
     async (center: Omit<CostCenter, "id" | "employeeCount" | "managerName">): Promise<boolean> => {
-      let createdCenter: CostCenter | null = null;
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-cost-center-${center.code || center.nameAr}`,
         operation: async () => {
-          createdCenter = await createCostCenterRecord(center);
+          await createCostCenterRecord(center);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.costCenters() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          createdCenter = {
-            ...center,
-            id: crypto.randomUUID(),
-            employeeCount: 0,
-          };
-          demoStore.costCenters = [...demoStore.costCenters, createdCenter];
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -462,7 +349,7 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const updateCostCenter = useCallback(
@@ -471,19 +358,12 @@ export function useOrganizationMutations() {
       center: Omit<CostCenter, "id" | "employeeCount" | "managerName">,
     ): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `update-cost-center-${id}`,
         operation: async () => {
           await updateCostCenterRecord(id, center);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.costCenters() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.costCenters = demoStore.costCenters.map((c) =>
-            c.id === id ? { ...c, ...center } : c,
-          );
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -496,23 +376,18 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const archiveCostCenter = useCallback(
     async (id: string, reassignCcId?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `archive-cost-center-${id}`,
         operation: async () => {
           await archiveCostCenterRecord(id, reassignCcId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.costCenters() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.costCenters = demoStore.costCenters.filter((c) => c.id !== id);
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -525,7 +400,7 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const deleteCostCenter = useCallback(
@@ -537,24 +412,13 @@ export function useOrganizationMutations() {
 
   const addJobPosition = useCallback(
     async (position: Omit<JobPosition, "id" | "filledHeadcount">): Promise<boolean> => {
-      let createdPos: JobPosition | null = null;
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-job-pos-${position.code || position.titleAr}`,
         operation: async () => {
-          createdPos = await createJobPositionRecord(position);
+          await createJobPositionRecord(position);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.positions() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          createdPos = {
-            ...position,
-            id: crypto.randomUUID(),
-            filledHeadcount: 0,
-          };
-          demoStore.jobPositions = [...demoStore.jobPositions, createdPos];
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -567,7 +431,7 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const updateJobPosition = useCallback(
@@ -576,19 +440,12 @@ export function useOrganizationMutations() {
       position: Omit<JobPosition, "id" | "filledHeadcount">,
     ): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `update-job-pos-${id}`,
         operation: async () => {
           await updateJobPositionRecord(id, position);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.positions() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.jobPositions = demoStore.jobPositions.map((p) =>
-            p.id === id ? { ...p, ...position } : p,
-          );
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -601,23 +458,18 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const archiveJobPosition = useCallback(
     async (id: string, reassignPosId?: string): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `archive-job-pos-${id}`,
         operation: async () => {
           await archiveJobPositionRecord(id, reassignPosId);
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.positions() });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
-          return true;
-        },
-        demoOperation: () => {
-          demoStore.jobPositions = demoStore.jobPositions.filter((p) => p.id !== id);
-          demoStore.notify();
           return true;
         },
         onCommitted: () => {
@@ -630,7 +482,7 @@ export function useOrganizationMutations() {
 
       return result.ok;
     },
-    [mode, queryClient],
+    [queryClient],
   );
 
   const deleteJobPosition = useCallback(

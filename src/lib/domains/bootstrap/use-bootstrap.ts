@@ -3,15 +3,14 @@ import { useAuth } from "../../auth/AuthContext";
 import { fetchCoreSnapshot, type CoreSnapshot } from "../../data/hrms-repository";
 import { fetchOperationalSnapshot, type OperationalSnapshot } from "../../data/operational-repository";
 import { queryKeys } from "../../query/query-keys";
-import { useDemoStore } from "../demo/demo-store";
 import type { CompanyProfile } from "../../../types";
 import { useCallback } from "react";
 
 export function useBootstrapData() {
-  const { session, isDemo } = useAuth();
+  const { session } = useAuth();
   const queryClient = useQueryClient();
-  const isLive = Boolean(session && !isDemo);
-  const dataMode: "demo" | "live" = isLive ? "live" : "demo";
+  const isLive = Boolean(session);
+  const dataMode: "live" | "demo" = "live";
 
   // Live Core Snapshot Query
   const coreQuery = useQuery<CoreSnapshot, Error>({
@@ -36,64 +35,16 @@ export function useBootstrapData() {
     staleTime: 2 * 60 * 1000,
   });
 
-  // In demo mode, subscribe to demo store
-  const demoData = useDemoStore((s) => s);
-
   const refreshCoreData = useCallback(async () => {
     if (isLive) {
       await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
     }
   }, [isLive, queryClient]);
 
-  if (!isLive) {
-    return {
-      dataMode,
-      isLoading: false,
-      isError: false,
-      error: null,
-      refreshCoreData,
-      // Collections from demo store
-      company: demoData.company,
-      subsidiaries: demoData.subsidiaries,
-      orgUnits: demoData.orgUnits,
-      workLocations: demoData.workLocations,
-      costCenters: demoData.costCenters,
-      jobPositions: demoData.jobPositions,
-      employees: demoData.employees,
-      roles: demoData.roles,
-      approvalChains: demoData.approvalChains,
-      delegationRules: demoData.delegationRules,
-      requests: demoData.requests,
-      leaveTypes: demoData.leaveTypes,
-      leaveBalances: demoData.leaveBalances,
-      shifts: demoData.shifts,
-      attendanceRecords: demoData.attendanceRecords,
-      overtimeRecords: demoData.overtimeRecords,
-      attendanceCorrections: demoData.attendanceCorrections,
-      payrollGroups: demoData.payrollGroups,
-      payrollRuns: demoData.payrollRuns,
-      payrollDetails: demoData.payrollDetails,
-      loans: demoData.loans,
-      settlements: demoData.settlements,
-      expenseCategories: demoData.expenseCategories,
-      expenseClaims: demoData.expenseClaims,
-      performanceCycles: demoData.performanceCycles,
-      evaluations: demoData.evaluations,
-      workforcePlans: demoData.workforcePlans,
-      jobOpenings: demoData.jobOpenings,
-      candidates: demoData.candidates,
-      jobOffers: demoData.jobOffers,
-      assets: demoData.assets,
-      companyDocs: demoData.companyDocs,
-      employeeDocs: demoData.employeeDocs,
-      auditLogs: demoData.auditLogs,
-      notifications: demoData.notifications,
-      accountingJournals: demoData.accountingJournals,
-    };
-  }
-
   // Live Mode:
-  const isLoading = coreQuery.isLoading || (Boolean(coreQuery.data) && operationalQuery.isLoading);
+  const isLoading = isLive
+    ? coreQuery.isLoading || (Boolean(coreQuery.data) && operationalQuery.isLoading)
+    : false;
   const error = coreQuery.error || operationalQuery.error;
   const isError = coreQuery.isError || operationalQuery.isError;
 

@@ -21,7 +21,9 @@ import {
   Check,
   AlertCircle,
   HelpCircle,
+  Settings,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useApp } from "../../lib/context/AppContext";
 import {
@@ -60,6 +62,7 @@ import { EmployeeOnboardingView } from "./EmployeeOnboardingView";
 import { ManagerOnboardingView } from "./ManagerOnboardingView";
 
 export const OnboardingView: React.FC = () => {
+  const navigate = useNavigate();
   const { company, employees, currentRole } = useApp();
   const companyId = company?.id || employees[0]?.subsidiaryId || "default";
 
@@ -245,6 +248,11 @@ export const OnboardingView: React.FC = () => {
               <UserPlus className="h-5 w-5" />
             </div>
             <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+                  شاشة العمليات ومتابعة المباشرة اليومية
+                </span>
+              </div>
               <h1 className="text-xl md:text-2xl font-black text-foreground tracking-tight">
                 تهيئة الموظفين الجدد وفترة التجربة
               </h1>
@@ -256,6 +264,14 @@ export const OnboardingView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => navigate({ to: "/setup?tab=onboarding_setup" as any })}
+            className="px-3.5 py-2.5 text-xs font-bold rounded-xl border border-input bg-card hover:bg-muted text-foreground flex items-center gap-2 transition-colors"
+          >
+            <Settings className="h-4 w-4 text-primary" />
+            تهيئة قوالب المباشرة وسياسات التجربة
+          </button>
+
           <button
             onClick={loadData}
             disabled={loading}
@@ -836,11 +852,20 @@ export const OnboardingView: React.FC = () => {
       {/* Tab: Templates */}
       {activeTab === "templates" && (
         <div className="space-y-4">
-          <div className="p-4 rounded-2xl bg-card border border-border">
-            <h3 className="text-sm font-bold text-foreground">نماذج التهيئة المعتمدة للمنشأة</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              تحديد المسارات والمهام النموذجية بحسب الدولة ونمط العمل والقسم
-            </p>
+          <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-foreground">نماذج التهيئة المعتمدة للمنشأة</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                لإدارة قوالب التهيئة ومكتبة المهام المعيارية وسياسات فترة التجربة، انتقل إلى مركز التهيئة والحوكمة.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate({ to: "/setup?tab=onboarding_setup" as any })}
+              className="px-3.5 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 shrink-0"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              فتح شاشة تهيئة القوالب وسياسات التجربة
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

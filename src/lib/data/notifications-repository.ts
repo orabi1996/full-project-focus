@@ -4,7 +4,6 @@ import { supabase } from "../../integrations/supabase/client";
 import { useAuth } from "../auth/AuthContext";
 import { useBootstrapData } from "../domains/bootstrap/use-bootstrap";
 import { notificationQueryKeys } from "../query/notification-query-keys";
-import { demoStore, useDemoStore } from "../domains/demo/demo-store";
 
 const db = supabase as any;
 
@@ -380,41 +379,16 @@ export async function sendEnterpriseNotificationRecord(payload: {
 // REACT HOOKS
 // ============================================================================
 export function useNotificationsInbox(filters?: { category?: string; unreadOnly?: boolean; limit?: number }) {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
   const bootstrap = useBootstrapData();
   const companyId = bootstrap.company?.id;
   const userId = session?.user?.id;
-  const demoNotifications = useDemoStore((s) => s.notifications);
 
   return useQuery<EnterpriseNotification[]>({
     queryKey: notificationQueryKeys.inbox(userId, companyId, filters),
     queryFn: async () => {
-      if (!isLive) {
-        let list = demoNotifications.map((n) => ({
-          id: n.id,
-          recipientId: n.recipientId,
-          eventCode: "general.notification",
-          category: (n.type as NotificationCategory) || "system",
-          severity: "info" as NotificationSeverity,
-          titleAr: n.titleAr,
-          titleEn: n.titleEn,
-          messageAr: n.messageAr,
-          messageEn: n.messageEn,
-          linkPath: n.actionUrl,
-          isRead: n.isRead,
-          isArchived: false,
-          deliveryStatus: "delivered" as DeliveryStatus,
-          createdAt: n.createdAt,
-        }));
-        if (filters?.category && filters.category !== "all") {
-          list = list.filter((n) => n.category === filters.category);
-        }
-        if (filters?.unreadOnly) {
-          list = list.filter((n) => !n.isRead);
-        }
-        return list;
-      }
+      if (!isLive) return [];
       return fetchNotificationsServer({
         userId,
         companyId,
@@ -423,108 +397,88 @@ export function useNotificationsInbox(filters?: { category?: string; unreadOnly?
         limit: filters?.limit,
       });
     },
+    enabled: isLive,
     staleTime: 10_000,
     refetchInterval: 30_000,
   });
 }
 
 export function useUnreadNotificationsCount() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
   const bootstrap = useBootstrapData();
   const companyId = bootstrap.company?.id;
   const userId = session?.user?.id;
-  const demoNotifications = useDemoStore((s) => s.notifications);
 
   return useQuery<number>({
     queryKey: notificationQueryKeys.unreadCount(userId),
     queryFn: async () => {
-      if (!isLive) {
-        return demoNotifications.filter((n) => !n.isRead).length;
-      }
+      if (!isLive) return 0;
       return fetchUnreadCountServer(userId, companyId);
     },
+    enabled: isLive,
     staleTime: 10_000,
     refetchInterval: 20_000,
   });
 }
 
 export function useNotificationTemplates() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
   const bootstrap = useBootstrapData();
   const companyId = bootstrap.company?.id;
 
   return useQuery<NotificationTemplate[]>({
     queryKey: notificationQueryKeys.templates(companyId),
     queryFn: async () => {
-      if (!isLive) return DEMO_TEMPLATES;
+      if (!isLive) return [];
       return fetchNotificationTemplatesServer(companyId);
     },
+    enabled: isLive,
   });
 }
 
 export function useNotificationPreferences() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
+  const isLive = Boolean(session);
   const userId = session?.user?.id;
 
   return useQuery<NotificationPreference[]>({
     queryKey: notificationQueryKeys.preferences(userId),
     queryFn: async () => {
-      if (!isLive) return DEMO_PREFERENCES;
+      if (!isLive) return [];
       return fetchNotificationPreferencesServer(userId);
     },
+    enabled: isLive,
   });
 }
 
 export function useNotificationMutations() {
   const queryClient = useQueryClient();
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
+  const { session } = useAuth();
   const userId = session?.user?.id;
 
   const markAsRead = useCallback(
     async (id: string) => {
-      if (!isLive) {
-        demoStore.notifications = demoStore.notifications.map((n) =>
-          n.id === id ? { ...n, isRead: true } : n,
-        );
-        demoStore.notify();
-        await queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all });
-        return;
-      }
       await markNotificationStatusRecord(id, true);
       await queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all });
     },
-    [isLive, queryClient],
+    [queryClient],
   );
 
   const markAllAsRead = useCallback(async () => {
-    if (!isLive) {
-      demoStore.notifications = demoStore.notifications.map((n) => ({ ...n, isRead: true }));
-      demoStore.notify();
-      await queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all });
-      return;
-    }
     if (userId) {
       await markAllNotificationsReadRecord(userId);
     }
     await queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all });
-  }, [isLive, queryClient, userId]);
+  }, [queryClient, userId]);
 
   const archiveNotification = useCallback(
     async (id: string) => {
-      if (!isLive) {
-        demoStore.notifications = demoStore.notifications.filter((n) => n.id !== id);
-        demoStore.notify();
-        await queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all });
-        return;
-      }
       await markNotificationStatusRecord(id, undefined, true);
       await queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all });
     },
-    [isLive, queryClient],
+    [queryClient],
   );
 
   return {

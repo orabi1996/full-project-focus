@@ -1,10 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
-import type { ExpenseCategory, ExpenseClaim } from "../../../types";
-import { useAuth } from "../../auth/AuthContext";
-import { executeReliableMutation, type MutationDataMode } from "../../data/reliable-mutation";
+import type { ExpenseClaim } from "../../../types";
+import { executeReliableMutation } from "../../data/reliable-mutation";
 import { queryKeys } from "../../query/query-keys";
-import { demoStore, useDemoStore } from "../demo/demo-store";
 import { toast } from "sonner";
 import {
   useExpenseCategories as useRepoCategories,
@@ -15,56 +13,45 @@ import {
 export * from "../../data/expenses-repository";
 
 /**
- * Domain hook providing expenses data, delegating to the production repository in live mode.
+ * Domain hook providing expenses data, delegating to the production repository.
  */
 export function useExpenses() {
-  const { session, isDemo } = useAuth();
-  const isLive = Boolean(session && !isDemo);
-
   const repoCategories = useRepoCategories();
   const repoClaims = useRepoClaims();
-  const demoData = useDemoStore((s) => ({
-    expenseCategories: s.expenseCategories,
-    expenseClaims: s.expenseClaims,
+
+  const expenseCategories = (repoCategories.data || []).map((c) => ({
+    id: c.id,
+    nameAr: c.nameAr,
+    nameEn: c.nameEn,
+    icon: "Receipt",
+    maxLimitWarning: c.maxLimitWarning,
+    maxLimitBlock: c.maxLimitBlock,
+    requiresReceipt: c.requiresReceipt,
   }));
 
-  const expenseCategories = isLive
-    ? (repoCategories.data || []).map((c) => ({
-        id: c.id,
-        nameAr: c.nameAr,
-        nameEn: c.nameEn,
-        icon: "Receipt",
-        maxLimitWarning: c.maxLimitWarning,
-        maxLimitBlock: c.maxLimitBlock,
-        requiresReceipt: c.requiresReceipt,
-      }))
-    : demoData.expenseCategories;
-
-  const expenseClaims = isLive
-    ? (repoClaims.data?.data || []).map((c) => ({
-        id: c.id,
-        employeeId: c.employeeId,
-        categoryId: c.categoryId || "",
-        categoryNameAr: c.categoryNameAr,
-        categoryNameEn: c.categoryNameEn || c.categoryNameAr,
-        amount: c.amount,
-        currency: c.currency,
-        spentAt: c.spentAt,
-        merchantName: c.merchantName,
-        receiptUrl: c.receiptUrl || undefined,
-        receiptFileId: c.receiptFileId || undefined,
-        description: c.description,
-        status: c.status as ExpenseClaim["status"],
-        policyWarningTriggered: c.policyWarningTriggered,
-      }))
-    : demoData.expenseClaims;
+  const expenseClaims = (repoClaims.data?.data || []).map((c) => ({
+    id: c.id,
+    employeeId: c.employeeId,
+    categoryId: c.categoryId || "",
+    categoryNameAr: c.categoryNameAr,
+    categoryNameEn: c.categoryNameEn || c.categoryNameAr,
+    amount: c.amount,
+    currency: c.currency,
+    spentAt: c.spentAt,
+    merchantName: c.merchantName,
+    receiptUrl: c.receiptUrl || undefined,
+    receiptFileId: c.receiptFileId || undefined,
+    description: c.description,
+    status: c.status as ExpenseClaim["status"],
+    policyWarningTriggered: c.policyWarningTriggered,
+  }));
 
   return {
     expenseCategories,
     expenseClaims,
-    isLoading: isLive ? (repoCategories.isLoading || repoClaims.isLoading) : false,
-    isError: isLive ? (repoCategories.isError || repoClaims.isError) : false,
-    error: isLive ? (repoCategories.error || repoClaims.error) : null,
+    isLoading: repoCategories.isLoading || repoClaims.isLoading,
+    isError: repoCategories.isError || repoClaims.isError,
+    error: repoCategories.error || repoClaims.error,
     refetch: async () => {
       await Promise.all([repoCategories.refetch(), repoClaims.refetch()]);
     },
@@ -75,8 +62,6 @@ export function useExpenses() {
  * Enhanced mutation hook returning both repository and legacy compatible signatures with reliable mutation wrapping.
  */
 export function useExpenseMutations() {
-  const { session, isDemo } = useAuth();
-  const mode: MutationDataMode = session && !isDemo ? "live" : "demo";
   const queryClient = useQueryClient();
   const repo = useRepoMutations();
 
@@ -86,7 +71,7 @@ export function useExpenseMutations() {
       receiptFile?: File,
     ): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-claim-${claim.merchantName}-${claim.spentAt}`,
         operation: async () => {
           await repo.submitClaim({
@@ -110,30 +95,22 @@ export function useExpenseMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all });
           return true;
         },
-        demoOperation: () => {
-          const newClaim: ExpenseClaim = {
-            ...claim,
-            id: `exp-${Date.now()}`,
-            status: "submitted",
-            policyWarningTriggered: false,
-          };
-          demoStore.expenseClaims = [newClaim, ...demoStore.expenseClaims];
-          demoStore.notify();
-          return true;
-        },
         onCommitted: () => {
           toast.success("تم تقديم مطالبة المصروفات بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر تقديم مطالبة المصروفات");
         },
       });
       return result.ok;
     },
-    [mode, queryClient, repo],
+    [queryClient, repo],
   );
 
   const addExpenseCategory = useCallback(
     async (input: { nameAr: string; warningLimit: number; blockLimit: number }): Promise<boolean> => {
       const result = await executeReliableMutation({
-        mode,
+        mode: "live",
         mutationKey: `create-category-${input.nameAr}`,
         operation: async () => {
           await repo.addCategory({
@@ -144,27 +121,16 @@ export function useExpenseMutations() {
           await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all });
           return true;
         },
-        demoOperation: () => {
-          const newCat: ExpenseCategory = {
-            id: `cat-${Date.now()}`,
-            nameAr: input.nameAr,
-            nameEn: input.nameAr,
-            icon: "Receipt",
-            maxLimitWarning: input.warningLimit,
-            maxLimitBlock: input.blockLimit,
-            requiresReceipt: true,
-          };
-          demoStore.expenseCategories = [...demoStore.expenseCategories, newCat];
-          demoStore.notify();
-          return true;
-        },
         onCommitted: () => {
           toast.success("تم إضافة فئة المصروف بنجاح");
+        },
+        onRejected: (err) => {
+          toast.error(err.message || "تعذر إضافة فئة المصروف");
         },
       });
       return result.ok;
     },
-    [mode, queryClient, repo],
+    [queryClient, repo],
   );
 
   return {

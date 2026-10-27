@@ -1,7 +1,8 @@
 import React, { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useApp } from "../../lib/context/AppContext";
 import { canManageModule } from "../../lib/auth/permissions";
-import { Clock, Plus, Pencil, Archive, Sun, Moon, Split, Sliders } from "lucide-react";
+import { Clock, Plus, Pencil, Archive, Sun, Moon, Split, Sliders, ArrowLeft } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { useShiftDefinitions, useShiftMutations } from "../../lib/domains/shifts";
@@ -10,6 +11,7 @@ import { ShiftDefinitionModal } from "../shifts/ShiftDefinitionModal";
 import { WorkweekConfigCard } from "../shifts/WorkweekConfigCard";
 
 export const ShiftDefinitionsSetupPanel: React.FC = () => {
+  const navigate = useNavigate();
   const { company, currentRole, language } = useApp();
   const canManage = canManageModule(currentRole, "shifts");
 
@@ -42,27 +44,44 @@ export const ShiftDefinitionsSetupPanel: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
         <div>
-          <h2 className="text-base font-black text-foreground flex items-center gap-2">
-            <Clock className="h-5 w-5 text-primary" />
-            تعريف سياسات وورديات العمل لشركة «{companyName}»
-          </h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            تهيئة سياسات الورديات، ساعات العمل الرسمية، وفترات الراحة الإلزامية المتوافقة مع نظام العمل السعودي.
+          <div className="flex items-center gap-2">
+            <h2 className="text-base md:text-lg font-black text-foreground flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              تهيئة قوالب وسياسات الورديات — شركة «{companyName}»
+            </h2>
+            <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+              شاشة التهيئة والحوكمة
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 max-w-3xl leading-relaxed">
+            هذه الشاشة مخصصة حصرياً لتهيئة قوالب الورديات، ساعات العمل الرسمية، فترات السماح، وأيام الأسبوع والراحة المعتمدة، بمعزل تام عن جداول التوزيع اليومية للموظفين وطلبات التبديل.
           </p>
         </div>
 
-        {canManage && (
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <Button
             size="sm"
-            onClick={handleOpenCreate}
-            className="rounded-full text-xs font-bold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 cursor-pointer shadow-xs"
+            variant="outline"
+            onClick={() => navigate({ to: "/shifts" })}
+            className="rounded-full text-xs font-bold gap-1.5 h-9 px-4 cursor-pointer border-border/80 hover:bg-secondary"
           >
-            <Plus className="h-4 w-4" />
-            تعريف وردية جديدة
+            الانتقال لجدولة وتوزيع الورديات
+            <ArrowLeft className="h-4 w-4" />
           </Button>
-        )}
+
+          {canManage && (
+            <Button
+              size="sm"
+              onClick={handleOpenCreate}
+              className="rounded-full text-xs font-bold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 cursor-pointer shadow-xs"
+            >
+              <Plus className="h-4 w-4" />
+              تعريف وردية جديدة
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Shifts Grid */}

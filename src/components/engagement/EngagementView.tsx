@@ -31,7 +31,9 @@ import {
   AlertTriangle,
   FileText,
   Building,
+  Settings,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -80,6 +82,7 @@ interface EngagementViewProps {
 }
 
 export const EngagementView: React.FC<EngagementViewProps> = ({ companyId: propCompanyId }) => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
   const [searchTerm, setSearchTerm] = useState("");
@@ -236,6 +239,11 @@ export const EngagementView: React.FC<EngagementViewProps> = ({ companyId: propC
               <Smile className="h-6 w-6" />
             </div>
             <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+                  شاشة العمليات ونبض الرضا اليومي
+                </span>
+              </div>
               <h1 className="text-2xl font-black text-foreground tracking-tight">
                 الارتباط المؤسسي والنبض والتقدير
               </h1>
@@ -247,6 +255,15 @@ export const EngagementView: React.FC<EngagementViewProps> = ({ companyId: propC
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            onClick={() => navigate({ to: "/setup?tab=engagement_setup" as any })}
+            variant="outline"
+            className="gap-2 text-xs font-bold"
+          >
+            <Settings className="h-4 w-4 text-primary" />
+            <span>تهيئة بنك الأسئلة وحملات التقدير</span>
+          </Button>
+
           <Button
             onClick={() => setIsSendRecognitionOpen(true)}
             variant="outline"

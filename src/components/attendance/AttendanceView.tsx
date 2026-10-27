@@ -36,6 +36,7 @@ import {
   DollarSign,
   UserCheck,
   Lock,
+  Settings,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -337,16 +338,16 @@ export const AttendanceView: React.FC = () => {
             <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
             <div className="text-xs">
               <span className="font-bold">تنبيه ضبط النظام: </span>
-              لم يتم إعداد سياسة الحضور والانصراف للمنشأة بعد. يرجى ضبط قواعد وسياسات الدوام من تبويب السياسات أو إعدادات النظام لتفعيل احتساب التأخير وساعات العمل تلقائياً.
+              لم يتم إعداد سياسة الحضور والانصراف للمنشأة بعد. يرجى ضبط قواعد وسياسات الدوام من شاشة تهيئة النظام لتفعيل احتساب التأخير وساعات العمل تلقائياً.
             </div>
           </div>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => setActiveTab("policies")}
+            onClick={() => navigate({ to: "/setup?tab=attendance_policy" as any })}
             className="rounded-full text-xs font-bold shrink-0 border-amber-400 text-amber-800 dark:text-amber-200 hover:bg-amber-500/20"
           >
-            ضبط السياسة
+            الانتقال لتهيئة سياسة الدوام
           </Button>
         </div>
       )}
@@ -363,14 +364,17 @@ export const AttendanceView: React.FC = () => {
                 size={26}
                 className="text-primary"
               />
-              نظام إدارة الحضور والورديات والعمل الإضافي
+              نظام إدارة الحضور والانصراف والعمل الإضافي اليومي
             </h1>
+            <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
+              شاشة العمليات والبصمة اليومية
+            </Badge>
             <Badge variant="secondary" className="classera-badge-pulse font-bold text-[11px] rounded-full px-3 py-0.5">
               الامتثال للائحة والسياسات المعتمدة
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground font-medium mt-1">
-            تسجيل البصمة والموقع الجغرافي GPS، السياج الجغرافي، وإدارة ساعات العمل والإضافي وفق السياسة المعتمدة للمنشأة
+            تسجيل البصمة والموقع الجغرافي GPS، متابعة التايم شيت اليومي، وإدارة ساعات العمل الإضافي وتصحيحات البصمة
           </p>
         </div>
 
@@ -400,14 +404,25 @@ export const AttendanceView: React.FC = () => {
             تصحيح بصمة
           </Button>
           {canManageAttendance && (
-            <Button
-              onClick={() => setIsOvertimeModalOpen(true)}
-              size="sm"
-              className="rounded-full text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground h-10 px-4 shadow-xs cursor-pointer"
-            >
-              <Clock className="h-4 w-4 text-primary-foreground" />
-              طلب عمل إضافي
-            </Button>
+            <>
+              <Button
+                onClick={() => setIsOvertimeModalOpen(true)}
+                size="sm"
+                className="rounded-full text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground h-10 px-4 shadow-xs cursor-pointer"
+              >
+                <Clock className="h-4 w-4 text-primary-foreground" />
+                طلب عمل إضافي
+              </Button>
+              <Button
+                onClick={() => navigate({ to: "/setup?tab=attendance_policy" as any })}
+                size="sm"
+                variant="outline"
+                className="rounded-full font-bold text-xs gap-1.5 border-primary/40 bg-primary/5 text-primary hover:bg-primary/10 h-10 px-4 shadow-xs cursor-pointer"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                تهيئة سياسات الدوام والسياج
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -1058,6 +1073,28 @@ export const AttendanceView: React.FC = () => {
 
         {/* TAB: Policies & Labor Law Compliance */}
         <TabsContent value="policies" className="space-y-4">
+          <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                <Settings className="h-4.5 w-4.5 text-amber-600" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-foreground">إدارة وتهيئة سياسات الدوام المركزية والسياج الجغرافي</h4>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                  لضبط قوالب الأنظمة الإقليمية المعتمدة، فترات السماح، حدود العمل الإضافي، والسياج الجغرافي للمواقع من مركز التهيئة الموحد للمنشأة:
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate({ to: "/setup?tab=attendance_policy" as any })}
+              className="h-8 text-[11px] font-bold rounded-xl gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 shrink-0"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              فتح شاشة تهيئة سياسة الحضور
+            </Button>
+          </div>
           <AttendancePoliciesPanel canManage={canManageAttendance} />
         </TabsContent>
 

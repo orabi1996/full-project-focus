@@ -4,7 +4,7 @@ import { exportToCSV, generateWPSSIFFile } from "../../lib/utils/export-helpers"
 import type { EmployeePayrollDetail, FinalSettlementRecord } from "../../types";
 import type { SeparationType, SettlementCalculationPreview } from "../../lib/business/settlement.functions";
 import { useAuth } from "../../lib/auth/AuthContext";
-import { useDemoStore } from "../../lib/domains/demo/demo-store";
+
 import { usePayroll, usePayrollMutations } from "../../lib/domains/payroll";
 import { useEmployees } from "../../lib/domains/employees";
 import {
@@ -51,7 +51,9 @@ import {
   ListOrdered,
   QrCode,
   RotateCcw,
+  Settings,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
@@ -88,6 +90,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   initialRunId,
 }) => {
   const { session, isDemo } = useAuth();
+  const navigate = useNavigate();
   const isLive = Boolean(session && !isDemo);
 
   // 1. Production Domain & Repository Data Hooks
@@ -102,7 +105,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   } = usePayroll();
   const { employees } = useEmployees();
   const { data: bankAccounts = [] } = useCompanyBankAccounts();
-  const demoPayrollDetails = useDemoStore((s) => s.payrollDetails);
+
 
   const {
     orgUnits,
@@ -223,8 +226,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
         absenceDays: re.absenceDays,
       }));
     }
-    return demoPayrollDetails.filter((detail) => detail.payrollRunId === selectedRun.id);
-  }, [selectedRun, isLive, runEmployeesQuery.data, demoPayrollDetails]);
+    return [];
+  }, [selectedRun, isLive, runEmployeesQuery.data]);
 
   // Authoritative server calculation preview effect for Final Settlement
   useEffect(() => {
@@ -552,12 +555,15 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               <IconSymbol name="account_balance_wallet" source="material" filled size={24} className="text-primary" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-black text-foreground">
                   {section === "payroll"
                     ? "مسيرات الرواتب وملفات حماية الأجور (WPS)"
                     : "إدارة السلف ومكافأة نهاية الخدمة والمخالصات"}
                 </h1>
+                <Badge className="text-[11px] font-bold border-emerald-500/30 text-emerald-600 bg-emerald-500/10 rounded-full px-2.5 py-0.5">
+                  شاشة العمليات والتشغيل المالي الشهري
+                </Badge>
                 <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
                   {section === "payroll" ? "موثق مع حماية الأجور WPS" : "متوافق مع قوى ونظام العمل"}
                 </Badge>
@@ -572,6 +578,17 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {section === "payroll" && canManagePayroll && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate({ to: "/setup?tab=payroll_statutory" as any })}
+              className="rounded-full font-bold text-xs gap-1.5 border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 h-10 px-4 cursor-pointer"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              تهيئة مجموعات الرواتب والحزم النظامية
+            </Button>
+          )}
           {section === "payroll" && canManagePayroll && (
             <Button
               onClick={() => {

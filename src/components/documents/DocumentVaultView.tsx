@@ -153,7 +153,7 @@ export interface CompanyPolicy {
 type MainTab = "vault" | "letters" | "audit_pipeline" | "compliance_radar" | "company_policies";
 type ViewMode = "grid" | "table";
 
-export function generateDocumentHtml(
+function generateDocumentHtml(
   doc: StoredDocument,
   company: { legalNameAr?: string; crNumber?: string; taxNumber?: string },
 ): string {

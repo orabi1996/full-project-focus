@@ -45,6 +45,10 @@ import {
   QATAR_SOURCES,
   OMAN_SOURCES,
   BAHRAIN_SOURCES,
+  UAE_SOURCES,
+  KUWAIT_SOURCES,
+  calculateUaeSocialInsurance,
+  calculateKuwaitSocialInsurance,
   type EmployeeLocalizationSlice,
   type WpsEmployerMetadata,
   type WpsEmployeeRecordInput,
@@ -63,10 +67,10 @@ const SAMPLE_EMPLOYER: WpsEmployerMetadata = {
 };
 
 describe("Prompt 34: Multi-Country Statutory Policy & Legal Source Registry", () => {
-  it("registers all 5 target country packs with correct ISO codes, currencies, and decimal precision", () => {
+  it("registers all 7 target country packs with correct ISO codes, currencies, and decimal precision", () => {
     const countries = Object.keys(COUNTRY_PACK_CATALOG);
-    expect(countries).toHaveLength(5);
-    expect(countries).toEqual(["EG", "SA", "QA", "OM", "BH"]);
+    expect(countries).toHaveLength(7);
+    expect(countries).toEqual(["EG", "SA", "QA", "OM", "BH", "AE", "KW"]);
 
     expect(COUNTRY_PACK_CATALOG.EG.currencyCode).toBe("EGP");
     expect(COUNTRY_PACK_CATALOG.EG.decimalPrecision).toBe(2);
@@ -83,13 +87,21 @@ describe("Prompt 34: Multi-Country Statutory Policy & Legal Source Registry", ()
     expect(COUNTRY_PACK_CATALOG.BH.currencyCode).toBe("BHD");
     expect(COUNTRY_PACK_CATALOG.BH.decimalPrecision).toBe(3);
 
+    expect(COUNTRY_PACK_CATALOG.AE.currencyCode).toBe("AED");
+    expect(COUNTRY_PACK_CATALOG.AE.decimalPrecision).toBe(2);
+
+    expect(COUNTRY_PACK_CATALOG.KW.currencyCode).toBe("KWD");
+    expect(COUNTRY_PACK_CATALOG.KW.decimalPrecision).toBe(3);
+
     // Verify currency rounding helper
     expect(roundByCountryCurrency("EG", 123.456)).toBe(123.46);
     expect(roundByCountryCurrency("OM", 123.4567)).toBe(123.457);
     expect(roundByCountryCurrency("BH", 99.1234)).toBe(99.123);
+    expect(roundByCountryCurrency("AE", 123.456)).toBe(123.46);
+    expect(roundByCountryCurrency("KW", 99.1234)).toBe(99.123);
   });
 
-  it("verifies authoritative legal sources for all 5 jurisdictions without orphan rules", () => {
+  it("verifies authoritative legal sources for all 7 jurisdictions without orphan rules", () => {
     expect(EGYPT_SOURCES.socialInsurance.sourceAuthority).toContain("NOSI");
     expect(EGYPT_SOURCES.incomeTax.sourceAuthority).toContain("ETA");
     expect(EGYPT_SOURCES.laborLaw.publicationRef).toContain("2003");
@@ -108,11 +120,21 @@ describe("Prompt 34: Multi-Country Statutory Policy & Legal Source Registry", ()
     expect(BAHRAIN_SOURCES.socialInsurance.sourceAuthority).toContain("SIO");
     expect(BAHRAIN_SOURCES.laborLaw.sourceAuthority).toContain("LMRA");
 
+    expect(UAE_SOURCES.socialInsurance.sourceAuthority).toContain("GPSSA");
+    expect(UAE_SOURCES.laborLaw.sourceAuthority).toContain("MOHRE");
+    expect(UAE_SOURCES.wps.sourceAuthority).toContain("CBUAE");
+
+    expect(KUWAIT_SOURCES.socialInsurance.sourceAuthority).toContain("PIFSS");
+    expect(KUWAIT_SOURCES.laborLaw.sourceAuthority).toContain("PAM");
+    expect(KUWAIT_SOURCES.wps.sourceAuthority).toContain("CBK");
+
     for (const src of Object.values(EGYPT_SOURCES)) expect(src.verifiedAt).toBeTruthy();
     for (const src of Object.values(SAUDI_SOURCES)) expect(src.verifiedAt).toBeTruthy();
     for (const src of Object.values(QATAR_SOURCES)) expect(src.verifiedAt).toBeTruthy();
     for (const src of Object.values(OMAN_SOURCES)) expect(src.verifiedAt).toBeTruthy();
     for (const src of Object.values(BAHRAIN_SOURCES)) expect(src.verifiedAt).toBeTruthy();
+    for (const src of Object.values(UAE_SOURCES)) expect(src.verifiedAt).toBeTruthy();
+    for (const src of Object.values(KUWAIT_SOURCES)) expect(src.verifiedAt).toBeTruthy();
   });
 });
 
@@ -355,6 +377,111 @@ describe("Prompt 34 (Sections 87–91): 5-Country Social Insurance, Tax, EOS, Ov
     expect(bhWps.validationPassed).toBe(true);
     expect(bhWps.adapterCode).toBe("BH_LMRA_WPS");
     expect(bhWps.decimalPrecision).toBe(3);
+  });
+
+  it("Section 91.1 — UAE: 15-digit EID, GPSSA pension (11%/15% Emirati, 0% expat, 70k AED cap), Decree-Law 33/2021 EOS, CBUAE WPS SIF", () => {
+    // 1. National ID (Emirates ID)
+    expect(validateNationalIdFormat("AE", "784199012345671").valid).toBe(true);
+    expect(validateNationalIdFormat("AE", "12345").valid).toBe(false);
+
+    // 2. IBAN
+    expect(validateIbanFormat("AE", "AE070331234567890123456").valid).toBe(true);
+    expect(validateIbanFormat("AE", "AE07").valid).toBe(false);
+
+    // 3. GPSSA Social Insurance
+    const emirati = calculateUaeSocialInsurance(20000, true);
+    expect(emirati.employeeContribution).toBe(2200); // 11%
+    expect(emirati.employerContribution).toBe(3000); // 15%
+
+    const capped = calculateUaeSocialInsurance(80000, true);
+    expect(capped.insurableWage).toBe(70000);
+    expect(capped.employeeContribution).toBe(7700);
+    expect(capped.employerContribution).toBe(10500);
+
+    const expat = calculateUaeSocialInsurance(25000, false);
+    expect(expat.employeeContribution).toBe(0);
+    expect(expat.employerContribution).toBe(0);
+
+    // 4. EOS (Article 51 Decree-Law 33/2021)
+    const uaeEos = calculateEOSByCountry("AE", "2020-01-01", "2024-01-01", 10000);
+    // 4 years * 10000 * (21/30) = 28000
+    expect(uaeEos.finalEOSAmount).toBe(28000);
+    expect(uaeEos.decimalPrecision).toBe(2);
+
+    // 5. CBUAE WPS SIF
+    const uaeWps = generateCountryWpsPackage("AE", SAMPLE_EMPLOYER, [
+      {
+        employeeId: "emp-ae-1",
+        employeeNo: "AE-001",
+        employeeName: "منصور المزروعي",
+        nationalOrResidentId: "784199012345671",
+        iban: "AE070331234567890123456",
+        bankCode: "ENBD",
+        basicSalary: 20000,
+        housingAllowance: 5000,
+        otherAllowances: 2000,
+        deductions: 2200,
+        netSalary: 24800,
+      },
+    ]);
+    expect(uaeWps.validationPassed).toBe(true);
+    expect(uaeWps.adapterCode).toBe("AE_CBUAE_WPS");
+    expect(uaeWps.fileFormat).toBe("sif");
+  });
+
+  it("Section 91.2 — Kuwait: 12-digit Civil ID, PIFSS pension (10.5%/11.5% Kuwaiti, 2,750 KWD cap), Law 6/2010 EOS, 3-decimal KWD WPS SIF", () => {
+    // 1. Civil ID
+    expect(validateNationalIdFormat("KW", "295010112345").valid).toBe(true);
+    expect(validateNationalIdFormat("KW", "123").valid).toBe(false);
+
+    // 2. IBAN (30 chars)
+    expect(validateIbanFormat("KW", "KW81NBOK0000000000001234567890").valid).toBe(true);
+    expect(validateIbanFormat("KW", "KW81").valid).toBe(false);
+
+    // 3. PIFSS Social Insurance
+    const kuwaiti = calculateKuwaitSocialInsurance(1500, true);
+    expect(kuwaiti.employeeContribution).toBe(157.5); // 10.5%
+    expect(kuwaiti.employerContribution).toBe(172.5); // 11.5%
+
+    const capped = calculateKuwaitSocialInsurance(3500, true);
+    expect(capped.insurableWage).toBe(2750);
+    expect(capped.employeeContribution).toBe(288.75); // 2750 * 0.105
+    expect(capped.employerContribution).toBe(316.25); // 2750 * 0.115
+
+    const expat = calculateKuwaitSocialInsurance(2000, false);
+    expect(expat.employeeContribution).toBe(0);
+    expect(expat.employerContribution).toBe(0);
+
+    // 4. EOS (Articles 51 & 53 Law 6/2010)
+    const kwEos = calculateEOSByCountry("KW", "2020-01-01", "2024-01-01", 1000);
+    // 4 years * 1000 * (15/30) = 2000
+    expect(kwEos.finalEOSAmount).toBe(2000);
+    expect(kwEos.decimalPrecision).toBe(3);
+
+    // Resignation after 4 years: 50%
+    const kwEosResign = calculateEOSByCountry("KW", "2020-01-01", "2024-01-01", 1000, "resignation");
+    expect(kwEosResign.finalEOSAmount).toBe(1000);
+
+    // 5. CBK WPS SIF
+    const kwWps = generateCountryWpsPackage("KW", SAMPLE_EMPLOYER, [
+      {
+        employeeId: "emp-kw-1",
+        employeeNo: "KW-001",
+        employeeName: "عبدالله الصباح",
+        nationalOrResidentId: "295010112345",
+        iban: "KW81NBOK0000000000001234567890",
+        bankCode: "NBOK",
+        basicSalary: 1200.5,
+        housingAllowance: 300.25,
+        otherAllowances: 100.125,
+        deductions: 126.052,
+        netSalary: 1474.823,
+      },
+    ]);
+    expect(kwWps.validationPassed).toBe(true);
+    expect(kwWps.adapterCode).toBe("KW_CBK_WPS");
+    expect(kwWps.decimalPrecision).toBe(3);
+    expect(kwWps.fileFormat).toBe("sif");
   });
 });
 

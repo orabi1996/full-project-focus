@@ -146,5 +146,33 @@ export function buildCanonicalStatutorySampleRecords(
           socialInsuranceEmployerShare: 161.5,
         },
       ];
+    case "AE":
+      return [
+        {
+          employeeId: "emp-ae-01",
+          employeeNameAr: "منصور بن راشد المزروعي",
+          nationalId: "784199012345671",
+          iban: "AE070331234567890123456",
+          basicSalary: 20000,
+          netSalary: 24800,
+          socialInsuranceEmployeeShare: 2200,
+          socialInsuranceEmployerShare: 3000,
+        },
+      ];
+    case "KW":
+      return [
+        {
+          employeeId: "emp-kw-01",
+          employeeNameAr: "عبدالله بن ناصر الصباح",
+          nationalId: "295010112345",
+          iban: "KW81NBOK0000000000001234567890",
+          basicSalary: 1200,
+          netSalary: 1474,
+          socialInsuranceEmployeeShare: 126,
+          socialInsuranceEmployerShare: 138,
+        },
+      ];
+    default:
+      return [];
   }
 }

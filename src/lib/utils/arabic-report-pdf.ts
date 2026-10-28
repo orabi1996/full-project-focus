@@ -1,4 +1,4 @@
-import { getActiveBrandLogoPath } from "../../components/common/AppLogo";
+import { getActiveBrandLogoPath } from "../../components/common/app-logo.constants";
 
 export interface ReportSection {
   title: string;

@@ -18,8 +18,17 @@ import { SAUDI_SOURCES, calculateSaudiSocialInsurance } from "./saudi-arabia";
 import { QATAR_SOURCES, calculateQatarSocialInsurance } from "./qatar";
 import { OMAN_SOURCES, calculateOmanSocialInsurance } from "./oman";
 import { BAHRAIN_SOURCES, calculateBahrainSocialInsurance } from "./bahrain";
+import { UAE_SOURCES, calculateUaeSocialInsurance } from "./united-arab-emirates";
+import { KUWAIT_SOURCES, calculateKuwaitSocialInsurance } from "./kuwait";
 
-export type CountryCode = "EG" | "SA" | "QA" | "OM" | "BH";
+export {
+  UAE_SOURCES,
+  KUWAIT_SOURCES,
+  calculateUaeSocialInsurance,
+  calculateKuwaitSocialInsurance,
+};
+
+export type CountryCode = "EG" | "SA" | "QA" | "OM" | "BH" | "AE" | "KW";
 
 export type CountryPackVerificationStatus =
   | "architecture_ready"
@@ -41,7 +50,7 @@ export interface CountryPackConfig {
   countryCode: CountryCode;
   nameAr: string;
   nameEn: string;
-  currencyCode: "EGP" | "SAR" | "QAR" | "OMR" | "BHD";
+  currencyCode: "EGP" | "SAR" | "QAR" | "OMR" | "BHD" | "AED" | "KWD";
   decimalPrecision: 2 | 3;
   roundingPolicy: StatutoryRoundingPolicy;
   timezoneDefault: string;
@@ -177,6 +186,52 @@ export const COUNTRY_PACK_CATALOG: Record<CountryCode, CountryPackConfig> = {
     statutoryIdNameAr: "الرقم الشخصي البحريني CPR (9 أرقام)",
     statutoryIdNameEn: "Bahrain CPR (9 digits)",
     ibanPrefix: "BH",
+  },
+  AE: {
+    countryCode: "AE",
+    nameAr: "الإمارات العربية المتحدة",
+    nameEn: "United Arab Emirates",
+    currencyCode: "AED",
+    decimalPrecision: 2,
+    roundingPolicy: "HALF_UP",
+    timezoneDefault: "Asia/Dubai",
+    workingWeekDays: ["mon", "tue", "wed", "thu", "fri"],
+    verificationStatus: "production_active",
+    wpsSupported: true,
+    incomeTaxSupported: false,
+    socialInsuranceSupported: true,
+    standardWorkingHoursPerDay: 8,
+    standardWorkingHoursPerWeek: 48,
+    ramadanWorkingHoursPerWeek: 36,
+    maxProbationMonths: 6,
+    maxProbationDaysStandard: 180,
+    standardNoticeDays: 30,
+    statutoryIdNameAr: "بطاقة الهوية الإماراتية EID (15 رقماً)",
+    statutoryIdNameEn: "Emirates ID (15 digits)",
+    ibanPrefix: "AE",
+  },
+  KW: {
+    countryCode: "KW",
+    nameAr: "دولة الكويت",
+    nameEn: "State of Kuwait",
+    currencyCode: "KWD",
+    decimalPrecision: 3,
+    roundingPolicy: "HALF_UP",
+    timezoneDefault: "Asia/Kuwait",
+    workingWeekDays: ["sun", "mon", "tue", "wed", "thu"],
+    verificationStatus: "production_active",
+    wpsSupported: true,
+    incomeTaxSupported: false,
+    socialInsuranceSupported: true,
+    standardWorkingHoursPerDay: 8,
+    standardWorkingHoursPerWeek: 48,
+    ramadanWorkingHoursPerWeek: 36,
+    maxProbationMonths: 3,
+    maxProbationDaysStandard: 100,
+    standardNoticeDays: 90,
+    statutoryIdNameAr: "البطاقة المدنية الكويتية (12 رقماً)",
+    statutoryIdNameEn: "Kuwait Civil ID (12 digits)",
+    ibanPrefix: "KW",
   },
 };
 
@@ -387,6 +442,50 @@ export const VERSIONED_STATUTORY_RULE_REGISTRY: Record<string, StatutoryRuleSetV
     tax: { enabled: false, personalExemptionAnnual: 0, brackets: [] },
     legalReference: "Bahrain SIO Law 24/1976 & Labor Law 36/2012",
   },
+  "AE-2024-V1": {
+    countryCode: "AE",
+    versionCode: "AE-2024-V1",
+    versionNameAr: "حزمة المعاشات والعمل وحماية الأجور الإماراتية 2024-2026",
+    versionNameEn: "UAE GPSSA & Labor Pack 2024-2026",
+    effectiveFrom: "2024-01-01",
+    effectiveTo: null,
+    status: "active",
+    socialInsurance: {
+      nationalEmployeeRate: 0.11,
+      nationalEmployerRate: 0.15,
+      expatEmployeeRate: 0,
+      expatEmployerRate: 0,
+      minWageBasisNational: 1000,
+      minWageBasisExpat: 0,
+      maxWageBasis: 70000,
+      specialEmployeeRate: 0,
+      specialEmployerRate: 0,
+    },
+    tax: { enabled: false, personalExemptionAnnual: 0, brackets: [] },
+    legalReference: "Federal Decree-Law 57/2023 (GPSSA) & Decree-Law 33/2021 (Labor)",
+  },
+  "KW-2024-V1": {
+    countryCode: "KW",
+    versionCode: "KW-2024-V1",
+    versionNameAr: "حزمة التأمينات الاجتماعية وقانون العمل الكويتي 2024-2026",
+    versionNameEn: "Kuwait PIFSS & Labor Pack 2024-2026",
+    effectiveFrom: "2024-01-01",
+    effectiveTo: null,
+    status: "active",
+    socialInsurance: {
+      nationalEmployeeRate: 0.105,
+      nationalEmployerRate: 0.115,
+      expatEmployeeRate: 0,
+      expatEmployerRate: 0,
+      minWageBasisNational: 230,
+      minWageBasisExpat: 0,
+      maxWageBasis: 2750,
+      specialEmployeeRate: 0,
+      specialEmployerRate: 0,
+    },
+    tax: { enabled: false, personalExemptionAnnual: 0, brackets: [] },
+    legalReference: "PIFSS Law 61/1976 & Kuwait Labor Law 6/2010",
+  },
 };
 
 export function resolveStatutoryRuleSet(
@@ -471,6 +570,18 @@ export function validateNationalIdFormat(country: CountryCode, idValue: string):
       }
       return { valid: true };
 
+    case "AE":
+      if (!/^\d{15}$/.test(cleaned.replace(/-/g, ""))) {
+        return { valid: false, message: "بطاقة الهوية الإماراتية EID يجب أن تتكون من 15 رقماً" };
+      }
+      return { valid: true };
+
+    case "KW":
+      if (!/^\d{12}$/.test(cleaned)) {
+        return { valid: false, message: "البطاقة المدنية الكويتية يجب أن تتكون من 12 رقماً" };
+      }
+      return { valid: true };
+
     default:
       return { valid: cleaned.length >= 6 };
   }
@@ -492,6 +603,8 @@ export function validateIbanFormat(country: CountryCode, iban: string): { valid:
     QA: 29,
     OM: 23,
     BH: 22,
+    AE: 23,
+    KW: 30,
   };
 
   if (cleaned.length !== expectedLengths[country]) {
@@ -616,6 +729,34 @@ export function calculateEOSByCountry(
         baseEOS = 3 * (lastWageBasis * 0.5) + (serviceYearsDecimal - 3) * lastWageBasis;
       }
       break;
+
+    case "AE":
+      ruleTitle = "قانون العمل الإماراتي مرسوم بقانون 33/2021 (المادة 51)";
+      // 21 days basic salary for first 5 years, 30 days per year thereafter, capped at 2 years' wage
+      if (serviceYearsDecimal <= 5) {
+        baseEOS = serviceYearsDecimal * (lastWageBasis * (21 / 30));
+      } else {
+        baseEOS = 5 * (lastWageBasis * (21 / 30)) + (serviceYearsDecimal - 5) * lastWageBasis;
+      }
+      baseEOS = Math.min(baseEOS, lastWageBasis * 24);
+      break;
+
+    case "KW":
+      ruleTitle = "قانون العمل الكويتي في القطاع الأهلي 6/2010 (المادتان 51 و 53)";
+      // 15 days remuneration for first 5 years, 1 month per year thereafter, capped at 1.5 years' wage
+      if (serviceYearsDecimal <= 5) {
+        baseEOS = serviceYearsDecimal * (lastWageBasis * (15 / 30));
+      } else {
+        baseEOS = 5 * (lastWageBasis * (15 / 30)) + (serviceYearsDecimal - 5) * lastWageBasis;
+      }
+      baseEOS = Math.min(baseEOS, lastWageBasis * 18);
+      if (separationReason === "resignation") {
+        if (serviceYearsDecimal < 3) multiplier = 0;
+        else if (serviceYearsDecimal < 5) multiplier = 0.5;
+        else if (serviceYearsDecimal < 10) multiplier = 0.6667;
+        else multiplier = 1.0;
+      }
+      break;
   }
 
   const pack = COUNTRY_PACK_CATALOG[country];
@@ -709,6 +850,13 @@ export function getStatutoryOvertimeMultiplier(
     case "BH":
       if (type === "night" || type === "weekend_or_rest" || type === "public_holiday") return 1.5;
       return 1.25;
+    case "AE":
+      if (type === "night" || type === "weekend_or_rest" || type === "public_holiday") return 1.5;
+      return 1.25;
+    case "KW":
+      if (type === "public_holiday") return 2.0;
+      if (type === "night" || type === "weekend_or_rest") return 1.5;
+      return 1.25;
   }
 }
 
@@ -767,6 +915,24 @@ export const COUNTRY_LEAVE_POLICIES: Record<CountryCode, CountryLeavePolicyConfi
     maternityLeavePaidDays: 60,
     pilgrimageLeaveOnceDays: 14,
     sickLeaveMaxDaysPerYear: 55,
+  },
+  AE: {
+    countryCode: "AE",
+    annualLeaveBaseDays: 30,
+    annualLeaveSeniorDays: 30,
+    seniorityThresholdYears: 1,
+    maternityLeavePaidDays: 60,
+    pilgrimageLeaveOnceDays: 30,
+    sickLeaveMaxDaysPerYear: 90,
+  },
+  KW: {
+    countryCode: "KW",
+    annualLeaveBaseDays: 30,
+    annualLeaveSeniorDays: 30,
+    seniorityThresholdYears: 1,
+    maternityLeavePaidDays: 70,
+    pilgrimageLeaveOnceDays: 21,
+    sickLeaveMaxDaysPerYear: 105,
   },
 };
 
@@ -861,7 +1027,14 @@ export interface WpsEmployerMetadata {
 export interface WpsPackageGenerationResult {
   batchReference: string;
   countryCode: CountryCode;
-  adapterCode: "SA_MUDAD_WPS" | "QA_QCB_SIF" | "OM_CBO_WPS" | "BH_LMRA_WPS" | "EG_CBE_PAYROLL";
+  adapterCode:
+    | "SA_MUDAD_WPS"
+    | "QA_QCB_SIF"
+    | "OM_CBO_WPS"
+    | "BH_LMRA_WPS"
+    | "EG_CBE_PAYROLL"
+    | "AE_CBUAE_WPS"
+    | "KW_CBK_WPS";
   fileFormat: "sif" | "txt" | "csv" | "cbe_card";
   currencyCode: string;
   decimalPrecision: number;
@@ -923,6 +1096,8 @@ export function generateCountryWpsPackage(
     OM: { adapterCode: "OM_CBO_WPS", fileFormat: "csv", ext: "csv" },
     BH: { adapterCode: "BH_LMRA_WPS", fileFormat: "csv", ext: "csv" },
     EG: { adapterCode: "EG_CBE_PAYROLL", fileFormat: "cbe_card", ext: "csv" },
+    AE: { adapterCode: "AE_CBUAE_WPS", fileFormat: "sif", ext: "sif" },
+    KW: { adapterCode: "KW_CBK_WPS", fileFormat: "sif", ext: "sif" },
   };
 
   const { adapterCode, fileFormat, ext } = adapterMap[country];

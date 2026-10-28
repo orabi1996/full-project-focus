@@ -344,6 +344,131 @@ export type Database = {
           },
         ]
       }
+      calibration_adjustments: {
+        Row: {
+          adjusted_at: string
+          adjusted_by: string | null
+          adjusted_by_name: string | null
+          calibrated_rating_label: string | null
+          calibrated_score: number
+          calibration_reason: string | null
+          employee_id: string | null
+          employee_name: string | null
+          id: string
+          original_rating_label: string | null
+          original_score: number | null
+          participant_id: string | null
+          session_id: string
+        }
+        Insert: {
+          adjusted_at?: string
+          adjusted_by?: string | null
+          adjusted_by_name?: string | null
+          calibrated_rating_label?: string | null
+          calibrated_score: number
+          calibration_reason?: string | null
+          employee_id?: string | null
+          employee_name?: string | null
+          id?: string
+          original_rating_label?: string | null
+          original_score?: number | null
+          participant_id?: string | null
+          session_id: string
+        }
+        Update: {
+          adjusted_at?: string
+          adjusted_by?: string | null
+          adjusted_by_name?: string | null
+          calibrated_rating_label?: string | null
+          calibrated_score?: number
+          calibration_reason?: string | null
+          employee_id?: string | null
+          employee_name?: string | null
+          id?: string
+          original_rating_label?: string | null
+          original_score?: number | null
+          participant_id?: string | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calibration_adjustments_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "performance_cycle_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calibration_adjustments_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "calibration_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calibration_sessions: {
+        Row: {
+          actual_distribution: Json | null
+          company_id: string | null
+          created_at: string
+          cycle_id: string
+          department_id: string | null
+          department_name: string | null
+          id: string
+          moderator_employee_id: string | null
+          moderator_name: string | null
+          notes: string | null
+          session_date: string | null
+          status: string
+          target_distribution: Json | null
+          title_ar: string
+          title_en: string | null
+        }
+        Insert: {
+          actual_distribution?: Json | null
+          company_id?: string | null
+          created_at?: string
+          cycle_id: string
+          department_id?: string | null
+          department_name?: string | null
+          id?: string
+          moderator_employee_id?: string | null
+          moderator_name?: string | null
+          notes?: string | null
+          session_date?: string | null
+          status?: string
+          target_distribution?: Json | null
+          title_ar: string
+          title_en?: string | null
+        }
+        Update: {
+          actual_distribution?: Json | null
+          company_id?: string | null
+          created_at?: string
+          cycle_id?: string
+          department_id?: string | null
+          department_name?: string | null
+          id?: string
+          moderator_employee_id?: string | null
+          moderator_name?: string | null
+          notes?: string | null
+          session_date?: string | null
+          status?: string
+          target_distribution?: Json | null
+          title_ar?: string
+          title_en?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calibration_sessions_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "performance_cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidate_stages: {
         Row: {
           candidate_id: string
@@ -632,6 +757,95 @@ export type Database = {
         }
         Relationships: []
       }
+      competencies: {
+        Row: {
+          behavioral_indicators: Json
+          category: string | null
+          code: string | null
+          company_id: string | null
+          description_ar: string | null
+          description_en: string | null
+          framework_id: string | null
+          id: string
+          is_active: boolean
+          target_proficiency_level: number
+          title_ar: string
+          title_en: string | null
+          weight_pct: number
+        }
+        Insert: {
+          behavioral_indicators?: Json
+          category?: string | null
+          code?: string | null
+          company_id?: string | null
+          description_ar?: string | null
+          description_en?: string | null
+          framework_id?: string | null
+          id?: string
+          is_active?: boolean
+          target_proficiency_level?: number
+          title_ar: string
+          title_en?: string | null
+          weight_pct?: number
+        }
+        Update: {
+          behavioral_indicators?: Json
+          category?: string | null
+          code?: string | null
+          company_id?: string | null
+          description_ar?: string | null
+          description_en?: string | null
+          framework_id?: string | null
+          id?: string
+          is_active?: boolean
+          target_proficiency_level?: number
+          title_ar?: string
+          title_en?: string | null
+          weight_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competencies_framework_id_fkey"
+            columns: ["framework_id"]
+            isOneToOne: false
+            referencedRelation: "competency_frameworks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competency_frameworks: {
+        Row: {
+          code: string | null
+          company_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          title_ar: string
+          title_en: string | null
+          version: string
+        }
+        Insert: {
+          code?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          title_ar: string
+          title_en?: string | null
+          version?: string
+        }
+        Update: {
+          code?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          title_ar?: string
+          title_en?: string | null
+          version?: string
+        }
+        Relationships: []
+      }
       delegation_rules: {
         Row: {
           created_at: string
@@ -743,6 +957,114 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      development_plan_items: {
+        Row: {
+          action_type: string
+          activity_description: string | null
+          competency_id: string | null
+          id: string
+          objective_ar: string
+          plan_id: string
+          progress_pct: number
+          status: string
+          success_metric: string | null
+          target_date: string | null
+        }
+        Insert: {
+          action_type?: string
+          activity_description?: string | null
+          competency_id?: string | null
+          id?: string
+          objective_ar: string
+          plan_id: string
+          progress_pct?: number
+          status?: string
+          success_metric?: string | null
+          target_date?: string | null
+        }
+        Update: {
+          action_type?: string
+          activity_description?: string | null
+          competency_id?: string | null
+          id?: string
+          objective_ar?: string
+          plan_id?: string
+          progress_pct?: number
+          status?: string
+          success_metric?: string | null
+          target_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "development_plan_items_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "development_plan_items_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "development_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      development_plans: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          cycle_id: string | null
+          employee_id: string
+          employee_name: string | null
+          id: string
+          overall_progress_pct: number
+          status: string
+          target_completion_date: string | null
+          title_ar: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          cycle_id?: string | null
+          employee_id: string
+          employee_name?: string | null
+          id?: string
+          overall_progress_pct?: number
+          status?: string
+          target_completion_date?: string | null
+          title_ar: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          cycle_id?: string | null
+          employee_id?: string
+          employee_name?: string | null
+          id?: string
+          overall_progress_pct?: number
+          status?: string
+          target_completion_date?: string | null
+          title_ar?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "development_plans_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "performance_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "development_plans_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
         ]
@@ -1348,6 +1670,47 @@ export type Database = {
           version?: number
         }
         Relationships: []
+      }
+      goal_progress_history: {
+        Row: {
+          goal_id: string
+          id: string
+          new_value: number
+          note: string | null
+          percentage: number
+          previous_value: number
+          recorded_at: string
+          recorded_by: string | null
+        }
+        Insert: {
+          goal_id: string
+          id?: string
+          new_value?: number
+          note?: string | null
+          percentage?: number
+          previous_value?: number
+          recorded_at?: string
+          recorded_by?: string | null
+        }
+        Update: {
+          goal_id?: string
+          id?: string
+          new_value?: number
+          note?: string | null
+          percentage?: number
+          previous_value?: number
+          recorded_at?: string
+          recorded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_progress_history_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "performance_goals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hardware_assets: {
         Row: {
@@ -2170,6 +2533,108 @@ export type Database = {
           },
         ]
       }
+      performance_cycle_participants: {
+        Row: {
+          calibrated_score: number | null
+          company_id: string | null
+          created_at: string
+          cycle_id: string
+          department_id: string | null
+          department_name: string | null
+          employee_id: string
+          employee_name_ar: string | null
+          employee_name_en: string | null
+          employee_no: string | null
+          final_competency_score: number | null
+          final_goal_score: number | null
+          final_overall_score: number | null
+          final_rating_label: string | null
+          id: string
+          is_locked: boolean
+          job_title: string | null
+          locked_at: string | null
+          manager_employee_id: string | null
+          manager_name: string | null
+          nine_box_cell: string | null
+          nine_box_performance: string | null
+          nine_box_potential: string | null
+          status: string
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          calibrated_score?: number | null
+          company_id?: string | null
+          created_at?: string
+          cycle_id: string
+          department_id?: string | null
+          department_name?: string | null
+          employee_id: string
+          employee_name_ar?: string | null
+          employee_name_en?: string | null
+          employee_no?: string | null
+          final_competency_score?: number | null
+          final_goal_score?: number | null
+          final_overall_score?: number | null
+          final_rating_label?: string | null
+          id?: string
+          is_locked?: boolean
+          job_title?: string | null
+          locked_at?: string | null
+          manager_employee_id?: string | null
+          manager_name?: string | null
+          nine_box_cell?: string | null
+          nine_box_performance?: string | null
+          nine_box_potential?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          calibrated_score?: number | null
+          company_id?: string | null
+          created_at?: string
+          cycle_id?: string
+          department_id?: string | null
+          department_name?: string | null
+          employee_id?: string
+          employee_name_ar?: string | null
+          employee_name_en?: string | null
+          employee_no?: string | null
+          final_competency_score?: number | null
+          final_goal_score?: number | null
+          final_overall_score?: number | null
+          final_rating_label?: string | null
+          id?: string
+          is_locked?: boolean
+          job_title?: string | null
+          locked_at?: string | null
+          manager_employee_id?: string | null
+          manager_name?: string | null
+          nine_box_cell?: string | null
+          nine_box_performance?: string | null
+          nine_box_potential?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_cycle_participants_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "performance_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_cycle_participants_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       performance_cycles: {
         Row: {
           allow_peer_reviews: boolean
@@ -2266,41 +2731,333 @@ export type Database = {
         }
         Relationships: []
       }
-      performance_reviews: {
+      performance_goals: {
         Row: {
-          comments: string | null
+          approved_at: string | null
+          approved_by: string | null
+          category: string
+          company_id: string | null
+          created_at: string
+          current_value: number
+          cycle_id: string
+          description: string | null
+          employee_id: string
+          id: string
+          is_locked: boolean
+          level: string
+          metric_type: string
+          parent_goal_id: string | null
+          progress_percentage: number
+          start_value: number
+          status: string
+          target_value: number
+          title_ar: string
+          title_en: string | null
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          category?: string
+          company_id?: string | null
+          created_at?: string
+          current_value?: number
+          cycle_id: string
+          description?: string | null
+          employee_id: string
+          id?: string
+          is_locked?: boolean
+          level?: string
+          metric_type?: string
+          parent_goal_id?: string | null
+          progress_percentage?: number
+          start_value?: number
+          status?: string
+          target_value?: number
+          title_ar: string
+          title_en?: string | null
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          category?: string
+          company_id?: string | null
+          created_at?: string
+          current_value?: number
+          cycle_id?: string
+          description?: string | null
+          employee_id?: string
+          id?: string
+          is_locked?: boolean
+          level?: string
+          metric_type?: string
+          parent_goal_id?: string | null
+          progress_percentage?: number
+          start_value?: number
+          status?: string
+          target_value?: number
+          title_ar?: string
+          title_en?: string | null
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_goals_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "performance_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_goals_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_goals_parent_goal_id_fkey"
+            columns: ["parent_goal_id"]
+            isOneToOne: false
+            referencedRelation: "performance_goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      performance_improvement_plans: {
+        Row: {
+          company_id: string | null
+          consequences_of_failure: string | null
           created_at: string
           cycle_id: string | null
-          employee_id: string | null
+          employee_id: string
+          employee_name: string | null
+          end_date: string | null
+          expected_outcomes: string | null
+          hr_notes: string | null
           id: string
-          overall_score: number | null
-          review_type: string
-          reviewer_id: string | null
+          manager_employee_id: string | null
+          manager_name: string | null
+          outcome: string | null
+          performance_deficiencies: string | null
+          review_frequency_days: number
+          start_date: string | null
           status: string
         }
         Insert: {
-          comments?: string | null
+          company_id?: string | null
+          consequences_of_failure?: string | null
           created_at?: string
           cycle_id?: string | null
-          employee_id?: string | null
+          employee_id: string
+          employee_name?: string | null
+          end_date?: string | null
+          expected_outcomes?: string | null
+          hr_notes?: string | null
           id?: string
-          overall_score?: number | null
-          review_type?: string
-          reviewer_id?: string | null
+          manager_employee_id?: string | null
+          manager_name?: string | null
+          outcome?: string | null
+          performance_deficiencies?: string | null
+          review_frequency_days?: number
+          start_date?: string | null
           status?: string
         }
         Update: {
-          comments?: string | null
+          company_id?: string | null
+          consequences_of_failure?: string | null
           created_at?: string
           cycle_id?: string | null
-          employee_id?: string | null
+          employee_id?: string
+          employee_name?: string | null
+          end_date?: string | null
+          expected_outcomes?: string | null
+          hr_notes?: string | null
           id?: string
-          overall_score?: number | null
-          review_type?: string
-          reviewer_id?: string | null
+          manager_employee_id?: string | null
+          manager_name?: string | null
+          outcome?: string | null
+          performance_deficiencies?: string | null
+          review_frequency_days?: number
+          start_date?: string | null
           status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "performance_improvement_plans_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "performance_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_improvement_plans_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      performance_review_assignments: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          cycle_id: string
+          due_date: string | null
+          employee_id: string
+          employee_name: string | null
+          id: string
+          is_anonymous: boolean
+          participant_id: string | null
+          review_type: string
+          reviewer_employee_id: string | null
+          reviewer_name: string | null
+          status: string
+          submitted_at: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          cycle_id: string
+          due_date?: string | null
+          employee_id: string
+          employee_name?: string | null
+          id?: string
+          is_anonymous?: boolean
+          participant_id?: string | null
+          review_type?: string
+          reviewer_employee_id?: string | null
+          reviewer_name?: string | null
+          status?: string
+          submitted_at?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          cycle_id?: string
+          due_date?: string | null
+          employee_id?: string
+          employee_name?: string | null
+          id?: string
+          is_anonymous?: boolean
+          participant_id?: string | null
+          review_type?: string
+          reviewer_employee_id?: string | null
+          reviewer_name?: string | null
+          status?: string
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_review_assignments_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "performance_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_review_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_review_assignments_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "performance_cycle_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_review_assignments_reviewer_employee_id_fkey"
+            columns: ["reviewer_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      performance_reviews: {
+        Row: {
+          assignment_id: string | null
+          comments: string | null
+          company_id: string | null
+          competency_score: number | null
+          created_at: string
+          cycle_id: string | null
+          employee_id: string | null
+          general_feedback: string | null
+          goal_score: number | null
+          growth_areas_summary: string | null
+          id: string
+          is_anonymous: boolean
+          is_locked: boolean
+          overall_score: number | null
+          review_type: string
+          reviewer_employee_id: string | null
+          reviewer_id: string | null
+          status: string
+          strengths_summary: string | null
+          submitted_at: string | null
+        }
+        Insert: {
+          assignment_id?: string | null
+          comments?: string | null
+          company_id?: string | null
+          competency_score?: number | null
+          created_at?: string
+          cycle_id?: string | null
+          employee_id?: string | null
+          general_feedback?: string | null
+          goal_score?: number | null
+          growth_areas_summary?: string | null
+          id?: string
+          is_anonymous?: boolean
+          is_locked?: boolean
+          overall_score?: number | null
+          review_type?: string
+          reviewer_employee_id?: string | null
+          reviewer_id?: string | null
+          status?: string
+          strengths_summary?: string | null
+          submitted_at?: string | null
+        }
+        Update: {
+          assignment_id?: string | null
+          comments?: string | null
+          company_id?: string | null
+          competency_score?: number | null
+          created_at?: string
+          cycle_id?: string | null
+          employee_id?: string | null
+          general_feedback?: string | null
+          goal_score?: number | null
+          growth_areas_summary?: string | null
+          id?: string
+          is_anonymous?: boolean
+          is_locked?: boolean
+          overall_score?: number | null
+          review_type?: string
+          reviewer_employee_id?: string | null
+          reviewer_id?: string | null
+          status?: string
+          strengths_summary?: string | null
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_reviews_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "performance_review_assignments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "performance_reviews_cycle_id_fkey"
             columns: ["cycle_id"]
@@ -2313,6 +3070,87 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      potential_assessments: {
+        Row: {
+          assessor_employee_id: string | null
+          assessor_name: string | null
+          assessor_role: string | null
+          company_id: string | null
+          created_at: string
+          critical_role_readiness: string | null
+          cycle_id: string
+          employee_id: string | null
+          employee_name: string | null
+          flight_risk: string | null
+          id: string
+          leadership_potential_score: number
+          learning_agility_score: number
+          nine_box_cell: string | null
+          participant_id: string | null
+          performance_level: string
+          potential_level: string
+          rationale: string | null
+          retention_priority: string | null
+        }
+        Insert: {
+          assessor_employee_id?: string | null
+          assessor_name?: string | null
+          assessor_role?: string | null
+          company_id?: string | null
+          created_at?: string
+          critical_role_readiness?: string | null
+          cycle_id: string
+          employee_id?: string | null
+          employee_name?: string | null
+          flight_risk?: string | null
+          id?: string
+          leadership_potential_score?: number
+          learning_agility_score?: number
+          nine_box_cell?: string | null
+          participant_id?: string | null
+          performance_level?: string
+          potential_level?: string
+          rationale?: string | null
+          retention_priority?: string | null
+        }
+        Update: {
+          assessor_employee_id?: string | null
+          assessor_name?: string | null
+          assessor_role?: string | null
+          company_id?: string | null
+          created_at?: string
+          critical_role_readiness?: string | null
+          cycle_id?: string
+          employee_id?: string | null
+          employee_name?: string | null
+          flight_risk?: string | null
+          id?: string
+          leadership_potential_score?: number
+          learning_agility_score?: number
+          nine_box_cell?: string | null
+          participant_id?: string | null
+          performance_level?: string
+          potential_level?: string
+          rationale?: string | null
+          retention_priority?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "potential_assessments_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "performance_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "potential_assessments_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "performance_cycle_participants"
             referencedColumns: ["id"]
           },
         ]
@@ -2551,6 +3389,110 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_template_items: {
+        Row: {
+          competency_id: string | null
+          custom_title_ar: string | null
+          custom_title_en: string | null
+          display_order: number
+          id: string
+          item_type: string
+          template_id: string
+          weight_pct: number
+        }
+        Insert: {
+          competency_id?: string | null
+          custom_title_ar?: string | null
+          custom_title_en?: string | null
+          display_order?: number
+          id?: string
+          item_type?: string
+          template_id: string
+          weight_pct?: number
+        }
+        Update: {
+          competency_id?: string | null
+          custom_title_ar?: string | null
+          custom_title_en?: string | null
+          display_order?: number
+          id?: string
+          item_type?: string
+          template_id?: string
+          weight_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_template_items_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "review_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_templates: {
+        Row: {
+          code: string | null
+          company_id: string | null
+          competencies_weight_pct: number
+          created_at: string
+          framework_id: string | null
+          goals_weight_pct: number
+          id: string
+          include_360_peer_review: boolean
+          is_active: boolean
+          target_department_id: string | null
+          target_job_title: string | null
+          title_ar: string
+          title_en: string | null
+        }
+        Insert: {
+          code?: string | null
+          company_id?: string | null
+          competencies_weight_pct?: number
+          created_at?: string
+          framework_id?: string | null
+          goals_weight_pct?: number
+          id?: string
+          include_360_peer_review?: boolean
+          is_active?: boolean
+          target_department_id?: string | null
+          target_job_title?: string | null
+          title_ar: string
+          title_en?: string | null
+        }
+        Update: {
+          code?: string | null
+          company_id?: string | null
+          competencies_weight_pct?: number
+          created_at?: string
+          framework_id?: string | null
+          goals_weight_pct?: number
+          id?: string
+          include_360_peer_review?: boolean
+          is_active?: boolean
+          target_department_id?: string | null
+          target_job_title?: string | null
+          title_ar?: string
+          title_en?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_templates_framework_id_fkey"
+            columns: ["framework_id"]
+            isOneToOne: false
+            referencedRelation: "competency_frameworks"
             referencedColumns: ["id"]
           },
         ]
@@ -3022,6 +3964,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      adjust_calibration_atomic: {
+        Args: {
+          p_calibrated_rating_label: string
+          p_calibrated_score: number
+          p_calibration_reason: string
+          p_participant_id: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
       approve_attendance_correction: {
         Args: { p_request_id: string }
         Returns: Json
@@ -3035,8 +3987,35 @@ export type Database = {
         Returns: Json
       }
       archive_file_object: { Args: { p_file_id: string }; Returns: Json }
+      assess_potential_atomic: {
+        Args: {
+          p_critical_role_readiness?: string
+          p_cycle_id: string
+          p_flight_risk?: string
+          p_leadership_potential_score?: number
+          p_learning_agility_score?: number
+          p_participant_id: string
+          p_potential_level: string
+          p_rationale?: string
+          p_retention_priority?: string
+        }
+        Returns: Json
+      }
+      assign_peer_reviewers_atomic: {
+        Args: {
+          p_cycle_id: string
+          p_is_anonymous?: boolean
+          p_peer_employee_ids: string[]
+          p_target_employee_id: string
+        }
+        Returns: Json
+      }
       finalize_file_replacement: {
         Args: { p_new_file_id: string; p_previous_file_id: string }
+        Returns: Json
+      }
+      finalize_performance_cycle_atomic: {
+        Args: { p_cycle_id: string }
         Returns: Json
       }
       get_dashboard_attendance_trend: {
@@ -3048,6 +4027,10 @@ export type Database = {
         Args: { p_end_date: string; p_start_date: string }
         Returns: Json
       }
+      get_performance_kpis_atomic: {
+        Args: { p_cycle_id?: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3056,6 +4039,10 @@ export type Database = {
         Returns: boolean
       }
       is_hr: { Args: { _user_id: string }; Returns: boolean }
+      launch_performance_cycle_atomic: {
+        Args: { p_cycle_id: string; p_target_department_ids?: string[] }
+        Returns: Json
+      }
       log_file_download_access: {
         Args: { p_access_type: string; p_file_id: string }
         Returns: Json
@@ -3080,6 +4067,42 @@ export type Database = {
       }
       revoke_delegation_rule: {
         Args: { p_delegation_id: string }
+        Returns: Json
+      }
+      submit_performance_goal_atomic: {
+        Args: {
+          p_category: string
+          p_cycle_id: string
+          p_description: string
+          p_employee_id: string
+          p_level: string
+          p_metric_type: string
+          p_parent_goal_id: string
+          p_start_value: number
+          p_target_value: number
+          p_title_ar: string
+          p_title_en: string
+          p_weight: number
+        }
+        Returns: Json
+      }
+      submit_performance_review_atomic: {
+        Args: {
+          p_assignment_id: string
+          p_general_feedback?: string
+          p_growth_areas_summary?: string
+          p_scores: Json
+          p_strengths_summary?: string
+        }
+        Returns: Json
+      }
+      update_goal_progress_atomic: {
+        Args: {
+          p_goal_id: string
+          p_new_value: number
+          p_note?: string
+          p_percentage: number
+        }
         Returns: Json
       }
     }

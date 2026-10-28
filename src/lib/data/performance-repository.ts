@@ -981,6 +981,8 @@ export async function createPerformanceCycleRecord(payload: {
   const { data, error } = await db
     .from("performance_cycles")
     .insert({
+      name_ar: payload.titleAr,
+      name_en: payload.titleEn || payload.titleAr,
       title_ar: payload.titleAr,
       title_en: payload.titleEn || payload.titleAr,
       period_type: payload.periodType,

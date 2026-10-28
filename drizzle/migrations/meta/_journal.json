@@ -36,6 +36,20 @@
       "when": 1792359158646,
       "tag": "0004_add_record_self_punch",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793180415073,
+      "tag": "0005_extend_performance_cycles_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793181081052,
+      "tag": "0006_performance_module_tables_and_rpcs",
+      "breakpoints": true
     }
   ]
 }

@@ -2172,46 +2172,97 @@ export type Database = {
       }
       performance_cycles: {
         Row: {
+          allow_peer_reviews: boolean
+          anonymous_peer_reviews: boolean
+          calibration_deadline: string | null
+          code: string | null
+          company_id: string | null
+          competencies_weight_pct: number
           completion_rate: number
           created_at: string
           end_date: string | null
+          goals_weight_pct: number
           id: string
+          is_locked: boolean
+          locked_at: string | null
+          manager_review_deadline: string | null
           name_ar: string
           name_en: string | null
           participants_count: number
+          peer_review_max_count: number
+          peer_review_min_count: number
           period_type: string
+          rating_scale_max: number
+          rating_scale_min: number
+          rating_scale_step: number
+          self_review_deadline: string | null
           start_date: string | null
           status: string
           title_ar: string | null
           title_en: string | null
+          updated_at: string
         }
         Insert: {
+          allow_peer_reviews?: boolean
+          anonymous_peer_reviews?: boolean
+          calibration_deadline?: string | null
+          code?: string | null
+          company_id?: string | null
+          competencies_weight_pct?: number
           completion_rate?: number
           created_at?: string
           end_date?: string | null
+          goals_weight_pct?: number
           id?: string
+          is_locked?: boolean
+          locked_at?: string | null
+          manager_review_deadline?: string | null
           name_ar: string
           name_en?: string | null
           participants_count?: number
+          peer_review_max_count?: number
+          peer_review_min_count?: number
           period_type?: string
+          rating_scale_max?: number
+          rating_scale_min?: number
+          rating_scale_step?: number
+          self_review_deadline?: string | null
           start_date?: string | null
           status?: string
           title_ar?: string | null
           title_en?: string | null
+          updated_at?: string
         }
         Update: {
+          allow_peer_reviews?: boolean
+          anonymous_peer_reviews?: boolean
+          calibration_deadline?: string | null
+          code?: string | null
+          company_id?: string | null
+          competencies_weight_pct?: number
           completion_rate?: number
           created_at?: string
           end_date?: string | null
+          goals_weight_pct?: number
           id?: string
+          is_locked?: boolean
+          locked_at?: string | null
+          manager_review_deadline?: string | null
           name_ar?: string
           name_en?: string | null
           participants_count?: number
+          peer_review_max_count?: number
+          peer_review_min_count?: number
           period_type?: string
+          rating_scale_max?: number
+          rating_scale_min?: number
+          rating_scale_step?: number
+          self_review_deadline?: string | null
           start_date?: string | null
           status?: string
           title_ar?: string | null
           title_en?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

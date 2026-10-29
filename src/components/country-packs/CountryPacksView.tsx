@@ -61,6 +61,19 @@ import { GenerateWpsModal } from "./GenerateWpsModal";
 import { ComplianceDrilldownModal } from "./ComplianceDrilldownModal";
 import { GovernmentConnectorOperationsModal } from "./GovernmentConnectorOperationsModal";
 
+const getCountryFlag = (code: string): string => {
+  switch (code) {
+    case "SA": return "🇸🇦";
+    case "EG": return "🇪🇬";
+    case "QA": return "🇶🇦";
+    case "OM": return "🇴🇲";
+    case "BH": return "🇧🇭";
+    case "AE": return "🇦🇪";
+    case "KW": return "🇰🇼";
+    default: return "🌐";
+  }
+};
+
 export function CountryPacksView() {
   const { company, payrollRuns = [] } = useBootstrapData();
   const navigate = useNavigate();
@@ -351,7 +364,7 @@ export function CountryPacksView() {
           variant={selectedCountry === "all" ? "default" : "outline"}
           onClick={() => setSelectedCountry("all")}
         >
-          كافة الدول (5)
+          كافة الدول (7)
         </Button>
         <Button
           size="sm"
@@ -393,6 +406,22 @@ export function CountryPacksView() {
         >
           🇧🇭 البحرين
         </Button>
+        <Button
+          size="sm"
+          variant={selectedCountry === "AE" ? "default" : "outline"}
+          onClick={() => setSelectedCountry("AE")}
+          className="gap-1.5"
+        >
+          🇦🇪 الإمارات
+        </Button>
+        <Button
+          size="sm"
+          variant={selectedCountry === "KW" ? "default" : "outline"}
+          onClick={() => setSelectedCountry("KW")}
+          className="gap-1.5"
+        >
+          🇰🇼 الكويت
+        </Button>
       </div>
 
       {/* Main Tabs */}
@@ -420,7 +449,7 @@ export function CountryPacksView() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-xl">
-                          {c === "SA" ? "🇸🇦" : c === "EG" ? "🇪🇬" : c === "QA" ? "🇶🇦" : c === "OM" ? "🇴🇲" : "🇧🇭"}
+                          {getCountryFlag(c)}
                         </span>
                         <div>
                           <h3 className="font-bold text-sm text-foreground">{pack.nameAr}</h3>
@@ -675,6 +704,14 @@ export function CountryPacksView() {
                 <div className="p-2.5 rounded-lg bg-muted/30">
                   <strong className="text-foreground block mb-0.5">🇧🇭 مملكة البحرين (المادة 116):</strong>
                   نصف شهر عن كل سنة من السنوات الثلاث الأولى، وشهر عن كل سنة تالية.
+                </div>
+                <div className="p-2.5 rounded-lg bg-muted/30">
+                  <strong className="text-foreground block mb-0.5">🇦🇪 دولة الإمارات العربية المتحدة (مرسوم بقانون اتحادي 33/2021 مادة 51):</strong>
+                  21 يوماً عن كل سنة من السنوات الـ 5 الأولى، و30 يوماً عن كل سنة تالية (بشرط إتمام سنة خدمة كاملة)، بحد أقصى يعادل أجر سنتين.
+                </div>
+                <div className="p-2.5 rounded-lg bg-muted/30">
+                  <strong className="text-foreground block mb-0.5">🇰🇼 دولة الكويت (قانون العمل في القطاع الأهلي 6/2010 مادة 51):</strong>
+                  15 يوماً عن كل سنة من السنوات الـ 5 الأولى، وشهر عن كل سنة تالية بحد أقصى يعادل أجر سنة ونصف، مع استحقاقات الاستقالة حسب مدة الخدمة.
                 </div>
               </div>
             </div>

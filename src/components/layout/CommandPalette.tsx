@@ -21,6 +21,8 @@ import {
   CheckCircle2,
   Calendar,
   Layers,
+  Globe,
+  Sparkles,
 } from "lucide-react";
 import { Dialog, DialogContent } from "../ui/dialog";
 import { Badge as CommandBadge } from "../ui/badge";
@@ -171,6 +173,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       labelAr: "بوابة الخدمة الذاتية للموظف (ESS)",
       icon: Smartphone,
       cat: "الخدمة الذاتية",
+    },
+    {
+      id: "country-packs",
+      labelAr: "حزم الدول والامتثال القانوني والتأمينات وWPS (7 دول)",
+      icon: Globe,
+      cat: "البيئة المؤسسية والحوكمة",
+    },
+    {
+      id: "ai-copilot",
+      labelAr: "مساعد MadarX الذكي للعمليات والموارد البشرية",
+      icon: Sparkles,
+      cat: "الذكاء الاصطناعي",
     },
   ];
 

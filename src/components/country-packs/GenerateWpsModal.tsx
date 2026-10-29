@@ -86,11 +86,13 @@ export function GenerateWpsModal({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="SA">المملكة العربية السعودية (مدد / SAMA)</SelectItem>
-                <SelectItem value="EG">جمهورية مصر العربية (بطاقات الرواتب / CBE)</SelectItem>
-                <SelectItem value="QA">دولة قطر (مصرف قطر المركزي SIF)</SelectItem>
-                <SelectItem value="OM">سلطنة عمان (البنك المركزي العماني CBO)</SelectItem>
-                <SelectItem value="BH">مملكة البحرين (هيئة سوق العمل LMRA / CBB)</SelectItem>
+                <SelectItem value="SA">🇸🇦 المملكة العربية السعودية (مدد / SAMA)</SelectItem>
+                <SelectItem value="EG">🇪🇬 جمهورية مصر العربية (بطاقات الرواتب / CBE)</SelectItem>
+                <SelectItem value="QA">🇶🇦 دولة قطر (مصرف قطر المركزي SIF)</SelectItem>
+                <SelectItem value="OM">🇴🇲 سلطنة عمان (البنك المركزي العماني CBO)</SelectItem>
+                <SelectItem value="BH">🇧🇭 مملكة البحرين (هيئة سوق العمل LMRA / CBB)</SelectItem>
+                <SelectItem value="AE">🇦🇪 دولة الإمارات العربية المتحدة (مصرف الإمارات المركزي CBUAE)</SelectItem>
+                <SelectItem value="KW">🇰🇼 دولة الكويت (بنك الكويت المركزي CBK)</SelectItem>
               </SelectContent>
             </Select>
           </div>

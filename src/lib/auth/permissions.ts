@@ -113,11 +113,13 @@ export const moduleManageAccess: Record<string, UserRole[]> = {
 };
 
 export function canAccessModule(role: UserRole, moduleId: string) {
-  return moduleAccess[moduleId]?.includes(role) ?? false;
+  const normalized = moduleId.replace(/-/g, "_");
+  return (moduleAccess[moduleId] || moduleAccess[normalized])?.includes(role) ?? false;
 }
 
 export function canManageModule(role: UserRole, moduleId: string) {
-  return moduleManageAccess[moduleId]?.includes(role) ?? false;
+  const normalized = moduleId.replace(/-/g, "_");
+  return (moduleManageAccess[moduleId] || moduleManageAccess[normalized])?.includes(role) ?? false;
 }
 
 export function canEditHrProfile(role: UserRole): boolean {

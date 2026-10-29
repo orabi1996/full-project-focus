@@ -9,7 +9,7 @@
  */
 
 @theme inline {
-  --font-sans: 'Cairo', 'Plus Jakarta Sans', 'Roboto', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Alexandria', 'Cairo', 'Plus Jakarta Sans', 'Roboto', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   
   --radius-xs: 0.25rem;

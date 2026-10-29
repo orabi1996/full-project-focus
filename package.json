@@ -18,7 +18,8 @@
     "test:all": "npm run typecheck && npm run test:coverage && npm run test:e2e",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify:rotation": "node scripts/verify-post-rotation.cjs"
+    "verify:rotation": "node scripts/verify-post-rotation.cjs",
+    "verify:deploy": "node scripts/verify-production-deploy.cjs"
   },
   "overrides": {
     "rolldown": "1.2.1"

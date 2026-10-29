@@ -1,0 +1,12 @@
+node_modules
+.git
+.github
+.vinxi
+.output
+coverage
+playwright-report
+test-results
+*.log
+.env*
+src/tests
+e2e

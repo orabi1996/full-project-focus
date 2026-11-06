@@ -19,6 +19,7 @@ import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedCompensationRouteImport } from './routes/_authenticated/compensation'
 import { Route as AuthenticatedCountryPacksRouteImport } from './routes/_authenticated/country-packs'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDataUpdateRouteImport } from './routes/_authenticated/data-update'
 import { Route as AuthenticatedDocumentsRouteImport } from './routes/_authenticated/documents'
 import { Route as AuthenticatedEmployeeRelationsRouteImport } from './routes/_authenticated/employee-relations'
 import { Route as AuthenticatedEngagementRouteImport } from './routes/_authenticated/engagement'
@@ -95,6 +96,11 @@ const AuthenticatedCountryPacksRoute =
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDataUpdateRoute = AuthenticatedDataUpdateRouteImport.update({
+  id: '/data-update',
+  path: '/data-update',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDocumentsRoute = AuthenticatedDocumentsRouteImport.update({
@@ -247,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/compensation': typeof AuthenticatedCompensationRoute
   '/country-packs': typeof AuthenticatedCountryPacksRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/data-update': typeof AuthenticatedDataUpdateRoute
   '/documents': typeof AuthenticatedDocumentsRoute
   '/employee-relations': typeof AuthenticatedEmployeeRelationsRoute
   '/engagement': typeof AuthenticatedEngagementRoute
@@ -284,6 +291,7 @@ export interface FileRoutesByTo {
   '/compensation': typeof AuthenticatedCompensationRoute
   '/country-packs': typeof AuthenticatedCountryPacksRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/data-update': typeof AuthenticatedDataUpdateRoute
   '/documents': typeof AuthenticatedDocumentsRoute
   '/employee-relations': typeof AuthenticatedEmployeeRelationsRoute
   '/engagement': typeof AuthenticatedEngagementRoute
@@ -323,6 +331,7 @@ export interface FileRoutesById {
   '/_authenticated/compensation': typeof AuthenticatedCompensationRoute
   '/_authenticated/country-packs': typeof AuthenticatedCountryPacksRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/data-update': typeof AuthenticatedDataUpdateRoute
   '/_authenticated/documents': typeof AuthenticatedDocumentsRoute
   '/_authenticated/employee-relations': typeof AuthenticatedEmployeeRelationsRoute
   '/_authenticated/engagement': typeof AuthenticatedEngagementRoute
@@ -362,6 +371,7 @@ export interface FileRouteTypes {
     | '/compensation'
     | '/country-packs'
     | '/dashboard'
+    | '/data-update'
     | '/documents'
     | '/employee-relations'
     | '/engagement'
@@ -399,6 +409,7 @@ export interface FileRouteTypes {
     | '/compensation'
     | '/country-packs'
     | '/dashboard'
+    | '/data-update'
     | '/documents'
     | '/employee-relations'
     | '/engagement'
@@ -437,6 +448,7 @@ export interface FileRouteTypes {
     | '/_authenticated/compensation'
     | '/_authenticated/country-packs'
     | '/_authenticated/dashboard'
+    | '/_authenticated/data-update'
     | '/_authenticated/documents'
     | '/_authenticated/employee-relations'
     | '/_authenticated/engagement'
@@ -542,6 +554,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/data-update': {
+      id: '/_authenticated/data-update'
+      path: '/data-update'
+      fullPath: '/data-update'
+      preLoaderRoute: typeof AuthenticatedDataUpdateRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/documents': {
@@ -737,6 +756,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedCompensationRoute: typeof AuthenticatedCompensationRoute
   AuthenticatedCountryPacksRoute: typeof AuthenticatedCountryPacksRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDataUpdateRoute: typeof AuthenticatedDataUpdateRoute
   AuthenticatedDocumentsRoute: typeof AuthenticatedDocumentsRoute
   AuthenticatedEmployeeRelationsRoute: typeof AuthenticatedEmployeeRelationsRoute
   AuthenticatedEngagementRoute: typeof AuthenticatedEngagementRoute
@@ -772,6 +792,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCompensationRoute: AuthenticatedCompensationRoute,
   AuthenticatedCountryPacksRoute: AuthenticatedCountryPacksRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDataUpdateRoute: AuthenticatedDataUpdateRoute,
   AuthenticatedDocumentsRoute: AuthenticatedDocumentsRoute,
   AuthenticatedEmployeeRelationsRoute: AuthenticatedEmployeeRelationsRoute,
   AuthenticatedEngagementRoute: AuthenticatedEngagementRoute,

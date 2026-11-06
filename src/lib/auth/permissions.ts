@@ -80,6 +80,7 @@ export const moduleAccess: Record<string, UserRole[]> = {
   compensation: allRoles,
   country_packs: allRoles,
   ai_copilot: allRoles,
+  data_update: ["super_admin", "hr_manager"],
 };
 
 export const moduleManageAccess: Record<string, UserRole[]> = {
@@ -110,6 +111,7 @@ export const moduleManageAccess: Record<string, UserRole[]> = {
   compensation: ["super_admin", "hr_manager", "payroll_officer", "finance_officer"],
   country_packs: ["super_admin", "hr_manager", "payroll_officer", "finance_officer"],
   ai_copilot: ["super_admin", "hr_manager"],
+  data_update: ["super_admin", "hr_manager"],
 };
 
 export function canAccessModule(role: UserRole, moduleId: string) {

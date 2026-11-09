@@ -41,5 +41,5 @@ test("يعرض تخطيط المناصب ومراكز التكلفة", async ({ 
   await selectTab(page, "المناصب");
   await expect(page.getByText(/المخطط/).first()).toBeVisible();
   await selectTab(page, "مراكز التكلفة");
-  await expect(page.getByText(/الميزانية/).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "مراكز التكلفة والميزانيات التشغيلية" })).toBeVisible();
 });

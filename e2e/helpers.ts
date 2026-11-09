@@ -36,6 +36,17 @@ const ROUTE_PATH_MAP: Record<string, string> = {
 };
 
 export async function enterDemo(page: Page) {
+  // UI smoke tests use deterministic read-only data, never the production backend.
+  await page.route("https://*.supabase.co/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/rest/v1/rpc/get_employee_directory") {
+      await route.fulfill({ json: { items: [], total_count: 0, page: 1, page_size: 25 } });
+    } else if (path === "/rest/v1/rpc/get_employee_directory_kpis") {
+      await route.fulfill({ json: { available: true, total_employees: 0 } });
+    } else {
+      await route.abort("blockedbyclient");
+    }
+  });
   await page.goto("/login");
   const demoButton = page.getByRole("button", {
     name: /النسخة التجريبية|Demo Mode/i,

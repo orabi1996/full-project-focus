@@ -7,7 +7,7 @@ This checklist tracks verified implementation work, not a production-readiness c
 | Build and CI | Reproducible npm install; typecheck, unit/contracts, coverage, browser checks and build workflow | Keep checks passing for each release |
 | Employee directory | Loading/error states, retry, compatibility RPCs, scoped field projection | Role-based profile, import, document and export integration tests |
 | Dashboard | Nested response contracts, scoped summary and recorded attendance trend | Authoritative attendance denominator; tenant-linked payroll totals; verified integration health |
-| Role administration | Restrictive direct-write guards | Audit every SECURITY DEFINER function and service-role entry point |
+| Role administration | Restrictive direct-write guards on user role assignment, role definitions and permission mappings | Audit every SECURITY DEFINER function and service-role entry point |
 | Core tenant boundaries | Company-scope guards on employees, companies, departments, subsidiaries and work locations; protected self-service fields | Test full onboarding/transfer workflows with distinct tenants |
 | Operational tables | Restrictive delegation/overtime/file metadata guards | Storage-object ownership, signed URL authorization and domain-specific approval flows |
 | Performance tenant boundaries | Guards on direct and parent-linked performance tables | Within-company role visibility, anonymous reviews and cross-linked entity consistency |

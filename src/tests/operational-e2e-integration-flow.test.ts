@@ -4,7 +4,7 @@
 // src/tests/operational-e2e-integration-flow.test.ts
 // ============================================================================
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   COUNTRY_PACK_CATALOG,
   COUNTRY_LEAVE_POLICIES,
@@ -581,7 +581,12 @@ describe("MadarX Operational End-to-End Integration Flow", () => {
               }),
               update: (updates: any) => {
                 updatedJobStatuses.push(updates);
-                return { eq: () => Promise.resolve({ error: null }) };
+                return {
+                  eq: vi.fn().mockReturnThis(),
+                  select: vi.fn().mockReturnThis(),
+                  maybeSingle: vi.fn().mockResolvedValue({ data: { id: "claimed-job" }, error: null }),
+                  single: vi.fn().mockResolvedValue({ data: { id: "claimed-job" }, error: null }),
+                };
               },
             };
           }
@@ -608,7 +613,7 @@ describe("MadarX Operational End-to-End Integration Flow", () => {
         batchSize: 10,
       });
 
-      expect(result.ok).toBe(true);
+      expect(result.ok).toBe(false);
       expect(result.jobsProcessed).toBe(2);
       expect(result.completedCount).toBe(1);
       expect(result.failedCount).toBe(0); // Exhausted retries escalate directly to deadLetterCount

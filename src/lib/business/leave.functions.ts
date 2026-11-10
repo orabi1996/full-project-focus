@@ -1,10 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertRole, round2 } from "./guards";
+import { executeLeaveAccrual } from "./leave-accrual";
 
 /**
- * Monthly leave accrual: entitlement / 12 added to every active employee's
- * balance for the given year, capped at the annual entitlement plus carryover.
+ * Run the database-owned accrual policy; failures must never trigger direct writes.
  */
 export const accrueLeaveBalancesServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -16,47 +16,7 @@ export const accrueLeaveBalancesServer = createServerFn({ method: "POST" })
     const supabase = context.supabase as any;
     await assertRole(supabase, context.userId, ["super_admin", "org_admin", "hr_manager"]);
 
-    try {
-      const { data: runData, error: rpcError } = await supabase.rpc("run_leave_accrual", {
-        p_year: data.year,
-      });
-      if (!rpcError && runData) {
-        return { updated: runData.processed_count ?? 1 };
-      }
-    } catch (err: unknown) {
-      console.warn(
-        "run_leave_accrual RPC fallback:",
-        err instanceof Error ? err.message : String(err),
-      );
-    }
-
-    const months = data.months ?? 1;
-    const { data: balances, error } = await supabase
-      .from("leave_balances")
-      .select("id, annual_entitlement, accrued_days, used_days, reserved_days, carried_over_days")
-      .eq("year", data.year);
-    if (error) throw new Error(`تعذر قراءة الأرصدة: ${error.message}`);
-
-    let updated = 0;
-    for (const balance of balances ?? []) {
-      const entitlement = Number(balance.annual_entitlement ?? 0);
-      if (entitlement <= 0) continue;
-      const carried = Number(balance.carried_over_days ?? 0);
-      const accrued = Math.min(
-        entitlement + carried,
-        round2(Number(balance.accrued_days ?? 0) + (entitlement / 12) * months),
-      );
-      const available = round2(
-        accrued - Number(balance.used_days ?? 0) - Number(balance.reserved_days ?? 0),
-      );
-      await supabase
-        .from("leave_balances")
-        .update({ accrued_days: accrued, balance: Math.max(0, available) })
-        .eq("id", balance.id);
-      updated += 1;
-    }
-
-    return { updated };
+    return executeLeaveAccrual(supabase, data);
   });
 
 /**

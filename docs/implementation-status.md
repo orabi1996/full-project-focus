@@ -18,3 +18,9 @@ This checklist tracks verified implementation work, not a production-readiness c
 | Release acceptance | Pending | Real authenticated multi-role/multi-tenant end-to-end tests, regression checks and operational sign-off |
 
 Do not infer that a green demo UI test validates live database integration. A restrictive policy intersects existing permissive policies; it does not replace a complete row/column/storage authorization review.
+
+## Accrual database compatibility
+
+`20261110040000_serialize_leave_accrual.sql` adds missing leave ownership/tracking columns and ledger/run tables, restricts direct writes, and serializes the accrual RPC on the company row. It uses existing core tenant authorization helpers. PGlite tests start with a legacy schema and cover replay, rollback after injected ledger/run errors, authorization and period validation. TypeScript and targeted lint pass. Multi-session PostgreSQL contention has not been tested.
+
+The compatibility migration was applied and its function availability and direct-write restrictions verified. No accrual operation was executed. Scheduled accrual now routes each company through the transactional RPC and reports its resolved period and explicit replay flag. Deployment must include the updated RPC response before publishing the caller. Automatic queue retry remains disabled pending worker recovery and concurrency acceptance. Explicit leave policies and company timezone configuration remain prerequisites for operating accrual; no policy data was invented or seeded.

@@ -61,25 +61,10 @@ describe("scheduled job failure reporting", () => {
     const db = client([{ data: [job] }, { data: { id: job.id } }, ok, { data: { id: job.id } }]);
     expect(await processQueuedBackgroundJobs(db)).toMatchObject({ ok: true, jobsProcessed: 1, completedCount: 1 });
   });
-  it("stops accrual when checking prior runs fails, before touching balances", async () => {
-    const db = client([{ data: [{ id: "company-1" }] }, { data: [{ id: "annual-1", code: "annual" }] }, { error: { message: "run check failed" } }]);
-    await expect(executeAutomatedMonthlyLeaveAccrual(db)).rejects.toThrow("run check failed");
-    expect(db.calls.some(c => c.table === "leave_balances")).toBe(false);
-  });
-  it.each(["balance update", "ledger insert", "run insert"])("does not report successful accrual after a failed %s", async (step) => {
-    const responses: Response[] = [
-      { data: [{ id: "company-1" }] },
-      { data: [{ id: "annual-1", code: "annual", annual_days: 30 }] },
-      { data: null },
-      { data: [{ id: "employee-1" }] },
-      { data: { id: "balance-1", annual_entitlement: 30, accrued_days: 0 } },
-    ];
-    if (step !== "balance update") responses.push(ok);
-    if (step === "run insert") responses.push(ok);
-    responses.push({ error: { message: `${step} failed` } });
-    const db = client(responses);
+  it.each(["balance update", "ledger insert", "run insert"])("propagates RPC failure at %s without fallback writes", async (step) => {
+    const db = client([{ data: [{ id: "company-1" }] }, { error: { message: `${step} failed` } }]);
     await expect(executeAutomatedMonthlyLeaveAccrual(db)).rejects.toThrow(`${step} failed`);
-    expect(db.rpc).not.toHaveBeenCalled();
+    expect(db.calls.every(c => c.table === "companies")).toBe(true);
+    expect(db.rpc).toHaveBeenCalledTimes(1);
   });
-
 });

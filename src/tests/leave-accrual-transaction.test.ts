@@ -6,7 +6,7 @@ let db: PGlite;
 const company = "00000000-0000-4000-8000-000000000001";
 const employee = "00000000-0000-4000-8000-000000000002";
 const leaveType = "00000000-0000-4000-8000-000000000003";
-const run = (month = 1) => db.query<{ result: { total_processed: number } }>(
+const run = (month = 1) => db.query<{ result: { total_processed: number; already_processed: boolean } }>(
   `SELECT run_leave_accrual(2026, $1, NULL, $2::uuid) result`, [month, company],
 );
 beforeAll(async () => {
@@ -40,7 +40,7 @@ beforeEach(async () => {
 describe("transactional database accrual", () => {
   it("credits once per period and preserves a zero processed count on replay", async () => {
     expect((await run()).rows[0].result.total_processed).toBe(1);
-    expect((await run()).rows[0].result.total_processed).toBe(0);
+    expect((await run()).rows[0].result).toMatchObject({ total_processed: 0, already_processed: true });
     expect((await db.query("SELECT accrued_days::float8 AS accrued_days FROM leave_balances")).rows).toEqual([{ accrued_days: 2 }]);
     expect((await db.query<{ n: number }>("SELECT count(*)::int n FROM leave_balance_transactions")).rows[0].n).toBe(1);
     expect((await run(2)).rows[0].result.total_processed).toBe(1);
@@ -67,4 +67,11 @@ describe("transactional database accrual", () => {
     await expect(run(month)).rejects.toThrow("فترة الاستحقاق");
     expect((await db.query<{ n: number }>("SELECT count(*)::int n FROM leave_balances")).rows[0].n).toBe(0);
   });
+  it("caps monthly credit and records only the effective amount", async () => {
+    await db.exec(`INSERT INTO leave_balances(employee_id,leave_type_id,year,annual_entitlement,accrued_days) VALUES ('${employee}','${leaveType}',2026,24,23.5)`);
+    await run();
+    expect((await db.query("SELECT accrued_days::float8 AS days FROM leave_balances")).rows).toEqual([{ days: 24 }]);
+    expect((await db.query("SELECT days::float8 AS days FROM leave_balance_transactions")).rows).toEqual([{ days: 0.5 }]);
+  });
+
 });

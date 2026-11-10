@@ -76,6 +76,8 @@ DECLARE
   v_total_processed integer := 0;
   v_total_credited numeric := 0;
   v_hire_month integer;
+  v_types integer := 0;
+  v_skipped integer := 0;
   v_company_now timestamp;
 BEGIN
   IF v_comp_id IS NULL THEN
@@ -126,6 +128,7 @@ BEGIN
       AND status = 'active'
       AND (p_leave_type_id IS NULL OR id = p_leave_type_id)
   LOOP
+    v_types := v_types + 1;
     v_type_processed := 0;
     v_type_credited := 0;
 
@@ -136,6 +139,7 @@ BEGIN
         AND period_year = v_year
         AND period_month = v_period_month
     ) THEN
+      v_skipped := v_skipped + 1;
       CONTINUE;
     END IF;
 
@@ -227,6 +231,7 @@ BEGIN
 
   RETURN jsonb_build_object(
     'success', true,
+    'already_processed', v_types > 0 AND v_skipped = v_types,
     'year', v_year,
     'period_month', v_period_month,
     'total_processed', v_total_processed,

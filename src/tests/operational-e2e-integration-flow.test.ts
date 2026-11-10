@@ -158,120 +158,17 @@ describe("MadarX Operational End-to-End Integration Flow", () => {
       expect(validateCountryLeaveEntitlement("KW", 1, 21).valid).toBe(false);
     });
 
-    it("executes automated monthly leave accrual with idempotency and statutory caps", async () => {
-      const companies = [{ id: "comp-1", name_ar: "شركة التقنية" }];
-      const leaveTypes = [
-        { id: "lt-annual", code: "annual", name_ar: "إجازة سنوية", annual_days: 30, accrual_method: "monthly_accrual" },
-      ];
-      const employees = [{ id: "emp-101", user_id: "usr-101", status: "active" }];
-      const balance = {
-        id: "bal-101",
-        annual_entitlement: 30,
-        accrued_days: 5.0,
-        used_days: 1.0,
-        reserved_days: 0.0,
-        carried_over_days: 5.0,
-      };
-
-      const insertedRuns: any[] = [];
-      const updatedBalances: any[] = [];
-
+    it("routes accrual through the transactional RPC and reports replay accurately", async () => {
       const mockSupabase = {
-        from: (table: string) => {
-          if (table === "companies") {
-            return {
-              select: () => ({
-                eq: () => Promise.resolve({ data: companies, error: null }),
-                data: companies,
-                error: null,
-              }),
-            };
-          }
-          if (table === "leave_types") {
-            return {
-              select: () => ({
-                eq: () => ({
-                  eq: () => Promise.resolve({ data: leaveTypes, error: null }),
-                }),
-              }),
-            };
-          }
-          if (table === "leave_accrual_runs") {
-            return {
-              select: () => ({
-                eq: () => ({
-                  eq: () => ({
-                    eq: () => ({
-                      eq: () => ({
-                        maybeSingle: () => Promise.resolve({ data: insertedRuns.length > 0 ? insertedRuns[0] : null }),
-                      }),
-                    }),
-                  }),
-                }),
-              }),
-              insert: (record: any) => {
-                insertedRuns.push(record);
-                return Promise.resolve({ error: null });
-              },
-            };
-          }
-          if (table === "employees") {
-            return {
-              select: () => ({
-                eq: () => ({
-                  eq: () => Promise.resolve({ data: employees, error: null }),
-                }),
-              }),
-            };
-          }
-          if (table === "leave_balances") {
-            return {
-              select: () => ({
-                eq: () => ({
-                  eq: () => ({
-                    maybeSingle: () => Promise.resolve({ data: balance }),
-                  }),
-                }),
-              }),
-              update: (updates: any) => {
-                updatedBalances.push(updates);
-                return {
-                  eq: () => Promise.resolve({ error: null }),
-                };
-              },
-            };
-          }
-          if (table === "leave_balance_transactions" || table === "audit_events") {
-            return {
-              insert: () => Promise.resolve({ error: null }),
-            };
-          }
-          return { select: () => ({}) };
-        },
+        from: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ data: [{ id: "comp-1" }], error: null }) }) }),
+        rpc: vi.fn()
+          .mockResolvedValueOnce({ data: { success: true, year: 2026, period_month: 6, total_processed: 1, total_days_credited: 2.5, already_processed: false }, error: null })
+          .mockResolvedValueOnce({ data: { success: true, year: 2026, period_month: 6, total_processed: 0, total_days_credited: 0, already_processed: true }, error: null }),
       };
-
-      const results = await executeAutomatedMonthlyLeaveAccrual(mockSupabase, {
-        companyId: "comp-1",
-        year: 2026,
-        month: 6,
-      });
-
-      expect(results).toHaveLength(1);
-      expect(results[0].employeesProcessed).toBe(1);
-      expect(results[0].totalDaysAccrued).toBe(2.5);
-      expect(updatedBalances).toHaveLength(1);
-      expect(updatedBalances[0].accrued_days).toBe(7.5); // 5 + 2.5
-
-      // Re-run should skip due to idempotency
-      const rerunResults = await executeAutomatedMonthlyLeaveAccrual(mockSupabase, {
-        companyId: "comp-1",
-        year: 2026,
-        month: 6,
-      });
-
-      expect(rerunResults[0].alreadyProcessed).toBe(true);
-      expect(rerunResults[0].employeesProcessed).toBe(1);
-      expect(updatedBalances).toHaveLength(1); // No new balance updates performed
+      const options = { companyId: "comp-1", year: 2026, month: 6 };
+      expect((await executeAutomatedMonthlyLeaveAccrual(mockSupabase, options))[0].totalDaysAccrued).toBe(2.5);
+      expect((await executeAutomatedMonthlyLeaveAccrual(mockSupabase, options))[0]).toMatchObject({ alreadyProcessed: true, employeesProcessed: 0 });
+      expect(mockSupabase.from.mock.calls.every(([table]) => table === "companies")).toBe(true);
     });
   });
 

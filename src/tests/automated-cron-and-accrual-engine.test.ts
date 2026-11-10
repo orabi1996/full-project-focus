@@ -410,7 +410,12 @@ describe("Automated Cron & Background Worker Engine", () => {
               }),
               update: vi.fn().mockImplementation((updates) => {
                 updatedJobStatuses.push(updates);
-                return { eq: vi.fn().mockResolvedValue({ error: null }) };
+                return {
+                  eq: vi.fn().mockReturnThis(),
+                  select: vi.fn().mockReturnThis(),
+                  maybeSingle: vi.fn().mockResolvedValue({ data: { id: "claimed-job" }, error: null }),
+                  single: vi.fn().mockResolvedValue({ data: { id: "claimed-job" }, error: null }),
+                };
               }),
             };
           }
@@ -469,7 +474,12 @@ describe("Automated Cron & Background Worker Engine", () => {
               }),
               update: vi.fn().mockImplementation((updates) => {
                 updatedJobStatuses.push(updates);
-                return { eq: vi.fn().mockResolvedValue({ error: null }) };
+                return {
+                  eq: vi.fn().mockReturnThis(),
+                  select: vi.fn().mockReturnThis(),
+                  maybeSingle: vi.fn().mockResolvedValue({ data: { id: "claimed-job" }, error: null }),
+                  single: vi.fn().mockResolvedValue({ data: { id: "claimed-job" }, error: null }),
+                };
               }),
             };
           }

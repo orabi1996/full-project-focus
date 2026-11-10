@@ -12,22 +12,20 @@ const run = (month = 1) => db.query<{ result: { total_processed: number } }>(
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(`
-    CREATE ROLE authenticated;
+    CREATE ROLE authenticated; CREATE ROLE anon;
     CREATE SCHEMA auth;
     CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT NULLIF(current_setting('test.uid', true), '')::uuid $$;
-    CREATE FUNCTION current_company_id() RETURNS uuid LANGUAGE sql AS $$ SELECT '${company}'::uuid $$;
-    CREATE FUNCTION current_user_can_manage_company(uuid) RETURNS boolean LANGUAGE sql AS $$ SELECT NULLIF(current_setting('test.allowed', true), '')::boolean $$;
-    CREATE FUNCTION current_user_has_any_role(text[]) RETURNS boolean LANGUAGE sql AS $$ SELECT false $$;
+
+    CREATE FUNCTION can_access_core_company(uuid) RETURNS boolean LANGUAGE sql AS $$ SELECT NULLIF(current_setting('test.allowed', true), '')::boolean $$;
+    CREATE FUNCTION has_role(uuid, text) RETURNS boolean LANGUAGE sql AS $$ SELECT $2 = 'hr_manager' $$;
     CREATE TABLE companies(id uuid PRIMARY KEY, timezone text);
-    CREATE TABLE leave_types(id uuid PRIMARY KEY, company_id uuid, status text, accrual_method text, max_days_per_year numeric);
+    CREATE TABLE leave_types(id uuid PRIMARY KEY, status text, accrual_method text, max_days_per_year numeric);
     CREATE TYPE employee_status AS ENUM ('active', 'on_leave');
-    CREATE TABLE employees(id uuid PRIMARY KEY, company_id uuid, status employee_status, hire_date date);
-    CREATE TABLE leave_balances(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), employee_id uuid, leave_type_id uuid, company_id uuid, year integer, annual_entitlement numeric, accrued_days numeric DEFAULT 0, used_days numeric DEFAULT 0, reserved_days numeric DEFAULT 0, carried_over_days numeric DEFAULT 0, carried_over_used_days numeric DEFAULT 0, updated_at timestamptz, UNIQUE(employee_id, leave_type_id, year));
-    CREATE TABLE leave_balance_transactions(company_id uuid, employee_id uuid, leave_type_id uuid, year integer, transaction_type text, days numeric, reason text, created_by uuid);
-    CREATE TABLE leave_accrual_runs(company_id uuid, leave_type_id uuid, period_year integer, period_month integer, employees_processed integer, total_days_accrued numeric, executed_by uuid, UNIQUE(company_id, leave_type_id, period_year, period_month));
+    CREATE TABLE employees(id uuid PRIMARY KEY, user_id uuid, company_id uuid, status employee_status, hire_date date);
+    CREATE TABLE leave_balances(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), employee_id uuid, leave_type_id uuid, year integer, annual_entitlement numeric, accrued_days numeric DEFAULT 0, used_days numeric DEFAULT 0, reserved_days numeric DEFAULT 0, carried_over_days numeric DEFAULT 0, updated_at timestamptz, UNIQUE(employee_id, leave_type_id, year));
     INSERT INTO companies VALUES ('${company}', 'Asia/Riyadh');
-    INSERT INTO leave_types VALUES ('${leaveType}', '${company}', 'active', 'monthly_accrual', 24);
-    INSERT INTO employees VALUES ('${employee}', '${company}', 'active', '2025-01-01');
+    INSERT INTO leave_types VALUES ('${leaveType}', 'active', 'monthly_accrual', 24);
+    INSERT INTO employees VALUES ('${employee}', '${employee}', '${company}', 'active', '2025-01-01');
   `);
   await db.exec(readFileSync("supabase/migrations/20261110040000_serialize_leave_accrual.sql", "utf8"));
 });

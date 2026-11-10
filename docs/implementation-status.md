@@ -19,8 +19,8 @@ This checklist tracks verified implementation work, not a production-readiness c
 
 Do not infer that a green demo UI test validates live database integration. A restrictive policy intersects existing permissive policies; it does not replace a complete row/column/storage authorization review.
 
-## Accrual migration awaiting deployment verification
+## Accrual database compatibility
 
-`20261110040000_serialize_leave_accrual.sql` serializes the database RPC on its company row before checking completed periods, rejects missing identities and null authorization, validates the period, and keeps balance, transaction and run writes in one transaction. PGlite tests cover replay, rollback after injected ledger/run errors, authorization and period validation. Multi-session PostgreSQL contention has not been tested.
+`20261110040000_serialize_leave_accrual.sql` adds missing leave ownership/tracking columns and ledger/run tables, restricts direct writes, and serializes the accrual RPC on the company row. It uses existing core tenant authorization helpers. PGlite tests start with a legacy schema and cover replay, rollback after injected ledger/run errors, authorization and period validation. TypeScript and targeted lint pass. Multi-session PostgreSQL contention has not been tested.
 
-Deployment prerequisite: verify the live leave runtime schema and authorization helpers match `20260922000000_leave_runtime_closure.sql`; do not apply the entire historical migration chain blindly. This migration has not been applied to the live database. Scheduled accrual still uses its separate non-transactional TypeScript implementation and must be routed to a verified compatible RPC before safe retry can be enabled.
+The compatibility migration was applied and its function availability and direct-write restrictions verified. No accrual operation was executed. Scheduled accrual still uses a separate non-transactional TypeScript implementation and must be routed to the RPC before safe retry can be enabled. Explicit leave policies and company timezone configuration remain prerequisites for operating accrual; no policy data was invented or seeded.

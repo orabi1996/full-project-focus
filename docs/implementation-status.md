@@ -13,7 +13,7 @@ This checklist tracks verified implementation work, not a production-readiness c
 | Performance tenant boundaries | Guards on direct and parent-linked performance tables | Within-company role visibility, anonymous reviews and cross-linked entity consistency |
 | Other data domains | Pending | Map ownership for tables without company_id; scope documents, workforce planning and financial domains |
 | Payroll and attendance | Pending | Validate detail-to-run linkage, company ownership, schedules, approval and idempotent posting |
-| Scheduled work | Pending | Atomic leave accrual; checked database errors; safe retry/claim/dead-letter processing |
+| Scheduled work | Checked operational database errors; conditional queue claim; unknown-job rejection and accurate failure reports | Atomic leave accrual and dead-letter transitions; safe retry and abandoned-job recovery; live worker integration tests |
 | Deployment and recovery | Pending | Verify runtime target, database migration parity, restore drill and rollback procedure |
 | Release acceptance | Pending | Real authenticated multi-role/multi-tenant end-to-end tests, regression checks and operational sign-off |
 

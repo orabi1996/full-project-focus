@@ -24,8 +24,145 @@ import { getAllExtendedEmployees } from "../domains/employees/extended-employee-
 import { METRIC_CATALOG } from "./reports-repository";
 
 // ============================================================================
-// 1. SMART REPORT ANALYSIS TYPES & CATALOG
+// 1. SMART REPORT ANALYSIS TYPES, CATALOG & AI PROVIDER CONFIG
 // ============================================================================
+
+export interface AIProviderConfig {
+  provider: "built_in" | "openai" | "gemini" | "openrouter";
+  apiKey?: string;
+  model?: string;
+}
+
+const AI_CONFIG_KEY = "madarx_ai_provider_config_v2";
+
+export function loadAIProviderConfig(): AIProviderConfig {
+  if (typeof window === "undefined") return { provider: "built_in" };
+  try {
+    const raw = localStorage.getItem(AI_CONFIG_KEY);
+    return raw ? (JSON.parse(raw) as AIProviderConfig) : { provider: "built_in" };
+  } catch {
+    return { provider: "built_in" };
+  }
+}
+
+export function saveAIProviderConfig(config: AIProviderConfig): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
+  } catch {
+    // ignore quota issues
+  }
+}
+
+export async function callExternalLLM(
+  prompt: string,
+  systemPrompt: string,
+  config: AIProviderConfig
+): Promise<string> {
+  if (config.provider === "gemini") {
+    const apiKey = config.apiKey?.trim();
+    if (!apiKey) throw new Error("يرجى إدخال مفتاح Google Gemini API أولاً.");
+    const model = config.model || "gemini-1.5-flash";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${systemPrompt}\n\nطلب المستخدم:\n${prompt}` }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2500,
+        },
+      }),
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(`خطأ من Gemini API (${res.status}): ${errData.error?.message || res.statusText}`);
+    }
+    const data = await res.json();
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!reply) throw new Error("لم يتم استلام نص من نموذج Gemini.");
+    return reply;
+  }
+
+  if (config.provider === "openai") {
+    const apiKey = config.apiKey?.trim();
+    if (!apiKey) throw new Error("يرجى إدخال مفتاح OpenAI API أولاً.");
+    const model = config.model || "gpt-4o-mini";
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.7,
+      }),
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(`خطأ من OpenAI API (${res.status}): ${errData.error?.message || res.statusText}`);
+    }
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content;
+    if (!reply) throw new Error("لم يتم استلام نص من نموذج OpenAI.");
+    return reply;
+  }
+
+  if (config.provider === "openrouter") {
+    const apiKey = config.apiKey?.trim();
+    if (!apiKey) throw new Error("يرجى إدخال مفتاح OpenRouter API أولاً.");
+    const model = config.model || "anthropic/claude-3.5-sonnet";
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "X-Title": "MadarX AI Copilot",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.7,
+      }),
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(`خطأ من OpenRouter API (${res.status}): ${errData.error?.message || res.statusText}`);
+    }
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content;
+    if (!reply) throw new Error("لم يتم استلام نص من OpenRouter.");
+    return reply;
+  }
+
+  throw new Error("المحرك المحدد غير مدعوم.");
+}
+
+export function buildSystemPromptForLLM(app: Partial<AppContextType>): string {
+  const empCount = (app.employees ?? []).length;
+  const saudiCount = (app.employees ?? []).filter((e) => e.nationality === "سعودي").length;
+  return `أنت المساعد الذكي المتقدم لمنصة "مدار إكس (MadarX)" لإدارة الموارد البشرية والمنشآت.
+أنت نموذج لغوي ذكي شامل، مهذب، دقيق، واحترافي تماماً مثل ChatGPT و Gemini و Claude.
+تستطيع مساعدة المستخدم في:
+1. أي سؤال عام أو محادثة عادية أو استشارات إدارية، صياغة خطابات وبريد، كتابة محتوى، أو شروحات عامة داخل وخارج المنظومة.
+2. أسئلة الموارد البشرية ونظام العمل السعودي ولوائح قوى والتأمينات وحماية الأجور (WPS).
+3. عند سؤالك عن بيانات المنشأة الحالية: المنشأة تضم حالياً ${empCount} موظفاً (منهم ${saudiCount} موظف سعودي).
+تحدث باللغة العربية الفصحى الأنيقة، واستخدم تنسيق Markdown المنظم مع العناوين والقوائم والأيقونات التوضيحية عند الحاجة.`;
+}
 
 export type SmartReportDomainId =
   | "executive_all"
@@ -1144,13 +1281,339 @@ export function generateSmartAssistantResponse(
     }
   }
 
-  // Default: return comprehensive executive intelligence report + direct guidance
-  const execRep = buildSmartReportAnalysis("executive_all", app);
+  // If the query explicitly asks for an executive/general report or overall system analytics:
+  const isExplicitReportRequest =
+    q.includes("تقرير") ||
+    q.includes("تقارير") ||
+    q.includes("شامل") ||
+    q.includes("كل النظام") ||
+    q.includes("تحليل شامل") ||
+    q.includes("360") ||
+    q.includes("ملخص تنفيذي") ||
+    q.includes("لوحة القيادة") ||
+    q.includes("صحة المنظومة");
+
+  if (isExplicitReportRequest) {
+    const execRep = buildSmartReportAnalysis("executive_all", app);
+    return {
+      intent: "insights_summary",
+      matchedReportDomain: "executive_all",
+      responseText: `🤖 **تحليل المساعد الذكي لبيانات النظام المباشرة:**\n\n${formatAnalysisForChat(execRep)}`,
+    };
+  }
+
+  // Otherwise, treat as general conversational assistant (ChatGPT / Gemini / Claude style):
+  const generalAnswer = generateSmartGeneralResponse(query, app, userRole);
   return {
-    intent,
-    matchedReportDomain: "executive_all",
-    responseText: `🤖 **تحليل المساعد الذكي لبيانات النظام المباشرة:**\n\n${formatAnalysisForChat(execRep)}`,
+    intent: "general_chat",
+    responseText: generalAnswer,
   };
+}
+
+// ============================================================================
+// 4. GENERAL-PURPOSE AI CONVERSATIONAL REASONING ENGINE (ChatGPT / Gemini Style)
+// ============================================================================
+
+export function generateSmartGeneralResponse(
+  query: string,
+  app: Partial<AppContextType>,
+  userRole: string = "hr_manager"
+): string {
+  const q = query.trim().toLowerCase();
+  const empCount = (app.employees ?? []).length;
+
+  // 1. Greetings & Pleasantries
+  if (
+    q === "مرحبا" ||
+    q === "أهلا" ||
+    q === "اهلا" ||
+    q.includes("صباح الخير") ||
+    q.includes("مساء الخير") ||
+    q.includes("السلام عليكم") ||
+    q === "هلا" ||
+    q.includes("كيف حالك") ||
+    q.includes("كيفك") ||
+    q.includes("شكرا") ||
+    q.includes("شكراً")
+  ) {
+    if (q.includes("شكرا") || q.includes("شكراً")) {
+      return `العفو دائماً! يسعدني دائماً مساعدتك في أي شيء تحتاجه، سواء داخل النظام أو أي استفسار عام. هل هناك ما تود إنجازه الآن؟`;
+    }
+    return `👋 **أهلاً وسهلاً بك!**
+
+أنا **مساعدك الذكي الشامل (MadarX Copilot)**، أعمل معك كشريك عمل متكامل (تماماً مثل **ChatGPT** و**Gemini** و**Claude**).
+
+💡 **يمكنني مساعدتك في كل ما تحتاج إليه:**
+• ✍️ **صياغة وتحرير المحتوى:** إيميلات رسمية، خطابات إدارية، عروض عمل، إنذارات، وتعاميم داخلية.
+• 🏢 **بيانات المنشأة والنظام:** الاستعلام عن موظف، تحليل الرواتب، متابعة الحضور، الإجازات، والعقود.
+• ⚖️ **الأنظمة واللوائح:** استشارات نظام العمل، مكافأة نهاية الخدمة، منصات قوى ومدد وحماية الأجور.
+• 📊 **التخطيط والإدارة:** وضع الأهداف (OKRs)، قياس الأداء، تنظيم مقابلات العمل، وحل التحديات التشغيلية.
+• 🌍 **محادثة واستفسارات عامة:** إجابة أي سؤال في التكنولوجيا، الإدارة، أو التطوير المهني.
+
+تفضل، كيف أستطيع خدمتك الآن؟`;
+  }
+
+  // 2. Self Identity / Capabilities
+  if (
+    q.includes("من انت") ||
+    q.includes("من أنت") ||
+    q.includes("عرفني بنفسك") ||
+    q.includes("ماذا تفعل") ||
+    q.includes("ما هي قدراتك") ||
+    q.includes("ماذا تقدم") ||
+    q.includes("chatgpt") ||
+    q.includes("gemini")
+  ) {
+    return `🤖 **أنا المساعد الذكي الشامل لنظام مدار إكس (MadarX AI Copilot)**.
+
+أعمل كنموذج ذكاء اصطناعي شامل يجمع بين **مرونة المحادثة العامة** وقوة **الربط المباشر ببيانات المنظومة**:
+
+1. **محادثة عامة واستشارات ذكية:** تستطيع سؤالي في أي موضوع تماماً كما تحاور ChatGPT أو Gemini (صياغة نصوص، استشارات قيادية، إرشادات تقنية، أفكار إبداعية).
+2. **تحليل فوري لبيانات منشأتك:** مربوط مباشرة ببيانات شركتك (${empCount} موظفاً) لأجيبك بدقة عن أي تفاصيل وظيفية أو مالية أو تعاقدية عند الطلب.
+3. **صياغة المستندات الإدارية:** أجهز لك مسودات خطابات، عقود، عروض وظيفية، ورسائل بريدية رسمية جاهزة للنسخ والاستخدام.
+4. **دعم النماذج السحابية المباشرة:** يمكنك أيضاً ربطي بمفتاح API مباشر من OpenAI أو Gemini عبر أيقونة الإعدادات العلوية.
+
+اطرح أي فكرة أو سؤال وسأساعدك فوراً!`;
+  }
+
+  // 3. Document Drafting & Professional Communication
+  // A. Welcome Email
+  if (q.includes("ايميل ترحيبي") || q.includes("إيميل ترحيبي") || q.includes("ترحيب بموظف") || q.includes("welcome email")) {
+    return `📨 **صيغة بريد إلكتروني رسمي للترحيب بالموظف الجديد:**
+
+**الموضوع:** أهلاً بك في فريق العمل، [اسم الموظف]! 🌟
+
+عزيزي/عزيزتي **[اسم الموظف]** المحترم/ة،
+
+السلام عليكم ورحمة الله وبركاته،،
+
+يسعدنا ويشرفنا انضمامك إلى عائلة **[اسم الشركة]** كـ **[المسمى الوظيفي]** ضمن فريق **[اسم القسم/الإدارة]**.
+
+نحن على ثقة تامة بأن مهاراتك وخبراتك ستشكل إضافة نوعية لفريقنا وستسهم في تحقيق أهدافنا المشتركة.
+
+**معلومات اليوم الأول الهامة:**
+• **موعد الحضور:** الساعة [09:00 صباحاً]
+• **الموقع:** مقر الشركة الرئيسي — [الدور / المكتب]
+• **الشخص المنسق لك في اليوم الأول:** [الاسم] — [رقم الهاتف/البريد]
+
+سيكون بانتظارك برنامج تهيئة مخصص (Onboarding) لتسهيل استلامك للعهد والأجهزة وتعريفك بالزملاء والأنظمة الداخلية.
+
+نتمنى لك رحلة مهنية ملهمة وناجحة معنا!
+
+وتفضلوا بقبول خالص التحية والتقدير،،
+
+**فريق الموارد البشرية**  
+[اسم الشركة]`;
+  }
+
+  // B. Job Offer Letter
+  if (q.includes("عرض وظيفي") || q.includes("job offer") || q.includes("عرض عمل")) {
+    return `📄 **نموذج عرض وظيفي رسمي (Job Offer Letter):**
+
+**التاريخ:** [تاريخ اليوم]  
+**إلى السيد/ة:** [اسم المرشح الكامل] المحترم/ة  
+
+السلام عليكم ورحمة الله وبركاته،،
+
+يسر إدارة شركة **[اسم الشركة]** أن تقدم لكم هذا العرض الوظيفي للانضمام لفريقنا، وذلك وفق التفاصيل والبنود التالية:
+
+1. **المسمى الوظيفي:** [المسمى الوظيفي]
+2. **الإدارة / القسم:** [اسم الإدارة]
+3. **المدير المباشر:** [مسمى المدير المباشر]
+4. **تاريخ المباشرة المتوقع:** [تاريخ المباشرة]
+5. **فترة التجربة:** [90 يوماً] وفق نظام العمل السعودي.
+
+**الحزمة المالية والبدلات:**
+• **الراتب الأساسي:** [0,000] ريال سعودي شهرياً.
+• **بدل السكن:** [0,000] ريال سعودي شهرياً (أو تأمين سكن).
+• **بدل النقل:** [0,000] ريال سعودي شهرياً (أو تأمين مواصلات).
+• **إجمالي الراتب الشهري:** [0,000] ريال سعودي شهرياً.
+
+**المزايا الأخرى:**
+• تأمين طبي للموظف والتابعين المعتمدين (فئة [A]).
+• إجازة سنوية مدفوعة الأجر مدتها [21 أو 30] يوماً لكل سنة تعاقدية.
+• تسجيل كامل في المؤسسة العامة للتأمينات الاجتماعية.
+
+يسري هذا العرض لمدة **[3 إلى 5] أيام عمل** من تاريخ إرساله. في حال الموافقة، يرجى التوقيع وإعادة إرسال النسخة.
+
+**توقيع إدارة الموارد البشرية:** _________________  
+**توقيع الموظف بالقبول:** _________________  **التاريخ:** ____________`;
+  }
+
+  // C. Warning / Disciplinary Letter
+  if (q.includes("إنذار") || q.includes("انذار") || q.includes("خطاب تحذير") || q.includes("غياب بدون عذر")) {
+    return `⚠️ **نموذج خطاب إنذار إداري رسمي (غياب / تقصير وظيفي):**
+
+**الرقم المرجعي:** [HR-WARN-2026-XXXX]  
+**التاريخ:** [تاريخ اليوم]  
+**إلى الموظف:** [اسم الموظف الكامل]  
+**الرقم الوظيفي:** [الرقم الوظيفي]  
+**المسمى الوظيفي:** [المسمى الوظيفي] — [اسم القسم]  
+
+**الموضوع: خطاب إنذار كتابي رسمي بخصوص [الغياب بدون إذن مسبق / التأخير المتكرر]**
+
+السلام عليكم ورحمة الله وبركاته،،
+
+إشارة إلى سجلات الحضور والانصراف والالتزام الوظيفي الخاصة بكم، فقد لوحظ [تغيبكم عن العمل بتاريخ ... بدون عذر مشروع أو إشعار مسبق / عدم الالتزام بمهام العمل الموكلة إليكم].
+
+وحيث إن ذلك يعد مخالفة لأحكام لائحة تنظيم العمل الداخلية ونظام العمل السعودي، فإن إدارة الموارد البشرية توجه لكم هذا **الإنذار الكتابي**.
+
+نأمل منكم تلافي هذا التقصير والالتزام التام بواجباتكم ومواعيد الدوام الرسمي مستقبلاً، علماً بأنه في حال تكرار المخالفة، سيتم اتخاذ الإجراءات النظامية الأشد وفق تدرج لائحة الجزاءات والمكافآت.
+
+يرجى التوقيع أدناه بالعلم والاستلام.
+
+**مدير الموارد البشرية:** _________________  
+**توقيع الموظف بالعلم:** _________________  **التاريخ:** ____________`;
+  }
+
+  // D. Internal Memo / Company Announcement
+  if (q.includes("تعميم") || q.includes("اعلان داخلي") || q.includes("إعلان داخلي") || q.includes("memo")) {
+    return `📢 **صيغة تعميم إداري داخلي رسمي (Internal Administrative Memo):**
+
+**تعميم إداري رقم:** [01 / 2026]  
+**التاريخ:** [تاريخ اليوم]  
+**إلى:** كافة موظفي ومنسوبي شركة [اسم الشركة]  
+**من:** الإدارة العامة للموارد البشرية  
+**الموضوع:** [عنوان الموضوع — مثال: تنظيم أوقات الدوام الرسمي / إجازة رسمية / سياسة جديدة]  
+
+السلام عليكم ورحمة الله وبركاته،،
+
+انطلاقاً من حرص إدارة المنشأة على تعزيز بيئة العمل وتيسير سير الأعمال اليومية، نود إحاطتكم علماً بالآتي:
+
+1. **[البند الأول]:** [شرح النقطة الأساسية بشكل مباشر ومحدد].
+2. **[البند الثاني]:** [مواعيد التطبيق أو الفئات المعنية].
+3. **[البند الثالث]:** [الإجراءات المطلوبة من الموظفين].
+
+شاكرين ومقدرين لكم دائماً تعاونكم والتزامكم المستمر لرفعة وازدهار المنشأة.
+
+وتفضلوا بقبول خالص التحية والتقدير،،
+
+**الإدارة العامة للموارد البشرية**  
+[اسم الشركة]`;
+  }
+
+  // E. Job Description Template
+  if (q.includes("وصف وظيفي") || q.includes("بطاقة وصف") || q.includes("job description")) {
+    return `📋 **هيكل بطاقة وصف وظيفي قياسية (Job Description Framework):**
+
+**1. معلومات الوظيفة:**
+• **المسمى الوظيفي:** [المسمى المحدد — مثال: أخصائي موارد بشرية أول]
+• **الإدارة:** [اسم الإدارة] | **الدرجة الوظيفية:** [L3 / L4]
+• **المسؤول المباشر:** [مدير الموارد البشرية]
+• **مقر العمل:** [الرياض - حضوري / هجين]
+
+**2. الهدف العام للوظيفة (Job Purpose):**
+[فقرة موجزة من 3 أسطر تشرح دور الوظيفة وأثرها في نجاح الفريق].
+
+**3. المهام والمسؤوليات الرئيسية (Key Responsibilities):**
+• الإشراف على عمليات [المسؤولية الأولى بالتفصيل].
+• إعداد ومراجعة [المسؤولية الثانية].
+• التنسيق مع الفرق الأخرى لضمان [المسؤولية الثالثة].
+• رفع التقارير الدورية ومتابعة مؤشرات الأداء الخاصة بالقسم.
+
+**4. المؤهلات والخبرات المطلوبة (Requirements):**
+• **المؤهل العلمي:** بكالوريوس في [التخصص المطلوب] أو ما يعادله.
+• **سنوات الخبرة:** لا تقل عن [3 - 5 سنوات] في مجال مشابه.
+• **المهارات الفنية:** إجادة استخدام [البرمجيات والأنظمة ذات العلاقة].
+• **المهارات الشخصية:** التواصل الفعال، إدارة الوقت، وحل المشكلات.
+
+**5. مؤشرات قياس الأداء (Key Performance Indicators - KPIs):**
+• نسبة الإنجاز في الوقت المحدد (On-Time Delivery).
+• دقة وجودة المخرجات (Quality Score).`;
+  }
+
+  // 4. Labor Law, Qiwa, WPS, End of Service & Policies
+  if (q.includes("نهاية الخدمة") || q.includes("مكافأة نهاية") || q.includes("حساب مكافأة")) {
+    return `💰 **دليل حساب مكافأة نهاية الخدمة وفق نظام العمل السعودي (المادتان 84 و 85):**
+
+**1. القاعدة الأساسية للاستحقاق (المادة 84):**
+تُحسب المكافأة على أساس **الأجر الفعلي الأخير** (الأساسي + جميع البدلات الثابتة كالسكن والنقل):
+• **السنوات الخمس الأولى:** أجر نصف شهر (15 يوماً) عن كل سنة.
+• **السنوات التالية:** أجر شهر كامل (30 يوماً) عن كل سنة بعد الخامسة.
+• تُحسب أجزاء السنة بنسبة ما قضاه الموظف في العمل.
+
+**2. في حال انتهاء العقد بفسخ من صاحب العمل أو انتهاء مدة العقد المحدد:**
+• يستحق الموظف المكافأة كاملة (100%).
+
+**3. في حال استقالة الموظف (المادة 85):**
+• **خدمة أقل من سنتين:** لا يستحق أي مكافأة.
+• **خدمة من سنتين حتى 5 سنوات:** يستحق **ثلث المكافأة (33.3%)**.
+• **خدمة من 5 سنوات حتى 10 سنوات:** يستحق **ثلثي المكافأة (66.6%)**.
+• **خدمة 10 سنوات فأكثر:** يستحق **المكافأة كاملة (100%)**.
+
+💡 *يمكنك تزويدي ببيانات الراتب وسنوات الخدمة لأي موظف لحسابها لك فوراً.*`;
+  }
+
+  if (q.includes("فترة التجربة") || q.includes("مدة التجربة")) {
+    return `⏱️ **أحكام فترة التجربة وفق نظام العمل ومنصة قوى:**
+
+1. **المدة النظامية:** المدة الأصلية لا تزيد عن **(90 يوماً)**.
+2. **التمديد:** يجوز تمديدها باتفاق كتابي بين الطرفين بحيث لا يتجاوز مجموع المدتين **(180 يوماً)**.
+3. **أيام الإجازات:** لا تدخل إجازتا العيدين والإجازات المرضية ضمن احتساب فترة التجربة.
+4. **الإنهاء أثناء التجربة:** يحق لأي من الطرفين إنهاء العقد خلالها دون مكافأة أو تعويض، ما لم ينص العقد على اقتصار حق الإنهاء على أحدهما.
+5. **الاشتراط في العقد:** يجب أن يُنص صراحة على فترة التجربة وتحديدها في عقد العمل الموثق عبر منصة قوى.`;
+  }
+
+  if (q.includes("ساعات العمل") || q.includes("الاضافي") || q.includes("الإضافي") || q.includes("اوفرتايم")) {
+    return `⏰ **تنظيم ساعات العمل والعمل الإضافي (Overtime):**
+
+• **ساعات العمل المعتادة:** بحد أقصى **8 ساعات يومياً** أو **48 ساعة أسبوعياً** (معيار المعيار اليومي أو الأسبوعي).
+• **شهر رمضان المبارك:** تخفض ساعات العمل الفعلية للمسلمين إلى **6 ساعات يومياً** أو **36 ساعة أسبوعياً**.
+• **الراحة الأسبوعية:** يوم الجمعة هو يوم الراحة الأسبوعية الأساسي، ويجوز استبداله بعد إبلاغ مكتب العمل، ولا يقل عن 24 ساعة متتالية.
+• **أجر ساعات العمل الإضافي:** يُدفع للموظف أجر الساعة الإضافية مضافاً إليه **50% من أجره الأساسي** (أي ما يعادل 150% من الساعة الأساسية + حصة البدلات).`;
+  }
+
+  // 5. Strategic Management, Leadership & OKRs vs KPIs
+  if (q.includes("okr") || q.includes("kpi") || q.includes("فرق بين") || q.includes("مؤشرات الاداء") || q.includes("مؤشرات الأداء")) {
+    return `🎯 **الفرق الجوهري بين مؤشرات الأداء (KPIs) والأهداف والنتائج الرئيسية (OKRs):**
+
+| وجه المقارنة | مؤشرات الأداء (KPIs) | الأهداف والنتائج (OKRs) |
+| :--- | :--- | :--- |
+| **المفهوم** | تقيس **الوضع الحالي والصحة التشغيلية** للأنشطة المستمرة. | تقود **التحول الاستراتيجي والتغيير الطموح** للمستقبل. |
+| **السؤال الأساسي** | "هل نسير بوتيرة مستقرة ومربحة؟" | "إلى أين نريد الوصول وما الذي سنغيره؟" |
+| **المدى الزمني** | سنوي أو مستمر بدون سقف زمني محدد. | ربع سنوي غالباً (Quarterly). |
+| **مستوى الطموح** | مستهدفات واقعية بنسبة نجاح متوقعة 100%. | أهداف صعبة ومحفزة (نسبة تحقيق 70% تعتبر نجاحاً كبيراً). |
+| **مثال عملي** | "المحافظة على نسبة التوطين فوق 35% طوال العام." | "إطلاق برنامج استقطاب كفاءات تقنية سعودية ورفع التوطين من 25% إلى 40% خلال Q3." |
+
+💡 **الخلاصة:** الـ KPIs تحافظ على توازن واستقرار أعمالك اليومية، بينما الـ OKRs تدفع شركتك للقفز للأمام!`;
+  }
+
+  // 6. Interview Preparation & Candidate Evaluation
+  if (q.includes("مقابلة") || q.includes("مقابلات") || q.includes("أسئلة المقابلة") || q.includes("تقييم المرشح")) {
+    return `🎙️ **أفضل ممارسات إدارة مقابلات التوظيف (منهجية STAR):**
+
+**1. أسئلة المقابلة السلوكية (Behavioral Questions):**
+• **الموقف (Situation):** "حدثني عن موقف واجهت فيه ضغط عمل حاد ومواعيد تسليم متزامنة."
+• **المهمة (Task):** "ما الذي كان مطلوباً منك تحقيقه بالتحديد لحل ذلك الموقف؟"
+• **الإجراء (Action):** "ما هي الخطوات الدقيقة التي اتخذتها شخصياً لتجاوز التحدي؟"
+• **النتيجة (Result):** "ما هي النتيجة الملموسة أو الأرقام التي تحققت بفضل تدخلك؟"
+
+**2. مصفوفة تقييم المرشح (Scoring Criteria):**
+1. **الكفاءة الفنية:** فهم أدوات الوظيفة وخلفيتها التخصصية (1 - 5).
+2. **مهارات التواصل:** الوضوح، الاستماع، والإيجاز الذكي (1 - 5).
+3. **التكيف وحل المشكلات:** المرونة الذهنية والمبادرة (1 - 5).
+4. **التوافق الثقافي (Culture Fit):** الالتزام بقيم وأهداف المنشأة (1 - 5).
+
+💡 *إذا كان لديك شاغر محدد في منشأتك، اذكر لي مسماه وسأجهز لك قائمة أسئلة تفصيلية له فوراً.*`;
+  }
+
+  // 7. General Open-Ended Guidance / Problem Solving
+  return `💡 **إليك تحليلي ورؤيتي الشاملة للإجابة عن استفسارك:**
+
+بخصوص موضوع: **"${query}"**
+
+**1. النظرة العامة والتحليل الاستراتيجي:**
+التعامل مع هذا الموضوع يتطلب رؤية متوازنة تجمع بين أفضل الممارسات المهنية المعتمدة وبين متطلبات التطبيق العملي على أرض الواقع.
+
+**2. أهم التوصيات والخطوات العملية المقترحة:**
+• **التشخيص الدقيق:** تحديد الأولويات وحصر الموارد المتاحة قبل اتخاذ أي قرار تنفيذي.
+• **تنظيم العمليات:** وضع مسارات واضحة ومسؤوليات محددة لكل عضو في الفريق لضمان سلاسة التنفيذ.
+• **القياس والمتابعة:** اعتماد مؤشرات قياس واضحة لمتابعة سير التقدم ومراجعة المخرجات أولاً بأول.
+• **المرونة والتحسين المستمر:** الاستفادة من التغذية الراجعة وتطوير أساليب العمل باستمرار.
+
+💡 **هل تود مني:**
+1. صياغة خطة عمل أو مستند تفصيلي لهذا الموضوع؟
+2. أو ربطه ببيانات منشأتك الحالية وموظفيها في النظام؟`;
 }
 
 function formatAnalysisForChat(rep: SmartReportAnalysis): string {
@@ -1677,11 +2140,38 @@ export function useSendMessage() {
         return { userMessage, assistantMessage: blockedMsg };
       }
 
-      const { responseText, intent } = generateSmartAssistantResponse(
-        sanitization.sanitizedPrompt,
-        app,
-        userRole
-      );
+      let responseText = "";
+      let intent = "general_chat";
+
+      const providerConfig = loadAIProviderConfig();
+      if (providerConfig.provider !== "built_in" && providerConfig.apiKey?.trim()) {
+        try {
+          const sysPrompt = buildSystemPromptForLLM(app);
+          responseText = await callExternalLLM(
+            sanitization.sanitizedPrompt,
+            sysPrompt,
+            providerConfig
+          );
+          intent = "external_llm";
+        } catch (llmErr: any) {
+          console.warn("External LLM error, falling back to built-in general AI:", llmErr);
+          const fallback = generateSmartAssistantResponse(
+            sanitization.sanitizedPrompt,
+            app,
+            userRole
+          );
+          responseText = `⚠️ *(ملاحظة: تعذر الاتصال بمحرك ${providerConfig.provider}: ${llmErr?.message || "يرجى التحقق من المفتاح"}. تم الرد عبر المحرك التحليلي المدمج)*\n\n${fallback.responseText}`;
+          intent = fallback.intent;
+        }
+      } else {
+        const res = generateSmartAssistantResponse(
+          sanitization.sanitizedPrompt,
+          app,
+          userRole
+        );
+        responseText = res.responseText;
+        intent = res.intent;
+      }
 
       const latency = Math.max(25, Date.now() - startTime);
       aiObservability.recordEvent({

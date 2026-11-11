@@ -39,6 +39,13 @@ import {
   TrendingUp,
   Briefcase,
   Users,
+  Settings,
+  Key,
+  Cpu,
+  Zap,
+  Globe,
+  X,
+  MessageSquare,
 } from "lucide-react";
 import { useApp } from "../../lib/context/AppContext";
 import {
@@ -52,6 +59,10 @@ import {
   useSendMessage,
   SMART_REPORT_DOMAINS,
   buildSmartReportAnalysis,
+  loadAIProviderConfig,
+  saveAIProviderConfig,
+  callExternalLLM,
+  type AIProviderConfig,
   type SmartReportDomainId,
 } from "../../lib/data/ai-repository";
 import { GOVERNED_AI_TOOLS, isUserAuthorizedForTool } from "../../lib/ai/tools/registry";
@@ -75,6 +86,18 @@ export function AICopilotView() {
   const [confirmedActionIds, setConfirmedActionIds] = useState<string[]>([]);
   const [selectedReportDomain, setSelectedReportDomain] =
     useState<SmartReportDomainId>("executive_all");
+
+  // AI Provider Configuration (Built-in, OpenAI, Gemini, OpenRouter)
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [providerConfig, setProviderConfig] = useState<AIProviderConfig>(() => loadAIProviderConfig());
+  const [apiKeyInput, setApiKeyInput] = useState<string>(() => loadAIProviderConfig().apiKey || "");
+  const [modelInput, setModelInput] = useState<string>(() => loadAIProviderConfig().model || "");
+  const [selectedProvider, setSelectedProvider] = useState<AIProviderConfig["provider"]>(
+    () => loadAIProviderConfig().provider
+  );
+  const [isTestingConnection, setIsTestingConnection] = useState<boolean>(false);
+  const [showApiKey, setShowApiKey] = useState<boolean>(false);
+  const [chipCategory, setChipCategory] = useState<"general" | "reports">("general");
 
   const { data: conversations = [] } = useAIConversations();
   const createConversationMutation = useCreateAIConversation();
@@ -194,6 +217,110 @@ export function AICopilotView() {
     if (insightFilter === "all") return true;
     return ins.severity === insightFilter;
   });
+
+  const handleSaveProviderConfig = () => {
+    const newConfig: AIProviderConfig = {
+      provider: selectedProvider,
+      apiKey: apiKeyInput.trim(),
+      model: modelInput.trim() || undefined,
+    };
+    saveAIProviderConfig(newConfig);
+    setProviderConfig(newConfig);
+    setIsSettingsOpen(false);
+    toast.success("تم تفعيل إعدادات محرك الذكاء الاصطناعي بنجاح");
+  };
+
+  const handleTestConnection = async () => {
+    if (selectedProvider === "built_in") {
+      toast.success("المحرك التحليلي المدمج (MadarX AI) جاهز ونشط بنسبة 100%");
+      return;
+    }
+    if (!apiKeyInput.trim()) {
+      toast.error("يرجى إدخال مفتاح API أولاً لاختبار الاتصال");
+      return;
+    }
+    setIsTestingConnection(true);
+    try {
+      const testConfig: AIProviderConfig = {
+        provider: selectedProvider,
+        apiKey: apiKeyInput.trim(),
+        model: modelInput.trim() || undefined,
+      };
+      const reply = await callExternalLLM(
+        "أهلاً، قم باختبار الاتصال في كلمة واحدة فقط: جاهز.",
+        "أنت مساعد ذكي تجريبي للتحقق من الاتصال.",
+        testConfig
+      );
+      toast.success(`تم الاتصال بنجاح بمحرك ${selectedProvider}! الرد: ${reply.slice(0, 50)}`);
+    } catch (err: any) {
+      toast.error(`فشل الاتصال بمحرك ${selectedProvider}: ${err?.message || "تحقق من صحة المفتاح وصلاحيته"}`);
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
+  const getProviderBadge = () => {
+    switch (providerConfig.provider) {
+      case "openai":
+        return {
+          label: `OpenAI ChatGPT (${providerConfig.model || "gpt-4o-mini"})`,
+          color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+        };
+      case "gemini":
+        return {
+          label: `Google Gemini (${providerConfig.model || "gemini-1.5-flash"})`,
+          color: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+        };
+      case "openrouter":
+        return {
+          label: `OpenRouter (${providerConfig.model || "claude-3.5"})`,
+          color: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+        };
+      case "built_in":
+      default:
+        return {
+          label: "المحرك التحليلي المدمج (MadarX AI)",
+          color: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+        };
+    }
+  };
+
+  const generalQuickPrompts: Array<{
+    label: string;
+    prompt: string;
+    badge: string;
+  }> = [
+    {
+      label: "إيميل ترحيبي بموظف جديد (Onboarding)",
+      prompt: "صيغ لي إيميل ترحيبي رسمي واحترافي بموظف جديد انضم لفريق العمل يتضمن تفاصيل اليوم الأول والتمنيات بالتوفيق",
+      badge: "صياغة",
+    },
+    {
+      label: "خطاب عرض وظيفي رسمي (Job Offer)",
+      prompt: "صيغ لي نموذج خطاب عرض وظيفي رسمي (Job Offer Letter) متكامل يوضح الراتب والمزايا والمهام وفترة التجربة",
+      badge: "توظيف",
+    },
+    {
+      label: "حساب مكافأة نهاية الخدمة (نظام العمل)",
+      prompt: "اشرح لي بالتفصيل طريقة حساب مكافأة نهاية الخدمة وفق نظام العمل السعودي مع الفرق بين الاستقالة وإنهاء العقد",
+      badge: "نظام العمل",
+    },
+    {
+      label: "خطاب لفت نظر وإنذار إداري كتابي",
+      prompt: "صيغ لي نموذج رسمي لخطاب لفت نظر وإنذار كتابي أول لموظف بسبب تكرار التأخير بدون عذر مع السند النظامي",
+      badge: "خطابات",
+    },
+    {
+      label: "الفرق بين OKRs و KPIs في إدارة الأداء",
+      prompt: "ما هو الفرق الجوهري بين مؤشرات الأداء الرئيسية (KPIs) والأهداف والنتائج الرئيسية (OKRs) وكيف نطبقها في الموارد البشرية؟",
+      badge: "استراتيجية",
+    },
+    {
+      label: "أسئلة المقابلات السلوكية (منهجية STAR)",
+      prompt: "اقترح لي أهم أسئلة المقابلات الوظيفية السلوكية وفق منهجية STAR لتقييم مهارات حل المشكلات والتواصل والعمل الجماعي",
+      badge: "مقابلات",
+    },
+  ];
 
   const quickAnalysisChips: Array<{
     label: string;
@@ -466,27 +593,45 @@ export function AICopilotView() {
               </div>
             </div>
 
-            {/* One-Click System Report Analysis Triggers */}
+            {/* Quick Prompts & Report Analysis Triggers */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-emerald-600" />
-                  التحليل الفوري لتقارير النظام
+                  <Sparkles className="w-4 h-4 text-indigo-600" />
+                  المقترحات السريعة
                 </h3>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("reports_analyzer")}
-                  className="text-[11px] text-indigo-600 font-bold hover:underline flex items-center gap-0.5"
-                >
-                  فتح المحلل
-                  <ArrowUpRight className="w-3 h-3" />
-                </button>
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setChipCategory("general")}
+                    className={`px-2 py-1 rounded-md text-[11px] font-bold transition ${
+                      chipCategory === "general"
+                        ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-xs"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    عام وصياغة
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChipCategory("reports")}
+                    className={`px-2 py-1 rounded-md text-[11px] font-bold transition ${
+                      chipCategory === "reports"
+                        ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-xs"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    تقارير 360°
+                  </button>
+                </div>
               </div>
-              <p className="text-xs text-slate-500 mb-3">
-                اضغط على أي تقرير لإجراء تحليل فوري شامل بالأرقام والتوصيات داخل المحادثة:
+              <p className="text-xs text-slate-500 mb-2.5">
+                {chipCategory === "general"
+                  ? "نماذج صياغة خطابات، إيميلات، استشارات العمل ونماذج OKRs:"
+                  : "تحليل ذكي فوري لتقارير النظام والرواتب والتوطين بالأرقام:"}
               </p>
-              <div className="space-y-1.5">
-                {quickAnalysisChips.map((chip, idx) => (
+              <div className="space-y-1.5 max-h-72 overflow-y-auto">
+                {(chipCategory === "general" ? generalQuickPrompts : quickAnalysisChips).map((chip, idx) => (
                   <button
                     key={idx}
                     type="button"
@@ -494,7 +639,7 @@ export function AICopilotView() {
                     onClick={() => sendPromptImmediately(chip.prompt)}
                     className="w-full text-right text-xs p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700 transition flex items-center justify-between gap-2 group disabled:opacity-50"
                   >
-                    <span className="font-semibold group-hover:text-indigo-700 dark:group-hover:text-indigo-300">
+                    <span className="font-semibold group-hover:text-indigo-700 dark:group-hover:text-indigo-300 line-clamp-1">
                       {chip.label}
                     </span>
                     <span className="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold shrink-0">
@@ -516,26 +661,39 @@ export function AICopilotView() {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                    مساعد مدار الذكي لتحليل التقارير والبيانات
+                    مساعد مدار الذكي الشامل (AI Assistant & Copilot)
                   </h3>
                   <p className="text-xs text-slate-500">
-                    متصل بـ {app.employees.length} موظف • {app.orgUnits.length} إدارات • الصلاحية النشطة:{" "}
+                    استشارات، صياغة، وتحليل تقارير • {app.employees.length} موظف • الصلاحية:{" "}
                     <span className="font-semibold text-indigo-600">{currentRole}</span>
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="inline-flex items-center gap-1.5 text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 font-bold transition shadow-sm"
+                  title="تخصيص محرك الذكاء الاصطناعي (OpenAI / Gemini / MadarX AI)"
+                >
+                  <Cpu className="w-3.5 h-3.5 text-indigo-600" />
+                  <span className="hidden sm:inline">محرك الذكاء:</span>
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${getProviderBadge().color}`}>
+                    {getProviderBadge().label}
+                  </span>
+                  <Settings className="w-3.5 h-3.5 text-slate-400 mr-0.5" />
+                </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab("reports_analyzer")}
                   className="inline-flex items-center gap-1.5 text-xs bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 font-bold hover:bg-indigo-100 transition"
                 >
                   <BarChart3 className="w-3.5 h-3.5" />
-                  لوحة تحليل التقارير 360°
+                  لوحة 360°
                 </button>
                 <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                  حماية PII مفعلة
+                  حماية PII
                 </span>
               </div>
             </div>
@@ -672,7 +830,7 @@ export function AICopilotView() {
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder="اسأل المساعد الذكي عن أي تقرير، مسير رواتب، نسبة توطين، حضور، إجازات، أو اسم موظف..."
+                placeholder="اسألني أي شيء في النظام أو خارجه (صياغة خطابات وإيميلات، نظام العمل، استراتيجيات، أو تحليل تقارير)..."
                 className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <button
@@ -1215,6 +1373,203 @@ export function AICopilotView() {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Engine & LLM Provider Settings Modal */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5 text-right"
+            dir="rtl"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600">
+                  <Cpu className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    إعدادات محرك الذكاء الاصطناعي (AI Provider Settings)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    تخصيص النموذج والمزود (ChatGPT / Gemini / المحرك التحليلي المدمج)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSettingsOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Provider Options */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                اختر محرك الذكاء الاصطناعي
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedProvider("built_in")}
+                  className={`p-3 rounded-xl border text-right transition flex items-start gap-2.5 ${
+                    selectedProvider === "built_in"
+                      ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/50 ring-1 ring-indigo-600"
+                      : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white">المحرك المدمج (MadarX AI)</p>
+                    <p className="text-[11px] text-slate-500">سريع، آمن، مجاني وبدون مفتاح</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedProvider("openai")}
+                  className={`p-3 rounded-xl border text-right transition flex items-start gap-2.5 ${
+                    selectedProvider === "openai"
+                      ? "border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/50 ring-1 ring-emerald-600"
+                      : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  }`}
+                >
+                  <Zap className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white">OpenAI (ChatGPT)</p>
+                    <p className="text-[11px] text-slate-500">GPT-4o / GPT-4o-mini</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedProvider("gemini")}
+                  className={`p-3 rounded-xl border text-right transition flex items-start gap-2.5 ${
+                    selectedProvider === "gemini"
+                      ? "border-blue-600 bg-blue-50/50 dark:bg-blue-950/50 ring-1 ring-blue-600"
+                      : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  }`}
+                >
+                  <Bot className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white">Google Gemini</p>
+                    <p className="text-[11px] text-slate-500">Gemini 1.5 Flash / Pro</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedProvider("openrouter")}
+                  className={`p-3 rounded-xl border text-right transition flex items-start gap-2.5 ${
+                    selectedProvider === "openrouter"
+                      ? "border-purple-600 bg-purple-50/50 dark:bg-purple-950/50 ring-1 ring-purple-600"
+                      : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  }`}
+                >
+                  <Globe className="w-4 h-4 text-purple-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white">OpenRouter</p>
+                    <p className="text-[11px] text-slate-500">Claude 3.5 Sonnet / Llama 3</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* API Key Input (if not built-in) */}
+            {selectedProvider !== "built_in" && (
+              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <Key className="w-3.5 h-3.5 text-amber-500" />
+                      مفتاح الواجهة (API Key)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="text-[11px] text-indigo-600 hover:underline"
+                    >
+                      {showApiKey ? "إخفاء المفتاح" : "إظهار المفتاح"}
+                    </button>
+                  </div>
+                  <input
+                    type={showApiKey ? "text" : "password"}
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    placeholder={
+                      selectedProvider === "openai"
+                        ? "sk-proj-..."
+                        : selectedProvider === "gemini"
+                        ? "AIzaSy..."
+                        : "sk-or-v1-..."
+                    }
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                    dir="ltr"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    يُحفظ المفتاح محلياً في متصفحك (Client-side) لضمان الخصوصية التامة ولا يتم مشاركته.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    اسم النموذج (Model Name - اختياري)
+                  </label>
+                  <input
+                    type="text"
+                    value={modelInput}
+                    onChange={(e) => setModelInput(e.target.value)}
+                    placeholder={
+                      selectedProvider === "openai"
+                        ? "gpt-4o-mini"
+                        : selectedProvider === "gemini"
+                        ? "gemini-1.5-flash"
+                        : "anthropic/claude-3.5-sonnet"
+                    }
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={handleTestConnection}
+                disabled={isTestingConnection}
+                className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition"
+              >
+                {isTestingConnection ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Activity className="w-3.5 h-3.5 text-emerald-500" />
+                )}
+                اختبار الاتصال
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveProviderConfig}
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-sm"
+                >
+                  حفظ وتفعيل
+                </button>
               </div>
             </div>
           </div>

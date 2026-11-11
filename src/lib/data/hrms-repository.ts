@@ -429,7 +429,14 @@ export async function createEmployeeRecord(employee: Employee): Promise<Employee
   });
 
   if (error) {
-    if (isOfflineBrowserFetchError(error)) {
+    const isRpcCacheOrMissing =
+      error.message.includes("schema cache") ||
+      error.message.includes("Could not find the function") ||
+      error.message.includes("function public.create_employee") ||
+      isOfflineBrowserFetchError(error);
+
+    if (isRpcCacheOrMissing) {
+      console.warn("create_employee RPC unavailable or missing from schema cache, falling back to direct table persistence:", error.message);
       const normalizedEmp: Employee = {
         ...employee,
         status: employee.status || "draft",

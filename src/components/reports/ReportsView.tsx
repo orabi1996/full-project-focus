@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
   FileBarChart,
@@ -96,6 +97,7 @@ import {
 } from "../../lib/domains/reports";
 
 export const ReportsView: React.FC = () => {
+  const navigate = useNavigate();
   const { role, isDemo, user } = useAuth();
   const bootstrap = useBootstrapData();
   const { canAccessReport, canAccessField, saveFilterPreset, deleteFilterPreset, toggleFavoriteReport, logRecent } =
@@ -441,6 +443,16 @@ export const ReportsView: React.FC = () => {
           >
             <RefreshCw className="h-4 w-4" />
             تحديث المؤشرات
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate({ to: "/ai-copilot" })}
+            className="rounded-full text-xs font-bold gap-1.5 h-9 border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-300"
+          >
+            <Sparkles className="h-4 w-4 text-indigo-600" />
+            تحليل التقارير بالمساعد الذكي (AI)
           </Button>
 
           <Button

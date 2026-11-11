@@ -54,6 +54,18 @@ export function getEmployeeExtendedFields(employeeId: string): Partial<Employee>
   return map[employeeId] || {};
 }
 
+export function getExtendedEmployee(employeeId: string): Partial<Employee> {
+  return getEmployeeExtendedFields(employeeId);
+}
+
+export function getAllExtendedEmployees(): Record<string, Partial<Employee>> {
+  const map = loadExtendedMap();
+  for (const [k, v] of memoryExtendedStore.entries()) {
+    map[k] = { ...(map[k] || {}), ...v };
+  }
+  return map;
+}
+
 export function mergeEmployeeWithExtendedFields(employee: Employee): Employee {
   const extById = getEmployeeExtendedFields(employee.id);
   const extByEmail = employee.email ? getEmployeeExtendedFields(employee.email) : {};

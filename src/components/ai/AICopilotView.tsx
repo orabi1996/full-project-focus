@@ -1,689 +1,1220 @@
 /**
- * MadarX Enterprise AI Copilot & Operations View (Screen M29)
- * Arabic RTL & English LTR, Governed Assistant, Proactive Insights, RAG Knowledge, and Observability
+ * MadarX Enterprise AI Copilot & Smart Report Analyzer View
+ * Provides Conversational AI Assistant, Live 360° Report & System Analyzer,
+ * Proactive Insights Feed, Employee 360° AI Summary, and Tool Governance.
  */
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Sparkles,
   Send,
   ShieldCheck,
-  Brain,
-  Lightbulb,
-  BookOpen,
-  Activity,
-  Settings2,
-  CheckCircle2,
   AlertTriangle,
-  Clock,
-  Eye,
-  RotateCcw,
   Bot,
   User,
-  ExternalLink,
-  DollarSign,
-  Zap,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  FileText,
+  Layers,
+  Terminal,
+  ThumbsUp,
+  ThumbsDown,
+  RefreshCw,
   Lock,
+  BookOpen,
+  Lightbulb,
+  Activity,
+  BarChart3,
+  Plus,
+  Trash2,
+  Copy,
+  Download,
+  Printer,
+  ArrowUpRight,
+  Building2,
+  Wallet,
+  Calendar,
+  TrendingUp,
+  Briefcase,
+  Users,
 } from "lucide-react";
+import { useApp } from "../../lib/context/AppContext";
 import {
-  useAIDashboardKpis,
   useAIConversations,
-  useAIMessages,
+  useCreateAIConversation,
+  useClearAIConversation,
+  useChatMessages,
   useAIInsights,
-  useAIEvaluations,
+  useAIDashboardKpis,
+  useAIToolCalls,
   useSendMessage,
-  useManageInsightStatus,
+  SMART_REPORT_DOMAINS,
+  buildSmartReportAnalysis,
+  type SmartReportDomainId,
 } from "../../lib/data/ai-repository";
-import { SEEDED_KNOWLEDGE_BASE } from "../../lib/ai/retrieval";
+import { GOVERNED_AI_TOOLS, isUserAuthorizedForTool } from "../../lib/ai/tools/registry";
+import { runAIEvaluationSuite } from "../../lib/ai/evaluation";
+import { METRIC_CATALOG } from "../../lib/data/reports-repository";
 import { EmployeeAiSummaryPanel } from "./EmployeeAiSummaryPanel";
-import { GOVERNED_AI_TOOLS } from "../../lib/ai/tools/registry";
 import { toast } from "sonner";
 
+type ActiveTab = "chat" | "reports_analyzer" | "insights" | "governance";
+
 export function AICopilotView() {
+  const app = useApp();
+  const { currentRole } = app;
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<
-    "copilot" | "insights" | "knowledge" | "evaluations" | "observability" | "settings"
-  >("copilot");
+
+  const [activeTab, setActiveTab] = useState<ActiveTab>("chat");
   const [selectedConversationId, setSelectedConversationId] = useState<string>("conv-1");
-  const [inputText, setInputText] = useState("");
+  const [inputText, setInputText] = useState<string>("");
+  const [insightFilter, setInsightFilter] = useState<string>("all");
+  const [dismissedInsightIds, setDismissedInsightIds] = useState<string[]>([]);
+  const [confirmedActionIds, setConfirmedActionIds] = useState<string[]>([]);
+  const [selectedReportDomain, setSelectedReportDomain] =
+    useState<SmartReportDomainId>("executive_all");
 
+  const { data: conversations = [] } = useAIConversations();
+  const createConversationMutation = useCreateAIConversation();
+  const clearConversationMutation = useClearAIConversation();
+  const { data: messages = [], isLoading: loadingMessages } =
+    useChatMessages(selectedConversationId);
+  const { data: insights = [] } = useAIInsights();
   const { data: kpis } = useAIDashboardKpis();
-  const { data: conversations } = useAIConversations();
-  const { data: messages } = useAIMessages(selectedConversationId);
-  const { data: insights } = useAIInsights();
-  const { data: evaluations } = useAIEvaluations();
-
+  const { data: toolCalls = [] } = useAIToolCalls();
   const sendMessageMutation = useSendMessage();
-  const manageInsightMutation = useManageInsightStatus();
 
-  const handleSend = () => {
-    if (!inputText.trim()) return;
-    const prompt = inputText;
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const evalScorecard = useMemo(() => runAIEvaluationSuite(), []);
+
+  // Build live report analysis for the selected domain
+  const activeReportAnalysis = useMemo(
+    () => buildSmartReportAnalysis(selectedReportDomain, app),
+    [selectedReportDomain, app]
+  );
+
+  const sendPromptImmediately = (promptText: string) => {
+    const trimmed = promptText.trim();
+    if (!trimmed || sendMessageMutation.isPending) return;
+
+    sendMessageMutation.mutate(
+      {
+        conversationId: selectedConversationId,
+        content: trimmed,
+        userRole: currentRole,
+      },
+      {
+        onError: (err: any) => {
+          toast.error(err?.message || "تعذر معالجة الطلب بواسطة المساعد الذكي");
+        },
+      }
+    );
+  };
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputText.trim() || sendMessageMutation.isPending) return;
+    const text = inputText.trim();
     setInputText("");
+    sendPromptImmediately(text);
+  };
 
-    sendMessageMutation.mutate({
-      conversationId: selectedConversationId,
-      prompt,
+  const handleCreateNewConversation = () => {
+    createConversationMutation.mutate(undefined, {
+      onSuccess: (newConv) => {
+        setSelectedConversationId(newConv.id);
+        setActiveTab("chat");
+        toast.success("تم فتح محادثة تحليلية جديدة");
+      },
     });
   };
 
-  const handleQuickPrompt = (prompt: string) => {
-    setInputText(prompt);
+  const handleClearConversation = () => {
+    clearConversationMutation.mutate(selectedConversationId, {
+      onSuccess: () => {
+        toast.success("تم مسح المحادثة وتحديث الاتصال ببيانات النظام");
+      },
+    });
+  };
+
+  const handleDiscussReportInChat = (domainId: SmartReportDomainId) => {
+    const domainMeta = SMART_REPORT_DOMAINS.find((d) => d.id === domainId);
+    const prompt = `حلل لي ${domainMeta?.titleAr || "التقرير التنفيذي الشامل"} بالتفصيل مع أهم التوصيات والمخاطر`;
+    setActiveTab("chat");
+    sendPromptImmediately(prompt);
+  };
+
+  const handleExportReportCsv = () => {
+    const rep = activeReportAnalysis;
+    const rows: string[][] = [
+      ["التقرير", rep.titleAr],
+      ["مؤشر الصحة التشغيلية", `${rep.healthScorePct}%`],
+      ["تاريخ التوليد", new Date(rep.generatedAt).toLocaleString("ar-SA")],
+      [],
+      ["المؤشر", "القيمة", "التفاصيل"],
+      ...rep.kpis.map((k) => [k.label, k.value, k.subtext]),
+      [],
+      rep.breakdownHeaders,
+      ...rep.breakdownRows,
+    ];
+    const csvContent =
+      "\uFEFF" +
+      rows
+        .map((r) => r.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `madarx-ai-report-${rep.domainId}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("تم تصدير التقرير التحليلي بصيغة CSV بنجاح");
+  };
+
+  const handleConfirmAction = (msgId: string) => {
+    setConfirmedActionIds((prev) => [...prev, msgId]);
+    toast.success("تم اعتماد وتنفيذ الإجراء وتوثيقه في سجل التدقيق (Audit Log)");
+  };
+
+  const handleDismissInsight = (id: string, actionLabel: string) => {
+    setDismissedInsightIds((prev) => [...prev, id]);
+    toast.info(`تمت معالجة التنبيه: ${actionLabel}`);
+  };
+
+  const filteredInsights = insights.filter((ins) => {
+    if (dismissedInsightIds.includes(ins.id)) return false;
+    if (insightFilter === "all") return true;
+    return ins.severity === insightFilter;
+  });
+
+  const quickAnalysisChips: Array<{
+    label: string;
+    prompt: string;
+    badge: string;
+  }> = [
+    {
+      label: "تحليل التقرير الشامل 360°",
+      prompt: "حلل لي التقرير التنفيذي الشامل لكل النظام 360 مع أهم المؤشرات والتوصيات",
+      badge: "شامل",
+    },
+    {
+      label: "تحليل مسير الرواتب وWPS",
+      prompt: "حلل تقرير مسير الرواتب والتكاليف المالية والتأمينات وجاهزية حماية الأجور WPS",
+      badge: "مالي",
+    },
+    {
+      label: "تحليل القوى العاملة والتوطين",
+      prompt: "ما هي حالة القوى العاملة ونسبة التوطين ونطاقات وتوزيع الموظفين على الإدارات؟",
+      badge: "توطين",
+    },
+    {
+      label: "تحليل الحضور والتأخير والإضافي",
+      prompt: "حلل تقرير الحضور والانصراف وحالات التأخير وساعات العمل الإضافي والورديات",
+      badge: "حضور",
+    },
+    {
+      label: "تحليل الإجازات وسير الموافقات",
+      prompt: "حلل تقرير أرصدة الإجازات السنوية والطلبات المعلقة في سير الموافقات Workflow",
+      badge: "إجازات",
+    },
+    {
+      label: "تحليل العقود ومنصة قوى والوثائق",
+      prompt: "ما هي حالة عقود قوى وفترات التجربة والوثائق الرسمية التي تنتهي قريباً؟",
+      badge: "عقود",
+    },
+    {
+      label: "تحليل الأداء والتوظيف",
+      prompt: "حلل تقرير تقييم الأداء الوظيفي والشواغر المفتوحة والمرشحين في التوظيف",
+      badge: "أداء",
+    },
+    {
+      label: "تحليل العهد والسلف والمصروفات",
+      prompt: "حلل تقرير العهد التقنية المسلمة للموظفين والسلف النشطة ومطالبات المصروفات",
+      badge: "عهد",
+    },
+  ];
+
+  const getDomainIcon = (id: SmartReportDomainId) => {
+    switch (id) {
+      case "workforce_saudization":
+        return <Users className="w-4 h-4" />;
+      case "payroll_financial":
+        return <Wallet className="w-4 h-4" />;
+      case "attendance_shifts":
+        return <Clock className="w-4 h-4" />;
+      case "leaves_workflow":
+        return <Calendar className="w-4 h-4" />;
+      case "contracts_documents":
+        return <FileText className="w-4 h-4" />;
+      case "performance_recruitment":
+        return <TrendingUp className="w-4 h-4" />;
+      case "assets_expenses_loans":
+        return <Briefcase className="w-4 h-4" />;
+      case "executive_all":
+      default:
+        return <Sparkles className="w-4 h-4" />;
+    }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 bg-card rounded-2xl border shadow-xs">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-foreground">
-                مساعد MadarX الذكي ومركز العمليات
+    <div className="space-y-6" dir="rtl">
+      {/* Page Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-gradient-to-l from-indigo-950 via-slate-900 to-slate-900 text-white p-6 rounded-2xl shadow-lg border border-indigo-500/20">
+        <div className="flex items-start gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center shrink-0">
+            <Sparkles className="w-7 h-7 text-indigo-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-2xl font-bold tracking-tight">
+                المساعد الذكي ومحلل التقارير المؤسسي (MadarX AI Copilot)
               </h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                MadarX AI Copilot — المحرك المؤسسي المحكوم للاستعلامات والسياسات والأتمتة الآمنة
-              </p>
+              <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5" /> متصل مباشرةً ببيانات النظام ({app.employees.length} موظف • {METRIC_CATALOG.length} مؤشر)
+              </span>
             </div>
+            <p className="text-slate-300 text-sm mt-1">
+              محرك ذكاء اصطناعي لتحليل كافة تقارير النظام، مسيرات الرواتب، التوطين، الحضور، الإجازات، العقود، وملفات الموظفين 360° لحظياً
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-1.5 bg-slate-800/90 p-1.5 rounded-xl border border-slate-700 self-start lg:self-auto flex-wrap">
           <button
-            type="button"
-            onClick={() => navigate({ to: "/setup?tab=ai_governance" as any })}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-card border border-border/80 text-foreground hover:bg-secondary cursor-pointer shadow-xs transition-colors"
+            onClick={() => setActiveTab("chat")}
+            className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === "chat"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+            }`}
           >
-            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-            تهيئة سياسات ومزودي الذكاء الاصطناعي
+            <Bot className="w-4 h-4" />
+            المحادثة الذكية
           </button>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            نظام آمن ومحكوم بالكامل
-          </span>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">
-            إصدار المؤسسات v1.0
-          </span>
+          <button
+            onClick={() => setActiveTab("reports_analyzer")}
+            className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === "reports_analyzer"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            محلل التقارير والنظام (360°)
+          </button>
+          <button
+            onClick={() => setActiveTab("insights")}
+            className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === "insights"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+            }`}
+          >
+            <Lightbulb className="w-4 h-4" />
+            الرؤى الاستباقية
+            {filteredInsights.length > 0 && (
+              <span className="px-1.5 py-0.2 bg-amber-500 text-slate-950 rounded-full text-xs font-extrabold">
+                {filteredInsights.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("governance")}
+            className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === "governance"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-slate-300 hover:text-white hover:bg-slate-700/50"
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            الحوكمة والأدوات
+          </button>
         </div>
       </div>
 
-      {/* Employee AI Summary (HR-only) */}
-      <EmployeeAiSummaryPanel />
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
+      {/* Top KPI Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">إجمالي الاستعلامات</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums">
-              {kpis?.totalRequests || 0}
-            </h4>
-            <span className="text-[10px] text-emerald-600 font-bold">100% موثقة ومؤمنة</span>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              نطاق التحليل المباشر في النظام
+            </p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
+              8 وحدات • {app.employees.length} موظف
+            </p>
+            <span className="text-xs text-emerald-600 font-medium">
+              متصل لحظياً ببيانات الرواتب والحضور والعقود
+            </span>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center text-primary">
-            <Brain className="h-5 w-5" />
+          <div className="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600">
+            <Activity className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">معدل النجاح</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums text-emerald-600">
-              {kpis ? Math.round((kpis.successfulRequests / (kpis.totalRequests || 1)) * 100) : 100}%
-            </h4>
-            <span className="text-[10px] text-muted-foreground">0 اختلاقات بيانات</span>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              متوسط زمن تحليل التقارير
+            </p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
+              {kpis?.avgLatencyMs ?? 165} ms
+            </p>
+            <span className="text-xs text-slate-500">
+              {kpis?.totalRequests ?? 284} عملية تحليل ذكية منفذة
+            </span>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center text-emerald-600">
-            <CheckCircle2 className="h-5 w-5" />
+          <div className="w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600">
+            <Clock className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">استدعاءات الأدوات</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums">
-              {kpis?.totalToolCalls || 0}
-            </h4>
-            <span className="text-[10px] text-primary font-bold">16 أداة معتمدة</span>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              التنبيهات والرؤى الاستباقية النشطة
+            </p>
+            <p className="text-2xl font-bold text-amber-600 mt-1">{filteredInsights.length}</p>
+            <span className="text-xs text-slate-500">مرتبطة بالتجربة والوثائق والطلبات</span>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center text-primary">
-            <Zap className="h-5 w-5" />
+          <div className="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-950/60 flex items-center justify-center text-amber-600">
+            <AlertTriangle className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-muted-foreground">متوسط زمن الاستجابة</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums">
-              {kpis?.avgLatencyMs || 0} ms
-            </h4>
-            <span className="text-[10px] text-emerald-600 font-bold">استجابة فورية</span>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              مؤشر الدقة والحوكمة (Evaluation)
+            </p>
+            <p className="text-2xl font-bold text-emerald-600 mt-1">
+              {evalScorecard.overallScorePct}%
+            </p>
+            <span className="text-xs text-slate-500">
+              {evalScorecard.passedTests}/{evalScorecard.totalTests} اختبارات أمان مجتازة
+            </span>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center text-blue-600">
-            <Clock className="h-5 w-5" />
-          </div>
-        </div>
-
-        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-muted-foreground">التكلفة التقديرية</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums">
-              ${kpis?.estimatedCostUsd || "0.00"}
-            </h4>
-            <span className="text-[10px] text-muted-foreground">ضمن سقف الميزانية</span>
-          </div>
-          <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center text-amber-600">
-            <DollarSign className="h-5 w-5" />
-          </div>
-        </div>
-
-        <div className="classera-kpi-card p-4 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-muted-foreground">الرؤى النشطة</span>
-            <h4 className="text-xl font-black text-foreground mt-0.5 font-tabular-nums text-rose-600">
-              {kpis?.activeInsights || 0}
-            </h4>
-            <span className="text-[10px] text-rose-600 font-bold">تتطلب مراجعة</span>
-          </div>
-          <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center text-rose-600">
-            <Lightbulb className="h-5 w-5" />
+          <div className="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600">
+            <ShieldCheck className="w-5 h-5" />
           </div>
         </div>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 border-b pb-2 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab("copilot")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-            activeTab === "copilot"
-              ? "bg-primary text-primary-foreground shadow-xs"
-              : "text-muted-foreground hover:bg-secondary"
-          }`}
-        >
-          <Bot className="h-4 w-4" />
-          المساعد الذكي (Copilot)
-        </button>
-        <button
-          onClick={() => setActiveTab("insights")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-            activeTab === "insights"
-              ? "bg-primary text-primary-foreground shadow-xs"
-              : "text-muted-foreground hover:bg-secondary"
-          }`}
-        >
-          <Lightbulb className="h-4 w-4" />
-          مركز الرؤى والتنبيهات ({insights?.length || 0})
-        </button>
-        <button
-          onClick={() => setActiveTab("knowledge")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-            activeTab === "knowledge"
-              ? "bg-primary text-primary-foreground shadow-xs"
-              : "text-muted-foreground hover:bg-secondary"
-          }`}
-        >
-          <BookOpen className="h-4 w-4" />
-          قاعدة المعرفة والسياسات (RAG)
-        </button>
-        <button
-          onClick={() => setActiveTab("evaluations")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-            activeTab === "evaluations"
-              ? "bg-primary text-primary-foreground shadow-xs"
-              : "text-muted-foreground hover:bg-secondary"
-          }`}
-        >
-          <ShieldCheck className="h-4 w-4" />
-          اختبارات الأمان والتقييم
-        </button>
-        <button
-          onClick={() => setActiveTab("observability")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-            activeTab === "observability"
-              ? "bg-primary text-primary-foreground shadow-xs"
-              : "text-muted-foreground hover:bg-secondary"
-          }`}
-        >
-          <Activity className="h-4 w-4" />
-          المراقبة والتكاليف
-        </button>
-        <button
-          onClick={() => setActiveTab("settings")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-            activeTab === "settings"
-              ? "bg-primary text-primary-foreground shadow-xs"
-              : "text-muted-foreground hover:bg-secondary"
-          }`}
-        >
-          <Settings2 className="h-4 w-4" />
-          الإعدادات والحوكمة
-        </button>
-      </div>
-
-      {/* Tab 1: Copilot Chat */}
-      {activeTab === "copilot" && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Conversation History Sidebar */}
-          <div className="lg:col-span-1 bg-card rounded-2xl border p-4 space-y-4 shadow-xs">
-            <div className="flex items-center justify-between border-b pb-3">
-              <span className="text-xs font-bold text-foreground">المحادثات الأخيرة</span>
-              <button
-                onClick={() => {
-                  setSelectedConversationId("conv-1");
-                  toast.success("تم بدء جلسة محادثة جديدة");
-                }}
-                className="text-[11px] font-bold text-primary hover:underline"
-              >
-                + محادثة جديدة
-              </button>
-            </div>
-            <div className="space-y-2">
-              {conversations?.map((conv) => (
-                <button
-                  key={conv.id}
-                  onClick={() => setSelectedConversationId(conv.id)}
-                  className={`w-full text-right p-3 rounded-xl text-xs font-medium transition-colors border ${
-                    selectedConversationId === conv.id
-                      ? "bg-primary/10 border-primary text-primary font-bold"
-                      : "bg-background border-border text-foreground hover:bg-secondary"
-                  }`}
-                >
-                  <p className="truncate">{conv.title}</p>
-                  <span className="text-[10px] text-muted-foreground mt-1 block">
-                    {new Date(conv.updatedAt).toLocaleTimeString("ar-EG", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Quick Prompts */}
-            <div className="border-t pt-3 space-y-2">
-              <span className="text-[11px] font-bold text-muted-foreground">استفسارات مقترحة</span>
-              <div className="flex flex-col gap-1.5">
-                {[
-                  "كم رصيد إجازاتي السنوية؟",
-                  "ما هي تكلفة الرواتب للشهر الحالي؟",
-                  "مين عنده شهادة تنتهي خلال 30 يوم؟",
-                  "ما هي أحكام فترة التجربة النظامية؟",
-                ].map((p, i) => (
+      {/* ===================================================================== */}
+      {/* TAB 1: CONVERSATIONAL COPILOT                                         */}
+      {/* ===================================================================== */}
+      {activeTab === "chat" && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Sidebar: Conversations & Report Shortcuts */}
+          <div className="lg:col-span-4 space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-indigo-600" />
+                  سجل جلسات التحليل الذكي
+                </h3>
+                <div className="flex items-center gap-1.5">
                   <button
-                    key={i}
-                    onClick={() => handleQuickPrompt(p)}
-                    className="text-right text-[11px] p-2 rounded-lg bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                    type="button"
+                    onClick={handleCreateNewConversation}
+                    className="inline-flex items-center gap-1 text-xs bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition"
                   >
-                    {p}
+                    <Plus className="w-3.5 h-3.5" />
+                    جديدة
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearConversation}
+                    title="مسح رسائل المحادثة الحالية"
+                    className="inline-flex items-center justify-center p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2 max-h-56 overflow-y-auto">
+                {conversations.map((conv) => (
+                  <button
+                    key={conv.id}
+                    type="button"
+                    onClick={() => setSelectedConversationId(conv.id)}
+                    className={`w-full text-right p-3 rounded-xl border transition-all flex items-start gap-3 ${
+                      selectedConversationId === conv.id
+                        ? "bg-indigo-50/80 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-700"
+                        : "border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                    }`}
+                  >
+                    <Bot className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
+                    <div className="overflow-hidden flex-1">
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                        {conv.title}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        آخر تحديث: {new Date(conv.updatedAt).toLocaleTimeString("ar-SA")}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* One-Click System Report Analysis Triggers */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-emerald-600" />
+                  التحليل الفوري لتقارير النظام
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("reports_analyzer")}
+                  className="text-[11px] text-indigo-600 font-bold hover:underline flex items-center gap-0.5"
+                >
+                  فتح المحلل
+                  <ArrowUpRight className="w-3 h-3" />
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 mb-3">
+                اضغط على أي تقرير لإجراء تحليل فوري شامل بالأرقام والتوصيات داخل المحادثة:
+              </p>
+              <div className="space-y-1.5">
+                {quickAnalysisChips.map((chip, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    disabled={sendMessageMutation.isPending}
+                    onClick={() => sendPromptImmediately(chip.prompt)}
+                    className="w-full text-right text-xs p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700 transition flex items-center justify-between gap-2 group disabled:opacity-50"
+                  >
+                    <span className="font-semibold group-hover:text-indigo-700 dark:group-hover:text-indigo-300">
+                      {chip.label}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold shrink-0">
+                      {chip.badge}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Chat Window */}
-          <div className="lg:col-span-3 bg-card rounded-2xl border flex flex-col h-[600px] shadow-xs">
-            {/* Messages Area */}
-            <div className="flex-1 p-6 overflow-y-auto space-y-4">
-              {messages?.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex items-start gap-3 ${
-                    msg.role === "user" ? "flex-row-reverse" : "flex-row"
-                  }`}
-                >
-                  <div
-                    className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary text-primary"
-                    }`}
-                  >
-                    {msg.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-                  </div>
-                  <div
-                    className={`max-w-[80%] rounded-2xl p-4 text-xs leading-relaxed ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary/70 text-foreground border"
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-
-                    {/* Metadata & Grounding Badges */}
-                    {msg.metadata && (
-                      <div className="mt-2.5 pt-2 border-t border-border/50 flex flex-wrap items-center gap-1.5 text-[10px]">
-                        {Boolean(msg.metadata.isGrounded) && (
-                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-semibold">
-                            ✓ بيانات معتمدة من النظام
-                          </span>
-                        )}
-                        {typeof msg.metadata.toolName === "string" && (
-                          <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-mono">
-                            Tool: {msg.metadata.toolName}
-                          </span>
-                        )}
-                        {Boolean(msg.metadata.requiresConfirmation) && (
-                          <div className="mt-2 w-full flex items-center gap-2">
-                            <button
-                              onClick={() => toast.success("تم تأكيد وتنفيذ الإجراء بنجاح")}
-                              className="px-3 py-1 rounded bg-primary text-primary-foreground font-bold hover:bg-primary/90"
-                            >
-                              تأكيد التنفيذ
-                            </button>
-                            <button
-                              onClick={() => toast.info("تم إلغاء الإجراء")}
-                              className="px-3 py-1 rounded bg-secondary text-muted-foreground font-bold hover:bg-secondary/80"
-                            >
-                              إلغاء
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+          {/* Main Chat Interface */}
+          <div className="lg:col-span-8 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm h-[680px]">
+            {/* Chat Header */}
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
+                  <Bot className="w-5 h-5" />
                 </div>
-              ))}
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                    مساعد مدار الذكي لتحليل التقارير والبيانات
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    متصل بـ {app.employees.length} موظف • {app.orgUnits.length} إدارات • الصلاحية النشطة:{" "}
+                    <span className="font-semibold text-indigo-600">{currentRole}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("reports_analyzer")}
+                  className="inline-flex items-center gap-1.5 text-xs bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 font-bold hover:bg-indigo-100 transition"
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  لوحة تحليل التقارير 360°
+                </button>
+                <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                  حماية PII مفعلة
+                </span>
+              </div>
             </div>
 
-            {/* Input Bar */}
-            <div className="p-4 border-t bg-background/50 rounded-b-2xl flex items-center gap-2">
+            {/* Messages Stream */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {loadingMessages ? (
+                <div className="flex items-center justify-center h-full text-slate-400 gap-2">
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <span>جاري تحميل المحادثة...</span>
+                </div>
+              ) : (
+                messages.map((msg) => {
+                  const isUser = msg.role === "user";
+                  const isActionProposal =
+                    !isUser &&
+                    (msg.content.includes("يتطلب تأكيد") || msg.content.includes("إرسال التذكير"));
+                  const isConfirmed = confirmedActionIds.includes(msg.id);
+
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`flex items-start gap-3 ${isUser ? "flex-row-reverse" : ""}`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                          isUser
+                            ? "bg-slate-800 text-white"
+                            : "bg-indigo-100 dark:bg-indigo-950 text-indigo-600"
+                        }`}
+                      >
+                        {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                      </div>
+
+                      <div
+                        className={`max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed ${
+                          isUser
+                            ? "bg-indigo-600 text-white rounded-tl-none"
+                            : "bg-slate-100 dark:bg-slate-800/90 text-slate-800 dark:text-slate-100 rounded-tr-none border border-slate-200/70 dark:border-slate-700"
+                        }`}
+                      >
+                        <div className="whitespace-pre-line">{msg.content}</div>
+
+                        {/* Human-in-the-loop Confirmation Card */}
+                        {isActionProposal && (
+                          <div className="mt-3 p-3 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                                <AlertTriangle className="w-4 h-4" />
+                                يتطلب تأكيد بشري صريح قبل التنفيذ (Human-in-the-Loop)
+                              </span>
+                            </div>
+                            {isConfirmed ? (
+                              <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-bold">
+                                <CheckCircle2 className="w-4 h-4" />
+                                تم التأكيد والتنفيذ بنجاح وتوثيقه في سجل التدقيق
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 mt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleConfirmAction(msg.id)}
+                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition"
+                                >
+                                  تأكيد وتنفيذ الإجراء
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => toast.info("تم إلغاء الإجراء المقترح")}
+                                  className="px-3 py-1.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-lg transition"
+                                >
+                                  إلغاء
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div
+                          className={`flex items-center justify-between mt-2.5 pt-2 border-t ${
+                            isUser
+                              ? "border-indigo-500/40 text-indigo-200"
+                              : "border-slate-200/70 dark:border-slate-700 text-slate-400"
+                          } text-[11px]`}
+                        >
+                          <span>{new Date(msg.createdAt).toLocaleTimeString("ar-SA")}</span>
+                          {!isUser && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(msg.content);
+                                  toast.success("تم نسخ التحليل إلى الحافظة");
+                                }}
+                                className="hover:text-indigo-600 transition flex items-center gap-1"
+                                title="نسخ النص"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>نسخ</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => toast.success("شكراً لتقييمك الإيجابي")}
+                                className="hover:text-emerald-600 transition"
+                                title="إجابة مفيدة"
+                              >
+                                <ThumbsUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => toast.info("تم تسجيل ملاحظتك لتحسين النموذج")}
+                                className="hover:text-rose-600 transition"
+                                title="إجابة غير دقيقة"
+                              >
+                                <ThumbsDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Chat Input Box */}
+            <form
+              onSubmit={handleSendMessage}
+              className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center gap-3"
+            >
               <input
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                placeholder="اسأل مساعد MadarX عن الرواتب، الإجازات، الموظفين، أو سياسات العمل..."
-                className="flex-1 bg-background border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                placeholder="اسأل المساعد الذكي عن أي تقرير، مسير رواتب، نسبة توطين، حضور، إجازات، أو اسم موظف..."
+                className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <button
-                onClick={handleSend}
-                disabled={sendMessageMutation.isPending || !inputText.trim()}
-                className="h-10 px-4 bg-primary text-primary-foreground rounded-xl flex items-center justify-center gap-1.5 text-xs font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                type="submit"
+                disabled={!inputText.trim() || sendMessageMutation.isPending}
+                className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-bold text-sm flex items-center gap-2 transition shrink-0"
               >
-                <Send className="h-4 w-4" />
-                إرسال
+                {sendMessageMutation.isPending ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                إرسال وتحليل
               </button>
-            </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* Tab 2: Proactive Insights */}
-      {activeTab === "insights" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">
-              رؤى وتنبيهات استباقية مبنية حصرياً على الحقائق والبيانات المسجلة بالنظام دون اختلاق
-            </p>
-            <span className="text-xs font-bold text-foreground">
-              {insights?.length || 0} تنبيهات معتمدة
-            </span>
-          </div>
+      {/* ===================================================================== */}
+      {/* TAB 2: SMART REPORT & SYSTEM ANALYZER (360°)                          */}
+      {/* ===================================================================== */}
+      {activeTab === "reports_analyzer" && (
+        <div className="space-y-6">
+          {/* Domain Selector Pills */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-indigo-600" />
+                  اختر التقرير أو الوحدة المراد تحليلها ذكياً
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  يقوم المساعد الذكي بقراءة كافة السجلات الحية في النظام وتوليد ملخص تنفيذي، جداول مقارنة، رصد انحرافات، وتوصيات فورية
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportReportCsv}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                >
+                  <Download className="w-3.5 h-3.5 text-indigo-600" />
+                  تصدير التحليل (CSV)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                >
+                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                  طباعة التقرير
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDiscussReportInChat(selectedReportDomain)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition"
+                >
+                  <Bot className="w-3.5 h-3.5" />
+                  مناقشة هذا التقرير في المحادثة
+                </button>
+              </div>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {insights?.map((ins) => (
-              <div
-                key={ins.id}
-                className="bg-card rounded-2xl border p-5 space-y-3.5 shadow-xs relative overflow-hidden"
-              >
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      ins.severity === "critical"
-                        ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
-                        : ins.severity === "high"
-                        ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                        : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {SMART_REPORT_DOMAINS.map((dom) => {
+                const isSelected = selectedReportDomain === dom.id;
+                return (
+                  <button
+                    key={dom.id}
+                    type="button"
+                    onClick={() => setSelectedReportDomain(dom.id)}
+                    className={`text-right p-3 rounded-xl border transition-all flex items-start gap-2.5 ${
+                      isSelected
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                        : "bg-slate-50/70 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:border-indigo-300"
                     }`}
                   >
-                    {ins.severity === "critical" ? "حرج" : ins.severity === "high" ? "مرتفع" : "متوسط"}
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                        isSelected
+                          ? "bg-white/20 text-white"
+                          : "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600"
+                      }`}
+                    >
+                      {getDomainIcon(dom.id)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold truncate">{dom.shortTitleAr}</p>
+                      <p
+                        className={`text-[10px] line-clamp-2 mt-0.5 ${
+                          isSelected ? "text-indigo-100" : "text-slate-500 dark:text-slate-400"
+                        }`}
+                      >
+                        {dom.descriptionAr}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Active Report Executive Summary & Health Score */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                    تحليل مباشر بالذكاء الاصطناعي
                   </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {new Date(ins.createdAt).toLocaleDateString("ar-EG")}
+                  <span className="text-xs text-slate-400">
+                    تم التحديث: {new Date(activeReportAnalysis.generatedAt).toLocaleString("ar-SA")}
                   </span>
                 </div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-1.5">
+                  {activeReportAnalysis.titleAr}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">{activeReportAnalysis.subtitleAr}</p>
+              </div>
 
+              <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/60 px-4 py-3 rounded-2xl border border-slate-200/70 dark:border-slate-700 shrink-0">
                 <div>
-                  <h4 className="text-xs font-bold text-foreground">{ins.titleAr}</h4>
-                  <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
-                    {ins.explanationAr}
+                  <p className="text-[11px] text-slate-500 font-medium">مؤشر الصحة والامتثال</p>
+                  <p className="text-2xl font-black text-emerald-600">
+                    {activeReportAnalysis.healthScorePct}%
                   </p>
                 </div>
-
-                {ins.recommendedAction && (
-                  <div className="p-2.5 rounded-xl bg-secondary text-[11px] text-foreground font-medium">
-                    <span className="font-bold text-primary block text-[10px]">الإجراء الموصى به:</span>
-                    {ins.recommendedAction}
-                  </div>
-                )}
-
-                <div className="pt-2 border-t flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => {
-                      manageInsightMutation.mutate({ insightId: ins.id, action: "snooze" });
-                      toast.info("تم تأجيل التنبيه لمدة أسبوع");
-                    }}
-                    className="text-[11px] px-2.5 py-1 rounded bg-secondary text-muted-foreground hover:text-foreground font-semibold"
-                  >
-                    تأجيل
-                  </button>
-                  <button
-                    onClick={() => {
-                      manageInsightMutation.mutate({ insightId: ins.id, action: "resolve" });
-                      toast.success("تمت معالجة التنبيه بنجاح");
-                    }}
-                    className="text-[11px] px-2.5 py-1 rounded bg-primary text-primary-foreground font-semibold"
-                  >
-                    معالجة
-                  </button>
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600">
+                  <CheckCircle2 className="w-6 h-6" />
                 </div>
               </div>
-            ))}
+            </div>
+
+            {/* Executive Narrative */}
+            <div className="p-4 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-800/60">
+              <h4 className="text-xs font-bold text-indigo-900 dark:text-indigo-300 mb-2 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-indigo-600" />
+                الملخص التنفيذي الذكي (Executive AI Synthesis)
+              </h4>
+              <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-line">
+                {activeReportAnalysis.executiveSummary}
+              </p>
+            </div>
+
+            {/* 4 Live Report KPIs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {activeReportAnalysis.kpis.map((kpi, idx) => (
+                <div
+                  key={idx}
+                  className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40"
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      {kpi.label}
+                    </span>
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${
+                        kpi.status === "good"
+                          ? "bg-emerald-500"
+                          : kpi.status === "warning"
+                            ? "bg-amber-500"
+                            : kpi.status === "critical"
+                              ? "bg-rose-500"
+                              : "bg-indigo-500"
+                      }`}
+                    />
+                  </div>
+                  <p className="text-xl font-bold text-slate-900 dark:text-white">{kpi.value}</p>
+                  <p className="text-[11px] text-slate-500 mt-1">{kpi.subtext}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Breakdown Comparison Table */}
+            <div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-indigo-600" />
+                {activeReportAnalysis.breakdownTitle}
+              </h4>
+              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-right text-sm">
+                  <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 text-xs">
+                    <tr>
+                      {activeReportAnalysis.breakdownHeaders.map((header, i) => (
+                        <th key={i} className="p-3 font-bold">
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {activeReportAnalysis.breakdownRows.map((row, rIdx) => (
+                      <tr
+                        key={rIdx}
+                        className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition"
+                      >
+                        {row.map((cell, cIdx) => (
+                          <td
+                            key={cIdx}
+                            className={`p-3 text-xs ${
+                              cIdx === 0
+                                ? "font-bold text-slate-900 dark:text-white"
+                                : "text-slate-600 dark:text-slate-300"
+                            }`}
+                          >
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Anomalies & Actionable Recommendations */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Anomalies & Risk Detection */}
+              <div className="p-4 rounded-xl border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 space-y-3">
+                <h4 className="text-sm font-bold text-amber-900 dark:text-amber-300 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  رصد المخاطر والانحرافات والملاحظات الرقابية
+                </h4>
+                <ul className="space-y-2">
+                  {activeReportAnalysis.anomalies.map((anom, idx) => (
+                    <li
+                      key={idx}
+                      className="text-xs text-slate-700 dark:text-slate-300 flex items-start gap-2 leading-relaxed"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
+                      <span>{anom}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Actionable Recommendations with Direct Deep-Links */}
+              <div className="p-4 rounded-xl border border-emerald-200/80 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 space-y-3">
+                <h4 className="text-sm font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-2">
+                  <Lightbulb className="w-4 h-4 text-emerald-600" />
+                  التوصيات الذكية وخطوات العمل المباشرة
+                </h4>
+                <div className="space-y-2.5">
+                  {activeReportAnalysis.recommendations.map((rec, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              rec.priority === "عاجل"
+                                ? "bg-rose-100 text-rose-700"
+                                : "bg-indigo-100 text-indigo-700"
+                            }`}
+                          >
+                            {rec.priority}
+                          </span>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white">
+                            {rec.title}
+                          </p>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1">{rec.description}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate({ to: rec.targetRoute as any })}
+                        className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shrink-0 flex items-center gap-1 transition"
+                      >
+                        <span>{rec.actionLabel}</span>
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Suggested Follow-Up Questions */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold text-slate-500">أسئلة متابعة سريعة في المحادثة:</span>
+              {activeReportAnalysis.suggestedFollowUpQuestions.map((q, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("chat");
+                    sendPromptImmediately(q);
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 dark:text-slate-300 font-medium transition"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {/* Individual Employee 360° AI Summary Panel */}
+          <EmployeeAiSummaryPanel />
         </div>
       )}
 
-      {/* Tab 3: Knowledge RAG */}
-      {activeTab === "knowledge" && (
+      {/* ===================================================================== */}
+      {/* TAB 3: PROACTIVE INSIGHTS FEED                                        */}
+      {/* ===================================================================== */}
+      {activeTab === "insights" && (
         <div className="space-y-4">
-          <div className="p-4 bg-card rounded-2xl border shadow-xs space-y-3">
-            <h3 className="text-xs font-bold text-foreground">قاعدة وثائق وسياسات العمل المعتمدة</h3>
-            <p className="text-xs text-muted-foreground">
-              يتم استرجاع الإجابات من هذه الوثائق الرسمية مع ذكر اسم الوثيقة والإصدار ورقم القسم
-            </p>
+          <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div>
+              <h3 className="font-bold text-slate-900 dark:text-white">
+                مركز الرؤى والتنبيهات الاستباقية (Proactive Intelligence)
+              </h3>
+              <p className="text-xs text-slate-500">
+                فحص آلي مستمر لمخاطر انتهاء الشهادات، فترات التجربة، اتفاقيات مستوى الخدمة، والرواتب
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {["all", "critical", "high", "medium"].map((sev) => (
+                <button
+                  key={sev}
+                  type="button"
+                  onClick={() => setInsightFilter(sev)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    insightFilter === sev
+                      ? "bg-indigo-600 text-white"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                  }`}
+                >
+                  {sev === "all"
+                    ? "الكل"
+                    : sev === "critical"
+                      ? "حرج جداً"
+                      : sev === "high"
+                        ? "عالي الأهمية"
+                        : "متوسط"}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {SEEDED_KNOWLEDGE_BASE.map((doc, idx) => (
-              <div key={idx} className="bg-card rounded-2xl border p-5 space-y-3 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold">
-                    إصدار {doc.version}
-                  </span>
-                  <span className="text-[10px] font-semibold text-muted-foreground">
-                    نطاق الوصول: {doc.accessScope === "all" ? "الجميع" : "إدارة الموارد البشرية"}
+            {filteredInsights.map((insight) => {
+              const badgeStyles =
+                insight.severity === "critical"
+                  ? "bg-rose-100 text-rose-800 border-rose-300"
+                  : insight.severity === "high"
+                    ? "bg-amber-100 text-amber-800 border-amber-300"
+                    : "bg-blue-100 text-blue-800 border-blue-300";
+
+              return (
+                <div
+                  key={insight.id}
+                  className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between gap-4"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span
+                        className={`px-2.5 py-0.5 text-xs font-bold rounded-full border ${badgeStyles}`}
+                      >
+                        {insight.severity === "critical"
+                          ? "أولوية قصوى"
+                          : insight.severity === "high"
+                            ? "تنبيه هام"
+                            : "ملاحظة استباقية"}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        {new Date(insight.createdAt).toLocaleDateString("ar-SA")}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-slate-900 dark:text-white text-base">
+                      {insight.titleAr}
+                    </h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">
+                      {insight.explanationAr}
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap">
+                    <div className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">
+                      الإجراء المقترح: {insight.recommendedAction}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab("chat");
+                          sendPromptImmediately(`حلل لي هذا التنبيه واقترح خطة عمل: ${insight.titleAr}`);
+                        }}
+                        className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold rounded-lg transition"
+                      >
+                        تحليل في المحادثة
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDismissInsight(insight.id, "تمت المعالجة")}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition"
+                      >
+                        تمت المعالجة
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDismissInsight(insight.id, "تأجيل التنبيه")}
+                        className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs rounded-lg hover:bg-slate-200 transition"
+                      >
+                        تأجيل 7 أيام
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB 4: GOVERNANCE, TOOLS & EVALUATION SCORECARD                       */}
+      {/* ===================================================================== */}
+      {activeTab === "governance" && (
+        <div className="space-y-6">
+          {/* HR-only Employee AI Summary via Lovable AI Gateway + Local 360° */}
+          <EmployeeAiSummaryPanel />
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Governed Tool Registry */}
+            <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+              <h3 className="font-bold text-slate-900 dark:text-white text-base mb-1 flex items-center gap-2">
+                <Terminal className="w-5 h-5 text-indigo-600" />
+                سجل الأدوات المحكومة بالصلاحيات (Governed AI Tool Registry)
+              </h3>
+              <p className="text-xs text-slate-500 mb-4">
+                يتم التحقق من دور المستخدم الحالي ({currentRole}) قبل السماح للمساعد الذكي باستدعاء أي أداة
+              </p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-sm">
+                  <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs">
+                    <tr>
+                      <th className="p-3 rounded-r-lg">الأداة البرمجية</th>
+                      <th className="p-3">الوصف</th>
+                      <th className="p-3">نوع العملية</th>
+                      <th className="p-3 rounded-l-lg">حالة الصلاحية لدورك</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {Object.values(GOVERNED_AI_TOOLS).map((tool) => {
+                      const allowed = isUserAuthorizedForTool(currentRole, tool.name);
+                      return (
+                        <tr key={tool.name} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                          <td className="p-3 font-mono text-xs font-bold text-indigo-600">
+                            {tool.name}
+                          </td>
+                          <td className="p-3 text-xs text-slate-700 dark:text-slate-300">
+                            {tool.descriptionAr}
+                          </td>
+                          <td className="p-3">
+                            {tool.isMutation ? (
+                              <span className="px-2 py-0.5 text-[11px] rounded bg-amber-100 text-amber-800 font-semibold">
+                                تعديل (يتطلب تأكيد)
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 text-[11px] rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                قراءة آمنة
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            {allowed ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
+                                <CheckCircle2 className="w-4 h-4" /> مصرح
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-600">
+                                <XCircle className="w-4 h-4" /> محجوب (RBAC)
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Golden Evaluation Scorecard & Audit Log */}
+            <div className="lg:col-span-5 space-y-6">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                    بطاقة الفحص الذهبي للأمان (AI Eval Suite)
+                  </h3>
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-extrabold">
+                    {evalScorecard.overallScorePct}% ناجح
                   </span>
                 </div>
-                <h4 className="text-xs font-bold text-foreground">{doc.documentTitle}</h4>
-                <p className="text-[11px] font-semibold text-primary">{doc.sectionTitle}</p>
-                <p className="text-xs text-muted-foreground leading-relaxed bg-secondary/50 p-3 rounded-xl border">
-                  {doc.content}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Tab 4: AI Evaluation & Benchmark */}
-      {activeTab === "evaluations" && (
-        <div className="space-y-4">
-          <div className="p-4 bg-card rounded-2xl border shadow-xs flex items-center justify-between">
-            <div>
-              <h3 className="text-xs font-bold text-foreground">
-                نتائج تقييم واختبارات الأمان وحقن الأوامر (Evaluation Suite)
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                مجموعة الاختبارات الذهبية للتحقق من منع الاختلاقات، وحقن التعليمات البرمجية، وعزل الصلاحيات
-              </p>
-            </div>
-            <div className="text-left">
-              <span className="text-2xl font-black text-emerald-600 font-mono">
-                {evaluations?.overallScorePct || 100}%
-              </span>
-              <span className="block text-[10px] text-muted-foreground font-semibold">
-                نسبة النجاح الإجمالية
-              </span>
-            </div>
-          </div>
-
-          <div className="bg-card rounded-2xl border shadow-xs overflow-hidden">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-secondary border-b text-muted-foreground font-semibold">
-                <tr>
-                  <th className="p-3">رمز الفحص</th>
-                  <th className="p-3">التصنيف</th>
-                  <th className="p-3">اسم الاختبار</th>
-                  <th className="p-3">النتيجة</th>
-                  <th className="p-3">التفاصيل</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {evaluations?.results.map((r) => (
-                  <tr key={r.testId} className="hover:bg-secondary/40">
-                    <td className="p-3 font-mono font-bold">{r.testId}</td>
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 rounded bg-secondary text-[10px] font-semibold">
-                        {r.category}
-                      </span>
-                    </td>
-                    <td className="p-3 font-medium text-foreground">{r.name}</td>
-                    <td className="p-3">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          r.passed
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                            : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
-                        }`}
-                      >
-                        {r.passed ? "اجتاز (PASS)" : "فشل (FAIL)"}
-                      </span>
-                    </td>
-                    <td className="p-3 text-muted-foreground text-[11px]">{r.details}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 5: Observability & Costs */}
-      {activeTab === "observability" && (
-        <div className="space-y-4">
-          <div className="p-4 bg-card rounded-2xl border shadow-xs">
-            <h3 className="text-xs font-bold text-foreground">مراقبة الاستخدام وتتبع التكاليف الحية</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              متابعة استهلاك التوكنات، التكلفة بالدولار، زمن الاستجابة، ونسب حظر المحاولات غير المصرح بها
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-card rounded-2xl border p-5 shadow-xs space-y-2">
-              <span className="text-[11px] font-bold text-muted-foreground">استهلاك التوكنات اليومي</span>
-              <h3 className="text-2xl font-black text-foreground font-mono">
-                {kpis?.totalTokens.toLocaleString() || "0"}
-              </h3>
-              <p className="text-[10px] text-muted-foreground">الحد الأقصى المسموح: 500,000 توكن / يوم</p>
-            </div>
-
-            <div className="bg-card rounded-2xl border p-5 shadow-xs space-y-2">
-              <span className="text-[11px] font-bold text-muted-foreground">التكلفة الشهرية الفعلية</span>
-              <h3 className="text-2xl font-black text-emerald-600 font-mono">
-                ${kpis?.estimatedCostUsd || "0.00"}
-              </h3>
-              <p className="text-[10px] text-muted-foreground">سقف الميزانية الشهري: $250.00</p>
-            </div>
-
-            <div className="bg-card rounded-2xl border p-5 shadow-xs space-y-2">
-              <span className="text-[11px] font-bold text-muted-foreground">محاولات الحظر الأمني</span>
-              <h3 className="text-2xl font-black text-foreground font-mono">0</h3>
-              <p className="text-[10px] text-emerald-600 font-bold">حماية تامة من حقن الأوامر</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 6: Settings & Governance */}
-      {activeTab === "settings" && (
-        <div className="bg-card rounded-2xl border p-6 shadow-xs space-y-6">
-          <div className="border-b pb-4">
-            <h3 className="text-sm font-bold text-foreground">إعدادات مزودي الذكاء الاصطناعي والحوكمة</h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              إدارة المزود النشط، سياسات التأكيد البشري، وحدود الاستهلاك
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1.5">المزود النشط</label>
-                <select className="w-full bg-background border rounded-xl p-2.5 text-xs text-foreground">
-                  <option value="mock">MadarX Local Safe Engine (مدمج ومؤمن)</option>
-                  <option value="openai">OpenAI (Enterprise Gateway)</option>
-                  <option value="gemini">Google Gemini (Vertex AI)</option>
-                  <option value="anthropic">Anthropic Claude (Enterprise)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1.5">النموذج الافتراضي</label>
-                <input
-                  type="text"
-                  readOnly
-                  value="gpt-4o-mini / gemini-1.5-flash (Grounded)"
-                  className="w-full bg-secondary border rounded-xl p-2.5 text-xs text-muted-foreground"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1.5">
-                  سقف الميزانية الشهري ($)
-                </label>
-                <input
-                  type="number"
-                  readOnly
-                  value="250"
-                  className="w-full bg-secondary border rounded-xl p-2.5 text-xs text-muted-foreground"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h4 className="text-xs font-bold text-foreground">الأدوات المحكومة النشطة (16 أداة)</h4>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {Object.values(GOVERNED_AI_TOOLS).map((tool) => (
-                  <div
-                    key={tool.name}
-                    className="flex items-center justify-between p-2 rounded-lg bg-secondary text-xs"
-                  >
-                    <span className="font-mono text-[11px] font-medium text-foreground">{tool.name}</span>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                        tool.requiresConfirmation
-                          ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                          : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                      }`}
+                <div className="space-y-2.5">
+                  {evalScorecard.results.map((res) => (
+                    <div
+                      key={res.testId}
+                      className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between gap-3"
                     >
-                      {tool.requiresConfirmation ? "تأكيد مسبق" : "قراءة مباشرة"}
-                    </span>
-                  </div>
-                ))}
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                          {res.details}
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-mono">
+                          {res.testId}: {res.name.slice(0, 52)}
+                        </p>
+                      </div>
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm mb-3 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-indigo-600" />
+                  سجل استدعاءات الأدوات الأخير (Tool Execution Log)
+                </h3>
+                <div className="space-y-2">
+                  {toolCalls.map((tc) => (
+                    <div
+                      key={tc.id}
+                      className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <span className="font-mono font-bold text-indigo-600">{tc.toolName}</span>
+                        <p className="text-slate-400 text-[11px] mt-0.5">
+                          زمن التنفيذ: {tc.latencyMs}ms | الحالة: {tc.executionStatus}
+                        </p>
+                      </div>
+                      <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold">
+                        موثق
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

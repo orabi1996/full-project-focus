@@ -37,6 +37,11 @@ import {
   runComprehensiveAIEvaluationAndAdversarialSuite,
 } from "../lib/ai";
 import { METRIC_CATALOG } from "../lib/data/reports-repository";
+import {
+  SMART_REPORT_DOMAINS,
+  buildSmartReportAnalysis,
+  generateSmartAssistantResponse,
+} from "../lib/data/ai-repository";
 
 describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
   describe("1. Prompt Injection & Adversarial Security", () => {
@@ -530,6 +535,51 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       expect(fullScorecard.overallScorePct).toBe(100);
       expect(fullScorecard.section44CategoriesPassed).toBe(10);
       expect(fullScorecard.section45AdversarialPassed).toBe(8);
+    });
+  });
+
+  describe("10. Live 360° Smart Report & System Intelligence Engine", () => {
+    it("generates structured analytical reports across all 8 enterprise system domains", () => {
+      const mockApp = {
+        employees: [
+          {
+            id: "emp-1",
+            employeeNo: "EMP-1001",
+            firstNameAr: "فهد",
+            lastNameAr: "العتيبي",
+            firstNameEn: "Fahad",
+            lastNameEn: "Alotaibi",
+            jobTitleAr: "مدير موارد بشرية",
+            departmentId: "dept-1",
+            status: "active" as const,
+            nationality: "سعودي",
+            nationalIdOrIqama: "1012345678",
+            hireDate: "2024-01-01",
+            basicSalary: 15000,
+            housingAllowance: 3750,
+            transportAllowance: 1500,
+            otherAllowances: 500,
+            iban: "SA0380000000608010167519",
+            bankName: "مصرف الراجحي",
+          },
+        ],
+        orgUnits: [{ id: "dept-1", nameAr: "إدارة الموارد البشرية", nameEn: "HR" }],
+      } as any;
+
+      expect(SMART_REPORT_DOMAINS.length).toBe(8);
+      for (const domain of SMART_REPORT_DOMAINS) {
+        const analysis = buildSmartReportAnalysis(domain.id, mockApp);
+        expect(analysis.domainId).toBe(domain.id);
+        expect(analysis.healthScorePct).toBeGreaterThan(0);
+        expect(analysis.kpis.length).toBe(4);
+        expect(analysis.breakdownRows.length).toBeGreaterThan(0);
+        expect(analysis.recommendations.length).toBeGreaterThan(0);
+      }
+
+      const empRes = generateSmartAssistantResponse("حلل ملف الموظف فهد العتيبي", mockApp, "hr_manager");
+      expect(empRes.intent).toBe("employee_search");
+      expect(empRes.responseText).toContain("فهد العتيبي");
+      expect(empRes.responseText).toContain("EMP-1001");
     });
   });
 });

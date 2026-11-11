@@ -15,6 +15,7 @@ import {
   useEmployeeAvatar,
   useCreateEmployee,
 } from "../../lib/domains/employees";
+import { saveEmployeeExtendedFields } from "../../lib/domains/employees/extended-employee-store";
 import type {
   Employee,
   ContractType,
@@ -67,7 +68,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
-import { Settings } from "lucide-react";
+import { Settings, Coins, Sparkles, Save, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -350,6 +351,18 @@ export const EmployeesView: React.FC = () => {
   });
 
   const [newEmp, setNewEmp] = useState(createEmptyNewEmp());
+
+  // Real-time Live Profile Completion Score for the Onboarding Wizard (UX Gamification)
+  const wizardLiveScore = useMemo(() => {
+    let score = 0;
+    if (newEmp.firstNameAr?.trim() && newEmp.lastNameAr?.trim()) score += 20;
+    if (newEmp.nationalIdOrIqama?.trim()) score += 20;
+    if (newEmp.hireDate && (newEmp.departmentId || newEmp.mainDepartment)) score += 20;
+    if (newEmp.phone?.trim() || newEmp.email?.trim()) score += 15;
+    if (Number(newEmp.basicSalary || 0) > 0) score += 15;
+    if (newEmp.contractDurationType) score += 10;
+    return Math.min(100, score);
+  }, [newEmp]);
 
   // Document Print Modal State
   const [docModalEmployee, setDocModalEmployee] = useState<Employee | null>(null);
@@ -1825,44 +1838,159 @@ export const EmployeesView: React.FC = () => {
                   استكمال البيانات الشخصية، بيانات العمل والهيكل، التواصل والعناوين، البيانات المالية، والعقود الموثقة
                 </DialogDescription>
               </div>
-              <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary bg-primary/5">
-                الخطوة {wizardStep} من 5
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] font-bold border transition-colors ${
+                    wizardLiveScore >= 80
+                      ? "border-emerald-500/40 text-emerald-700 bg-emerald-500/10"
+                      : wizardLiveScore >= 50
+                        ? "border-blue-500/40 text-blue-700 bg-blue-500/10"
+                        : "border-amber-500/40 text-amber-700 bg-amber-500/10"
+                  }`}
+                >
+                  <Sparkles className="h-3 w-3 mr-1 inline" />
+                  اكتمال البيانات: {wizardLiveScore}%
+                </Badge>
+                <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary bg-primary/5">
+                  الخطوة {wizardStep} من 5
+                </Badge>
+              </div>
+            </div>
+
+            {/* Smooth Animated Progress Track */}
+            <div className="w-full bg-muted/60 h-1.5 rounded-full overflow-hidden mt-3">
+              <div
+                className="h-full bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-500 transition-all duration-300 rounded-full"
+                style={{ width: `${(wizardStep / 5) * 100}%` }}
+              />
             </div>
 
             {/* 5-Step Interactive Visual Progress Track */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-4 pb-3 border-b border-border/60">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-3 pb-3 border-b border-border/60">
               {[
-                { step: 1, title: "البيانات الشخصية" },
-                { step: 2, title: "بيانات العمل" },
-                { step: 3, title: "بيانات التواصل" },
-                { step: 4, title: "البيانات المالية" },
-                { step: 5, title: "العقود والإنهاء" },
-              ].map((item) => (
-                <button
-                  key={item.step}
-                  type="button"
-                  onClick={() => setWizardStep(item.step)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer text-start ${
-                    wizardStep === item.step
-                      ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20"
-                      : wizardStep > item.step
-                        ? "bg-emerald-500/10 text-emerald-700 border border-emerald-500/30"
-                        : "bg-muted/60 text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {wizardStep > item.step ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                  ) : (
-                    <span className="h-5 w-5 rounded-full bg-background/20 flex items-center justify-center text-[10px] font-mono shrink-0">
-                      {item.step}
-                    </span>
-                  )}
-                  <span className="truncate">{item.title}</span>
-                </button>
-              ))}
+                { step: 1, title: "البيانات الشخصية", icon: UserCheck, desc: "الهوية والاسم" },
+                { step: 2, title: "بيانات العمل", icon: Briefcase, desc: "القسم والمسمى" },
+                { step: 3, title: "بيانات التواصل", icon: Phone, desc: "الجوال والعنوان" },
+                { step: 4, title: "البيانات المالية", icon: Coins, desc: "الراتب والبدلات" },
+                { step: 5, title: "العقود والإنهاء", icon: FileText, desc: "عقد قوى والدوام" },
+              ].map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <button
+                    key={item.step}
+                    type="button"
+                    onClick={() => setWizardStep(item.step)}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer text-start ${
+                      wizardStep === item.step
+                        ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30 scale-[1.02]"
+                        : wizardStep > item.step
+                          ? "bg-emerald-500/10 text-emerald-800 border border-emerald-500/30 hover:bg-emerald-500/20"
+                          : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {wizardStep > item.step ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <span
+                        className={`h-6 w-6 rounded-xl flex items-center justify-center shrink-0 ${
+                          wizardStep === item.step
+                            ? "bg-primary-foreground/20 text-primary-foreground"
+                            : "bg-muted text-foreground"
+                        }`}
+                      >
+                        <IconComponent className="h-3.5 w-3.5" />
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <span className="truncate block font-bold">{item.title}</span>
+                      <span
+                        className={`text-[9px] font-normal truncate block ${
+                          wizardStep === item.step ? "text-primary-foreground/80" : "text-muted-foreground"
+                        }`}
+                      >
+                        {item.desc}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </DialogHeader>
+
+          {/* Interactive Live Preview Employee Summary Banner */}
+          <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/[0.04] via-card to-emerald-500/[0.04] p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xs my-1">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="relative h-12 w-12 rounded-2xl border-2 border-primary/40 bg-card flex items-center justify-center overflow-hidden shadow-xs shrink-0">
+                {newEmp.avatarUrl ? (
+                  <img src={newEmp.avatarUrl} alt="صورة الموظف" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="font-black text-sm text-primary">
+                    {(newEmp.firstNameAr || "م").slice(0, 1)}
+                    {(newEmp.lastNameAr || "").slice(0, 1)}
+                  </span>
+                )}
+                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-card" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-black text-xs md:text-sm text-foreground truncate">
+                    {`${newEmp.firstNameAr || ""} ${newEmp.lastNameAr || ""}`.trim() || "اسم الموظف الجديد"}
+                  </h3>
+                  <Badge variant="outline" className="text-[9px] font-mono border-primary/30 text-primary bg-primary/5">
+                    {newEmp.employeeNo?.trim() || "رقم وظيفي تلقائي"}
+                  </Badge>
+                  {newEmp.nationality && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] font-bold ${
+                        newEmp.nationality === "سعودي"
+                          ? "bg-emerald-500/10 text-emerald-700 border-emerald-400"
+                          : "bg-blue-500/10 text-blue-700 border-blue-400"
+                      }`}
+                    >
+                      {newEmp.nationality}
+                    </Badge>
+                  )}
+                  {newEmp.identityType && (
+                    <span className="text-[10px] font-mono text-muted-foreground hidden sm:inline">
+                      {newEmp.nationalIdOrIqama || "لم يتم تسجيل الهوية بعد"}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                  <span className="font-mono text-foreground/80">
+                    {newEmp.firstNameEn || newEmp.lastNameEn
+                      ? `${newEmp.firstNameEn || ""} ${newEmp.lastNameEn || ""}`.trim()
+                      : "Name in English"}
+                  </span>
+                  <span>•</span>
+                  <span>{newEmp.jobTitleAr || "المسمى الوظيفي"}</span>
+                  <span>•</span>
+                  <span>
+                    {orgUnits.find((u) => u.id === newEmp.departmentId)?.nameAr ||
+                      newEmp.mainDepartment ||
+                      "القسم"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 mr-auto shrink-0">
+              <div className="text-end">
+                <div className="text-[10px] text-muted-foreground font-bold">مؤشر جاهزية الملف</div>
+                <div className="text-xs font-black font-mono text-foreground">{wizardLiveScore}%</div>
+              </div>
+              <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-300 rounded-full ${
+                    wizardLiveScore >= 80 ? "bg-emerald-500" : wizardLiveScore >= 50 ? "bg-blue-500" : "bg-amber-500"
+                  }`}
+                  style={{ width: `${wizardLiveScore}%` }}
+                />
+              </div>
+            </div>
+          </div>
 
           {/* ================================================================= */}
           {/* STEP 1: البيانات الشخصية (Personal Information)                   */}
@@ -2025,7 +2153,30 @@ export const EmployeesView: React.FC = () => {
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                   <div className="space-y-1.5">
-                    <label className="font-bold text-foreground">نوع الهوية *</label>
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-foreground">نوع الهوية *</label>
+                    </div>
+                    <div className="flex flex-wrap gap-1 pb-0.5">
+                      {[
+                        { id: "national_id", label: "هوية وطنية" },
+                        { id: "iqama", label: "إقامة" },
+                        { id: "passport", label: "جواز" },
+                        { id: "border_number", label: "حدود" },
+                      ].map((pill) => (
+                        <button
+                          key={pill.id}
+                          type="button"
+                          onClick={() => setNewEmp({ ...newEmp, identityType: pill.id as any })}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                            newEmp.identityType === pill.id
+                              ? "bg-primary text-primary-foreground shadow-xs"
+                              : "bg-muted/80 text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {pill.label}
+                        </button>
+                      ))}
+                    </div>
                     <select
                       value={newEmp.identityType}
                       onChange={(e) =>
@@ -2048,15 +2199,22 @@ export const EmployeesView: React.FC = () => {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="font-bold text-foreground">
-                      {newEmp.identityType === "national_id"
-                        ? "رقم الهوية الوطنية *"
-                        : newEmp.identityType === "iqama"
-                          ? "رقم الإقامة *"
-                          : newEmp.identityType === "passport"
-                            ? "رقم جواز السفر *"
-                            : "رقم الحدود *"}
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-foreground">
+                        {newEmp.identityType === "national_id"
+                          ? "رقم الهوية الوطنية *"
+                          : newEmp.identityType === "iqama"
+                            ? "رقم الإقامة *"
+                            : newEmp.identityType === "passport"
+                              ? "رقم جواز السفر *"
+                              : "رقم الحدود *"}
+                      </label>
+                      {newEmp.nationalIdOrIqama && newEmp.nationalIdOrIqama.length === 10 && (
+                        <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> 10 أرقام مكتملة
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="text"
                       value={newEmp.nationalIdOrIqama}
@@ -2085,7 +2243,9 @@ export const EmployeesView: React.FC = () => {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="font-bold text-foreground">الجنسية *</label>
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-foreground">الجنسية *</label>
+                    </div>
                     <input
                       type="text"
                       list="nationalities-list"
@@ -2094,6 +2254,22 @@ export const EmployeesView: React.FC = () => {
                       placeholder="اختر أو اكتب الجنسية (مثال: سعودي)"
                       className="w-full h-10 rounded-xl border border-border/80 bg-muted/30 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      {["سعودي", "مصري", "أردني", "سوري", "سوداني"].map((nat) => (
+                        <button
+                          key={nat}
+                          type="button"
+                          onClick={() => setNewEmp({ ...newEmp, nationality: nat })}
+                          className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold transition-colors cursor-pointer ${
+                            newEmp.nationality === nat
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted/70 text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {nat}
+                        </button>
+                      ))}
+                    </div>
                     <datalist id="nationalities-list">
                       <option value="سعودي" />
                       <option value="مصري" />
@@ -2125,7 +2301,33 @@ export const EmployeesView: React.FC = () => {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="font-bold text-foreground">الجنس</label>
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-foreground">الجنس</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setNewEmp({ ...newEmp, gender: "male" })}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                            newEmp.gender === "male"
+                              ? "bg-blue-600 text-white shadow-xs"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
+                        >
+                          ذكر
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewEmp({ ...newEmp, gender: "female" })}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                            newEmp.gender === "female"
+                              ? "bg-pink-600 text-white shadow-xs"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
+                        >
+                          أنثى
+                        </button>
+                      </div>
+                    </div>
                     <select
                       value={newEmp.gender ?? ""}
                       onChange={(e) => setNewEmp({ ...newEmp, gender: e.target.value as Gender })}
@@ -3525,18 +3727,35 @@ export const EmployeesView: React.FC = () => {
             </div>
           )}
 
-          <DialogFooter className="flex justify-between items-center w-full mt-4 pt-3 border-t border-border/60">
-            {wizardStep > 1 && (
+          <DialogFooter className="sticky bottom-0 -mx-6 md:-mx-8 -mb-6 md:-mb-8 p-4 px-6 md:px-8 border-t border-border/80 bg-card/95 backdrop-blur-md flex flex-row flex-wrap justify-between items-center w-full mt-4 z-20 shadow-lg">
+            <div className="flex items-center gap-2">
+              {wizardStep > 1 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setWizardStep((prev) => prev - 1)}
+                  className="rounded-full text-xs font-bold border-border/80 px-4 h-10 cursor-pointer gap-1.5"
+                >
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  <span>السابق</span>
+                </Button>
+              )}
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setWizardStep((prev) => prev - 1)}
-                className="rounded-full text-xs font-bold border-border/80 px-4 h-10 cursor-pointer"
+                onClick={() => {
+                  saveEmployeeExtendedFields(newEmp.employeeNo || `draft-${Date.now()}`, newEmp);
+                  toast.success("تم حفظ مسودة بيانات الموظف بنجاح في النظام!");
+                }}
+                className="rounded-full text-xs font-bold gap-1.5 border-primary/30 text-primary hover:bg-primary/10 h-10 px-4 cursor-pointer"
               >
-                السابق
+                <Save className="h-4 w-4" />
+                <span>حفظ مسودة</span>
               </Button>
-            )}
-            <div className="flex gap-2 mr-auto">
+            </div>
+
+            <div className="flex items-center gap-2 mr-auto">
               <Button
                 variant="ghost"
                 size="sm"
@@ -3549,15 +3768,16 @@ export const EmployeesView: React.FC = () => {
                 <Button
                   size="sm"
                   onClick={() => setWizardStep((prev) => prev + 1)}
-                  className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 h-10 shadow-xs cursor-pointer"
+                  className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 h-10 shadow-sm cursor-pointer gap-1.5"
                 >
-                  التالي (الخطوة {wizardStep + 1})
+                  <span>التالي (الخطوة {wizardStep + 1})</span>
+                  <ChevronLeft className="h-3.5 w-3.5" />
                 </Button>
               ) : (
                 <Button
                   size="sm"
                   onClick={handleCreateEmployee}
-                  className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-10 shadow-xs cursor-pointer gap-2"
+                  className="rounded-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-10 shadow-md cursor-pointer gap-2"
                 >
                   <CheckCircle2 className="h-4 w-4" />
                   إنهاء وحفظ وفتح ملف الموظف 360°

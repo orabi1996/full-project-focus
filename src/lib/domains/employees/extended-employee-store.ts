@@ -389,7 +389,23 @@ export async function persistEmployeeWhenRpcUnavailable(
     contractAutoRenew: employee.contractAutoRenew ?? true,
     avatarUrl: employee.avatarUrl || null,
     lifecycleStatus: employee.status || "active",
+    departmentName: employee.departmentName || null,
+    subsidiaryName: employee.subsidiaryName || null,
+    workLocationName: employee.workLocationName || null,
+    managerName: employee.managerName || null,
   };
+
+  let resolvedCompanyId = toValidUuidOrNull(employee.companyId);
+  if (!resolvedCompanyId) {
+    try {
+      const { data: comp } = await supabase.from("companies").select("id").limit(1).maybeSingle();
+      if (comp?.id) {
+        resolvedCompanyId = String(comp.id);
+      }
+    } catch {
+      // ignore if offline
+    }
+  }
 
   const buildRowInsert = (empNo: string) => ({
     employee_no: empNo,
@@ -417,7 +433,7 @@ export async function persistEmployeeWhenRpcUnavailable(
     work_location_id: toValidUuidOrNull(employee.workLocationId),
     location_id: toValidUuidOrNull(employee.workLocationId),
     manager_id: toValidUuidOrNull(employee.managerId),
-    company_id: toValidUuidOrNull(employee.companyId),
+    company_id: resolvedCompanyId,
     basic_salary: basicSalary,
     total_salary: totalSalary,
     bank_name: employee.bankName || null,
@@ -587,11 +603,11 @@ export async function fetchDirectoryWhenRpcUnavailable(
           contractType: (row.contract_type as ContractType | null) ?? null,
           workType: (ext.workType || meta.workType ? String(ext.workType || meta.workType) : null),
           departmentId: row.department_id ? String(row.department_id) : null,
-          departmentName: null,
+          departmentName: (ext.departmentName || meta.departmentName ? String(ext.departmentName || meta.departmentName) : null),
           subsidiaryId: row.subsidiary_id ? String(row.subsidiary_id) : null,
-          subsidiaryName: null,
+          subsidiaryName: (ext.subsidiaryName || meta.subsidiaryName ? String(ext.subsidiaryName || meta.subsidiaryName) : null),
           workLocationId: row.work_location_id ? String(row.work_location_id) : null,
-          workLocationName: null,
+          workLocationName: (ext.workLocationName || meta.workLocationName ? String(ext.workLocationName || meta.workLocationName) : null),
           avatarUrl: (ext.avatarUrl || meta.avatarUrl ? String(ext.avatarUrl || meta.avatarUrl) : null),
           avatarStoragePath: null,
           completionScore: Number(row.completion_score ?? 85),
@@ -602,9 +618,46 @@ export async function fetchDirectoryWhenRpcUnavailable(
         };
       });
 
+      const dbIds = new Set(items.map((item) => item.id));
+      const localDemoExtras: EmployeeDirectoryItem[] =
+        page === 1
+          ? getDemoEmployeesList()
+              .filter((e) => !dbIds.has(e.id))
+              .map((e) => ({
+                id: e.id,
+                employeeNo: e.employeeNo,
+                firstNameAr: e.firstNameAr,
+                lastNameAr: e.lastNameAr,
+                firstNameEn: e.firstNameEn || null,
+                lastNameEn: e.lastNameEn || null,
+                fullName: `${e.firstNameAr} ${e.lastNameAr}`.trim(),
+                email: e.email || null,
+                phone: e.phone || null,
+                jobTitle: e.jobTitleAr || "",
+                status: e.status || "active",
+                hireDate: e.hireDate || "",
+                contractType: e.contractType ?? null,
+                workType: e.workType ?? null,
+                departmentId: e.departmentId || null,
+                departmentName: e.departmentName || null,
+                subsidiaryId: e.subsidiaryId || null,
+                subsidiaryName: e.subsidiaryName || null,
+                workLocationId: e.workLocationId || null,
+                workLocationName: e.workLocationName || null,
+                avatarUrl: e.avatarUrl || null,
+                avatarStoragePath: e.avatarStoragePath ?? null,
+                completionScore: e.completionScore ?? 85,
+                nationality: e.nationality || null,
+                qiwaContractNo: e.qiwaContractNo || null,
+                gender: e.gender ?? null,
+                jobGrade: e.jobGrade || null,
+              }))
+          : [];
+
+      const combinedItems = [...localDemoExtras, ...items];
       return {
-        items,
-        totalCount: count ?? items.length,
+        items: combinedItems,
+        totalCount: (count ?? items.length) + localDemoExtras.length,
         page,
         pageSize,
       };

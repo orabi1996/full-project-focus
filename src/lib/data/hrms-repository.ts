@@ -661,7 +661,24 @@ export async function bulkChangeEmployeeStatusRecord(
     p_effective_date: effectiveDate || null,
     p_reason: reason || null,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isOfflineBrowserFetchError(error)) {
+      const safeDbStatus = ["active", "on_leave", "suspended", "terminated", "draft"].includes(newStatus)
+        ? newStatus
+        : "active";
+      await Promise.all(
+        employeeIds.map((empId) =>
+          updateEmployeeWhenRpcUnavailable(
+            empId,
+            { status: safeDbStatus },
+            { status: newStatus as EmployeeStatus },
+          ),
+        ),
+      );
+      return { updated_count: employeeIds.length, status: newStatus };
+    }
+    throw new Error(error.message);
+  }
   return data;
 }
 
@@ -681,7 +698,25 @@ export async function rehireEmployeeRecord(
     p_new_position_id: newPositionId || null,
     p_reason: reason || null,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isOfflineBrowserFetchError(error)) {
+      const safeDbStatus = ["active", "on_leave", "suspended", "terminated", "draft"].includes(newStatus)
+        ? newStatus
+        : "active";
+      await updateEmployeeWhenRpcUnavailable(
+        employeeId,
+        { status: safeDbStatus },
+        {
+          status: newStatus as EmployeeStatus,
+          rehireDate: rehireDate || new Date().toISOString().slice(0, 10),
+          ...(newDeptId ? { departmentId: newDeptId } : {}),
+          ...(newPositionId ? { jobPositionId: newPositionId } : {}),
+        },
+      );
+      return { id: employeeId, status: newStatus };
+    }
+    throw new Error(error.message);
+  }
   return data;
 }
 

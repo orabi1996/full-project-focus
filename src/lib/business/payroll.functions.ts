@@ -4,10 +4,19 @@ import { calculateEmployeePayroll } from "../utils/payroll-calculator";
 import { assertRole, daysInMonth, round2 } from "./guards";
 import { allocatePayrollLoans } from "./payroll-loans";
 
-interface RunPayrollInput {
+export interface RunPayrollInput {
   year: number;
   month: number; // 1-12
   payrollGroupId?: string | null;
+  branchId?: string | null;
+  branchName?: string | null;
+  departmentId?: string | null;
+  jobCategory?: string | null;
+  periodEndDate?: string | null;
+  customDaysCount?: number | null;
+  periodCalculationMode?: "full_month" | "custom_end_date" | "custom_days";
+  selectedEmployeeIds?: string[] | null;
+  runNotes?: string | null;
 }
 
 /**
@@ -44,71 +53,110 @@ export const runPayrollServer = createServerFn({ method: "POST" })
 export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
   const { year, month } = data;
 
-  // 1. Attempt authoritative database RPC execution if available
-  try {
-    let companyId: string | null = null;
-    if (data.payrollGroupId) {
-      const { data: grp } = await supabase
-        .from("payroll_groups")
-        .select("company_id")
-        .eq("id", data.payrollGroupId)
-        .maybeSingle();
-      companyId = grp?.company_id ?? null;
-    }
-    if (!companyId) {
-      const { data: comp } = await supabase
-        .from("companies")
-        .select("id")
-        .limit(1)
-        .maybeSingle();
-      companyId = comp?.id ?? null;
-    }
+  const hasCustomFilters = Boolean(
+    (data.selectedEmployeeIds && data.selectedEmployeeIds.length > 0) ||
+    (data.branchId && data.branchId !== "all") ||
+    (data.departmentId && data.departmentId !== "all") ||
+    (data.jobCategory && data.jobCategory !== "all") ||
+    data.periodEndDate ||
+    (data.customDaysCount && data.customDaysCount > 0)
+  );
 
-    if (companyId) {
-      const { data: runRes, error: createError } = await supabase.rpc("create_payroll_run_atomic", {
-        p_company_id: companyId,
-        p_payroll_group_id: data.payrollGroupId || null,
-        p_period_year: year,
-        p_period_month: month,
-      });
+  // 1. Attempt authoritative database RPC execution if available AND no custom filters
+  if (!hasCustomFilters) {
+    try {
+      let companyId: string | null = null;
+      if (data.payrollGroupId) {
+        const { data: grp } = await supabase
+          .from("payroll_groups")
+          .select("company_id")
+          .eq("id", data.payrollGroupId)
+          .maybeSingle();
+        companyId = grp?.company_id ?? null;
+      }
+      if (!companyId) {
+        const { data: comp } = await supabase
+          .from("companies")
+          .select("id")
+          .limit(1)
+          .maybeSingle();
+        companyId = comp?.id ?? null;
+      }
 
-      if (!createError && runRes?.payroll_run_id) {
-        const runId = runRes.payroll_run_id;
-        const { data: calcRes, error: calcError } = await supabase.rpc("calculate_payroll_run_atomic", {
-          p_payroll_run_id: runId,
+      if (companyId) {
+        const { data: runRes, error: createError } = await supabase.rpc("create_payroll_run_atomic", {
+          p_company_id: companyId,
+          p_payroll_group_id: data.payrollGroupId || null,
+          p_period_year: year,
+          p_period_month: month,
         });
 
-        if (!calcError && calcRes) {
-          return {
-            runId,
-            employees: calcRes.total_employees ?? 0,
-            totalNet: calcRes.total_net_salary ?? 0,
-            totalDeductions: 0,
-            totalEmployerGosi: 0,
-            blockingExceptions: calcRes.blocking_exceptions ?? 0,
-            warnings: calcRes.warnings ?? 0,
-          };
+        if (!createError && runRes?.payroll_run_id) {
+          const runId = runRes.payroll_run_id;
+          const { data: calcRes, error: calcError } = await supabase.rpc("calculate_payroll_run_atomic", {
+            p_payroll_run_id: runId,
+          });
+
+          if (!calcError && calcRes) {
+            return {
+              runId,
+              employees: calcRes.total_employees ?? 0,
+              totalNet: calcRes.total_net_salary ?? 0,
+              totalDeductions: 0,
+              totalEmployerGosi: 0,
+              blockingExceptions: calcRes.blocking_exceptions ?? 0,
+              warnings: calcRes.warnings ?? 0,
+            };
+          }
         }
       }
+    } catch (_rpcErr) {
+      // Fall back to TypeScript computation if RPC is not present
     }
-  } catch (_rpcErr) {
-    // Fall back to TypeScript computation if RPC is not present
   }
 
   const periodDays = daysInMonth(year, month);
   const periodStart = `${year}-${String(month).padStart(2, "0")}-01`;
-  const periodEnd = `${year}-${String(month).padStart(2, "0")}-${String(periodDays).padStart(2, "0")}`;
+  let periodEnd = `${year}-${String(month).padStart(2, "0")}-${String(periodDays).padStart(2, "0")}`;
+
+  // Custom period calculation
+  let effectiveWorkingDays = periodDays;
+  if (data.periodCalculationMode === "custom_end_date" && data.periodEndDate) {
+    periodEnd = data.periodEndDate;
+    const dStart = new Date(periodStart);
+    const dEnd = new Date(periodEnd);
+    if (!Number.isNaN(dStart.getTime()) && !Number.isNaN(dEnd.getTime()) && dEnd >= dStart) {
+      effectiveWorkingDays = Math.min(
+        periodDays,
+        Math.max(1, Math.round((dEnd.getTime() - dStart.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+      );
+    }
+  } else if (data.periodCalculationMode === "custom_days" && data.customDaysCount && data.customDaysCount > 0) {
+    effectiveWorkingDays = Math.min(periodDays, Math.max(1, data.customDaysCount));
+  }
+  const unworkedProrationDays = Math.max(0, periodDays - effectiveWorkingDays);
 
   let employeeQuery = supabase
     .from("employees")
-    .select("id, basic_salary, total_salary, nationality, hire_date, status, payroll_group_id")
+    .select("id, basic_salary, total_salary, nationality, hire_date, status, payroll_group_id, work_location_id, location_id, department_id, metadata")
     .in("status", ["active", "on_leave"]);
+
   if (data.payrollGroupId) {
     employeeQuery = employeeQuery.eq("payroll_group_id", data.payrollGroupId);
   }
+  if (data.branchId && data.branchId !== "all") {
+    employeeQuery = employeeQuery.or(`work_location_id.eq.${data.branchId},location_id.eq.${data.branchId}`);
+  }
+  if (data.departmentId && data.departmentId !== "all") {
+    employeeQuery = employeeQuery.eq("department_id", data.departmentId);
+  }
+  if (data.selectedEmployeeIds && data.selectedEmployeeIds.length > 0) {
+    employeeQuery = employeeQuery.in("id", data.selectedEmployeeIds);
+  }
+
   const { data: employees, error: employeesError } = await employeeQuery;
   if (employeesError) throw new Error(`تعذر قراءة الموظفين: ${employeesError.message}`);
-  if (!employees?.length) throw new Error("لا يوجد موظفون مؤهلون لهذا المسيّر");
+  if (!employees?.length) throw new Error("لا يوجد موظفون مؤهلون لهذا المسيّر وفق الفلاتر والاختيارات المحددة");
 
   const employeeIds = employees.map((e: any) => e.id);
 
@@ -203,6 +251,7 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
       otherAllowances: other,
       calculationBasis: "fixed_30_days",
       daysInMonth: periodDays,
+      unpaidLeaveDays: unworkedProrationDays,
       absenceDays: agg.absentDays,
       lateMinutes: agg.lateMinutes,
       overtimeHours,

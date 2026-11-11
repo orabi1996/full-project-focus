@@ -254,6 +254,8 @@ export interface Employee {
   managerName?: string;
   workLocationId: string;
   workLocationName?: string;
+  payrollGroupId?: string | null;
+  payrollGroupName?: string;
 
   // Employment Details
   hireDate: string;
@@ -1460,6 +1462,18 @@ export interface PayrollRun {
   reopenedBy?: string;
   reopenReason?: string;
   paidAt?: string;
+  // Extended Payroll Run Scope & Options
+  branchId?: string;
+  branchName?: string;
+  departmentFilterId?: string;
+  departmentFilterName?: string;
+  jobCategoryFilter?: string;
+  periodStartDate?: string;
+  periodEndDate?: string;
+  customDaysCount?: number;
+  periodCalculationMode?: "full_month" | "custom_end_date" | "custom_days";
+  selectedEmployeeIds?: string[];
+  runNotes?: string;
 }
 
 export interface PayrollRunEmployee {
@@ -1470,6 +1484,9 @@ export interface PayrollRunEmployee {
   employeeNo: string;
   employeeName: string;
   departmentName?: string;
+  branchName?: string;
+  jobTitle?: string;
+  jobCategory?: string;
   nationality: string;
   isSaudi: boolean;
   bankName?: string;

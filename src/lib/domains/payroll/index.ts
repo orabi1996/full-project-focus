@@ -92,12 +92,44 @@ export function usePayrollMutations() {
   const queryClient = useQueryClient();
 
   const processPayrollRun = useCallback(
-    async (groupId: string, year: number, month: number): Promise<boolean> => {
+    async (
+      groupId: string,
+      year: number,
+      month: number,
+      options?: {
+        branchId?: string | null;
+        branchName?: string | null;
+        departmentId?: string | null;
+        jobCategory?: string | null;
+        periodEndDate?: string | null;
+        customDaysCount?: number | null;
+        periodCalculationMode?: "full_month" | "custom_end_date" | "custom_days";
+        selectedEmployeeIds?: string[] | null;
+        runNotes?: string | null;
+      }
+    ): Promise<boolean> => {
+      const selectedScopeKey = options?.branchId || "all";
+      const selectedCountKey = options?.selectedEmployeeIds ? options.selectedEmployeeIds.length : "all";
       const result = await executeReliableMutation({
         mode,
-        mutationKey: `payroll-run-${groupId}-${year}-${month}`,
+        mutationKey: `payroll-run-${groupId}-${year}-${month}-${selectedScopeKey}-${selectedCountKey}`,
         operation: async () => {
-          const runRes = await runPayrollServer({ data: { payrollGroupId: groupId, year, month } });
+          const runRes = await runPayrollServer({
+            data: {
+              payrollGroupId: groupId,
+              year,
+              month,
+              branchId: options?.branchId,
+              branchName: options?.branchName,
+              departmentId: options?.departmentId,
+              jobCategory: options?.jobCategory,
+              periodEndDate: options?.periodEndDate,
+              customDaysCount: options?.customDaysCount,
+              periodCalculationMode: options?.periodCalculationMode,
+              selectedEmployeeIds: options?.selectedEmployeeIds,
+              runNotes: options?.runNotes,
+            },
+          });
           await queryClient.invalidateQueries({ queryKey: queryKeys.payroll.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           return Boolean(runRes);

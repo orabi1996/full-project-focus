@@ -52,6 +52,13 @@ import {
   QrCode,
   RotateCcw,
   Settings,
+  CheckSquare,
+  Square,
+  Users,
+  MapPin,
+  Briefcase,
+  Clock,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "../ui/button";
@@ -109,6 +116,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
   const {
     orgUnits,
+    workLocations,
     company,
     currentRole,
     openEmployeeProfile,
@@ -146,6 +154,15 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   const [runGroupId, setRunGroupId] = useState(payrollGroups[0]?.id || "");
   const [runYear, setRunYear] = useState(today.getFullYear());
   const [runMonth, setRunMonth] = useState(today.getMonth() + 1);
+  const [runBranchId, setRunBranchId] = useState<string>("all");
+  const [runPeriodMode, setRunPeriodMode] = useState<"full_month" | "custom_end_date" | "custom_days">("full_month");
+  const [runCustomEndDate, setRunCustomEndDate] = useState<string>("");
+  const [runCustomDays, setRunCustomDays] = useState<number>(30);
+  const [runDeptFilter, setRunDeptFilter] = useState<string>("all");
+  const [runCategoryFilter, setRunCategoryFilter] = useState<string>("all");
+  const [runEmpSearch, setRunEmpSearch] = useState<string>("");
+  const [selectedRunEmpIds, setSelectedRunEmpIds] = useState<string[]>([]);
+  const [runNotes, setRunNotes] = useState<string>("");
 
   // Loan Modal State
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
@@ -312,6 +329,124 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   const [reopenReason, setReopenReason] = useState("");
   const [isReopeningRun, setIsReopeningRun] = useState(false);
 
+  // Available job categories derived from employee records
+  const availableJobCategories = useMemo(() => {
+    const cats = new Set<string>();
+    employees.forEach((emp) => {
+      const cat = (emp as any).jobCategory;
+      if (cat && typeof cat === "string" && cat.trim()) {
+        cats.add(cat.trim());
+      }
+    });
+    if (cats.size === 0) {
+      return ["إدارية / تخصصية", "تشغيلية / دعم", "قيادية / إشرافية", "فنية / مهنية"];
+    }
+    return Array.from(cats);
+  }, [employees]);
+
+  // Candidates for payroll run based on current modal filters
+  const eligibleRunEmployees = useMemo(() => {
+    return employees.filter((emp) => {
+      // 1. Status: active or on_leave
+      const status = emp.status || "active";
+      if (status !== "active" && status !== "on_leave") return false;
+
+      // 2. Payroll group (if defined on employee)
+      if (emp.payrollGroupId && runGroupId && emp.payrollGroupId !== runGroupId) {
+        return false;
+      }
+
+      // 3. Branch / Work Location filter
+      if (runBranchId !== "all") {
+        const matchesBranch =
+          emp.workLocationId === runBranchId ||
+          (emp as any).locationId === runBranchId;
+        if (!matchesBranch) return false;
+      }
+
+      // 4. Department filter
+      if (runDeptFilter !== "all" && emp.departmentId !== runDeptFilter) {
+        return false;
+      }
+
+      // 5. Job category filter
+      if (runCategoryFilter !== "all") {
+        const empCat = (emp as any).jobCategory;
+        if (empCat !== runCategoryFilter) return false;
+      }
+
+      // 6. Search query (name or employee number or national ID)
+      if (runEmpSearch.trim()) {
+        const q = runEmpSearch.toLowerCase().trim();
+        const fullName = `${emp.firstNameAr || ""} ${emp.lastNameAr || ""} ${emp.fullName || ""} ${emp.firstNameEn || ""} ${emp.lastNameEn || ""}`.toLowerCase();
+        const empNo = (emp.employeeNo || "").toLowerCase();
+        const nid = (emp.nationalIdOrIqama || "").toLowerCase();
+        if (!fullName.includes(q) && !empNo.includes(q) && !nid.includes(q)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [employees, runGroupId, runBranchId, runDeptFilter, runCategoryFilter, runEmpSearch]);
+
+  // Sync selected employees when opening modal or changing primary scope
+  useEffect(() => {
+    if (isRunModalOpen) {
+      setSelectedRunEmpIds(eligibleRunEmployees.map((e) => e.id));
+    }
+  }, [isRunModalOpen, runGroupId, runBranchId, runDeptFilter, runCategoryFilter]);
+
+  // Multi-select toggle handlers
+  const handleToggleSelectAll = () => {
+    const eligibleIds = eligibleRunEmployees.map((e) => e.id);
+    const allSelected = eligibleIds.length > 0 && eligibleIds.every((id) => selectedRunEmpIds.includes(id));
+    if (allSelected) {
+      const eligibleSet = new Set(eligibleIds);
+      setSelectedRunEmpIds(selectedRunEmpIds.filter((id) => !eligibleSet.has(id)));
+    } else {
+      const combined = new Set([...selectedRunEmpIds, ...eligibleIds]);
+      setSelectedRunEmpIds(Array.from(combined));
+    }
+  };
+
+  const handleToggleEmployee = (empId: string) => {
+    setSelectedRunEmpIds((prev) =>
+      prev.includes(empId) ? prev.filter((id) => id !== empId) : [...prev, empId]
+    );
+  };
+
+  const handleSelectOnlySaudis = () => {
+    const saudiIds = eligibleRunEmployees
+      .filter((e) => e.nationality === "SA" || e.nationality === "سعودي")
+      .map((e) => e.id);
+    setSelectedRunEmpIds(saudiIds);
+  };
+
+  const handleSelectOnlyExpats = () => {
+    const expatIds = eligibleRunEmployees
+      .filter((e) => e.nationality !== "SA" && e.nationality !== "سعودي")
+      .map((e) => e.id);
+    setSelectedRunEmpIds(expatIds);
+  };
+
+  // Real-time calculation stats for selected employees
+  const selectedRunStats = useMemo(() => {
+    const selectedEmps = employees.filter((e) => selectedRunEmpIds.includes(e.id));
+    const totalBasic = selectedEmps.reduce((sum, e) => sum + (e.basicSalary || 0), 0);
+    const totalGross = selectedEmps.reduce((sum, e) => sum + (e.totalSalary || (e.basicSalary || 0)), 0);
+    const saudiCount = selectedEmps.filter((e) => e.nationality === "SA" || e.nationality === "سعودي").length;
+    const expatCount = selectedEmps.length - saudiCount;
+
+    return {
+      count: selectedEmps.length,
+      totalBasic,
+      totalGross,
+      saudiCount,
+      expatCount,
+    };
+  }, [employees, selectedRunEmpIds]);
+
   const handleRunNewPayroll = async () => {
     const groupId = payrollGroups.some((group) => group.id === runGroupId)
       ? runGroupId
@@ -320,10 +455,35 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
       toast.error("يجب إنشاء مجموعة رواتب أولاً قبل تشغيل المسير");
       return;
     }
+
+    if (selectedRunEmpIds.length === 0) {
+      toast.error("يرجى اختيار موظف واحد على الأقل لتشغيل المسير");
+      return;
+    }
+
+    if (runPeriodMode === "custom_end_date" && !runCustomEndDate) {
+      toast.error("يرجى تحديد تاريخ نهاية الفترة المخصص");
+      return;
+    }
+
+    if (runPeriodMode === "custom_days" && (!runCustomDays || runCustomDays < 1 || runCustomDays > 31)) {
+      toast.error("يرجى إدخال عدد أيام صحيح (بين 1 و 31 يوماً)");
+      return;
+    }
+
     const targetRunId = `pr-${groupId}-${runYear}-${String(runMonth).padStart(2, "0")}`;
     setIsRunningPayroll(true);
     try {
-      const ok = await processPayrollRun(groupId, runYear, runMonth);
+      const ok = await processPayrollRun(groupId, runYear, runMonth, {
+        branchId: runBranchId !== "all" ? runBranchId : undefined,
+        departmentId: runDeptFilter !== "all" ? runDeptFilter : undefined,
+        jobCategory: runCategoryFilter !== "all" ? runCategoryFilter : undefined,
+        periodCalculationMode: runPeriodMode,
+        periodEndDate: runPeriodMode === "custom_end_date" ? runCustomEndDate : undefined,
+        customDaysCount: runPeriodMode === "custom_days" ? runCustomDays : undefined,
+        selectedEmployeeIds: selectedRunEmpIds,
+        runNotes: runNotes.trim() || undefined,
+      });
       if (ok) {
         setSelectedRunId(targetRunId);
         setActiveTab("runs");
@@ -1405,63 +1565,111 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
       {/* MODAL 1: Run Payroll Setup */}
       <Dialog open={isRunModalOpen} onOpenChange={setIsRunModalOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 overflow-y-auto max-h-[90vh] border border-border/80 shadow-2xl">
-          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
-          <DialogHeader className="pt-1">
-            <DialogTitle className="text-base font-black flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5 text-primary" />
-              تشغيل مسير رواتب جديد
-            </DialogTitle>
-            <DialogDescription className="text-xs font-medium text-muted-foreground">
-              اختر مجموعة الرواتب والفترة المطلوب تجميع الحضور والسلف والاستحقاقات لها
+        <DialogContent className="max-w-4xl rounded-3xl p-6 md:p-8 overflow-y-auto max-h-[92vh] border border-border/80 shadow-2xl space-y-5">
+          <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
+
+          <DialogHeader className="pt-2 border-b border-border/60 pb-3">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-lg font-black flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                  <FileSpreadsheet className="h-5 w-5" />
+                </div>
+                إعداد وتشغيل مسير الرواتب المالي
+              </DialogTitle>
+              <Badge variant="outline" className="text-xs px-3 py-1 bg-primary/5 text-primary border-primary/20 font-bold">
+                محرك الأجور والامتثال المعتمد
+              </Badge>
+            </div>
+            <DialogDescription className="text-xs font-medium text-muted-foreground mt-1">
+              حدد دورة الرواتب، الفرع، فترة الاحتساب، وفلاتر الموظفين مع إمكانية التحديد المتعدد (Multi-select)
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3.5 py-2 text-xs">
-            <div className="space-y-1.5">
-              <label className="font-bold text-foreground" htmlFor="payroll-group">
-                مجموعة الرواتب *
-              </label>
-              <select
-                id="payroll-group"
-                value={runGroupId}
-                onChange={(event) => setRunGroupId(event.target.value)}
-                className="h-10 w-full rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-              >
-                {payrollGroups.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.nameAr}
-                  </option>
-                ))}
-              </select>
+          {/* Section 1: الدورة والفرع */}
+          <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-black text-foreground">
+              <Building className="h-4 w-4 text-primary" />
+              <span>1. محددات الدورة ومقر العمل (الفرع)</span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div className="space-y-1.5">
+                <label className="font-bold text-foreground" htmlFor="payroll-group">
+                  مجموعة الرواتب *
+                </label>
+                <select
+                  id="payroll-group"
+                  value={runGroupId}
+                  onChange={(event) => setRunGroupId(event.target.value)}
+                  className="h-10 w-full rounded-xl border border-border/80 bg-card px-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
+                >
+                  {payrollGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.nameAr}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-foreground" htmlFor="payroll-branch">
+                  الفرع / مقر العمل *
+                </label>
+                <select
+                  id="payroll-branch"
+                  value={runBranchId}
+                  onChange={(event) => setRunBranchId(event.target.value)}
+                  className="h-10 w-full rounded-xl border border-border/80 bg-card px-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
+                >
+                  <option value="all">🏢 جميع الفروع والمقرات (الكل)</option>
+                  {workLocations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      📍 {loc.nameAr} {loc.code ? `(${loc.code})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="space-y-1.5">
                 <label className="font-bold text-foreground" htmlFor="payroll-month">
-                  الشهر *
+                  الشهر المستحق *
                 </label>
                 <select
                   id="payroll-month"
                   value={runMonth}
                   onChange={(event) => setRunMonth(Number(event.target.value))}
-                  className="h-10 w-full rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="h-10 w-full rounded-xl border border-border/80 bg-card px-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
                 >
-                  {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
-                    <option key={month} value={month}>
-                      {month}
+                  {[
+                    { m: 1, name: "يناير (01)" },
+                    { m: 2, name: "فبراير (02)" },
+                    { m: 3, name: "مارس (03)" },
+                    { m: 4, name: "أبريل (04)" },
+                    { m: 5, name: "مايو (05)" },
+                    { m: 6, name: "يونيو (06)" },
+                    { m: 7, name: "يوليو (07)" },
+                    { m: 8, name: "أغسطس (08)" },
+                    { m: 9, name: "سبتمبر (09)" },
+                    { m: 10, name: "أكتوبر (10)" },
+                    { m: 11, name: "نوفمبر (11)" },
+                    { m: 12, name: "ديسمبر (12)" },
+                  ].map(({ m, name }) => (
+                    <option key={m} value={m}>
+                      {name}
                     </option>
                   ))}
                 </select>
               </div>
+
               <div className="space-y-1.5">
                 <label className="font-bold text-foreground" htmlFor="payroll-year">
-                  السنة *
+                  السنة المالية *
                 </label>
                 <select
                   id="payroll-year"
                   value={runYear}
                   onChange={(event) => setRunYear(Number(event.target.value))}
-                  className="h-10 w-full rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="h-10 w-full rounded-xl border border-border/80 bg-card px-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
                 >
                   {[today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1].map(
                     (year) => (
@@ -1475,14 +1683,408 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
             </div>
           </div>
 
-          <DialogFooter className="mt-3">
+          {/* Section 2: فترة الاحتساب والتخصيص */}
+          <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 font-black text-foreground">
+                <Calendar className="h-4 w-4 text-primary" />
+                <span>2. فترة ونطاق الاحتساب (مرونة التاريخ والأيام)</span>
+              </div>
+              <span className="text-[11px] text-muted-foreground font-medium">
+                احتساب تناسبي تلقائي وفق نظام العمل
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <button
+                type="button"
+                onClick={() => setRunPeriodMode("full_month")}
+                className={`p-3 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 cursor-pointer ${
+                  runPeriodMode === "full_month"
+                    ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30"
+                    : "border-border/70 bg-card hover:border-border"
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="font-black text-foreground">كامل الشهر التعاقدي</span>
+                  <div className={`h-4 w-4 rounded-full border flex items-center justify-center ${runPeriodMode === "full_month" ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
+                    {runPeriodMode === "full_month" && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  30 يوماً كاملة (المعيار النظامي الثابت لحساب الأجور الشهرية)
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRunPeriodMode("custom_end_date");
+                  if (!runCustomEndDate) {
+                    setRunCustomEndDate(`${runYear}-${String(runMonth).padStart(2, "0")}-20`);
+                  }
+                }}
+                className={`p-3 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 cursor-pointer ${
+                  runPeriodMode === "custom_end_date"
+                    ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30"
+                    : "border-border/70 bg-card hover:border-border"
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="font-black text-foreground">تاريخ نهاية مخصص</span>
+                  <div className={`h-4 w-4 rounded-full border flex items-center justify-center ${runPeriodMode === "custom_end_date" ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
+                    {runPeriodMode === "custom_end_date" && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  احتساب حتى يوم محدد بالشهر (صرف مبكر أو مسير مجتزأ)
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRunPeriodMode("custom_days")}
+                className={`p-3 rounded-2xl border text-right transition-all flex flex-col justify-between gap-2 cursor-pointer ${
+                  runPeriodMode === "custom_days"
+                    ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30"
+                    : "border-border/70 bg-card hover:border-border"
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="font-black text-foreground">عدد أيام محدد</span>
+                  <div className={`h-4 w-4 rounded-full border flex items-center justify-center ${runPeriodMode === "custom_days" ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
+                    {runPeriodMode === "custom_days" && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  تحديد عدد الأيام بدقة (مثل 15 يوماً لنصف شهر أو فترة خاصة)
+                </p>
+              </button>
+            </div>
+
+            {/* Sub-inputs for custom period */}
+            {runPeriodMode === "custom_end_date" && (
+              <div className="p-3 rounded-xl bg-card border border-primary/20 space-y-1.5 animate-in fade-in-50 duration-200">
+                <label className="text-xs font-bold text-foreground flex items-center gap-1.5" htmlFor="run-custom-end-date">
+                  <Clock className="h-3.5 w-3.5 text-primary" />
+                  تاريخ نهاية فترة الاحتساب *
+                </label>
+                <input
+                  id="run-custom-end-date"
+                  type="date"
+                  value={runCustomEndDate}
+                  onChange={(e) => setRunCustomEndDate(e.target.value)}
+                  className="h-10 w-full sm:w-64 rounded-xl border border-border/80 bg-background px-3 font-mono font-bold text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  سيتم احتساب استحقاقات الموظفين من بداية الشهر وحتى هذا التاريخ مع تطبيق التناسب النظامي.
+                </p>
+              </div>
+            )}
+
+            {runPeriodMode === "custom_days" && (
+              <div className="p-3 rounded-xl bg-card border border-primary/20 space-y-1.5 animate-in fade-in-50 duration-200">
+                <label className="text-xs font-bold text-foreground flex items-center gap-1.5" htmlFor="run-custom-days-input">
+                  <Clock className="h-3.5 w-3.5 text-primary" />
+                  عدد الأيام المستحقة للاحتساب (1 إلى 31) *
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="run-custom-days-input"
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={runCustomDays}
+                    onChange={(e) => setRunCustomDays(Math.max(1, Math.min(31, Number(e.target.value) || 1)))}
+                    className="h-10 w-32 rounded-xl border border-border/80 bg-background px-3 font-mono font-bold text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs text-center"
+                  />
+                  <span className="text-xs font-bold text-foreground">يوماً</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  سيتم احتساب الأجر بنسبة ({runCustomDays} / 30) من الراتب الشهري التعاقدي.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Section 3: فلاتر تصفية الموظفين */}
+          <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 font-black text-foreground">
+                <SlidersHorizontal className="h-4 w-4 text-primary" />
+                <span>3. فلاتر التصفية والبحث السريع للموظفين</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div className="space-y-1.5">
+                <label className="font-bold text-foreground" htmlFor="filter-run-dept">
+                  الإدارة / القسم
+                </label>
+                <select
+                  id="filter-run-dept"
+                  value={runDeptFilter}
+                  onChange={(e) => setRunDeptFilter(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-border/80 bg-card px-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
+                >
+                  <option value="all">جميع الإدارات والأقسام (الكل)</option>
+                  {orgUnits.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.nameAr}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-foreground" htmlFor="filter-run-cat">
+                  الفئة الوظيفية / الدرجة
+                </label>
+                <select
+                  id="filter-run-cat"
+                  value={runCategoryFilter}
+                  onChange={(e) => setRunCategoryFilter(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-border/80 bg-card px-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
+                >
+                  <option value="all">جميع الفئات الوظيفية (الكل)</option>
+                  {availableJobCategories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-foreground" htmlFor="filter-run-search">
+                  بحث بالاسم أو الرقم الوظيفي
+                </label>
+                <div className="relative">
+                  <Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <input
+                    id="filter-run-search"
+                    type="text"
+                    value={runEmpSearch}
+                    onChange={(e) => setRunEmpSearch(e.target.value)}
+                    placeholder="ابحث بالاسم أو الرقم..."
+                    className="h-10 w-full rounded-xl border border-border/80 bg-card pr-9 pl-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
+                  />
+                  {runEmpSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setRunEmpSearch("")}
+                      className="absolute left-2.5 top-2.5 text-xs text-muted-foreground hover:text-foreground p-0.5"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4: جدول الموظفين المشمولين وتحديد المالت سلكت */}
+          <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" />
+                <span className="text-xs font-black text-foreground">
+                  4. اختيار الموظفين المشمولين في المسير (Multi-Select)
+                </span>
+                <Badge variant="secondary" className="text-[11px] font-bold px-2 py-0.5">
+                  تم تحديد {selectedRunStats.count} من أصل {eligibleRunEmployees.length}
+                </Badge>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleToggleSelectAll}
+                  className="h-7 text-[11px] font-bold rounded-lg px-2.5 gap-1 border-border/70 cursor-pointer"
+                >
+                  {eligibleRunEmployees.length > 0 && eligibleRunEmployees.every((e) => selectedRunEmpIds.includes(e.id)) ? (
+                    <>
+                      <Square className="h-3 w-3 text-muted-foreground" />
+                      إلغاء تحديد المعروض
+                    </>
+                  ) : (
+                    <>
+                      <CheckSquare className="h-3 w-3 text-primary" />
+                      تحديد كل المعروض ({eligibleRunEmployees.length})
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleSelectOnlySaudis}
+                  className="h-7 text-[11px] font-bold rounded-lg px-2 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
+                >
+                  🇸🇦 سعوديون فقط
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleSelectOnlyExpats}
+                  className="h-7 text-[11px] font-bold rounded-lg px-2 text-blue-700 dark:text-blue-400 hover:bg-blue-500/10 cursor-pointer"
+                >
+                  🌐 مقيمون فقط
+                </Button>
+              </div>
+            </div>
+
+            {/* Employees Table container */}
+            <div className="border border-border/70 rounded-xl overflow-hidden max-h-64 overflow-y-auto">
+              <table className="w-full text-xs text-right border-collapse">
+                <thead className="bg-muted/60 sticky top-0 z-10 border-b border-border/80 text-muted-foreground font-bold text-[11px]">
+                  <tr>
+                    <th className="p-2.5 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={
+                          eligibleRunEmployees.length > 0 &&
+                          eligibleRunEmployees.every((e) => selectedRunEmpIds.includes(e.id))
+                        }
+                        onChange={handleToggleSelectAll}
+                        className="rounded border-border h-4 w-4 text-primary focus:ring-primary cursor-pointer"
+                      />
+                    </th>
+                    <th className="p-2.5">الموظف</th>
+                    <th className="p-2.5">الإدارة / الوظيفة</th>
+                    <th className="p-2.5">الفرع / الموقع</th>
+                    <th className="p-2.5 text-left font-mono">الأساسي (ر.س)</th>
+                    <th className="p-2.5 text-left font-mono">الإجمالي (ر.س)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {eligibleRunEmployees.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center py-8 text-muted-foreground text-xs font-medium">
+                        لا يوجد موظفون مطابقون للفلاتر المحددة حالياً. جرّب تغيير الفرع أو القسم أو مسح حقل البحث.
+                      </td>
+                    </tr>
+                  ) : (
+                    eligibleRunEmployees.map((emp) => {
+                      const isSelected = selectedRunEmpIds.includes(emp.id);
+                      const isSaudi = emp.nationality === "SA" || emp.nationality === "سعودي";
+                      const branch = workLocations.find((l) => l.id === emp.workLocationId || l.id === (emp as any).locationId);
+                      const dept = orgUnits.find((u) => u.id === emp.departmentId);
+
+                      return (
+                        <tr
+                          key={emp.id}
+                          onClick={() => handleToggleEmployee(emp.id)}
+                          className={`cursor-pointer transition-colors ${
+                            isSelected
+                              ? "bg-primary/5 hover:bg-primary/10"
+                              : "hover:bg-muted/40 opacity-70"
+                          }`}
+                        >
+                          <td className="p-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleEmployee(emp.id)}
+                              className="rounded border-border h-4 w-4 text-primary focus:ring-primary cursor-pointer"
+                            />
+                          </td>
+                          <td className="p-2.5">
+                            <div className="font-bold text-foreground flex items-center gap-1.5">
+                              <span>{emp.fullName || `${emp.firstNameAr || ""} ${emp.lastNameAr || ""}`}</span>
+                              <Badge variant="outline" className={`text-[10px] px-1 py-0 font-bold ${isSaudi ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-blue-500/10 text-blue-600 border-blue-500/20"}`}>
+                                {isSaudi ? "سعودي" : "مقيم"}
+                              </Badge>
+                            </div>
+                            <span className="text-[10px] font-mono text-muted-foreground">
+                              {emp.employeeNo}
+                            </span>
+                          </td>
+                          <td className="p-2.5">
+                            <div className="font-medium text-foreground">{dept?.nameAr || emp.departmentName || "عام"}</div>
+                            <div className="text-[10px] text-muted-foreground">{emp.jobTitleAr || "موظف"}</div>
+                          </td>
+                          <td className="p-2.5">
+                            <span className="text-[11px] font-medium text-foreground">
+                              {branch ? branch.nameAr : "المقر الرئيسي"}
+                            </span>
+                          </td>
+                          <td className="p-2.5 text-left font-mono font-bold text-foreground">
+                            {(emp.basicSalary || 0).toLocaleString()}
+                          </td>
+                          <td className="p-2.5 text-left font-mono font-bold text-primary">
+                            {(emp.totalSalary || emp.basicSalary || 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Section 5: ملاحظات المسير وموجز الإحصاءات */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="md:col-span-2 space-y-1.5">
+              <label className="text-xs font-bold text-foreground" htmlFor="run-notes-field">
+                ملاحظات تشغيل المسير (اختياري)
+              </label>
+              <input
+                id="run-notes-field"
+                type="text"
+                value={runNotes}
+                onChange={(e) => setRunNotes(e.target.value)}
+                placeholder="مثال: مسير رواتب دوري مع دفعة إجازة / خاص بفرع الرياض..."
+                className="h-10 w-full rounded-xl border border-border/80 bg-muted/30 px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
+              />
+            </div>
+
+            {/* Instant mini statistics */}
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 flex flex-col justify-between">
+              <div className="text-[11px] text-muted-foreground font-bold">تقديرات المسير المحدد:</div>
+              <div className="flex items-center justify-between mt-1 text-xs">
+                <span className="font-bold text-foreground">إجمالي الرواتب:</span>
+                <span className="font-mono font-black text-primary">
+                  {selectedRunStats.totalGross.toLocaleString()} ر.س
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-0.5">
+                <span>الموظفون المشمولون:</span>
+                <span className="font-bold text-foreground">
+                  {selectedRunStats.count} موظف ({selectedRunStats.saudiCount}س / {selectedRunStats.expatCount}م)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border/60">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsRunModalOpen(false)}
+              disabled={isRunningPayroll}
+              className="rounded-full text-xs font-bold px-5 h-10 border-border/80 cursor-pointer w-full sm:w-auto"
+            >
+              إلغاء
+            </Button>
+
             <Button
               size="sm"
               onClick={handleRunNewPayroll}
-              disabled={payrollGroups.length === 0 || isRunningPayroll}
-              className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground px-6 h-10 shadow-xs cursor-pointer"
+              disabled={payrollGroups.length === 0 || isRunningPayroll || selectedRunStats.count === 0}
+              className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground px-7 h-10 shadow-md cursor-pointer w-full sm:w-auto"
             >
-              {isRunningPayroll ? "جاري الاحتساب..." : "بدء الاحتساب"}
+              {isRunningPayroll ? (
+                "جاري المعالجة والاحتساب..."
+              ) : (
+                `بدء تشغيل المسير المالي (${selectedRunStats.count} موظف)`
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

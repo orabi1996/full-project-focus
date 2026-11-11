@@ -213,6 +213,8 @@ export const EmployeesView: React.FC = () => {
     items: directoryEmployees,
     totalCount,
     isLoading: isDirectoryLoading,
+    isError: isDirectoryError,
+    isFetching: isDirectoryFetching,
     refetch: refetchDirectory,
   } = useEmployeeDirectory(directoryFilters);
 
@@ -725,6 +727,24 @@ export const EmployeesView: React.FC = () => {
   if (activeEmployeeModalId) {
     return (
       <EmployeeFullProfileView employeeId={activeEmployeeModalId} onBack={closeEmployeeProfile} />
+    );
+  }
+
+  if (isDirectoryLoading || isDirectoryError) {
+    return (
+      <section className="rounded-3xl border bg-card p-8 text-center" aria-busy={isDirectoryFetching}>
+        <h1 className="text-xl font-bold">{language === "ar" ? "دليل وملفات الموظفين" : "Employee directory"}</h1>
+        <p className="my-4 text-muted-foreground" role={isDirectoryError ? "alert" : "status"}>
+          {isDirectoryError
+            ? (language === "ar" ? "تعذر تحميل بيانات الموظفين. لا يمكن تحديد عدد الموظفين حاليًا." : "Employee data could not be loaded. The employee count is currently unavailable.")
+            : (language === "ar" ? "جارٍ تحميل بيانات الموظفين..." : "Loading employee data...")}
+        </p>
+        {isDirectoryError && (
+          <Button onClick={() => void refetchDirectory()} disabled={isDirectoryFetching}>
+            {language === "ar" ? "إعادة المحاولة" : "Try again"}
+          </Button>
+        )}
+      </section>
     );
   }
 
@@ -1423,7 +1443,7 @@ export const EmployeesView: React.FC = () => {
                         </div>
                         <p className="font-bold text-foreground text-sm">
                           {totalCount === 0
-                            ? "لم تتم إضافة موظفين بعد بشركة «الأندلس»"
+                            ? "لا توجد سجلات موظفين متاحة ضمن نطاق العرض الحالي"
                             : "لا توجد نتائج مطابقة لبحثك أو الفلاتر المحددة"}
                         </p>
                         {totalCount === 0 && canManage && (
@@ -1525,7 +1545,7 @@ export const EmployeesView: React.FC = () => {
                 </div>
                 <p className="font-bold text-foreground text-sm">
                   {totalCount === 0
-                    ? "لم تتم إضافة موظفين بعد بشركة «الأندلس»"
+                    ? "لا توجد سجلات موظفين متاحة ضمن نطاق العرض الحالي"
                     : "لا توجد نتائج مطابقة لبحثك أو الفلاتر المحددة"}
                 </p>
                 {totalCount === 0 && canManage && (

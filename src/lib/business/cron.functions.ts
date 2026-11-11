@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertRole, round2 } from "./guards";
+import { assertRole } from "./guards";
 import { recomputeDay } from "./attendance.functions";
 
 export interface CronAccrualResult {
@@ -34,192 +34,43 @@ export interface CronRunReport {
   queueWorker?: CronWorkerBatchResult;
 }
 
-/**
- * Executes automated monthly leave accrual for a given company or all companies.
- * Idempotent: checks leave_accrual_runs to ensure no double-accrual in the same period.
- */
+/** Each company accrual is committed atomically by the database RPC. */
 export async function executeAutomatedMonthlyLeaveAccrual(
   supabase: any,
-  options?: {
-    companyId?: string;
-    year?: number;
-    month?: number;
-    actorUserId?: string | null;
-  },
+  options?: { companyId?: string; year?: number; month?: number; actorUserId?: string | null },
 ): Promise<CronAccrualResult[]> {
-  const now = new Date();
-  const year = options?.year ?? now.getFullYear();
-  const month = options?.month ?? (now.getMonth() + 1); // 1-12
-
-  // 1. Resolve companies
-  let companiesQuery = supabase.from("companies").select("id, name_ar");
-  if (options?.companyId) {
-    companiesQuery = companiesQuery.eq("id", options.companyId);
+  if (options?.year !== undefined && (!Number.isInteger(options.year) || options.year < 1 || options.year > 9999)) {
+    throw new Error("سنة غير صالحة");
   }
-  const { data: companies, error: compErr } = await companiesQuery;
-  if (compErr) throw new Error(`تعذر استرجاع المنشآت: ${compErr.message}`);
-
+  if (options?.month !== undefined && (!Number.isInteger(options.month) || options.month < 1 || options.month > 12)) {
+    throw new Error("شهر غير صالح");
+  }
+  let query = supabase.from("companies").select("id");
+  if (options?.companyId) query = query.eq("id", options.companyId);
+  const { data: companies, error } = await query;
+  if (error) throw new Error(`تعذر استرجاع المنشآت: ${error.message}`);
+  if (options?.companyId && !companies?.length) throw new Error("المنشأة غير موجودة أو غير متاحة");
   const results: CronAccrualResult[] = [];
-
   for (const company of companies ?? []) {
-    // 2. Resolve eligible leave types (accrual_method = 'monthly_accrual' or active annual leaves)
-    const { data: leaveTypes, error: ltErr } = await supabase
-      .from("leave_types")
-      .select("id, code, name_ar, annual_days, accrual_method")
-      .eq("company_id", company.id)
-      .eq("status", "active");
-
-    if (ltErr || !leaveTypes?.length) {
-      results.push({
-        ok: true,
-        companyId: company.id,
-        year,
-        month,
-        alreadyProcessed: false,
-        employeesProcessed: 0,
-        totalDaysAccrued: 0,
-      });
-      continue;
+    // Null dates are resolved using the company's configured timezone, never the worker's clock.
+    // Attribution comes from auth.uid() inside the RPC, not a caller-provided actor ID.
+    const { data, error: rpcError } = await supabase.rpc("run_leave_accrual", {
+      p_company_id: company.id,
+      p_year: options?.year ?? null,
+      p_period_month: options?.month ?? null,
+    });
+    if (rpcError) throw new Error(`تعذر تنفيذ الاستحقاق: ${rpcError.message}`);
+    if (data?.success !== true || !Number.isInteger(data.total_processed) || data.total_processed < 0 ||
+        typeof data.total_days_credited !== "number" || !Number.isFinite(data.total_days_credited) || data.total_days_credited < 0 ||
+        !Number.isInteger(data.year) || data.year < 1 || data.year > 9999 ||
+        !Number.isInteger(data.period_month) || data.period_month < 1 || data.period_month > 12 ||
+        typeof data.already_processed !== "boolean") {
+      throw new Error("تعذر تأكيد نتيجة الاستحقاق من قاعدة البيانات");
     }
-
-    const eligibleTypes = leaveTypes.filter(
-      (lt: any) => lt.accrual_method === "monthly_accrual" || lt.code === "annual" || lt.code === "ANNUAL",
-    );
-
-    let companyEmployeesProcessed = 0;
-    let companyDaysAccrued = 0;
-
-    for (const lt of eligibleTypes) {
-      // 3. Idempotency Check in leave_accrual_runs
-      const { data: existingRun } = await supabase
-        .from("leave_accrual_runs")
-        .select("id, employees_processed, total_days_accrued")
-        .eq("company_id", company.id)
-        .eq("leave_type_id", lt.id)
-        .eq("period_year", year)
-        .eq("period_month", month)
-        .maybeSingle();
-
-      if (existingRun) {
-        results.push({
-          ok: true,
-          companyId: company.id,
-          year,
-          month,
-          alreadyProcessed: true,
-          employeesProcessed: existingRun.employees_processed,
-          totalDaysAccrued: Number(existingRun.total_days_accrued),
-        });
-        continue;
-      }
-
-      // 4. Query active employees for this company
-      const { data: employees } = await supabase
-        .from("employees")
-        .select("id, user_id, status")
-        .eq("company_id", company.id)
-        .eq("status", "active");
-
-      let runProcessed = 0;
-      let runDaysAccrued = 0;
-
-      for (const emp of employees ?? []) {
-        const { data: balance } = await supabase
-          .from("leave_balances")
-          .select("id, annual_entitlement, accrued_days, used_days, reserved_days, carried_over_days")
-          .eq("employee_id", emp.id)
-          .eq("leave_type_id", lt.id)
-          .maybeSingle();
-
-        if (!balance) continue;
-
-        const entitlement = Number(balance.annual_entitlement || lt.annual_days || 30);
-        if (entitlement <= 0) continue;
-
-        const carried = Number(balance.carried_over_days ?? 0);
-        const monthlyAccrual = round2(entitlement / 12);
-        const currentAccrued = Number(balance.accrued_days ?? 0);
-        const maxAccrued = entitlement + carried;
-        const newAccrued = Math.min(maxAccrued, round2(currentAccrued + monthlyAccrual));
-        const effectiveAdded = round2(newAccrued - currentAccrued);
-
-        if (effectiveAdded > 0) {
-          const used = Number(balance.used_days ?? 0);
-          const reserved = Number(balance.reserved_days ?? 0);
-          const available = Math.max(0, round2(newAccrued - used - reserved));
-
-          await supabase
-            .from("leave_balances")
-            .update({
-              accrued_days: newAccrued,
-              balance: available,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", balance.id);
-
-          // Immutable ledger transaction
-          await supabase.from("leave_balance_transactions").insert({
-            company_id: company.id,
-            employee_id: emp.id,
-            leave_type_id: lt.id,
-            year,
-            transaction_type: "accrual",
-            days: effectiveAdded,
-            reason: `الاستحقاق الشهري الآلي لشهر ${month}/${year}`,
-            created_by: options?.actorUserId || null,
-          });
-
-          runDaysAccrued += effectiveAdded;
-        }
-
-        runProcessed += 1;
-      }
-
-      // 5. Record run in leave_accrual_runs
-      await supabase.from("leave_accrual_runs").insert({
-        company_id: company.id,
-        leave_type_id: lt.id,
-        period_year: year,
-        period_month: month,
-        employees_processed: runProcessed,
-        total_days_accrued: round2(runDaysAccrued),
-        executed_by: options?.actorUserId || null,
-        executed_at: new Date().toISOString(),
-      });
-
-      companyEmployeesProcessed += runProcessed;
-      companyDaysAccrued += runDaysAccrued;
-
-      results.push({
-        ok: true,
-        companyId: company.id,
-        year,
-        month,
-        alreadyProcessed: false,
-        employeesProcessed: runProcessed,
-        totalDaysAccrued: round2(runDaysAccrued),
-      });
-    }
-
-    // 6. Log Enterprise Audit Event
-    try {
-      await supabase.rpc("log_enterprise_audit_event", {
-        p_company_id: company.id,
-        p_actor_id: options?.actorUserId || "00000000-0000-0000-0000-000000000000",
-        p_actor_name: "النظام الآلي (Cron Engine)",
-        p_actor_role: "system_cron",
-        p_action: "execute_monthly_leave_accrual",
-        p_entity_type: "leave_accrual_run",
-        p_entity_id: company.id,
-        p_entity_name: `استحقاق شهر ${month}/${year}`,
-        p_severity: "info",
-        p_changes_summary: `تم معالجة الاستحقاق لـ ${companyEmployeesProcessed} موظفاً بإجمالي ${companyDaysAccrued} يوماً`,
-      });
-    } catch {
-      // Non-blocking audit failure
-    }
+    results.push({ ok: true, companyId: company.id, year: data.year, month: data.period_month,
+      alreadyProcessed: data.already_processed, employeesProcessed: data.total_processed,
+      totalDaysAccrued: data.total_days_credited });
   }
-
   return results;
 }
 
@@ -281,7 +132,7 @@ export async function executeAutomatedDailyAttendanceRollup(
   }
 
   return {
-    ok: true,
+    ok: errorsCount === 0,
     date: targetDate,
     employeesProcessed: processedCount,
     errorsCount,
@@ -314,7 +165,8 @@ export async function processQueuedBackgroundJobs(
   }
 
   const { data: jobs, error } = await query;
-  if (error || !jobs?.length) {
+  if (error) throw new Error(`تعذر استرجاع المهام: ${error.message}`);
+  if (!jobs?.length) {
     return { ok: true, jobsProcessed: 0, completedCount: 0, failedCount: 0, deadLetterCount: 0 };
   }
 
@@ -322,8 +174,9 @@ export async function processQueuedBackgroundJobs(
   let failedCount = 0;
   let deadLetterCount = 0;
 
+  let jobsProcessed = 0;
   for (const job of jobs) {
-    await supabase
+    const { data: claimed, error: claimError } = await supabase
       .from("background_jobs")
       .update({
         status: "running",
@@ -331,7 +184,14 @@ export async function processQueuedBackgroundJobs(
         attempts: Number(job.attempts || 0) + 1,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", job.id);
+      .eq("id", job.id)
+      .eq("status", "queued")
+      .eq("attempts", job.attempts)
+      .select("id")
+      .maybeSingle();
+    if (claimError) throw new Error(`تعذر حجز المهمة: ${claimError.message}`);
+    if (!claimed) continue;
+    jobsProcessed += 1;
 
     try {
       if (job.job_type === "monthly_leave_accrual") {
@@ -341,22 +201,30 @@ export async function processQueuedBackgroundJobs(
           month: job.payload?.month,
         });
       } else if (job.job_type === "attendance_rollup") {
-        await executeAutomatedDailyAttendanceRollup(supabase, {
+        const attendance = await executeAutomatedDailyAttendanceRollup(supabase, {
           companyId: job.company_id,
           date: job.payload?.date,
         });
+        if (!attendance.ok) throw new Error("تعذر إكمال ترحيل حضور بعض الموظفين");
       } else if (job.job_type === "evaluate_task_slas") {
-        await supabase.rpc("evaluate_task_slas", { p_company_id: job.company_id });
+        const { error: slaError } = await supabase.rpc("evaluate_task_slas", { p_company_id: job.company_id });
+        if (slaError) throw new Error(slaError.message);
+      } else {
+        throw new Error(`Unsupported background job type: ${job.job_type}`);
       }
 
-      await supabase
+      const { data: completed, error: completeError } = await supabase
         .from("background_jobs")
         .update({
           status: "completed",
           completed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq("id", job.id);
+        .eq("id", job.id)
+        .eq("status", "running")
+        .select("id")
+        .single();
+      if (completeError || !completed) throw new Error(completeError?.message || "تعذر تأكيد اكتمال المهمة");
 
       completedCount += 1;
     } catch (err: any) {
@@ -365,7 +233,7 @@ export async function processQueuedBackgroundJobs(
       const maxAttempts = Number(job.max_attempts || 5);
 
       if (attempts >= maxAttempts) {
-        await supabase
+        const { error: failureError } = await supabase
           .from("background_jobs")
           .update({
             status: "dead_letter",
@@ -373,9 +241,13 @@ export async function processQueuedBackgroundJobs(
             error_log: `${job.error_log || ""}\n[Final Failure]: ${errorMessage}`,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", job.id);
+          .eq("id", job.id)
+          .eq("status", "running")
+          .select("id")
+          .single();
 
-        await supabase.from("dead_letter_jobs").insert({
+        if (failureError) throw new Error(`تعذر تسجيل فشل المهمة: ${failureError.message}`);
+        const { error: deadLetterError } = await supabase.from("dead_letter_jobs").insert({
           job_id: job.id,
           company_id: job.company_id,
           job_type: job.job_type,
@@ -384,9 +256,10 @@ export async function processQueuedBackgroundJobs(
           attempts_made: attempts,
         });
 
+        if (deadLetterError) throw new Error(`تعذر تسجيل المهمة المتعذرة: ${deadLetterError.message}`);
         deadLetterCount += 1;
       } else {
-        await supabase
+        const { error: failureError } = await supabase
           .from("background_jobs")
           .update({
             status: "failed",
@@ -394,16 +267,20 @@ export async function processQueuedBackgroundJobs(
             next_retry_at: new Date(Date.now() + 60000 * Math.pow(2, attempts)).toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq("id", job.id);
+          .eq("id", job.id)
+          .eq("status", "running")
+          .select("id")
+          .single();
 
+        if (failureError) throw new Error(`تعذر تسجيل فشل المهمة: ${failureError.message}`);
         failedCount += 1;
       }
     }
   }
 
   return {
-    ok: true,
-    jobsProcessed: jobs.length,
+    ok: failedCount === 0 && deadLetterCount === 0,
+    jobsProcessed,
     completedCount,
     failedCount,
     deadLetterCount,
@@ -453,7 +330,8 @@ export const runScheduledCronTasksServer = createServerFn({ method: "POST" })
     }
 
     return {
-      ok: true,
+      ok: (report.leaveAccrual?.every((result) => result.ok) ?? true) &&
+        (report.attendanceRollup?.ok ?? true) && (report.queueWorker?.ok ?? true),
       executedAt: new Date().toISOString(),
       report,
     };

@@ -33,6 +33,8 @@ export const MODULE_ROUTE_MAP: Record<string, string> = {
   "ai-copilot": "/ai-copilot",
   ai_copilot: "/ai-copilot",
   ai: "/ai-copilot",
+  "data-update": "/data-update",
+  data_update: "/data-update",
 };
 
 export const LEGACY_HASH_MAP: Record<string, string> = {

@@ -256,6 +256,18 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       ],
     },
     {
+      groupTitle: language === "ar" ? "تحديث البيانات" : "Data Update",
+      items: [
+        {
+          id: "data-update",
+          label: language === "ar" ? "استيراد الموظفين من إكسل" : "Import Employees (Excel)",
+          iconName: "upload_file",
+          iconSource: "material",
+          accentColor: "#059669",
+        },
+      ],
+    },
+    {
       groupTitle: language === "ar" ? "الخدمة الذاتية" : "Self-Service",
       items: [
         {

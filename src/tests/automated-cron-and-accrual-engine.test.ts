@@ -10,302 +10,29 @@ describe("Automated Cron & Background Worker Engine", () => {
     vi.clearAllMocks();
   });
 
-  describe("1. Monthly Leave Accrual Automation & Idempotency", () => {
-    it("accrues 1/12th of annual entitlement and logs immutable ledger transaction", async () => {
-      const companies = [{ id: "comp-1", name_ar: "شركة التقنية" }];
-      const leaveTypes = [
-        { id: "lt-annual", code: "annual", name_ar: "إجازة سنوية", annual_days: 30, accrual_method: "monthly_accrual" },
-      ];
-      const employees = [{ id: "emp-101", user_id: "usr-101", status: "active" }];
-      const balance = {
-        id: "bal-101",
-        annual_entitlement: 30,
-        accrued_days: 5.0,
-        used_days: 1.0,
-        reserved_days: 0.0,
-        carried_over_days: 5.0,
-      };
-
-      const insertedTransactions: any[] = [];
-      const insertedRuns: any[] = [];
-      const updatedBalances: any[] = [];
-
-      const mockSupabase = {
-        from: vi.fn((table: string) => {
-          if (table === "companies") {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockResolvedValue({ data: companies, error: null }),
-                data: companies,
-                error: null,
-              }),
-            };
-          }
-          if (table === "leave_types") {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockResolvedValue({ data: leaveTypes, error: null }),
-                }),
-              }),
-            };
-          }
-          if (table === "leave_accrual_runs") {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockReturnValue({
-                    eq: vi.fn().mockReturnValue({
-                      eq: vi.fn().mockReturnValue({
-                        maybeSingle: vi.fn().mockResolvedValue({ data: null }), // No previous run
-                      }),
-                    }),
-                  }),
-                }),
-              }),
-              insert: vi.fn().mockImplementation((record) => {
-                insertedRuns.push(record);
-                return Promise.resolve({ error: null });
-              }),
-            };
-          }
-          if (table === "employees") {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockResolvedValue({ data: employees, error: null }),
-                }),
-              }),
-            };
-          }
-          if (table === "leave_balances") {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockReturnValue({
-                    maybeSingle: vi.fn().mockResolvedValue({ data: balance }),
-                  }),
-                }),
-              }),
-              update: vi.fn().mockImplementation((updates) => {
-                updatedBalances.push(updates);
-                return {
-                  eq: vi.fn().mockResolvedValue({ error: null }),
-                };
-              }),
-            };
-          }
-          if (table === "leave_balance_transactions") {
-            return {
-              insert: vi.fn().mockImplementation((record) => {
-                insertedTransactions.push(record);
-                return Promise.resolve({ error: null });
-              }),
-            };
-          }
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ data: [], error: null }),
-            }),
-          };
-        }),
-        rpc: vi.fn().mockResolvedValue({ data: { ok: true }, error: null }),
-      };
-
-      const result = await executeAutomatedMonthlyLeaveAccrual(mockSupabase as any, {
-        companyId: "comp-1",
-        year: 2026,
-        month: 10,
-        actorUserId: "sys-cron",
-      });
-
-      expect(result).toHaveLength(1);
-      expect(result[0].ok).toBe(true);
-      expect(result[0].alreadyProcessed).toBe(false);
-      expect(result[0].employeesProcessed).toBe(1);
-      // 30 / 12 = 2.5
-      expect(result[0].totalDaysAccrued).toBe(2.5);
-
-      // Verify balance update: accrued 5.0 + 2.5 = 7.5, balance = 7.5 - 1 - 0 = 6.5
-      expect(updatedBalances).toHaveLength(1);
-      expect(updatedBalances[0].accrued_days).toBe(7.5);
-      expect(updatedBalances[0].balance).toBe(6.5);
-
-      // Verify immutable ledger transaction
-      expect(insertedTransactions).toHaveLength(1);
-      expect(insertedTransactions[0].transaction_type).toBe("accrual");
-      expect(insertedTransactions[0].days).toBe(2.5);
-      expect(insertedTransactions[0].employee_id).toBe("emp-101");
-
-      // Verify idempotency record in leave_accrual_runs
-      expect(insertedRuns).toHaveLength(1);
-      expect(insertedRuns[0].period_year).toBe(2026);
-      expect(insertedRuns[0].period_month).toBe(10);
-      expect(insertedRuns[0].employees_processed).toBe(1);
-      expect(insertedRuns[0].total_days_accrued).toBe(2.5);
+  describe("1. Database-owned monthly accrual", () => {
+    const result = { success: true, year: 2026, period_month: 10, total_processed: 1, total_days_credited: 2.5, already_processed: false };
+    function db(data = result) {
+      return { from: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ data: [{ id: "comp-1" }], error: null }) }) }), rpc: vi.fn().mockResolvedValue({ data, error: null }) };
+    }
+    it("passes the exact company and period to the atomic RPC", async () => {
+      const client = db();
+      const rows = await executeAutomatedMonthlyLeaveAccrual(client, { companyId: "comp-1", year: 2026, month: 10 });
+      expect(rows[0]).toMatchObject({ employeesProcessed: 1, totalDaysAccrued: 2.5, alreadyProcessed: false });
+      expect(client.rpc).toHaveBeenCalledExactlyOnceWith("run_leave_accrual", { p_company_id: "comp-1", p_year: 2026, p_period_month: 10 });
+      expect(client.from).toHaveBeenCalledExactlyOnceWith("companies");
     });
-
-    it("prevents double-accrual when run already executed for the same month", async () => {
-      const companies = [{ id: "comp-1", name_ar: "شركة التقنية" }];
-      const leaveTypes = [
-        { id: "lt-annual", code: "annual", name_ar: "إجازة سنوية", annual_days: 30, accrual_method: "monthly_accrual" },
-      ];
-      const existingRun = {
-        id: "run-existing",
-        employees_processed: 5,
-        total_days_accrued: 12.5,
-      };
-
-      const mockSupabase = {
-        from: vi.fn((table: string) => {
-          if (table === "companies") {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockResolvedValue({ data: companies, error: null }),
-              }),
-            };
-          }
-          if (table === "leave_types") {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockResolvedValue({ data: leaveTypes, error: null }),
-                }),
-              }),
-            };
-          }
-          if (table === "leave_accrual_runs") {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockReturnValue({
-                    eq: vi.fn().mockReturnValue({
-                      eq: vi.fn().mockReturnValue({
-                        maybeSingle: vi.fn().mockResolvedValue({ data: existingRun }),
-                      }),
-                    }),
-                  }),
-                }),
-              }),
-            };
-          }
-          return {};
-        }),
-        rpc: vi.fn().mockResolvedValue({ data: { ok: true }, error: null }),
-      };
-
-      const result = await executeAutomatedMonthlyLeaveAccrual(mockSupabase as any, {
-        companyId: "comp-1",
-        year: 2026,
-        month: 10,
-      });
-
-      expect(result).toHaveLength(1);
-      expect(result[0].alreadyProcessed).toBe(true);
-      expect(result[0].employeesProcessed).toBe(5);
-      expect(result[0].totalDaysAccrued).toBe(12.5);
+    it("preserves a replay result without reporting prior credits as new work", async () => {
+      const rows = await executeAutomatedMonthlyLeaveAccrual(db({ ...result, total_processed: 0, total_days_credited: 0, already_processed: true }), { companyId: "comp-1" });
+      expect(rows[0]).toMatchObject({ employeesProcessed: 0, totalDaysAccrued: 0, alreadyProcessed: true });
     });
-
-    it("enforces statutory cap at entitlement + carried_over_days", async () => {
-      const companies = [{ id: "comp-1", name_ar: "شركة التقنية" }];
-      const leaveTypes = [
-        { id: "lt-annual", code: "annual", name_ar: "إجازة سنوية", annual_days: 30, accrual_method: "monthly_accrual" },
-      ];
-      const employees = [{ id: "emp-capped", user_id: "usr-c", status: "active" }];
-      // Employee already near cap: entitlement (30) + carried (5) = 35 max. Currently at 34.
-      const balance = {
-        id: "bal-capped",
-        annual_entitlement: 30,
-        accrued_days: 34.0,
-        used_days: 10.0,
-        reserved_days: 0.0,
-        carried_over_days: 5.0,
-      };
-
-      const updatedBalances: any[] = [];
-      const insertedTransactions: any[] = [];
-
-      const mockSupabase = {
-        from: vi.fn((table: string) => {
-          if (table === "companies") {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockResolvedValue({ data: companies, error: null }),
-              }),
-            };
-          }
-          if (table === "leave_types") {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockResolvedValue({ data: leaveTypes, error: null }),
-                }),
-              }),
-            };
-          }
-          if (table === "leave_accrual_runs") {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockReturnValue({
-                    eq: vi.fn().mockReturnValue({
-                      eq: vi.fn().mockReturnValue({
-                        maybeSingle: vi.fn().mockResolvedValue({ data: null }),
-                      }),
-                    }),
-                  }),
-                }),
-              }),
-              insert: vi.fn().mockResolvedValue({ error: null }),
-            };
-          }
-          if (table === "employees") {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockResolvedValue({ data: employees, error: null }),
-                }),
-              }),
-            };
-          }
-          if (table === "leave_balances") {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockReturnValue({
-                    maybeSingle: vi.fn().mockResolvedValue({ data: balance }),
-                  }),
-                }),
-              }),
-              update: vi.fn().mockImplementation((updates) => {
-                updatedBalances.push(updates);
-                return { eq: vi.fn().mockResolvedValue({ error: null }) };
-              }),
-            };
-          }
-          if (table === "leave_balance_transactions") {
-            return {
-              insert: vi.fn().mockImplementation((record) => {
-                insertedTransactions.push(record);
-                return Promise.resolve({ error: null });
-              }),
-            };
-          }
-          return {};
-        }),
-        rpc: vi.fn().mockResolvedValue({ data: { ok: true }, error: null }),
-      };
-
-      const result = await executeAutomatedMonthlyLeaveAccrual(mockSupabase as any, {
-        companyId: "comp-1",
-        year: 2026,
-        month: 11,
-      });
-
-      // Max is 35. 34 + 2.5 would be 36.5, so capped at 35.0 (+1.0 added)
-      expect(result[0].totalDaysAccrued).toBe(1.0);
-      expect(updatedBalances[0].accrued_days).toBe(35.0);
-      expect(insertedTransactions[0].days).toBe(1.0);
+    it("lets the database resolve omitted dates from company timezone", async () => {
+      const client = db();
+      await executeAutomatedMonthlyLeaveAccrual(client, { companyId: "comp-1" });
+      expect(client.rpc).toHaveBeenCalledWith("run_leave_accrual", { p_company_id: "comp-1", p_year: null, p_period_month: null });
+    });
+    it("rejects unconfirmed RPC responses", async () => {
+      await expect(executeAutomatedMonthlyLeaveAccrual(db({ ...result, success: false }), { companyId: "comp-1" })).rejects.toThrow("تعذر تأكيد");
     });
   });
 
@@ -410,7 +137,12 @@ describe("Automated Cron & Background Worker Engine", () => {
               }),
               update: vi.fn().mockImplementation((updates) => {
                 updatedJobStatuses.push(updates);
-                return { eq: vi.fn().mockResolvedValue({ error: null }) };
+                return {
+                  eq: vi.fn().mockReturnThis(),
+                  select: vi.fn().mockReturnThis(),
+                  maybeSingle: vi.fn().mockResolvedValue({ data: { id: "claimed-job" }, error: null }),
+                  single: vi.fn().mockResolvedValue({ data: { id: "claimed-job" }, error: null }),
+                };
               }),
             };
           }
@@ -469,7 +201,12 @@ describe("Automated Cron & Background Worker Engine", () => {
               }),
               update: vi.fn().mockImplementation((updates) => {
                 updatedJobStatuses.push(updates);
-                return { eq: vi.fn().mockResolvedValue({ error: null }) };
+                return {
+                  eq: vi.fn().mockReturnThis(),
+                  select: vi.fn().mockReturnThis(),
+                  maybeSingle: vi.fn().mockResolvedValue({ data: { id: "claimed-job" }, error: null }),
+                  single: vi.fn().mockResolvedValue({ data: { id: "claimed-job" }, error: null }),
+                };
               }),
             };
           }

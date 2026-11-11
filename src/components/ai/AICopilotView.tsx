@@ -73,6 +73,240 @@ import { toast } from "sonner";
 
 type ActiveTab = "chat" | "reports_analyzer" | "insights" | "governance";
 
+
+// ============================================================================
+// RICH CHAT MESSAGE RENDERER (DOCUMENTS, LETTERS, MATH, EOSB, MARKDOWN)
+// ============================================================================
+
+function ChatMessageRenderer({
+  content,
+  isUser,
+}: {
+  content: string;
+  isUser: boolean;
+}) {
+  if (isUser) {
+    return <div className="text-sm leading-relaxed whitespace-pre-wrap">{content}</div>;
+  }
+
+  // Check if content contains official document block :::document ... :::
+  const docMatch = content.match(/:::document\s*([\s\S]*?)\s*:::/);
+  const docBody = docMatch ? docMatch[1].trim() : null;
+  const beforeDoc = docMatch ? content.slice(0, docMatch.index).trim() : null;
+  const afterDoc = docMatch ? content.slice(docMatch.index! + docMatch[0].length).trim() : null;
+
+  const handlePrintDoc = (docText: string) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html dir="rtl" lang="ar">
+        <head>
+          <title>وثيقة رسمية - نظام مدار إكس</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+            body { font-family: 'Cairo', Tahoma, sans-serif; padding: 48px; line-height: 1.9; color: #0f172a; max-width: 850px; margin: 0 auto; }
+            .header-bar { border-bottom: 3px double #4338ca; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+            .content { white-space: pre-line; font-size: 13pt; text-align: justify; }
+            .footer-bar { margin-top: 60px; border-top: 1px solid #cbd5e1; padding-top: 20px; display: flex; justify-content: space-between; font-size: 10pt; color: #64748b; }
+            @media print { body { padding: 20px; } }
+          </style>
+        </head>
+        <body>
+          <div class="header-bar">
+            <div>
+              <h2 style="margin: 0; color: #312e81;">نظام مدار إكس لإدارة الموارد البشرية</h2>
+              <span style="font-size: 11pt; color: #475569;">الإدارة العامة للموارد البشرية والعمليات</span>
+            </div>
+            <div style="text-align: left; font-size: 10pt; color: #64748b;">
+              <div>الرقم المرجعي: MX-DOC-${Math.floor(10000 + Math.random() * 90000)}</div>
+              <div>التاريخ: ${new Date().toLocaleDateString("ar-SA")}</div>
+            </div>
+          </div>
+          <div class="content">${docText.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+          <div class="footer-bar">
+            <span>وثيقة إدارية صادرة ومعتمدة إلكترونياً عبر نظام مدار إكس</span>
+            <span>صفحة 1 من 1</span>
+          </div>
+          <script>window.print();</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const renderInlineStyles = (raw: string) => {
+    const parts = raw.split(/(\*\*.*?\*\*|\`.*?\`)/g);
+    return parts.map((part, pIdx) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return (
+          <strong key={pIdx} className="font-bold text-slate-900 dark:text-white">
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      if (part.startsWith("`") && part.endsWith("`")) {
+        return (
+          <code
+            key={pIdx}
+            className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 font-mono text-[11px]"
+          >
+            {part.slice(1, -1)}
+          </code>
+        );
+      }
+      return part;
+    });
+  };
+
+  const renderMarkdownSection = (text: string) => {
+    const lines = text.split("\n");
+    return (
+      <div className="space-y-1.5">
+        {lines.map((line, idx) => {
+          const trimmed = line.trim();
+          if (!trimmed) return <div key={idx} className="h-1.5" />;
+
+          // Heading 3 or 4
+          if (trimmed.startsWith("### ")) {
+            return (
+              <h4 key={idx} className="text-sm font-bold text-indigo-700 dark:text-indigo-400 mt-2.5 mb-1 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                {renderInlineStyles(trimmed.slice(4))}
+              </h4>
+            );
+          }
+          if (trimmed.startsWith("## ")) {
+            return (
+              <h3 key={idx} className="text-base font-bold text-slate-900 dark:text-white mt-3.5 mb-1.5">
+                {renderInlineStyles(trimmed.slice(3))}
+              </h3>
+            );
+          }
+          // Highlighted Net Figure: # **XX,XXX**
+          if (trimmed.startsWith("# ")) {
+            return (
+              <div
+                key={idx}
+                className="p-3.5 my-2.5 rounded-2xl bg-gradient-to-l from-emerald-500/10 via-emerald-500/20 to-emerald-500/10 border-2 border-emerald-500/40 text-emerald-900 dark:text-emerald-200 font-extrabold text-base sm:text-lg text-center shadow-xs"
+              >
+                {renderInlineStyles(trimmed.slice(2))}
+              </div>
+            );
+          }
+
+          // Bullet points
+          if (trimmed.startsWith("• ") || trimmed.startsWith("- ")) {
+            return (
+              <div key={idx} className="flex items-start gap-2 pr-1.5 text-xs sm:text-sm leading-relaxed">
+                <span className="text-indigo-500 font-bold mt-0.5">•</span>
+                <span className="flex-1">{renderInlineStyles(trimmed.slice(2))}</span>
+              </div>
+            );
+          }
+
+          // Numbered steps
+          const numMatch = trimmed.match(/^(\d+)\.\s*(.*)$/);
+          if (numMatch) {
+            return (
+              <div key={idx} className="flex items-start gap-2.5 pr-1.5 text-xs sm:text-sm leading-relaxed mt-1">
+                <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5 border border-indigo-200 dark:border-indigo-800">
+                  {numMatch[1]}
+                </span>
+                <span className="flex-1">{renderInlineStyles(numMatch[2])}</span>
+              </div>
+            );
+          }
+
+          // Table separator row
+          if (trimmed.startsWith("|") && trimmed.includes("---")) {
+            return null;
+          }
+
+          // Table data row
+          if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+            const cells = trimmed
+              .split("|")
+              .slice(1, -1)
+              .map((c) => c.trim());
+            return (
+              <div
+                key={idx}
+                className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-xs font-medium border border-slate-200/60 dark:border-slate-800"
+              >
+                {cells.map((cell, cIdx) => (
+                  <div key={cIdx} className="overflow-hidden truncate">
+                    {renderInlineStyles(cell)}
+                  </div>
+                ))}
+              </div>
+            );
+          }
+
+          return (
+            <p key={idx} className="text-xs sm:text-sm leading-relaxed text-slate-800 dark:text-slate-200">
+              {renderInlineStyles(line)}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-3.5">
+      {beforeDoc && renderMarkdownSection(beforeDoc)}
+
+      {/* Styled Official Parchment Document Box */}
+      {docBody && (
+        <div className="my-3.5 rounded-2xl border-2 border-indigo-300 dark:border-indigo-800 bg-amber-50/50 dark:bg-slate-900/90 shadow-md overflow-hidden animate-in fade-in duration-200">
+          <div className="bg-indigo-600/10 dark:bg-indigo-950/70 border-b border-indigo-200 dark:border-indigo-800/80 p-3 px-4 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-indigo-950 dark:text-indigo-200 block">
+                  وثيقة إدارية رسمية جاهزة للاعتماد
+                </span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                  مكتوبة وفق الأصول الإدارية ونظام العمل السعودي
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(docBody);
+                  toast.success("تم نسخ نص الخطاب بالكامل إلى الحافظة بنجاح");
+                }}
+                className="inline-flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-bold transition shadow-xs"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                نسخ نص الخطاب
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePrintDoc(docBody)}
+                className="inline-flex items-center gap-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 px-2.5 py-1.5 rounded-lg font-medium hover:bg-slate-50 transition"
+              >
+                <Printer className="w-3.5 h-3.5 text-slate-600" />
+                طباعة
+              </button>
+            </div>
+          </div>
+          <div className="p-5 font-serif text-slate-900 dark:text-slate-100 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap select-all bg-white/70 dark:bg-slate-900/60 m-3 rounded-xl border border-indigo-100 dark:border-indigo-900/40">
+            {docBody}
+          </div>
+        </div>
+      )}
+
+      {afterDoc && renderMarkdownSection(afterDoc)}
+      {!docBody && !beforeDoc && renderMarkdownSection(content)}
+    </div>
+  );
+}
+
 export function AICopilotView() {
   const app = useApp();
   const { currentRole } = app;
@@ -98,6 +332,62 @@ export function AICopilotView() {
   const [isTestingConnection, setIsTestingConnection] = useState<boolean>(false);
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [chipCategory, setChipCategory] = useState<"general" | "reports">("general");
+  const [paletteTab, setPaletteTab] = useState<"letters" | "law" | "system" | "strategy">("letters");
+
+  const handleExportChatText = () => {
+    if (!messages || messages.length === 0) {
+      toast.info("لا توجد رسائل لتصديرها في الجلسة الحالية");
+      return;
+    }
+    const sessionText = messages
+      .map((m) => `[${m.role === "user" ? "المستخدم" : "مساعد مدار إكس الذكي"} - ${new Date(m.createdAt).toLocaleString("ar-SA")}]\n${m.content}\n\n------------------------------------------------------------\n`)
+      .join("\n");
+    const blob = new Blob([sessionText], { type: "text/plain;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `madarx-ai-chat-session-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("تم تصدير جلسة المحادثة بنجاح كملف نصي كامل");
+  };
+
+  const paletteItems = {
+    letters: [
+      { title: "عرض وظيفي رسمي", description: "صيغة خطاب عرض عمل متكامل بالراتب والمزايا", prompt: "صيغ لي نموذج عرض وظيفي رسمي (Job Offer Letter) متكامل يوضح الراتب والبدلات وفترة التجربة", badge: "عرض عمل" },
+      { title: "إيميل ترحيبي بموظف جديد", description: "رسالة ترحيبية بالموظف الجديد وتفاصيل اليوم الأول", prompt: "صيغ لي إيميل ترحيبي رسمي واحترافي بموظف جديد انضم لفريق العمل يتضمن تفاصيل اليوم الأول والتمنيات بالتوفيق", badge: "تهيئة" },
+      { title: "خطاب إنذار ولفت نظر", description: "إنذار كتابي رسمي لمخالفة التأخير أو التقصير", prompt: "صيغ لي نموذج رسمي لخطاب إنذار كتابي أول لموظف بسبب تكرار التأخير بدون عذر مع السند النظامي", badge: "إنذار" },
+      { title: "شهادة خبرة وإخلاء طرف", description: "شهادة خدمة رسمية وفق المادة 88 من نظام العمل", prompt: "صيغ لي شهادة خبرة وإخلاء طرف نظامية لموظف وفق أحكام المادة 88 من نظام العمل السعودي", badge: "شهادة" },
+      { title: "خطاب ترقية وزيادة راتب", description: "قرار ترقية إدارية وتعديل المسمى والحزمة المالية", prompt: "صيغ لي خطاب ترقية وتعديل مسمى وظيفي وزيادة راتب رسمي لموظف تقديراً لتميزه", badge: "ترقية" },
+      { title: "تعريف بالراتب للبنوك", description: "خطاب تعريف بالراتب موجه للجهات الرسمية والبنوك", prompt: "صيغ لي خطاب تعريف بالراتب موجه للبنوك والجهات التمويلية موضحاً به الراتب والبدلات وتاريخ المباشرة", badge: "تعريف" },
+      { title: "قبول استقالة رسمي", description: "خطاب قبول استقالة موظف مع تنظيم فترة الإشعار", prompt: "صيغ لي نموذج رسمي لقبول استقالة موظف مع بيان آخر يوم عمل وتسليم المهام وإخلاء الطرف", badge: "استقالة" },
+      { title: "تعميم إداري داخلي", description: "صيغة تعميم داخلي رسمي لكافة موظفي المنشأة", prompt: "صيغ لي تعميم إداري رسمي داخلي لكافة منسوبي المنشأة لتنظيم الإجازات السنوية ومواعيد العمل", badge: "تعميم" },
+    ],
+    law: [
+      { title: "حساب نهاية الخدمة (استقالة 6 سنين)", description: "حسبة تفاعلية بالأرقام لراتب 12,000 ريال", prompt: "احسب لي مكافأة نهاية الخدمة لموظف راتبه 12000 ريال وخدم 6 سنوات وقدم استقالته", badge: "حاسبة" },
+      { title: "حساب نهاية الخدمة (إنهاء 4 سنين)", description: "حسبة تفاعلية لإنهاء العقد من طرف المنشأة", prompt: "احسب لي مكافأة نهاية الخدمة لموظف راتبه 9500 ريال وخدم 4 سنوات تم إنهاء عقده", badge: "حاسبة" },
+      { title: "أحكام فترة التجربة (المادة 53)", description: "ضوابط الـ 90 يوماً وإمكانية التمديد لـ 180", prompt: "ما هي أحكام وضوابط فترة التجربة في نظام العمل السعودي وإمكانية تمديدها؟", badge: "المادة 53" },
+      { title: "ساعات العمل والعمل الإضافي", description: "معايير ساعات الدوام والراحة وأجر الأوفرتايم", prompt: "كيف يتم احتساب ساعات العمل الإضافي في نظام العمل وأجر الساعة الإضافية وأيام الراحة الأسبوعية؟", badge: "المادة 107" },
+      { title: "نسب التأمينات الاجتماعية GOSI", description: "نسب الاشتراك للسعودي وغير السعودي وساند", prompt: "ما هي نسب التأمينات الاجتماعية المعتمدة للموظف السعودي وغير السعودي وحدود الراتب الخاضع؟", badge: "GOSI" },
+      { title: "الإجازات السنوية والرسمية", description: "رصيد الـ 21 والـ 30 يوماً وإجازات المناسبات", prompt: "ما هي أحكام الإجازات السنوية والمناسبات الرسمية وإجازات الوفاة والزواج وفق نظام العمل؟", badge: "المادة 109" },
+    ],
+    system: [
+      { title: "أعلى 5 موظفين راتباً بالمنشأة", description: "كشف مباشر لأعلى الرواتب المسجلة بالنظام", prompt: "من هم أعلى 5 موظفين من حيث إجمالي الراتب في المنشأة؟", badge: "رواتب" },
+      { title: "تحليل كادر قسم تقنية المعلومات", description: "إحصائيات الموظفين والرواتب في IT", prompt: "حلل لي كادر قسم تقنية المعلومات، عددهم، متوسط رواتبهم، والموظفين المسجلين في القسم", badge: "أقسام" },
+      { title: "تحليل كادر قسم المبيعات", description: "بيانات الموظفين والتوطين في المبيعات", prompt: "حلل لي إدارة المبيعات من حيث عدد الموظفين ونسبة التوطين ومتوسط الرواتب", badge: "أقسام" },
+      { title: "التقرير التنفيذي الشامل 360°", description: "تحليل شامل لكافة مؤشرات المنظومة بالأرقام", prompt: "حلل لي التقرير التنفيذي الشامل لكل النظام 360 مع أهم المؤشرات والتوصيات", badge: "شامل" },
+      { title: "مسير الرواتب وحماية الأجور WPS", description: "تحليل الرواتب والبدلات وجاهزية WPS", prompt: "حلل تقرير مسير الرواتب والتكاليف المالية والتأمينات وجاهزية حماية الأجور WPS", badge: "مالي" },
+      { title: "الحضور والانصراف والورديات", description: "تحليل نسب الحضور والتأخير وساعات الإضافي", prompt: "حلل تقرير الحضور والانصراف وحالات التأخير وساعات العمل الإضافي والورديات", badge: "حضور" },
+    ],
+    strategy: [
+      { title: "الفرق بين OKRs و KPIs", description: "مصفوفة الفروق والتطبيق في الموارد البشرية", prompt: "ما هو الفرق الجوهري بين مؤشرات الأداء (KPIs) والأهداف والنتائج الرئيسية (OKRs) وكيف نطبقها؟", badge: "استراتيجية" },
+      { title: "أسئلة المقابلات بمنهجية STAR", description: "أسئلة سلوكية ومعايير تقييم الكفاءات", prompt: "اقترح لي أهم أسئلة المقابلات الوظيفية السلوكية وفق منهجية STAR لتقييم مهارات حل المشكلات والتواصل", badge: "مقابلات" },
+      { title: "استراتيجية تقليل التسرب الوظيفي", description: "خطة عملية لرفع استقرار واستبقاء الموظفين", prompt: "ما هي أهم الخطوات العملية لاستبقاء الكفاءات وتقليل معدل الدوران والتسرب الوظيفي في المنشأة؟", badge: "استبقاء" },
+      { title: "مصفوفة 9-Box لتقييم المواهب", description: "طريقة توزيع وتقييم الأداء والإمكانات", prompt: "اشرح لي كيفية تطبيق مصفوفة 9-Box Grid في تقييم أداء وإمكانات الموظفين وخطة التعاقب", badge: "مواهب" },
+    ],
+  };
+
+  const activePaletteItems = paletteItems[paletteTab] || paletteItems.letters;
 
   const { data: conversations = [] } = useAIConversations();
   const createConversationMutation = useCreateAIConversation();
@@ -540,52 +830,59 @@ export function AICopilotView() {
       {/* ===================================================================== */}
       {activeTab === "chat" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Sidebar: Conversations & Report Shortcuts */}
+          {/* ================================================================= */}
+          {/* RIGHT SIDEBAR: SESSIONS & SMART PROMPT PALETTE                    */}
+          {/* ================================================================= */}
           <div className="lg:col-span-4 space-y-4">
+            {/* Conversation Sessions List */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
                   <Layers className="w-4 h-4 text-indigo-600" />
-                  سجل جلسات التحليل الذكي
+                  جلسات المحادثة الذكية
                 </h3>
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={handleCreateNewConversation}
-                    className="inline-flex items-center gap-1 text-xs bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition"
+                    className="inline-flex items-center gap-1 text-xs bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition shadow-xs"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    جديدة
+                    جلسة جديدة
                   </button>
                   <button
                     type="button"
                     onClick={handleClearConversation}
-                    title="مسح رسائل المحادثة الحالية"
+                    title="مسح رسائل الجلسة الحالية"
                     className="inline-flex items-center justify-center p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
-              <div className="space-y-2 max-h-56 overflow-y-auto">
+              <div className="space-y-1.5 max-h-52 overflow-y-auto pr-0.5">
                 {conversations.map((conv) => (
                   <button
                     key={conv.id}
                     type="button"
                     onClick={() => setSelectedConversationId(conv.id)}
-                    className={`w-full text-right p-3 rounded-xl border transition-all flex items-start gap-3 ${
+                    className={`w-full text-right p-2.5 rounded-xl border transition-all flex items-start gap-2.5 ${
                       selectedConversationId === conv.id
-                        ? "bg-indigo-50/80 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-700"
-                        : "border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                        ? "bg-indigo-50/90 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-700 ring-1 ring-indigo-500/20"
+                        : "border-slate-100 dark:border-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300"
                     }`}
                   >
-                    <Bot className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
+                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                      selectedConversationId === conv.id ? "bg-indigo-600 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-500"
+                    }`}>
+                      <Bot className="w-3.5 h-3.5" />
+                    </div>
                     <div className="overflow-hidden flex-1">
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                      <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
                         {conv.title}
                       </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        آخر تحديث: {new Date(conv.updatedAt).toLocaleTimeString("ar-SA")}
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {new Date(conv.updatedAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
                       </p>
                     </div>
                   </button>
@@ -593,57 +890,87 @@ export function AICopilotView() {
               </div>
             </div>
 
-            {/* Quick Prompts & Report Analysis Triggers */}
+            {/* Smart Prompt Matrix & Tools Palette */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-2.5">
                 <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-indigo-600" />
-                  المقترحات السريعة
+                  لوحة النماذج والأدوات السريعة
                 </h3>
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setChipCategory("general")}
-                    className={`px-2 py-1 rounded-md text-[11px] font-bold transition ${
-                      chipCategory === "general"
-                        ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-xs"
-                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                    }`}
-                  >
-                    عام وصياغة
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setChipCategory("reports")}
-                    className={`px-2 py-1 rounded-md text-[11px] font-bold transition ${
-                      chipCategory === "reports"
-                        ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-xs"
-                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                    }`}
-                  >
-                    تقارير 360°
-                  </button>
-                </div>
               </div>
-              <p className="text-xs text-slate-500 mb-2.5">
-                {chipCategory === "general"
-                  ? "نماذج صياغة خطابات، إيميلات، استشارات العمل ونماذج OKRs:"
-                  : "تحليل ذكي فوري لتقارير النظام والرواتب والتوطين بالأرقام:"}
-              </p>
-              <div className="space-y-1.5 max-h-72 overflow-y-auto">
-                {(chipCategory === "general" ? generalQuickPrompts : quickAnalysisChips).map((chip, idx) => (
+
+              {/* 4 Category Tabs */}
+              <div className="grid grid-cols-2 gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl mb-3">
+                <button
+                  type="button"
+                  onClick={() => setPaletteTab("letters")}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${
+                    paletteTab === "letters"
+                      ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                  }`}
+                >
+                  <FileText className="w-3 h-3" />
+                  نماذج وخطابات
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaletteTab("law")}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${
+                    paletteTab === "law"
+                      ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                  }`}
+                >
+                  <BookOpen className="w-3 h-3" />
+                  نظام العمل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaletteTab("system")}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${
+                    paletteTab === "system"
+                      ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                  }`}
+                >
+                  <Building2 className="w-3 h-3" />
+                  بيانات المنشأة
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaletteTab("strategy")}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 ${
+                    paletteTab === "strategy"
+                      ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                  }`}
+                >
+                  <TrendingUp className="w-3 h-3" />
+                  تطوير وأداء
+                </button>
+              </div>
+
+              {/* Action Buttons in Selected Tab */}
+              <div className="space-y-1.5 max-h-72 overflow-y-auto pr-0.5">
+                {activePaletteItems.map((item, idx) => (
                   <button
                     key={idx}
                     type="button"
                     disabled={sendMessageMutation.isPending}
-                    onClick={() => sendPromptImmediately(chip.prompt)}
-                    className="w-full text-right text-xs p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700 transition flex items-center justify-between gap-2 group disabled:opacity-50"
+                    onClick={() => sendPromptImmediately(item.prompt)}
+                    className="w-full text-right p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 transition flex items-center justify-between gap-2 group disabled:opacity-50"
                   >
-                    <span className="font-semibold group-hover:text-indigo-700 dark:group-hover:text-indigo-300 line-clamp-1">
-                      {chip.label}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold shrink-0">
-                      {chip.badge}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold group-hover:text-indigo-600 dark:group-hover:text-indigo-300 truncate">
+                        {item.title}
+                      </p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                        {item.description}
+                      </p>
+                    </div>
+                    <span className="px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold shrink-0">
+                      {item.badge}
                     </span>
                   </button>
                 ))}
@@ -651,59 +978,60 @@ export function AICopilotView() {
             </div>
           </div>
 
-          {/* Main Chat Interface */}
-          <div className="lg:col-span-8 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm h-[680px]">
-            {/* Chat Header */}
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
+          {/* ================================================================= */}
+          {/* MAIN CHAT WORKSPACE (IMMERSIVE, RICH, RESPONSIVE)                 */}
+          {/* ================================================================= */}
+          <div className="lg:col-span-8 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm h-[780px] overflow-hidden">
+            {/* Header with Sovereign AI Identity */}
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-3 bg-slate-50/50 dark:bg-slate-800/30">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
-                  <Bot className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-700 to-indigo-500 flex items-center justify-center text-white shadow-sm shrink-0">
+                  <Bot className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                    مساعد مدار الذكي الشامل (AI Assistant & Copilot)
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    استشارات، صياغة، وتحليل تقارير • {app.employees.length} موظف • الصلاحية:{" "}
-                    <span className="font-semibold text-indigo-600">{currentRole}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base">
+                      مساعد مدار إكس الذكي المستقل (MadarX AI)
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3" />
+                      محرك سيادي خاص 100%
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    مبني خصيصاً لمنشأتك • متصل بـ {app.employees.length} موظف • سرية وأمان محلي تام
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
+
+              {/* Header Action Buttons */}
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsSettingsOpen(true)}
-                  className="inline-flex items-center gap-1.5 text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 font-bold transition shadow-sm"
-                  title="تخصيص محرك الذكاء الاصطناعي (OpenAI / Gemini / MadarX AI)"
+                  onClick={handleExportChatText}
+                  className="inline-flex items-center gap-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-xl font-bold hover:bg-slate-50 dark:hover:bg-slate-700/60 transition shadow-xs"
+                  title="تصدير نص المحادثة بالكامل"
                 >
-                  <Cpu className="w-3.5 h-3.5 text-indigo-600" />
-                  <span className="hidden sm:inline">محرك الذكاء:</span>
-                  <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${getProviderBadge().color}`}>
-                    {getProviderBadge().label}
-                  </span>
-                  <Settings className="w-3.5 h-3.5 text-slate-400 mr-0.5" />
+                  <Download className="w-3.5 h-3.5 text-indigo-600" />
+                  تصدير الجلسة
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab("reports_analyzer")}
-                  className="inline-flex items-center gap-1.5 text-xs bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 font-bold hover:bg-indigo-100 transition"
+                  className="inline-flex items-center gap-1.5 text-xs bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 font-bold hover:bg-indigo-100 transition"
                 >
                   <BarChart3 className="w-3.5 h-3.5" />
                   لوحة 360°
                 </button>
-                <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                  حماية PII
-                </span>
               </div>
             </div>
 
-            {/* Messages Stream */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Messages Stream Viewport */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 bg-slate-50/20 dark:bg-slate-950/20">
               {loadingMessages ? (
                 <div className="flex items-center justify-center h-full text-slate-400 gap-2">
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  <span>جاري تحميل المحادثة...</span>
+                  <RefreshCw className="w-5 h-5 animate-spin text-indigo-600" />
+                  <span className="text-sm font-medium">جاري تحميل الجلسة...</span>
                 </div>
               ) : (
                 messages.map((msg) => {
@@ -719,44 +1047,43 @@ export function AICopilotView() {
                       className={`flex items-start gap-3 ${isUser ? "flex-row-reverse" : ""}`}
                     >
                       <div
-                        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
                           isUser
-                            ? "bg-slate-800 text-white"
-                            : "bg-indigo-100 dark:bg-indigo-950 text-indigo-600"
+                            ? "bg-slate-900 text-white shadow-xs"
+                            : "bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white shadow-xs"
                         }`}
                       >
                         {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                       </div>
 
                       <div
-                        className={`max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed ${
+                        className={`max-w-[88%] sm:max-w-[82%] rounded-2xl p-4 shadow-xs ${
                           isUser
-                            ? "bg-indigo-600 text-white rounded-tl-none"
-                            : "bg-slate-100 dark:bg-slate-800/90 text-slate-800 dark:text-slate-100 rounded-tr-none border border-slate-200/70 dark:border-slate-700"
+                            ? "bg-indigo-600 text-white rounded-tl-none font-medium"
+                            : "bg-white dark:bg-slate-800/95 text-slate-800 dark:text-slate-100 rounded-tr-none border border-slate-200/80 dark:border-slate-700/80"
                         }`}
                       >
-                        <div className="whitespace-pre-line">{msg.content}</div>
+                        {/* Rich Formatted Message Content */}
+                        <ChatMessageRenderer content={msg.content} isUser={isUser} />
 
                         {/* Human-in-the-loop Confirmation Card */}
                         {isActionProposal && (
-                          <div className="mt-3 p-3 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-                                <AlertTriangle className="w-4 h-4" />
-                                يتطلب تأكيد بشري صريح قبل التنفيذ (Human-in-the-Loop)
-                              </span>
-                            </div>
+                          <div className="mt-3.5 p-3.5 rounded-xl bg-amber-50/80 dark:bg-slate-900 border border-amber-300 dark:border-amber-700">
+                            <span className="text-xs font-bold text-amber-800 dark:text-amber-400 flex items-center gap-1.5 mb-2">
+                              <AlertTriangle className="w-4 h-4 text-amber-600" />
+                              إجراء إداري مقترح يتطلب تأكيد بشري صريح (Human-in-the-Loop)
+                            </span>
                             {isConfirmed ? (
                               <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-bold">
                                 <CheckCircle2 className="w-4 h-4" />
-                                تم التأكيد والتنفيذ بنجاح وتوثيقه في سجل التدقيق
+                                تم اعتماد وتنفيذ الإجراء وتوثيقه في سجل التدقيق
                               </div>
                             ) : (
                               <div className="flex items-center gap-2 mt-2">
                                 <button
                                   type="button"
                                   onClick={() => handleConfirmAction(msg.id)}
-                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition"
+                                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition shadow-xs"
                                 >
                                   تأكيد وتنفيذ الإجراء
                                 </button>
@@ -772,24 +1099,27 @@ export function AICopilotView() {
                           </div>
                         )}
 
+                        {/* Message Metadata & Fast Actions Footer */}
                         <div
-                          className={`flex items-center justify-between mt-2.5 pt-2 border-t ${
+                          className={`flex items-center justify-between mt-3 pt-2 border-t ${
                             isUser
                               ? "border-indigo-500/40 text-indigo-200"
-                              : "border-slate-200/70 dark:border-slate-700 text-slate-400"
+                              : "border-slate-100 dark:border-slate-700/60 text-slate-400"
                           } text-[11px]`}
                         >
-                          <span>{new Date(msg.createdAt).toLocaleTimeString("ar-SA")}</span>
+                          <span>{new Date(msg.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}</span>
                           {!isUser && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                               <button
                                 type="button"
                                 onClick={() => {
-                                  navigator.clipboard.writeText(msg.content);
-                                  toast.success("تم نسخ التحليل إلى الحافظة");
+                                  // Clean document markers if copying raw message
+                                  const clean = msg.content.replace(/:::document/g, "").replace(/:::/g, "");
+                                  navigator.clipboard.writeText(clean);
+                                  toast.success("تم نسخ التحليل بالكامل");
                                 }}
-                                className="hover:text-indigo-600 transition flex items-center gap-1"
-                                title="نسخ النص"
+                                className="hover:text-indigo-600 transition flex items-center gap-1 font-medium"
+                                title="نسخ الرد بالكامل"
                               >
                                 <Copy className="w-3.5 h-3.5" />
                                 <span>نسخ</span>
@@ -798,15 +1128,15 @@ export function AICopilotView() {
                                 type="button"
                                 onClick={() => toast.success("شكراً لتقييمك الإيجابي")}
                                 className="hover:text-emerald-600 transition"
-                                title="إجابة مفيدة"
+                                title="إجابة مفيدة ودقيقة"
                               >
                                 <ThumbsUp className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 type="button"
-                                onClick={() => toast.info("تم تسجيل ملاحظتك لتحسين النموذج")}
+                                onClick={() => toast.info("تم تسجيل ملاحظتك لتطوير دقة النموذج")}
                                 className="hover:text-rose-600 transition"
-                                title="إجابة غير دقيقة"
+                                title="إجابة تحتاج تحسين"
                               >
                                 <ThumbsDown className="w-3.5 h-3.5" />
                               </button>
@@ -821,38 +1151,76 @@ export function AICopilotView() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Chat Input Box */}
+            {/* Smart Contextual Follow-Up Suggestions Bar */}
+            <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center gap-2 overflow-x-auto scrollbar-none">
+              <span className="text-[11px] text-slate-400 shrink-0 font-medium flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-indigo-500" />
+                اقتراحات سريعة:
+              </span>
+              {[
+                { label: "صيغ عرض وظيفي", prompt: "صيغ لي نموذج عرض وظيفي رسمي متكامل يوضح الراتب والبدلات وفترة التجربة" },
+                { label: "حساب نهاية الخدمة (15 ألف)", prompt: "احسب لي نهاية الخدمة لموظف راتبه 15000 ريال وخدم 7 سنوات واستقال" },
+                { label: "أعلى 5 رواتب", prompt: "من هم أعلى 5 موظفين من حيث إجمالي الراتب في المنشأة؟" },
+                { label: "خطاب ترقية", prompt: "صيغ لي خطاب ترقية وزيادة راتب رسمي لموظف متميز" },
+                { label: "OKRs vs KPIs", prompt: "ما هو الفرق بين OKRs و KPIs في إدارة الموارد البشرية؟" },
+              ].map((sug, sIdx) => (
+                <button
+                  key={sIdx}
+                  type="button"
+                  disabled={sendMessageMutation.isPending}
+                  onClick={() => sendPromptImmediately(sug.prompt)}
+                  className="text-xs px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-300 hover:border-indigo-300 transition whitespace-nowrap shrink-0 shadow-xs disabled:opacity-50"
+                >
+                  {sug.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Multi-Line Input Dock */}
             <form
               onSubmit={handleSendMessage}
-              className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center gap-3"
+              className="p-3 sm:p-4 border-t border-slate-200 dark:border-slate-800 flex items-end gap-2.5 bg-white dark:bg-slate-900"
             >
-              <input
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder="اسألني أي شيء في النظام أو خارجه (صياغة خطابات وإيميلات، نظام العمل، استراتيجيات، أو تحليل تقارير)..."
-                className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+              <div className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-2.5 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition">
+                <textarea
+                  rows={2}
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage(e);
+                    }
+                  }}
+                  placeholder="اسألني أي شيء في النظام أو خارجه (صياغة خطابات، حساب نهاية الخدمة، أنظمة العمل، تحليل كادر قسم، أو استشارات إدارية)..."
+                  className="w-full bg-transparent border-0 resize-none text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-0 leading-relaxed"
+                />
+                <div className="flex items-center justify-between pt-1 border-t border-slate-200/50 dark:border-slate-700/50 text-[10px] text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-emerald-500" />
+                    بياناتك محمية محلياً 100% ولا تغادر نظامك
+                  </span>
+                  <span>اضغط Enter للإرسال • Shift+Enter لسطر جديد</span>
+                </div>
+              </div>
+
               <button
                 type="submit"
                 disabled={!inputText.trim() || sendMessageMutation.isPending}
-                className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-bold text-sm flex items-center gap-2 transition shrink-0"
+                className="px-5 py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-2 transition shrink-0 shadow-sm"
               >
                 {sendMessageMutation.isPending ? (
                   <RefreshCw className="w-4 h-4 animate-spin" />
                 ) : (
                   <Send className="w-4 h-4" />
                 )}
-                إرسال وتحليل
+                <span>إرسال</span>
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* ===================================================================== */}
-      {/* TAB 2: SMART REPORT & SYSTEM ANALYZER (360°)                          */}
-      {/* ===================================================================== */}
       {activeTab === "reports_analyzer" && (
         <div className="space-y-6">
           {/* Domain Selector Pills */}
@@ -1379,202 +1747,6 @@ export function AICopilotView() {
         </div>
       )}
 
-      {/* AI Engine & LLM Provider Settings Modal */}
-      {isSettingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5 text-right"
-            dir="rtl"
-          >
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600">
-                  <Cpu className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    إعدادات محرك الذكاء الاصطناعي (AI Provider Settings)
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    تخصيص النموذج والمزود (ChatGPT / Gemini / المحرك التحليلي المدمج)
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsSettingsOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Provider Options */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                اختر محرك الذكاء الاصطناعي
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setSelectedProvider("built_in")}
-                  className={`p-3 rounded-xl border text-right transition flex items-start gap-2.5 ${
-                    selectedProvider === "built_in"
-                      ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/50 ring-1 ring-indigo-600"
-                      : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                  }`}
-                >
-                  <Sparkles className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">المحرك المدمج (MadarX AI)</p>
-                    <p className="text-[11px] text-slate-500">سريع، آمن، مجاني وبدون مفتاح</p>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSelectedProvider("openai")}
-                  className={`p-3 rounded-xl border text-right transition flex items-start gap-2.5 ${
-                    selectedProvider === "openai"
-                      ? "border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/50 ring-1 ring-emerald-600"
-                      : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                  }`}
-                >
-                  <Zap className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">OpenAI (ChatGPT)</p>
-                    <p className="text-[11px] text-slate-500">GPT-4o / GPT-4o-mini</p>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSelectedProvider("gemini")}
-                  className={`p-3 rounded-xl border text-right transition flex items-start gap-2.5 ${
-                    selectedProvider === "gemini"
-                      ? "border-blue-600 bg-blue-50/50 dark:bg-blue-950/50 ring-1 ring-blue-600"
-                      : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                  }`}
-                >
-                  <Bot className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">Google Gemini</p>
-                    <p className="text-[11px] text-slate-500">Gemini 1.5 Flash / Pro</p>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSelectedProvider("openrouter")}
-                  className={`p-3 rounded-xl border text-right transition flex items-start gap-2.5 ${
-                    selectedProvider === "openrouter"
-                      ? "border-purple-600 bg-purple-50/50 dark:bg-purple-950/50 ring-1 ring-purple-600"
-                      : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                  }`}
-                >
-                  <Globe className="w-4 h-4 text-purple-600 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">OpenRouter</p>
-                    <p className="text-[11px] text-slate-500">Claude 3.5 Sonnet / Llama 3</p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* API Key Input (if not built-in) */}
-            {selectedProvider !== "built_in" && (
-              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                      <Key className="w-3.5 h-3.5 text-amber-500" />
-                      مفتاح الواجهة (API Key)
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="text-[11px] text-indigo-600 hover:underline"
-                    >
-                      {showApiKey ? "إخفاء المفتاح" : "إظهار المفتاح"}
-                    </button>
-                  </div>
-                  <input
-                    type={showApiKey ? "text" : "password"}
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    placeholder={
-                      selectedProvider === "openai"
-                        ? "sk-proj-..."
-                        : selectedProvider === "gemini"
-                        ? "AIzaSy..."
-                        : "sk-or-v1-..."
-                    }
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
-                    dir="ltr"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    يُحفظ المفتاح محلياً في متصفحك (Client-side) لضمان الخصوصية التامة ولا يتم مشاركته.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    اسم النموذج (Model Name - اختياري)
-                  </label>
-                  <input
-                    type="text"
-                    value={modelInput}
-                    onChange={(e) => setModelInput(e.target.value)}
-                    placeholder={
-                      selectedProvider === "openai"
-                        ? "gpt-4o-mini"
-                        : selectedProvider === "gemini"
-                        ? "gemini-1.5-flash"
-                        : "anthropic/claude-3.5-sonnet"
-                    }
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
-                    dir="ltr"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Modal Actions */}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={handleTestConnection}
-                disabled={isTestingConnection}
-                className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition"
-              >
-                {isTestingConnection ? (
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Activity className="w-3.5 h-3.5 text-emerald-500" />
-                )}
-                اختبار الاتصال
-              </button>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsSettingsOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveProviderConfig}
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-sm"
-                >
-                  حفظ وتفعيل
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
   );
 }

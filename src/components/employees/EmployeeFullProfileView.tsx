@@ -17,6 +17,7 @@ import {
   rollbackUploadedFile,
 } from "../../lib/storage/storage-service";
 import { useEmployee, useEmployeeAvatar } from "../../lib/domains/employees";
+import { transliterateArabicName } from "../../lib/utils/arabic-transliteration";
 import type { Employee, ContractType, Gender, MaritalStatus } from "../../types";
 import {
   fetchMovementsList,
@@ -162,6 +163,11 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
         : (employee.yearsOfService ?? 0);
 
       setFormData({
+        employeeNo: employee.employeeNo || "",
+        biometricId: employee.biometricId || "",
+        identityType: employee.identityType || "national_id",
+        religion: employee.religion || "مسلم",
+        birthPlace: employee.birthPlace || "",
         avatarUrl: employee.avatarUrl,
         avatarStoragePath: employee.avatarStoragePath,
         firstNameAr: employee.firstNameAr,
@@ -181,6 +187,24 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
         email: employee.email,
         personalEmail: employee.personalEmail || "",
         phone: employee.phone || "",
+        secondaryPhone: employee.secondaryPhone || "",
+        workPhone: employee.workPhone || "",
+        currentResidenceAddress: employee.currentResidenceAddress || "",
+        shortNationalAddress: employee.shortNationalAddress || "",
+        homeCountryAddress: employee.homeCountryAddress,
+        region: employee.region || "",
+        mainDepartment: employee.mainDepartment || "",
+        careerTrack: employee.careerTrack || "",
+        sector: employee.sector || "",
+        currentRoleName: employee.currentRoleName || "",
+        specialization: employee.specialization || "",
+        joiningDate: employee.joiningDate || employee.hireDate || "",
+        annualLeaveCalculation: employee.annualLeaveCalculation || "من تاريخ المباشرة",
+        experienceYears: employee.experienceYears ?? 0,
+        probationDays: employee.probationDays ?? 90,
+        kingdomEntryDate: employee.kingdomEntryDate || "",
+        highestQualification: employee.highestQualification || employee.educationDegree || "",
+        shiftId: employee.shiftId || "",
         departmentId: employee.departmentId,
         departmentName: employee.departmentName,
         subsidiaryId: employee.subsidiaryId,
@@ -196,6 +220,19 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
         contractStartDate: employee.contractStartDate || employee.hireDate,
         contractEndDate: employee.contractEndDate || "",
         qiwaContractNo: employee.qiwaContractNo || "",
+        contractDurationType: employee.contractDurationType || "fixed_term",
+        contractAnnualLeaveDays: employee.contractAnnualLeaveDays ?? 21,
+        annualLeavePolicy: employee.annualLeavePolicy || "لائحة العمل القياسية (21 يوماً)",
+        contractWorkPattern: employee.contractWorkPattern || "full_time",
+        workJurisdiction: employee.workJurisdiction || "inside_kingdom",
+        weeklyWorkDays: employee.weeklyWorkDays ?? 5,
+        weeklyRestDays: employee.weeklyRestDays ?? 2,
+        workHoursStandard: employee.workHoursStandard || "daily",
+        standardWorkHoursCount: employee.standardWorkHoursCount ?? 8,
+        qiwaContractClauses: employee.qiwaContractClauses || "",
+        contractAttachmentName: employee.contractAttachmentName || "",
+        contractNotes: employee.contractNotes || "",
+        contractAutoRenew: employee.contractAutoRenew ?? true,
         yearsOfService: dynamicYears,
         contractType: employee.contractType,
         status: employee.status,
@@ -204,12 +241,20 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
         transportAllowance: employee.transportAllowance ?? 0,
         otherAllowances: employee.otherAllowances ?? 0,
         totalSalary: employee.totalSalary,
+        jobCategory: employee.jobCategory || "",
+        sponsorName: employee.sponsorName || "",
+        paymentMethod: employee.paymentMethod || "bank",
         bankName: employee.bankName || "",
+        bankCommissionStatus: employee.bankCommissionStatus || "not_deducted",
+        bankAccountNumber: employee.bankAccountNumber || "",
         iban: employee.iban || "",
+        lockBankData: Boolean(employee.lockBankData),
+        customAllowances: employee.customAllowances || [],
+        customDeductions: employee.customDeductions || [],
         gosiNumber: employee.gosiNumber || "",
         managerId: employee.managerId,
         managerName: employee.managerName,
-        educationDegree: employee.educationDegree || "",
+        educationDegree: employee.educationDegree || employee.highestQualification || "",
         university: employee.university || "",
         graduationYear: employee.graduationYear,
         certifications: employee.certifications || [],
@@ -755,21 +800,68 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
         {/* Tab 1: Identity, Civil & Saudi National Address */}
         <TabsContent value="identity" className="space-y-4 pt-4">
           <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 border-b border-border/60 pb-3">
-              <User className="h-5 w-5 text-primary" />
-              <h3 className="font-black text-sm text-foreground">
-                بيانات الهوية الشخصية، الأحوال المدنية، وجواز السفر
-              </h3>
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <User className="h-5 w-5 text-primary" />
+                <h3 className="font-black text-sm text-foreground">
+                  بيانات الهوية الشخصية، الرقم الوظيفي، البصمة، والأحوال المدنية
+                </h3>
+              </div>
+              {isEditing && (
+                <Badge variant="secondary" className="text-[10px] font-bold">
+                  ترجمة تلقائية فورية للاسم الإنجليزي
+                </Badge>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">الرقم الوظيفي</label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={formData.employeeNo || ""}
+                    onChange={(e) => setFormData({ ...formData, employeeNo: e.target.value })}
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                ) : (
+                  <p className="font-mono font-bold text-primary bg-primary/10 p-2.5 rounded-2xl">
+                    {employee.employeeNo || "—"}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">رقم البصمة (جهاز الحضور)</label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={formData.biometricId || ""}
+                    onChange={(e) => setFormData({ ...formData, biometricId: e.target.value })}
+                    placeholder="BIO-XXXX"
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                ) : (
+                  <p className="font-mono font-bold text-emerald-700 bg-emerald-500/10 p-2.5 rounded-2xl">
+                    {employee.biometricId || "غير مربوط"}
+                  </p>
+                )}
+              </div>
+
               <div className="space-y-1.5">
                 <label className="font-bold text-muted-foreground">الاسم الأول (بالعربي) *</label>
                 {isEditing ? (
                   <input
                     type="text"
                     value={formData.firstNameAr || ""}
-                    onChange={(e) => setFormData({ ...formData, firstNameAr: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData({
+                        ...formData,
+                        firstNameAr: val,
+                        firstNameEn: transliterateArabicName(val) || formData.firstNameEn,
+                      });
+                    }}
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
@@ -785,7 +877,14 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                   <input
                     type="text"
                     value={formData.lastNameAr || ""}
-                    onChange={(e) => setFormData({ ...formData, lastNameAr: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData({
+                        ...formData,
+                        lastNameAr: val,
+                        lastNameEn: transliterateArabicName(val) || formData.lastNameEn,
+                      });
+                    }}
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
@@ -796,24 +895,71 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">الاسم بالإنجليزية</label>
+                <label className="font-bold text-muted-foreground">الاسم الأول (بالإنجليزية)</label>
                 {isEditing ? (
                   <input
                     type="text"
                     value={formData.firstNameEn || ""}
                     onChange={(e) => setFormData({ ...formData, firstNameEn: e.target.value })}
-                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
+                  <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.firstNameEn || "—"}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">اسم العائلة (بالإنجليزية)</label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={formData.lastNameEn || ""}
+                    onChange={(e) => setFormData({ ...formData, lastNameEn: e.target.value })}
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                ) : (
+                  <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.lastNameEn || "—"}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">نوع الهوية</label>
+                {isEditing ? (
+                  <select
+                    value={formData.identityType || "national_id"}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        identityType: e.target.value as Employee["identityType"],
+                      })
+                    }
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    <option value="national_id">هوية وطنية</option>
+                    <option value="iqama">إقامة نظامية</option>
+                    <option value="passport">جواز سفر</option>
+                    <option value="border_number">رقم حدود</option>
+                  </select>
+                ) : (
                   <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                    {employee.firstNameEn} {employee.lastNameEn}
+                    {employee.identityType === "iqama"
+                      ? "إقامة نظامية"
+                      : employee.identityType === "passport"
+                        ? "جواز سفر"
+                        : employee.identityType === "border_number"
+                          ? "رقم حدود"
+                          : "هوية وطنية"}
                   </p>
                 )}
               </div>
 
               <div className="space-y-1.5">
                 <label className="font-bold text-muted-foreground">
-                  رقم الهوية الوطنية / الإقامة *
+                  رقم الهوية / الإقامة / الوثيقة *
                 </label>
                 {isEditing ? (
                   <input
@@ -866,41 +1012,97 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">رقم جواز السفر</label>
+                <label className="font-bold text-muted-foreground">الديانة</label>
                 {isEditing ? (
-                  <input
-                    type="text"
-                    value={formData.passportNo || ""}
-                    onChange={(e) => setFormData({ ...formData, passportNo: e.target.value })}
-                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
+                  <select
+                    value={formData.religion || "مسلم"}
+                    onChange={(e) => setFormData({ ...formData, religion: e.target.value })}
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    <option value="مسلم">مسلم</option>
+                    <option value="غير مسلم">غير مسلم</option>
+                    <option value="أخرى">أخرى</option>
+                  </select>
                 ) : (
-                  <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                    {employee.passportNo || "غير مسجل"}
+                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.religion || "مسلم"}
                   </p>
                 )}
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">فصيلة الدم</label>
-                <p className="font-bold text-primary bg-primary/10 p-2.5 rounded-2xl font-mono">
-                  {employee.bloodType || "غير مسجل"}
-                </p>
+                <label className="font-bold text-muted-foreground">مكان وتاريخ الميلاد</label>
+                {isEditing ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="مكان الميلاد"
+                      value={formData.birthPlace || ""}
+                      onChange={(e) => setFormData({ ...formData, birthPlace: e.target.value })}
+                      className="w-1/2 h-10 rounded-2xl border border-border/80 bg-muted/40 px-2.5 font-semibold"
+                    />
+                    <input
+                      type="date"
+                      value={formData.birthDate || ""}
+                      onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                      className="w-1/2 h-10 rounded-2xl border border-border/80 bg-muted/40 px-2.5 font-mono"
+                    />
+                  </div>
+                ) : (
+                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.birthPlace || "—"} • {employee.birthDate || "—"}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
                 <label className="font-bold text-muted-foreground">
-                  الحالة الاجتماعية والمعالين
+                  الحالة الاجتماعية وعدد أفراد الأسرة
                 </label>
-                <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                  {employee.maritalStatus === "married" ? "متزوج" : "أعزب"} •{" "}
-                  {employee.dependentsCount !== undefined && employee.dependentsCount !== null ? `${employee.dependentsCount} معالين` : "غير مسجل"}
-                </p>
+                {isEditing ? (
+                  <div className="flex gap-2">
+                    <select
+                      value={formData.maritalStatus || "single"}
+                      onChange={(e) =>
+                        setFormData({ ...formData, maritalStatus: e.target.value as MaritalStatus })
+                      }
+                      className="w-1/2 h-10 rounded-2xl border border-border/80 bg-muted/40 px-2.5 font-bold"
+                    >
+                      <option value="single">أعزب</option>
+                      <option value="married">متزوج</option>
+                      <option value="divorced">مطلق</option>
+                      <option value="widowed">أرمل</option>
+                    </select>
+                    <input
+                      type="number"
+                      min={0}
+                      value={formData.dependentsCount ?? 0}
+                      onChange={(e) =>
+                        setFormData({ ...formData, dependentsCount: Number(e.target.value) })
+                      }
+                      className="w-1/2 h-10 rounded-2xl border border-border/80 bg-muted/40 px-2.5 font-mono font-bold"
+                    />
+                  </div>
+                ) : (
+                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.maritalStatus === "married"
+                      ? "متزوج"
+                      : employee.maritalStatus === "divorced"
+                        ? "مطلق"
+                        : employee.maritalStatus === "widowed"
+                          ? "أرمل"
+                          : "أعزب"}{" "}
+                    •{" "}
+                    {employee.dependentsCount !== undefined && employee.dependentsCount !== null
+                      ? `${employee.dependentsCount} أفراد أسرة`
+                      : "0"}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
                 <label className="font-bold text-muted-foreground">
-                  البريد الإلكتروني الرسمي للعمل
+                  البريد الإلكتروني الرسمي (النظام)
                 </label>
                 {isEditing ? (
                   <input
@@ -917,39 +1119,82 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">رقم الجوال الشخصي</label>
+                <label className="font-bold text-muted-foreground">البريد الإلكتروني الشخصي</label>
                 {isEditing ? (
                   <input
-                    type="text"
-                    value={formData.phone || ""}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    type="email"
+                    value={formData.personalEmail || ""}
+                    onChange={(e) => setFormData({ ...formData, personalEmail: e.target.value })}
                     className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 ) : (
                   <p className="font-mono font-medium text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                    {employee.phone}
+                    {employee.personalEmail || "غير مسجل"}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">
+                  أرقام التواصل (الأساسي / الإضافي / العمل)
+                </label>
+                {isEditing ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder="الجوال الأساسي"
+                      value={formData.phone || ""}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="h-10 rounded-2xl border border-border/80 bg-muted/40 px-2.5 font-mono"
+                    />
+                    <input
+                      type="text"
+                      placeholder="جوال إضافي"
+                      value={formData.secondaryPhone || ""}
+                      onChange={(e) => setFormData({ ...formData, secondaryPhone: e.target.value })}
+                      className="h-10 rounded-2xl border border-border/80 bg-muted/40 px-2.5 font-mono"
+                    />
+                  </div>
+                ) : (
+                  <p className="font-mono font-medium text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.phone || "—"}{" "}
+                    {employee.secondaryPhone ? `• ${employee.secondaryPhone}` : ""}{" "}
+                    {employee.workPhone ? `• تحويلة: ${employee.workPhone}` : ""}
                   </p>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Saudi National Address & Emergency Contacts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Saudi National Address, Home Country Address & Emergency Contacts */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
               <div className="flex items-center gap-2 border-b border-border/60 pb-3">
                 <Home className="h-5 w-5 text-emerald-600" />
                 <h4 className="font-black text-xs text-foreground">
-                  العنوان الوطني الموحد (Saudi Post SPL)
+                  العنوان الوطني والمعلومات البريدية (SPL)
                 </h4>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="bg-muted/20 p-3 rounded-2xl col-span-2">
+                  <span className="text-[10px] text-muted-foreground font-bold block">
+                    العنوان الوطني المختصر وعنوان الإقامة الحالي
+                  </span>
+                  <span className="font-mono font-black text-primary">
+                    {employee.shortNationalAddress || "—"}
+                  </span>{" "}
+                  <span className="font-bold text-foreground">
+                    {employee.currentResidenceAddress ? `• ${employee.currentResidenceAddress}` : ""}
+                  </span>
+                </div>
                 <div className="bg-muted/20 p-3 rounded-2xl">
                   <span className="text-[10px] text-muted-foreground font-bold block">
                     المدينة والحي
                   </span>
                   <span className="font-bold text-foreground">
-                    {employee.nationalAddress ? `${employee.nationalAddress.city || ""} - ${employee.nationalAddress.district || ""}` : "غير مسجل"}
+                    {employee.nationalAddress
+                      ? `${employee.nationalAddress.city || ""} - ${employee.nationalAddress.district || ""}`
+                      : "غير مسجل"}
                   </span>
                 </div>
                 <div className="bg-muted/20 p-3 rounded-2xl">
@@ -973,8 +1218,38 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                     الرمز البريدي والإضافي
                   </span>
                   <span className="font-mono font-bold text-foreground">
-                    {employee.nationalAddress?.postalCode || "12383"} -{" "}
-                    {employee.nationalAddress?.additionalNo || "3310"}
+                    {employee.nationalAddress?.postalCode || "—"} -{" "}
+                    {employee.nationalAddress?.additionalNo || "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 border-b border-border/60 pb-3">
+                <Globe className="h-5 w-5 text-blue-600" />
+                <h4 className="font-black text-xs text-foreground">
+                  عنوان الإقامة في البلد الأم
+                </h4>
+              </div>
+              <div className="space-y-2.5 text-xs">
+                <div className="flex justify-between bg-muted/20 p-3 rounded-2xl">
+                  <span className="text-muted-foreground font-bold">الدولة والمدينة:</span>
+                  <span className="font-bold text-foreground">
+                    {employee.homeCountryAddress?.country || "غير مسجل"}{" "}
+                    {employee.homeCountryAddress?.city ? `- ${employee.homeCountryAddress.city}` : ""}
+                  </span>
+                </div>
+                <div className="flex justify-between bg-muted/20 p-3 rounded-2xl">
+                  <span className="text-muted-foreground font-bold">العنوان التفصيلي:</span>
+                  <span className="font-bold text-foreground truncate max-w-[180px]">
+                    {employee.homeCountryAddress?.detailedAddress || "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between bg-muted/20 p-3 rounded-2xl">
+                  <span className="text-muted-foreground font-bold">هاتف البلد الأم:</span>
+                  <span className="font-mono font-bold text-primary">
+                    {employee.homeCountryAddress?.phone || "—"}
                   </span>
                 </div>
               </div>
@@ -1017,52 +1292,63 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
             <div className="flex items-center gap-2 border-b border-border/60 pb-3">
               <Briefcase className="h-5 w-5 text-primary" />
               <h3 className="font-black text-sm text-foreground">
-                الهيكل الوظيفي، عقد قوى الرقمي، ومسار الترقية
+                بيانات العمل، الهيكل التنظيمي، التواريخ الوظيفية، والخبرة
               </h3>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">المسمى الوظيفي</label>
+                <label className="font-bold text-muted-foreground">المنطقة الإدارية</label>
                 {isEditing ? (
                   <input
                     type="text"
-                    value={formData.jobTitleAr || ""}
-                    onChange={(e) => setFormData({ ...formData, jobTitleAr: e.target.value })}
-                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    value={formData.region || ""}
+                    onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold"
                   />
                 ) : (
                   <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                    {employee.jobTitleAr}
+                    {employee.region || "منطقة الرياض"}
                   </p>
                 )}
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">
-                  الدرجة الوظيفية (Job Grade)
-                </label>
+                <label className="font-bold text-muted-foreground">الفرع / موقع العمل</label>
+                {isEditing ? (
+                  <select
+                    value={formData.workLocationId}
+                    onChange={(e) => setFormData({ ...formData, workLocationId: e.target.value })}
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    {workLocations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.nameAr}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.workLocationName || "المركز الرئيسي"}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">القسم الرئيسي والمسار</label>
                 {isEditing ? (
                   <input
                     type="text"
-                    value={formData.jobGrade || ""}
-                    onChange={(e) => setFormData({ ...formData, jobGrade: e.target.value })}
-                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    value={formData.mainDepartment || ""}
+                    onChange={(e) => setFormData({ ...formData, mainDepartment: e.target.value })}
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold"
                   />
                 ) : (
-                  <p className="font-bold text-primary bg-primary/10 p-2.5 rounded-2xl">
-                    {employee.jobGrade || "غير مسجل"}
+                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.mainDepartment || employee.departmentName || "—"} •{" "}
+                    {employee.careerTrack || "—"}
                   </p>
                 )}
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">
-                  مركز التكلفة (Cost Center)
-                </label>
-                <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                  {employee.costCenter || "غير مسجل"}
-                </p>
               </div>
 
               <div className="space-y-1.5">
@@ -1087,43 +1373,52 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">الشركة / الكيان التابع</label>
+                <label className="font-bold text-muted-foreground">المسمى الوظيفي والوظيفة الحالية</label>
                 {isEditing ? (
-                  <select
-                    value={formData.subsidiaryId}
-                    onChange={(e) => setFormData({ ...formData, subsidiaryId: e.target.value })}
-                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  >
-                    {subsidiaries.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nameAr}
-                      </option>
-                    ))}
-                  </select>
+                  <input
+                    type="text"
+                    value={formData.jobTitleAr || ""}
+                    onChange={(e) => setFormData({ ...formData, jobTitleAr: e.target.value })}
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
                 ) : (
                   <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                    {employee.subsidiaryName || "غير مسجل"}
+                    {employee.jobTitleAr}{" "}
+                    {employee.currentRoleName ? `(${employee.currentRoleName})` : ""}
                   </p>
                 )}
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-bold text-muted-foreground">موقع وفرع العمل</label>
+                <label className="font-bold text-muted-foreground">التخصص والقطاع</label>
                 {isEditing ? (
-                  <select
-                    value={formData.workLocationId}
-                    onChange={(e) => setFormData({ ...formData, workLocationId: e.target.value })}
-                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  >
-                    {workLocations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.nameAr}
-                      </option>
-                    ))}
-                  </select>
+                  <input
+                    type="text"
+                    value={formData.specialization || ""}
+                    onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold"
+                  />
                 ) : (
                   <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                    {employee.workLocationName}
+                    {employee.specialization || "—"} • {employee.sector || "القطاع الخاص"}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">
+                  الدرجة الوظيفية (Job Grade)
+                </label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={formData.jobGrade || ""}
+                    onChange={(e) => setFormData({ ...formData, jobGrade: e.target.value })}
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                ) : (
+                  <p className="font-bold text-primary bg-primary/10 p-2.5 rounded-2xl">
+                    {employee.jobGrade || "غير مسجل"}
                   </p>
                 )}
               </div>
@@ -1154,6 +1449,61 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
 
               <div className="space-y-1.5">
                 <label className="font-bold text-muted-foreground">
+                  تاريخ التعيين وتاريخ المباشرة
+                </label>
+                <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                  تعيين: {employee.hireDate || "—"} • مباشرة:{" "}
+                  {employee.joiningDate || employee.hireDate || "—"}
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">
+                  الخبرة، فترة التجربة، ودخول المملكة
+                </label>
+                <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                  خبرة {employee.experienceYears ?? 0} سنة • تجربة {employee.probationDays ?? 90} يوم
+                  {employee.kingdomEntryDate ? ` • دخول: ${employee.kingdomEntryDate}` : ""}
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">آخر مؤهل دراسي</label>
+                <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                  {employee.highestQualification || employee.educationDegree || "غير مسجل"}
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">احتساب الإجازة السنوية</label>
+                <p className="font-bold text-emerald-700 bg-emerald-500/10 p-2.5 rounded-2xl">
+                  {employee.annualLeaveCalculation || "من تاريخ المباشرة"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Contract & Working Hours Regulation Details Card */}
+          <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-emerald-600" />
+                <h3 className="font-black text-sm text-foreground">
+                  تفاصيل العقد، تنظيم أوقات العمل، الراحة الأسبوعية، وبنود منصة قوى
+                </h3>
+              </div>
+              <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary">
+                {employee.contractDurationType === "ajeer"
+                  ? "عقد أجير (بدون إجازة سنوية)"
+                  : employee.contractDurationType === "indefinite"
+                    ? "عقد غير محدد المدة"
+                    : "عقد محدد المدة"}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">
                   رقم العقد الموحد في قوى (QIWA ID)
                 </label>
                 <p className="font-mono font-bold text-emerald-600 bg-muted/20 p-2.5 rounded-2xl">
@@ -1165,10 +1515,62 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                 <label className="font-bold text-muted-foreground">تاريخ بداية العقد ونهايته</label>
                 <p className="font-mono font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
                   {employee.contractStartDate || employee.hireDate} ➔{" "}
-                  {employee.contractEndDate || "غير محدد"}
+                  {employee.contractDurationType === "indefinite"
+                    ? "عقد غير محدد المدة"
+                    : employee.contractEndDate || "غير محدد"}
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">استحقاق الإجازة السنوية بالعقد</label>
+                <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                  {employee.contractDurationType === "ajeer"
+                    ? "0 يوم (نظام أجير لا يمنح إجازة سنوية)"
+                    : `${employee.contractAnnualLeaveDays ?? 21} يوماً (${employee.annualLeavePolicy || "لائحة العمل"})`}
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">تنظيم أوقات العمل والراحة</label>
+                <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                  {employee.weeklyWorkDays ?? 5} أيام عمل /{" "}
+                  <span className="text-emerald-700">
+                    {employee.weeklyRestDays ?? Math.max(0, 7 - (employee.weeklyWorkDays ?? 5))} أيام راحة
+                  </span>{" "}
+                  • {employee.standardWorkHoursCount ?? 8} ساعات (
+                  {employee.workHoursStandard === "weekly" ? "أسبوعياً" : "يومياً"})
                 </p>
               </div>
             </div>
+
+            {(employee.qiwaContractClauses ||
+              employee.contractNotes ||
+              employee.contractAttachmentName) && (
+              <div className="rounded-2xl bg-muted/20 border border-border/60 p-4 space-y-2 text-xs">
+                {employee.qiwaContractClauses && (
+                  <div>
+                    <span className="font-black text-foreground block mb-1">
+                      بنود العقد المدرجة (منصة قوى):
+                    </span>
+                    <p className="whitespace-pre-line text-muted-foreground leading-relaxed">
+                      {employee.qiwaContractClauses}
+                    </p>
+                  </div>
+                )}
+                {employee.contractNotes && (
+                  <div className="pt-1">
+                    <span className="font-bold text-foreground">ملاحظات العقد: </span>
+                    <span className="text-muted-foreground">{employee.contractNotes}</span>
+                  </div>
+                )}
+                {employee.contractAttachmentName && (
+                  <div className="pt-1 flex items-center gap-2 text-primary font-bold">
+                    <FileText className="h-4 w-4" />
+                    <span>مرفق العقد المرفوع: {employee.contractAttachmentName}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Career Movements & Effective-Dated Assignment History */}
@@ -1266,11 +1668,21 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
         {/* Tab 3: Compensation, GOSI & Banking */}
         <TabsContent value="compensation" className="space-y-4 pt-4">
           <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 border-b border-border/60 pb-3">
-              <CreditCard className="h-5 w-5 text-primary" />
-              <h3 className="font-black text-sm text-foreground">
-                تفاصيل هيكل الأجور، البدلات، والتأمينات الاجتماعية (WPS & GOSI)
-              </h3>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-primary" />
+                <h3 className="font-black text-sm text-foreground">
+                  تفاصيل البيانات المالية، البدلات، الاستقطاعات، والبيانات البنكية (WPS & GOSI)
+                </h3>
+              </div>
+              {employee.lockBankData && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-bold bg-amber-500/10 text-amber-700 border-amber-400"
+                >
+                  🔒 تعديل البيانات البنكية محظور
+                </Badge>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
@@ -1332,23 +1744,98 @@ export const EmployeeFullProfileView: React.FC<EmployeeFullProfileViewProps> = (
                 </p>
               </div>
 
-              <div className="space-y-1.5 sm:col-span-2">
-                <label className="font-bold text-muted-foreground">
-                  البنك المعتمد لتحويل الراتب
-                </label>
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">الفئة الوظيفية والكفيل</label>
                 <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
-                  {employee.bankName || "غير مسجل"}
+                  {employee.jobCategory || "غير محدد"}{" "}
+                  {employee.sponsorName ? `• الكفيل: ${employee.sponsorName}` : ""}
                 </p>
               </div>
 
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">طريقة القبض وعمولة البنك</label>
+                <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                  {employee.paymentMethod === "cash"
+                    ? "نقدي (Cash)"
+                    : employee.paymentMethod === "exchange"
+                      ? "صرافة"
+                      : "تحويل بنكي (WPS)"}{" "}
+                  •{" "}
+                  {employee.bankCommissionStatus === "deducted"
+                    ? "تخصم العمولة"
+                    : "لا تخصم العمولة"}
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground">
+                  البنك المعتمد ورقم الحساب
+                </label>
+                {isEditing && !formData.lockBankData ? (
+                  <input
+                    type="text"
+                    value={formData.bankName || ""}
+                    onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-bold"
+                  />
+                ) : (
+                  <p className="font-bold text-foreground bg-muted/20 p-2.5 rounded-2xl">
+                    {employee.bankName || "غير مسجل"}{" "}
+                    {employee.bankAccountNumber ? `(${employee.bankAccountNumber})` : ""}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
                 <label className="font-bold text-muted-foreground">
                   رقم الآيبان الدولي (IBAN - نظام حماية الأجور)
                 </label>
-                <p className="font-mono font-black text-foreground bg-muted/20 p-2.5 rounded-2xl text-xs">
-                  {canViewPayroll ? (employee.iban || "غير مسجل") : maskIban(employee.iban)}
-                </p>
+                {isEditing && !formData.lockBankData ? (
+                  <input
+                    type="text"
+                    value={formData.iban || ""}
+                    onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
+                    className="w-full h-10 rounded-2xl border border-border/80 bg-muted/40 px-3 font-mono font-bold"
+                  />
+                ) : (
+                  <p className="font-mono font-black text-foreground bg-muted/20 p-2.5 rounded-2xl text-xs">
+                    {canViewPayroll ? (employee.iban || "غير مسجل") : maskIban(employee.iban)}
+                  </p>
+                )}
               </div>
+
+              {/* Custom Allowances & Deductions Breakdown */}
+              {((employee.customAllowances && employee.customAllowances.length > 0) ||
+                (employee.customDeductions && employee.customDeductions.length > 0)) && (
+                <div className="sm:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 space-y-2">
+                    <span className="font-black text-emerald-700 text-xs block">
+                      الاستحقاقات والبدلات الإضافية المسجلة:
+                    </span>
+                    {(employee.customAllowances || []).map((alw) => (
+                      <div key={alw.id} className="flex justify-between text-xs">
+                        <span className="font-semibold">{alw.name}</span>
+                        <span className="font-mono font-bold text-emerald-700">
+                          +{Number(alw.amount).toLocaleString()} ر.س
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-3.5 space-y-2">
+                    <span className="font-black text-rose-700 text-xs block">
+                      الاستقطاعات والحسميات الثابتة المسجلة:
+                    </span>
+                    {(employee.customDeductions || []).map((ded) => (
+                      <div key={ded.id} className="flex justify-between text-xs">
+                        <span className="font-semibold">{ded.name}</span>
+                        <span className="font-mono font-bold text-rose-700">
+                          -{Number(ded.amount).toLocaleString()} ر.س
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* GOSI Breakdown Box */}
               <div className="sm:col-span-4 rounded-2xl border border-emerald-300 bg-emerald-500/10 p-5 space-y-3">

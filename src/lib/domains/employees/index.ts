@@ -141,8 +141,8 @@ export function useCreateEmployee() {
   const mode: MutationDataMode = "live";
   const queryClient = useQueryClient();
 
-  const createEmployee = useCallback(
-    async (empInput: Omit<Employee, "id" | "completionScore">): Promise<boolean> => {
+  const createEmployeeWithResult = useCallback(
+    async (empInput: Omit<Employee, "id" | "completionScore">): Promise<Employee | null> => {
       const calculatedScore = calculateProfileCompletion(empInput);
 
       const newEmp: Employee = {
@@ -151,11 +151,14 @@ export function useCreateEmployee() {
         completionScore: calculatedScore,
       };
 
+      let createdEmployee: Employee | null = null;
+
       const result = await executeReliableMutation({
         mode,
         mutationKey: `create-employee-${newEmp.nationalIdOrIqama || newEmp.employeeNo || newEmp.email}`,
         operation: async () => {
           const created = await createEmployeeRecord(newEmp);
+          createdEmployee = created;
           await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap.all });
           await queryClient.invalidateQueries({ queryKey: queryKeys.organization.all });
@@ -169,12 +172,20 @@ export function useCreateEmployee() {
         },
       });
 
-      return result.ok;
+      return result.ok ? createdEmployee : null;
     },
     [mode, queryClient],
   );
 
-  return { createEmployee };
+  const createEmployee = useCallback(
+    async (empInput: Omit<Employee, "id" | "completionScore">): Promise<boolean> => {
+      const created = await createEmployeeWithResult(empInput);
+      return Boolean(created);
+    },
+    [createEmployeeWithResult],
+  );
+
+  return { createEmployee, createEmployeeWithResult };
 }
 
 export function useUpdateEmployee() {

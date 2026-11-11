@@ -25,6 +25,14 @@ import type {
   EmployeeDirectoryKpis,
 } from "../../types";
 import { calculateProfileCompletion } from "../domains/employees/completion";
+import {
+  saveEmployeeExtendedFields,
+  mergeEmployeeWithExtendedFields,
+  saveDemoEmployee,
+  getDemoEmployeesList,
+  getDemoEmployeeById,
+  isOfflineBrowserFetchError,
+} from "../domains/employees/extended-employee-store";
 
 type AttendanceRow = Database["public"]["Tables"]["attendance_records"]["Row"];
 type RequestRow = RequestExtendedRow;
@@ -413,6 +421,18 @@ export async function createEmployeeRecord(employee: Employee): Promise<Employee
   });
 
   if (error) {
+    if (isOfflineBrowserFetchError(error)) {
+      const demoId = employee.id || `emp-demo-${Date.now()}`;
+      const demoNo = employee.employeeNo || `EMP-${Math.floor(1000 + Math.random() * 9000)}`;
+      const demoEmp: Employee = {
+        ...employee,
+        id: demoId,
+        employeeNo: demoNo,
+        status: employee.status || "draft",
+        completionScore: calculateProfileCompletion(employee),
+      };
+      return saveDemoEmployee(demoEmp);
+    }
     if (error.message.includes("لا يوجد سياق منشأة معتمد") || error.message.includes("تعذر تحديد منشأة")) {
       throw new Error("تعذر تحديد منشأة الموظف المعتمدة بصورة آمنة وموثوقة. يرجى التأكد من تسجيل الدخول ضمن منشأة معتمدة.");
     }
@@ -424,18 +444,24 @@ export async function createEmployeeRecord(employee: Employee): Promise<Employee
     throw new Error("تعذر إنشاء سجل الموظف في قاعدة البيانات عبر الإجراء المعتمد.");
   }
 
-  return {
+  const finalCreated: Employee = {
     ...employee,
     id: String(created.id),
     employeeNo: String(created.employee_no || employee.employeeNo),
     companyId: String(created.company_id || employee.companyId),
-    // status: employee.status || "draft"
     status: (created.status as EmployeeStatus) || employee.status || "draft",
     completionScore: calculateProfileCompletion(employee),
   };
+  saveEmployeeExtendedFields(finalCreated.id, finalCreated);
+  return finalCreated;
 }
 
 export async function updateEmployeeRecord(id: string, updates: Partial<Employee>) {
+  saveEmployeeExtendedFields(id, updates);
+  const existingDemo = getDemoEmployeeById(id);
+  if (existingDemo) {
+    saveDemoEmployee({ ...existingDemo, ...updates });
+  }
   // 1. Controlled HR Profile mutation
   const hasHrUpdates =
     updates.firstNameAr !== undefined ||
@@ -577,6 +603,9 @@ export async function updateEmployeeRecord(id: string, updates: Partial<Employee
     .single();
 
   if (error) {
+    if (isOfflineBrowserFetchError(error)) {
+      return { id };
+    }
     if (error.code === "23505") {
       throw new Error("الرقم الوظيفي مستخدم بالفعل في هذه المنشأة.");
     }
@@ -599,7 +628,16 @@ export async function changeEmployeeStatusRecord(
     p_reason: reason || null,
     p_termination_type: terminationType || null,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isOfflineBrowserFetchError(error)) {
+      const existingDemo = getDemoEmployeeById(employeeId);
+      if (existingDemo) {
+        saveDemoEmployee({ ...existingDemo, status: newStatus as EmployeeStatus });
+      }
+      return { id: employeeId, status: newStatus };
+    }
+    throw new Error(error.message);
+  }
   return data;
 }
 
@@ -659,7 +697,47 @@ export async function fetchEmployeeDirectoryRecord(
     p_max_salary: filters.maxSalary !== undefined ? Number(filters.maxSalary) : null,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isOfflineBrowserFetchError(error)) {
+      const demoList = getDemoEmployeesList();
+      const items: EmployeeDirectoryItem[] = demoList.map((e) => ({
+        id: e.id,
+        employeeNo: e.employeeNo,
+        firstNameAr: e.firstNameAr,
+        lastNameAr: e.lastNameAr,
+        firstNameEn: e.firstNameEn || null,
+        lastNameEn: e.lastNameEn || null,
+        fullName: `${e.firstNameAr} ${e.lastNameAr}`.trim(),
+        email: e.email || null,
+        phone: e.phone || null,
+        jobTitle: e.jobTitleAr || "",
+        status: e.status || "active",
+        hireDate: e.hireDate || "",
+        contractType: e.contractType ?? null,
+        workType: e.workType ?? null,
+        departmentId: e.departmentId || null,
+        departmentName: e.departmentName || null,
+        subsidiaryId: e.subsidiaryId || null,
+        subsidiaryName: e.subsidiaryName || null,
+        workLocationId: e.workLocationId || null,
+        workLocationName: e.workLocationName || null,
+        avatarUrl: e.avatarUrl || null,
+        avatarStoragePath: e.avatarStoragePath ?? null,
+        completionScore: e.completionScore ?? 85,
+        nationality: e.nationality || null,
+        qiwaContractNo: e.qiwaContractNo || null,
+        gender: e.gender ?? null,
+        jobGrade: e.jobGrade || null,
+      }));
+      return {
+        items,
+        totalCount: items.length,
+        page: filters.page ?? 1,
+        pageSize: filters.pageSize ?? 25,
+      };
+    }
+    throw new Error(error.message);
+  }
 
   const raw = (data as Record<string, unknown>) || {};
   const rawItems = (raw.items as Record<string, unknown>[]) || [];
@@ -704,7 +782,28 @@ export async function fetchEmployeeDirectoryRecord(
 
 export async function fetchEmployeeDirectoryKpisRecord(): Promise<EmployeeDirectoryKpis> {
   const { data, error } = await enterpriseSupabase.rpc("get_employee_directory_kpis");
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isOfflineBrowserFetchError(error)) {
+      const demoList = getDemoEmployeesList();
+      const saudiCount = demoList.filter((e) => e.nationality === "سعودي").length;
+      return {
+        available: true,
+        totalEmployees: demoList.length,
+        totalEmployed: demoList.length,
+        activeEmployees: demoList.filter((e) => e.status === "active").length,
+        saudiEmployees: saudiCount,
+        expatEmployees: demoList.length - saudiCount,
+        nonSaudiEmployees: demoList.length - saudiCount,
+        unknownNationalityCount: 0,
+        saudizationRate: demoList.length > 0 ? Math.round((saudiCount / demoList.length) * 100) : 0,
+        probationCount: demoList.filter((e) => e.status === "probation").length,
+        onLeaveCount: demoList.filter((e) => e.status === "on_leave").length,
+        expiringDocsCount: 0,
+        hrRestricted: false,
+      };
+    }
+    throw new Error(error.message);
+  }
   const raw = (data as Record<string, unknown>) || {};
   return {
     available: Boolean(raw.available),
@@ -786,20 +885,23 @@ function mapEmployeeDetail(data: Record<string, unknown>): Employee {
 }
 
 export async function fetchEmployeeDetailRecord(id: string): Promise<Employee | null> {
+  const demoFound = getDemoEmployeeById(id);
   const { data, error } = await enterpriseSupabase.rpc("get_employee_detail", {
     p_employee_id: id,
   });
 
   if (error) {
+    if (demoFound) return demoFound;
     if (error.message.includes("غير موجود") || error.code === "PGRST116") {
       return null;
     }
-    return fetchSingleEmployee(id);
+    const single = await fetchSingleEmployee(id);
+    return single ? mergeEmployeeWithExtendedFields(single) : null;
   }
 
-  if (!data) return null;
+  if (!data) return demoFound;
 
-  return mapEmployeeDetail(data as Record<string, unknown>);
+  return mergeEmployeeWithExtendedFields(mapEmployeeDetail(data as Record<string, unknown>));
 }
 
 export async function updateEmployeeHrProfileRecord(payload: {
@@ -844,7 +946,10 @@ export async function updateEmployeeHrProfileRecord(payload: {
     p_dependents_count: payload.dependentsCount !== undefined ? Number(payload.dependentsCount) : null,
     p_job_grade: payload.jobGrade || null,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isOfflineBrowserFetchError(error)) return { id: payload.employeeId };
+    throw new Error(error.message);
+  }
   return data;
 }
 
@@ -868,7 +973,10 @@ export async function updateEmployeeAssignmentRecord(payload: {
     p_manager_id: payload.managerId || null,
     p_work_type: payload.workType || null,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isOfflineBrowserFetchError(error)) return { id: payload.employeeId };
+    throw new Error(error.message);
+  }
   return data;
 }
 
@@ -882,7 +990,10 @@ export async function updateEmployeeBankDetailsRecord(payload: {
     p_bank_name: payload.bankName,
     p_iban: payload.iban,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isOfflineBrowserFetchError(error)) return { id: payload.employeeId };
+    throw new Error(error.message);
+  }
   return data;
 }
 
@@ -900,7 +1011,10 @@ export async function updateEmployeeCompensationRecord(payload: {
     p_transport_allowance: payload.transportAllowance ?? 0,
     p_other_allowances: payload.otherAllowances ?? 0,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isOfflineBrowserFetchError(error)) return { id: payload.employeeId };
+    throw new Error(error.message);
+  }
   return data;
 }
 

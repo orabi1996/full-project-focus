@@ -32,6 +32,10 @@ import {
   getDemoEmployeesList,
   getDemoEmployeeById,
   isOfflineBrowserFetchError,
+  persistEmployeeWhenRpcUnavailable,
+  updateEmployeeWhenRpcUnavailable,
+  fetchDirectoryWhenRpcUnavailable,
+  fetchDirectoryKpisWhenRpcUnavailable,
 } from "../domains/employees/extended-employee-store";
 
 type AttendanceRow = Database["public"]["Tables"]["attendance_records"]["Row"];
@@ -162,8 +166,9 @@ function mapEmployee(
     },
   };
 
-  empObj.completionScore = calculateProfileCompletion(empObj);
-  return empObj;
+  const hydrated = mergeEmployeeWithExtendedFields(empObj);
+  hydrated.completionScore = calculateProfileCompletion(hydrated);
+  return hydrated;
 }
 
 function mapOrgUnit(row: DepartmentRow): OrgUnit {
@@ -370,6 +375,9 @@ export async function generateCompanyEmployeeNoRecord(companyId: string): Promis
     p_company_id: companyId,
   });
   if (error || !data) {
+    if (error && isOfflineBrowserFetchError(error)) {
+      return `MX-${Math.floor(100000 + Math.random() * 900000)}`;
+    }
     throw new Error(`فشل توليد الرقم الوظيفي للموظف: ${error?.message || "تعذر إكمال العملية"}`);
   }
   return data as string;
@@ -422,16 +430,12 @@ export async function createEmployeeRecord(employee: Employee): Promise<Employee
 
   if (error) {
     if (isOfflineBrowserFetchError(error)) {
-      const demoId = employee.id || `emp-demo-${Date.now()}`;
-      const demoNo = employee.employeeNo || `EMP-${Math.floor(1000 + Math.random() * 9000)}`;
-      const demoEmp: Employee = {
+      const normalizedEmp: Employee = {
         ...employee,
-        id: demoId,
-        employeeNo: demoNo,
         status: employee.status || "draft",
         completionScore: calculateProfileCompletion(employee),
       };
-      return saveDemoEmployee(demoEmp);
+      return await persistEmployeeWhenRpcUnavailable(normalizedEmp, normalizedEmp.completionScore ?? 0);
     }
     if (error.message.includes("لا يوجد سياق منشأة معتمد") || error.message.includes("تعذر تحديد منشأة")) {
       throw new Error("تعذر تحديد منشأة الموظف المعتمدة بصورة آمنة وموثوقة. يرجى التأكد من تسجيل الدخول ضمن منشأة معتمدة.");
@@ -630,10 +634,14 @@ export async function changeEmployeeStatusRecord(
   });
   if (error) {
     if (isOfflineBrowserFetchError(error)) {
-      const existingDemo = getDemoEmployeeById(employeeId);
-      if (existingDemo) {
-        saveDemoEmployee({ ...existingDemo, status: newStatus as EmployeeStatus });
-      }
+      const safeDbStatus = ["active", "on_leave", "suspended", "terminated", "draft"].includes(newStatus)
+        ? newStatus
+        : "active";
+      await updateEmployeeWhenRpcUnavailable(
+        employeeId,
+        { status: safeDbStatus },
+        { status: newStatus as EmployeeStatus },
+      );
       return { id: employeeId, status: newStatus };
     }
     throw new Error(error.message);
@@ -699,42 +707,7 @@ export async function fetchEmployeeDirectoryRecord(
 
   if (error) {
     if (isOfflineBrowserFetchError(error)) {
-      const demoList = getDemoEmployeesList();
-      const items: EmployeeDirectoryItem[] = demoList.map((e) => ({
-        id: e.id,
-        employeeNo: e.employeeNo,
-        firstNameAr: e.firstNameAr,
-        lastNameAr: e.lastNameAr,
-        firstNameEn: e.firstNameEn || null,
-        lastNameEn: e.lastNameEn || null,
-        fullName: `${e.firstNameAr} ${e.lastNameAr}`.trim(),
-        email: e.email || null,
-        phone: e.phone || null,
-        jobTitle: e.jobTitleAr || "",
-        status: e.status || "active",
-        hireDate: e.hireDate || "",
-        contractType: e.contractType ?? null,
-        workType: e.workType ?? null,
-        departmentId: e.departmentId || null,
-        departmentName: e.departmentName || null,
-        subsidiaryId: e.subsidiaryId || null,
-        subsidiaryName: e.subsidiaryName || null,
-        workLocationId: e.workLocationId || null,
-        workLocationName: e.workLocationName || null,
-        avatarUrl: e.avatarUrl || null,
-        avatarStoragePath: e.avatarStoragePath ?? null,
-        completionScore: e.completionScore ?? 85,
-        nationality: e.nationality || null,
-        qiwaContractNo: e.qiwaContractNo || null,
-        gender: e.gender ?? null,
-        jobGrade: e.jobGrade || null,
-      }));
-      return {
-        items,
-        totalCount: items.length,
-        page: filters.page ?? 1,
-        pageSize: filters.pageSize ?? 25,
-      };
+      return await fetchDirectoryWhenRpcUnavailable(filters);
     }
     throw new Error(error.message);
   }
@@ -784,23 +757,7 @@ export async function fetchEmployeeDirectoryKpisRecord(): Promise<EmployeeDirect
   const { data, error } = await enterpriseSupabase.rpc("get_employee_directory_kpis");
   if (error) {
     if (isOfflineBrowserFetchError(error)) {
-      const demoList = getDemoEmployeesList();
-      const saudiCount = demoList.filter((e) => e.nationality === "سعودي").length;
-      return {
-        available: true,
-        totalEmployees: demoList.length,
-        totalEmployed: demoList.length,
-        activeEmployees: demoList.filter((e) => e.status === "active").length,
-        saudiEmployees: saudiCount,
-        expatEmployees: demoList.length - saudiCount,
-        nonSaudiEmployees: demoList.length - saudiCount,
-        unknownNationalityCount: 0,
-        saudizationRate: demoList.length > 0 ? Math.round((saudiCount / demoList.length) * 100) : 0,
-        probationCount: demoList.filter((e) => e.status === "probation").length,
-        onLeaveCount: demoList.filter((e) => e.status === "on_leave").length,
-        expiringDocsCount: 0,
-        hrRestricted: false,
-      };
+      return await fetchDirectoryKpisWhenRpcUnavailable();
     }
     throw new Error(error.message);
   }
@@ -947,7 +904,46 @@ export async function updateEmployeeHrProfileRecord(payload: {
     p_job_grade: payload.jobGrade || null,
   });
   if (error) {
-    if (isOfflineBrowserFetchError(error)) return { id: payload.employeeId };
+    if (isOfflineBrowserFetchError(error)) {
+      return await updateEmployeeWhenRpcUnavailable(
+        payload.employeeId,
+        {
+          full_name: `${payload.firstNameAr || ""} ${payload.lastNameAr || ""}`.trim(),
+          first_name_ar: payload.firstNameAr,
+          last_name_ar: payload.lastNameAr,
+          first_name_en: payload.firstNameEn || null,
+          last_name_en: payload.lastNameEn || null,
+          email: payload.email || null,
+          phone: payload.phone || null,
+          national_id_or_iqama: payload.nationalId || null,
+          nationality: payload.nationality || null,
+          gender: payload.gender || null,
+          birth_date: payload.birthDate || null,
+          marital_status: payload.maritalStatus || null,
+          job_title: payload.jobTitle || null,
+        },
+        {
+          firstNameAr: payload.firstNameAr,
+          lastNameAr: payload.lastNameAr,
+          firstNameEn: payload.firstNameEn || "",
+          lastNameEn: payload.lastNameEn || "",
+          email: payload.email || "",
+          phone: payload.phone || "",
+          nationalIdOrIqama: payload.nationalId || "",
+          nationality: payload.nationality || "",
+          gender: (payload.gender as Gender | null) ?? null,
+          birthDate: payload.birthDate || "",
+          maritalStatus: (payload.maritalStatus as MaritalStatus | null) ?? null,
+          jobTitleAr: payload.jobTitle || "",
+          nationalIdExpiry: payload.nationalIdExpiry || undefined,
+          passportNo: payload.passportNo || undefined,
+          passportExpiry: payload.passportExpiry || undefined,
+          bloodType: payload.bloodType || undefined,
+          dependentsCount: payload.dependentsCount ?? undefined,
+          jobGrade: payload.jobGrade || undefined,
+        },
+      );
+    }
     throw new Error(error.message);
   }
   return data;
@@ -974,7 +970,21 @@ export async function updateEmployeeAssignmentRecord(payload: {
     p_work_type: payload.workType || null,
   });
   if (error) {
-    if (isOfflineBrowserFetchError(error)) return { id: payload.employeeId };
+    if (isOfflineBrowserFetchError(error)) {
+      return await updateEmployeeWhenRpcUnavailable(
+        payload.employeeId,
+        {},
+        {
+          departmentId: payload.departmentId || undefined,
+          subsidiaryId: payload.subsidiaryId || undefined,
+          workLocationId: payload.workLocationId || undefined,
+          jobPositionId: payload.jobPositionId || null,
+          costCenterId: payload.costCenterId || null,
+          managerId: payload.managerId || null,
+          workType: (payload.workType as Employee["workType"]) ?? null,
+        },
+      );
+    }
     throw new Error(error.message);
   }
   return data;
@@ -991,7 +1001,19 @@ export async function updateEmployeeBankDetailsRecord(payload: {
     p_iban: payload.iban,
   });
   if (error) {
-    if (isOfflineBrowserFetchError(error)) return { id: payload.employeeId };
+    if (isOfflineBrowserFetchError(error)) {
+      return await updateEmployeeWhenRpcUnavailable(
+        payload.employeeId,
+        {
+          bank_name: payload.bankName || null,
+          iban: payload.iban || null,
+        },
+        {
+          bankName: payload.bankName,
+          iban: payload.iban,
+        },
+      );
+    }
     throw new Error(error.message);
   }
   return data;
@@ -1012,7 +1034,27 @@ export async function updateEmployeeCompensationRecord(payload: {
     p_other_allowances: payload.otherAllowances ?? 0,
   });
   if (error) {
-    if (isOfflineBrowserFetchError(error)) return { id: payload.employeeId };
+    if (isOfflineBrowserFetchError(error)) {
+      const totalSalary =
+        Number(payload.basicSalary || 0) +
+        Number(payload.housingAllowance || 0) +
+        Number(payload.transportAllowance || 0) +
+        Number(payload.otherAllowances || 0);
+      return await updateEmployeeWhenRpcUnavailable(
+        payload.employeeId,
+        {
+          basic_salary: Number(payload.basicSalary || 0),
+          total_salary: totalSalary,
+        },
+        {
+          basicSalary: Number(payload.basicSalary || 0),
+          housingAllowance: Number(payload.housingAllowance || 0),
+          transportAllowance: Number(payload.transportAllowance || 0),
+          otherAllowances: Number(payload.otherAllowances || 0),
+          totalSalary,
+        },
+      );
+    }
     throw new Error(error.message);
   }
   return data;

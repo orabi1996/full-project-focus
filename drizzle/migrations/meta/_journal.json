@@ -57,6 +57,13 @@
       "when": 1794470175153,
       "tag": "0007_app_storage_bucket_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794470318110,
+      "tag": "0008_tighten_permissive_rls",
+      "breakpoints": true
     }
   ]
 }

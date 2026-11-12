@@ -155,15 +155,45 @@ export async function callExternalLLM(
 }
 
 export function buildSystemPromptForLLM(app: Partial<AppContextType>): string {
-  const empCount = (app.employees ?? []).length;
-  const saudiCount = (app.employees ?? []).filter((e) => e.nationality === "سعودي").length;
-  return `أنت المساعد الذكي المتقدم لمنصة "مدار إكس (MadarX)" لإدارة الموارد البشرية والمنشآت.
-أنت نموذج لغوي ذكي شامل، مهذب، دقيق، واحترافي تماماً مثل ChatGPT و Gemini و Claude.
-تستطيع مساعدة المستخدم في:
-1. أي سؤال عام أو محادثة عادية أو استشارات إدارية، صياغة خطابات وبريد، كتابة محتوى، أو شروحات عامة داخل وخارج المنظومة.
-2. أسئلة الموارد البشرية ونظام العمل السعودي ولوائح قوى والتأمينات وحماية الأجور (WPS).
-3. عند سؤالك عن بيانات المنشأة الحالية: المنشأة تضم حالياً ${empCount} موظفاً (منهم ${saudiCount} موظف سعودي).
-تحدث باللغة العربية الفصحى الأنيقة، واستخدم تنسيق Markdown المنظم مع العناوين والقوائم والأيقونات التوضيحية عند الحاجة.`;
+  const employees = app.employees ?? [];
+  const empCount = employees.length;
+  const saudiCount = employees.filter((e) => e.nationality === "سعودي").length;
+  const orgUnits = app.orgUnits ?? [];
+  const deptLines = orgUnits
+    .slice(0, 12)
+    .map((d) => {
+      const n = employees.filter((e) => e.departmentId === d.id).length;
+      return `- ${d.nameAr}: ${n} موظف`;
+    })
+    .join("\n");
+  const totalPayroll = employees.reduce(
+    (s, e) =>
+      s +
+      (Number(e.basicSalary) || 0) +
+      (Number(e.housingAllowance) || 0) +
+      (Number(e.transportAllowance) || 0) +
+      (Number(e.otherAllowances) || 0),
+    0
+  );
+  const sample = employees
+    .slice(0, 25)
+    .map((e) => `${e.employeeNo} | ${e.firstNameAr} ${e.lastNameAr} | ${e.jobTitleAr} | ${e.nationality} | ${e.status}`)
+    .join("\n");
+  return `أنت "مساعد مدار إكس الذكي": مساعد شخصي لمدير الموارد البشرية داخل نظام مدار إكس (MadarX)، ومطلع على بيانات النظام الحية أدناه.
+تتحدث بحرية وطلاقة مثل ChatGPT: تجيب عن أي سؤال عام أو إداري أو تقني أو كتابي، وتناقش وتقترح وتصيغ وتحلل، وبلهجة ودودة مختصرة وواضحة.
+عندما يتعلق السؤال بالنظام فاعتمد على البيانات التالية فقط ولا تخترع أرقاماً غير موجودة، وإن لم تتوفر البيانات فقل ذلك صراحة.
+الدول المدعومة في النظام: السعودية، مصر، الإمارات، قطر، الكويت، البحرين، عُمان (تعرف أنظمة العمل ومكاتب العمل والتأمينات لكل منها).
+قدرات النظام التي يمكنك توجيه المستخدم إليها: إضافة موظف بالنص أو الصوت أو صورة (OCR) مع بطاقة اعتماد، تقارير 360° (رواتب، حضور، إجازات، عقود، توطين)، صياغة الخطابات الرسمية، حاسبة نهاية الخدمة.
+
+## بيانات النظام الحالية
+- عدد الموظفين: ${empCount} (سعوديون: ${saudiCount})
+- إجمالي الرواتب الشهرية التقريبي: ${totalPayroll.toLocaleString("en-US")}
+- الأقسام:
+${deptLines || "- لا توجد بيانات أقسام"}
+- عينة من الموظفين (رقم | الاسم | الوظيفة | الجنسية | الحالة):
+${sample || "- لا يوجد موظفون"}
+
+استخدم العربية وتنسيق Markdown عند الحاجة، وكن عملياً ومباشراً.`;
 }
 
 export type SmartReportDomainId =
@@ -2001,21 +2031,24 @@ ${rows}
   // --------------------------------------------------------------------------
   // G. GENERAL PROBLEM SOLVING & BUSINESS ADVISORY
   // --------------------------------------------------------------------------
-  return `💡 **رؤية تحليلية وتوصيات إدارية بخصوص استفسارك:**
+  const activeCount = employees.filter((e) => e.status === "active").length;
+  const saudiCount = employees.filter((e) => e.nationality === "سعودي").length;
+  const saudiPct = empCount > 0 ? Math.round((saudiCount / empCount) * 100) : 0;
+  const deptCount = orgUnits.length;
+  return `أهلاً بك، سأجيبك بحرية وبشكل مباشر 🤝
 
-بشأن: **"${query}"**
+سؤالك: **"${query}"**
 
-**1. التشخيص والتأطير الإداري:**
-التعامل مع هذا الموضوع يتطلب التوازن بين متطلبات الامتثال التنظيمي وحماية استقرار العمليات التشغيلية، مع تعزيز تجربة وإنتاجية الموظفين.
+لم أجد في بيانات نظامك ما يرتبط مباشرة بهذا السؤال، لذلك أجيبك من الخبرة العامة في الإدارة والموارد البشرية:
+• حدّد الهدف والجهة المتأثرة أولاً (موظف، قسم، أو المنشأة كلها).
+• تحقق من الإطار النظامي للدولة المعنية (أدعم 7 دول: السعودية، مصر، الإمارات، قطر، الكويت، البحرين، عُمان).
+• وثّق القرار في تعميم أو نموذج رسمي، وتابع أثره بمؤشر واضح.
 
-**2. خطوات العمل التنفيذية المقترحة:**
-• **تحديد نطاق الأثر:** حصر الإدارات والموظفين المعنيين بشكل مباشر قبل اتخاذ أي إجراء.
-• **التوثيق والحوكمة:** صياغة سياسة أو تعميم داخلي واضح لتفادي أي لبس في التطبيق.
-• **المتابعة والقياس:** اعتماد مؤشر متابعة دوري (أسبوعي/شهري) للتحقق من سلامة التنفيذ.
+📊 **لمحة سريعة من نظامك الآن:** ${empCount} موظف (${activeCount} على رأس العمل، سعوديون ${saudiPct}%) موزعين على ${deptCount} وحدة تنظيمية.
 
-💡 **هل تود مني:**
-1. صياغة نموذج رسمي، تعميم، أو خطة عمل لهذا الموضوع؟
-2. أو استعراض كيف تنعكس هذه المسألة على بيانات الموظفين الحالية في نظامك؟`;
+⚙️ **للمحادثة الحرة بأي موضوع كأنك مع ChatGPT:** افتح إعدادات المحرك (أيقونة الترس) وأدخل مفتاح OpenAI أو Gemini أو OpenRouter، وسيجيب المساعد على أي سؤال مع بقائه مرتبطاً ببياناتك.
+
+يمكنني أيضاً: إضافة موظف (بالصوت/الصورة)، تحليل أي تقرير، صياغة خطاب رسمي، أو شرح قانون العمل لأي دولة. ماذا تريد؟`;
 }
 
 // ============================================================================
@@ -2524,6 +2557,26 @@ export function useSendMessage() {
       responseText = res.responseText;
       intent = res.intent;
 
+      // Free-form conversation: when a live LLM engine is configured, answer general
+      // questions with it, grounded in live system data and recent chat history.
+      if (res.intent === "general_chat" && !res.matchedReportDomain) {
+        const cfg = loadAIProviderConfig();
+        if (cfg.provider !== "built_in" && cfg.apiKey?.trim()) {
+          try {
+            const history = (loadStoredMessages()[conversationId] || [])
+              .slice(-8)
+              .map((m) => `${m.role === "user" ? "المستخدم" : "المساعد"}: ${m.content.slice(0, 600)}`)
+              .join("\n");
+            const llmPrompt = history
+              ? `سياق المحادثة السابقة:\n${history}\n\nالرسالة الجديدة من المستخدم:\n${sanitization.sanitizedPrompt}`
+              : sanitization.sanitizedPrompt;
+            responseText = await callExternalLLM(llmPrompt, buildSystemPromptForLLM(app), cfg);
+            intent = "general_chat_llm";
+          } catch (err: any) {
+            responseText = `${res.responseText}\n\n⚠️ تعذر الاتصال بالمحرك الخارجي (${err?.message || "خطأ غير معروف"}) فتم الرد بالمحرك المدمج.`;
+          }
+        }
+      }
       const latency = Math.max(25, Date.now() - startTime);
       aiObservability.recordEvent({
         conversationId,

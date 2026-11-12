@@ -21,39 +21,42 @@ export interface ArabicReportOptions {
  * browser print dialog). HTML printing is used because Arabic letter shaping
  * is handled natively by the browser, unlike canvas-based PDF writers.
  */
+const esc = (v: unknown) =>
+  String(v ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] as string);
+
 export function openArabicReportPdf(options: ArabicReportOptions) {
   const win = window.open("", "_blank", "width=1100,height=850");
   if (!win) throw new Error("المتصفح منع فتح نافذة الطباعة — اسمح بالنوافذ المنبثقة");
 
   const cardsHtml = (options.cards ?? [])
-    .map((c) => `<div class="card"><span>${c.label}</span><b>${c.value}</b></div>`)
+    .map((c) => `<div class="card"><span>${esc(c.label)}</span><b>${esc(c.value)}</b></div>`)
     .join("");
 
   const sectionsHtml = options.sections
     .map(
       (section) => `
-      <h2>${section.title}</h2>
+      <h2>${esc(section.title)}</h2>
       <table>
-        <thead><tr>${section.columns.map((c) => `<th>${c}</th>`).join("")}</tr></thead>
+        <thead><tr>${section.columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead>
         <tbody>${
           section.rows.length
             ? section.rows
-                .map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`)
+                .map((row) => `<tr>${row.map((cell) => `<td>${esc(cell)}</td>`).join("")}</tr>`)
                 .join("")
             : `<tr><td colspan="${section.columns.length}" class="empty">لا توجد بيانات</td></tr>`
         }</tbody>
         ${
           section.totals
-            ? `<tfoot><tr>${section.totals.map((cell) => `<td>${cell}</td>`).join("")}</tr></tfoot>`
+            ? `<tfoot><tr>${section.totals.map((cell) => `<td>${esc(cell)}</td>`).join("")}</tr></tfoot>`
             : ""
         }
       </table>
-      ${section.note ? `<p class="note">${section.note}</p>` : ""}`,
+      ${section.note ? `<p class="note">${esc(section.note)}</p>` : ""}`,
     )
     .join("");
 
   win.document.write(`<!doctype html>
-<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${options.title} | MadarX - منظومة العمل المتكاملة</title>
+<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${esc(options.title)} | MadarX - منظومة العمل المتكاملة</title>
 <style>
   *{box-sizing:border-box}
   body{font-family:"Segoe UI",Tahoma,Arial,sans-serif;margin:22px;color:#0f172a}
@@ -78,8 +81,8 @@ export function openArabicReportPdf(options: ArabicReportOptions) {
 </style></head><body>
 <div class="rep-header">
   <div>
-    <h1>${options.title}</h1>
-    <div class="sub">${options.subtitle ?? ""} — صدر في ${new Date().toLocaleString("ar-SA")}</div>
+    <h1>${esc(options.title)}</h1>
+    <div class="sub">${esc(options.subtitle ?? "")} — صدر في ${new Date().toLocaleString("ar-SA")}</div>
   </div>
   <div class="rep-brand">
     <img src="${window.location.origin}${getActiveBrandLogoPath()}" class="rep-logo" alt="MadarX" onerror="this.style.display='none'" />
@@ -88,7 +91,7 @@ export function openArabicReportPdf(options: ArabicReportOptions) {
 ${cardsHtml ? `<div class="cards">${cardsHtml}</div>` : ""}
 ${sectionsHtml}
 <div class="foot">
-  <span>${options.footer ?? "تقرير آلي معتمد مستخرج من منصة مدار إكس لإدارة رأس المال البشري (MadarX Enterprise Workforce Platform)."}</span>
+  <span>${esc(options.footer ?? "تقرير آلي معتمد مستخرج من منصة مدار إكس لإدارة رأس المال البشري (MadarX Enterprise Workforce Platform).")}</span>
   <span>MadarX Enterprise © ${new Date().getFullYear()}</span>
 </div>
 <script>window.onload=()=>{window.focus();window.print();}</script>

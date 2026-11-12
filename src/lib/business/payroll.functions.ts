@@ -145,6 +145,9 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput) {
     employeeQuery = employeeQuery.eq("payroll_group_id", data.payrollGroupId);
   }
   if (data.branchId && data.branchId !== "all") {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.branchId)) {
+      throw new Error("Invalid branch id");
+    }
     employeeQuery = employeeQuery.or(`work_location_id.eq.${data.branchId},location_id.eq.${data.branchId}`);
   }
   if (data.departmentId && data.departmentId !== "all") {

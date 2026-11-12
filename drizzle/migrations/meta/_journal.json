@@ -64,6 +64,13 @@
       "when": 1794470318110,
       "tag": "0008_tighten_permissive_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794471185241,
+      "tag": "0009_harden_security_definer_functions",
+      "breakpoints": true
     }
   ]
 }

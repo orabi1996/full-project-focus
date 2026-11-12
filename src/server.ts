@@ -55,7 +55,7 @@ export default {
           request.headers.get("x-cron-secret") ||
           (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : authHeader);
 
-        if (expectedSecret && providedSecret !== expectedSecret) {
+        if (!expectedSecret || providedSecret !== expectedSecret) {
           return new Response(JSON.stringify({ ok: false, error: "Unauthorized cron trigger" }), {
             status: 401,
             headers: { "content-type": "application/json" },

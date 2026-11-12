@@ -1897,12 +1897,126 @@ export type Database = {
           },
         ]
       }
+      leave_accrual_runs: {
+        Row: {
+          company_id: string
+          employees_processed: number
+          executed_at: string
+          executed_by: string | null
+          id: string
+          leave_type_id: string
+          period_month: number
+          period_year: number
+          total_days_accrued: number
+        }
+        Insert: {
+          company_id: string
+          employees_processed?: number
+          executed_at?: string
+          executed_by?: string | null
+          id?: string
+          leave_type_id: string
+          period_month: number
+          period_year: number
+          total_days_accrued?: number
+        }
+        Update: {
+          company_id?: string
+          employees_processed?: number
+          executed_at?: string
+          executed_by?: string | null
+          id?: string
+          leave_type_id?: string
+          period_month?: number
+          period_year?: number
+          total_days_accrued?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_accrual_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_accrual_runs_leave_type_id_fkey"
+            columns: ["leave_type_id"]
+            isOneToOne: false
+            referencedRelation: "leave_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leave_balance_transactions: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          days: number
+          employee_id: string
+          id: string
+          leave_type_id: string
+          reason: string | null
+          transaction_type: string
+          year: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          days: number
+          employee_id: string
+          id?: string
+          leave_type_id: string
+          reason?: string | null
+          transaction_type: string
+          year: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          days?: number
+          employee_id?: string
+          id?: string
+          leave_type_id?: string
+          reason?: string | null
+          transaction_type?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_balance_transactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_balance_transactions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_balance_transactions_leave_type_id_fkey"
+            columns: ["leave_type_id"]
+            isOneToOne: false
+            referencedRelation: "leave_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leave_balances: {
         Row: {
           accrued_days: number
           annual_entitlement: number
           balance: number | null
           carried_over_days: number
+          carried_over_used_days: number
+          company_id: string | null
           employee_id: string | null
           id: string
           leave_type_id: string | null
@@ -1916,6 +2030,8 @@ export type Database = {
           annual_entitlement?: number
           balance?: number | null
           carried_over_days?: number
+          carried_over_used_days?: number
+          company_id?: string | null
           employee_id?: string | null
           id?: string
           leave_type_id?: string | null
@@ -1929,6 +2045,8 @@ export type Database = {
           annual_entitlement?: number
           balance?: number | null
           carried_over_days?: number
+          carried_over_used_days?: number
+          company_id?: string | null
           employee_id?: string | null
           id?: string
           leave_type_id?: string | null
@@ -1938,6 +2056,13 @@ export type Database = {
           year?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "leave_balances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "leave_balances_employee_id_fkey"
             columns: ["employee_id"]
@@ -1960,6 +2085,7 @@ export type Database = {
           allow_half_day: boolean | null
           code: string
           color: string | null
+          company_id: string | null
           created_at: string
           deduct_working_days_only: boolean | null
           id: string
@@ -1979,6 +2105,7 @@ export type Database = {
           allow_half_day?: boolean | null
           code: string
           color?: string | null
+          company_id?: string | null
           created_at?: string
           deduct_working_days_only?: boolean | null
           id?: string
@@ -1998,6 +2125,7 @@ export type Database = {
           allow_half_day?: boolean | null
           code?: string
           color?: string | null
+          company_id?: string | null
           created_at?: string
           deduct_working_days_only?: boolean | null
           id?: string
@@ -2012,7 +2140,15 @@ export type Database = {
           sort_order?: number | null
           status?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "leave_types_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       loans: {
         Row: {
@@ -4010,6 +4146,10 @@ export type Database = {
         }
         Returns: Json
       }
+      can_access_core_company: {
+        Args: { p_company_id: string }
+        Returns: boolean
+      }
       finalize_file_replacement: {
         Args: { p_new_file_id: string; p_previous_file_id: string }
         Returns: Json
@@ -4027,6 +4167,26 @@ export type Database = {
         Args: { p_end_date: string; p_start_date: string }
         Returns: Json
       }
+      get_employee_directory: {
+        Args: {
+          p_contract_type?: string
+          p_department_id?: string
+          p_gender?: string
+          p_location_id?: string
+          p_max_salary?: number
+          p_min_salary?: number
+          p_nationality?: string
+          p_page?: number
+          p_page_size?: number
+          p_quick_preset?: string
+          p_search?: string
+          p_sort?: string
+          p_status?: string
+          p_subsidiary_id?: string
+        }
+        Returns: Json
+      }
+      get_employee_directory_kpis: { Args: never; Returns: Json }
       get_performance_kpis_atomic: {
         Args: { p_cycle_id?: string }
         Returns: Json
@@ -4067,6 +4227,15 @@ export type Database = {
       }
       revoke_delegation_rule: {
         Args: { p_delegation_id: string }
+        Returns: Json
+      }
+      run_leave_accrual: {
+        Args: {
+          p_company_id?: string
+          p_leave_type_id?: string
+          p_period_month?: number
+          p_year?: number
+        }
         Returns: Json
       }
       submit_performance_goal_atomic: {

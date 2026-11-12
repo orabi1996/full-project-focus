@@ -731,20 +731,20 @@ export async function fetchEmployeeDirectoryRecord(
   filters: EmployeeDirectoryFilters = {},
 ): Promise<EmployeeDirectoryResponse> {
   const { data, error } = await enterpriseSupabase.rpc("get_employee_directory", {
-    p_search: filters.search?.trim() || null,
-    p_status: filters.status || null,
-    p_department_id: filters.departmentId || null,
-    p_subsidiary_id: filters.subsidiaryId || null,
-    p_location_id: filters.locationId || null,
-    p_gender: filters.gender || null,
+    p_search: filters.search?.trim() || undefined,
+    p_status: filters.status || undefined,
+    p_department_id: filters.departmentId || undefined,
+    p_subsidiary_id: filters.subsidiaryId || undefined,
+    p_location_id: filters.locationId || undefined,
+    p_gender: filters.gender || undefined,
     p_page: filters.page ?? 1,
     p_page_size: filters.pageSize ?? 25,
     p_sort: filters.sort || "name_asc",
-    p_contract_type: filters.contractType || null,
-    p_nationality: filters.nationality || null,
-    p_quick_preset: filters.quickPreset || null,
-    p_min_salary: filters.minSalary !== undefined ? Number(filters.minSalary) : null,
-    p_max_salary: filters.maxSalary !== undefined ? Number(filters.maxSalary) : null,
+    p_contract_type: filters.contractType || undefined,
+    p_nationality: filters.nationality || undefined,
+    p_quick_preset: filters.quickPreset || undefined,
+    p_min_salary: filters.minSalary !== undefined ? Number(filters.minSalary) : undefined,
+    p_max_salary: filters.maxSalary !== undefined ? Number(filters.maxSalary) : undefined,
   });
 
   if (error) {

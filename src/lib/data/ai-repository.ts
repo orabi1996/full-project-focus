@@ -22,6 +22,8 @@ import { searchKnowledgeBase } from "../ai/retrieval";
 import { aiObservability } from "../ai/observability";
 import { getAllExtendedEmployees } from "../domains/employees/extended-employee-store";
 import { METRIC_CATALOG } from "./reports-repository";
+import { searchCountryLaborRegulations } from "../ai/labor-news-and-country-regulations";
+import { parseEmployeeDetailsFromText } from "../ai/ocr-employee-extractor";
 
 // ============================================================================
 // 1. SMART REPORT ANALYSIS TYPES, CATALOG & AI PROVIDER CONFIG
@@ -1160,11 +1162,65 @@ export function generateSmartAssistantResponse(
   responseText: string;
   intent: string;
   matchedReportDomain?: SmartReportDomainId;
+  metadata?: Record<string, unknown>;
 } {
   const q = query.trim().toLowerCase();
   const intent = detectIntent(query);
   const employees = app.employees ?? [];
   const extendedRecords = getAllExtendedEmployees();
+
+  // 0. A: Natural Language & Voice-Driven Employee Creation Intent
+  const isEmployeeCreateIntent =
+    q.startsWith("أضف موظف") ||
+    q.startsWith("اضف موظف") ||
+    q.startsWith("تسجيل موظف") ||
+    q.startsWith("سجل موظف") ||
+    q.startsWith("إضافة موظف") ||
+    q.startsWith("اضافة موظف") ||
+    q.startsWith("ضيف موظف") ||
+    q.includes("أضف موظف جديد") ||
+    q.includes("اضف موظف جديد") ||
+    q.includes("تسجيل موظف جديد") ||
+    q.includes("إضافة موظف جديد") ||
+    ((q.includes("موظف") || q.includes("موظفة")) &&
+      (q.includes("راتب") || q.includes("راتبه") || q.includes("هوية") || q.includes("قسم")));
+
+  if (isEmployeeCreateIntent) {
+    const draft = parseEmployeeDetailsFromText(query, app.orgUnits ?? []);
+    const totalPkg = draft.basicSalary + draft.housingAllowance + draft.transportAllowance + draft.otherAllowances;
+    return {
+      intent: "employee_create_draft",
+      metadata: {
+        actionType: "create_employee_confirmation",
+        employeeDraft: draft,
+      },
+      responseText: `🎉 **تم تحليل واستخراج بيانات الموظف الجديد بنجاح عبر الذكاء الاصطناعي:**
+
+• **الاسم بالكامل:** ${draft.firstNameAr} ${draft.lastNameAr} (${draft.firstNameEn} ${draft.lastNameEn})
+• **المسمى الوظيفي:** ${draft.jobTitleAr} (${draft.jobTitleEn})
+• **الإدارة / القسم:** ${draft.departmentName}
+• **رقم الهوية / الإقامة:** \`${draft.nationalIdOrIqama}\`
+• **الراتب الأساسي:** ${draft.basicSalary.toLocaleString()} ر.س | **بدل السكن:** ${draft.housingAllowance.toLocaleString()} ر.س | **بدل النقل:** ${draft.transportAllowance.toLocaleString()} ر.س
+• **إجمالي الحزمة الشهرية:** ${totalPkg.toLocaleString()} ر.س
+• **الجنسية:** ${draft.nationality} | **رقم الجوال:** ${draft.phone}
+• **البريد الإلكتروني:** ${draft.email}
+
+:::employee_card
+${JSON.stringify(draft)}
+:::
+
+اضغط على زر **اعتماد وإضافة الموظف للنظام الآن** أدناه لتثبيت سجله فوراً وتحديث كافة قواعد البيانات.`,
+    };
+  }
+
+  // 0. B: Country Labor Regulations & HR News Retrieval (All 7 Countries: SA, EG, AE, QA, KW, BH, OM)
+  const laborLawAnswer = searchCountryLaborRegulations(query);
+  if (laborLawAnswer) {
+    return {
+      intent: "labor_regulations",
+      responseText: laborLawAnswer,
+    };
+  }
 
   // 1. Check if user is asking about a specific employee by name or employeeNo
   const matchedEmployee = employees.find((emp) => {
@@ -1438,6 +1494,12 @@ export function generateSmartGeneralResponse(
   const orgUnits = app.orgUnits ?? [];
   const empCount = employees.length;
 
+  // Check if query targets country labor regulations or HR news
+  const countryAnswer = searchCountryLaborRegulations(query);
+  if (countryAnswer) {
+    return countryAnswer;
+  }
+
   // --------------------------------------------------------------------------
   // A. GREETINGS & PERSONAL IDENTITY (SOVEREIGN AI ENGINE)
   // --------------------------------------------------------------------------
@@ -1459,15 +1521,16 @@ export function generateSmartGeneralResponse(
     }
     return `👋 **أهلاً وسهلاً بك في نظام مدار إكس الذكي (MadarX Sovereign AI)**
 
-أنا **مساعدك الذكي الشخصي والمستقل بالكامل**، تم بنائي خصيصاً لمنشأتك لأعمل معك محلياً وبأعلى درجات الخصوصية (بدون الحاجة لأي مفاتيح أو وسائط خارجية مثل ChatGPT أو Gemini).
+أنا **مساعدك الذكي الشخصي والمستقل بالكامل**، تم بنائي خصيصاً لمنشأتك لأعمل معك محلياً وبأعلى درجات الخصوصية والذكاء الفوري.
 
-✨ **أهم القدرات التي أضعها بين يديك الآن:**
-• 📄 **صياغة الخطابات الرسمية:** عروض العمل، خطابات زيادة الراتب، خطابات الإنذار، شهادات الخبرة، وقبول الاستقالة (مع ملء بيانات موظفيك تلقائياً عند ذكر اسمه).
-• ⚖️ **حاسبة نظام العمل السعودي:** احتساب دقيق لمكافأة نهاية الخدمة، أحكام التجربة، والإجازات وساعات العمل الإضافي.
-• 📊 **التحليل الفوري لمنشأتك:** استعلام شامل عن أي موظف، تحليل رواتب الأقسام، كشف أعلى الرواتب، ونسب التوطين.
-• 🎯 **التخطيط الاستراتيجي:** بناء أهداف OKRs مقابل KPIs، ومصفوفة تقييم الكفاءات وأسئلة المقابلات.
+✨ **أهم القدرات والخصائص الخارقة المتاحة لك الآن:**
+• 🎙️ **إضافة الموظفين بالصوت:** تحدث إليّ هاتفياً بصوتك وسأقوم بتفريغ البيانات وإنشاء بطاقة الموظف واعتماده فوراً.
+• 📷 **المسح الضوئي الذكي (OCR):** ارفع صورة هوية، عقد ورقي، أو Screenshot، وسأستخرج منها بيانات الموظف وأضيفه للنظام بضغطة زر.
+• 🌍 **قوانين مكاتب العمل لـ 7 دول:** السعودية 🇸🇦، مصر 🇪🇬، الإمارات 🇦🇪، قطر 🇶🇦، الكويت 🇰🇼، البحرين 🇧🇭، وعمان 🇴🇲، مع تحديثات 2026 لحظية.
+• 📄 **صياغة الخطابات الرسمية:** عروض العمل، خطابات الترقية، الإنذارات، شهادات الخبرة، وقبول الاستقالة.
+• 📊 **التقارير والتحليلات 360°:** تنفيذ أي تقرير تريده في النظام (رواتب، حضور، توطين، إجازات) بمؤشرات دقيقة.
 
-اكتب لي ما تريد صياغته أو تحليله وسأقوم بإنجازه فوراً!`;
+اطلب مني أي شيء أو تحدث بصوتك وسأنفذه لك فوراً!`;
   }
 
   // --------------------------------------------------------------------------
@@ -2418,10 +2481,12 @@ export function useSendMessage() {
       conversationId,
       content,
       userRole = "hr_manager",
+      metadata,
     }: {
       conversationId: string;
       content: string;
       userRole?: string;
+      metadata?: Record<string, unknown>;
     }) => {
       const startTime = Date.now();
       const sanitization = detectAndSanitizePrompt(content);
@@ -2431,6 +2496,7 @@ export function useSendMessage() {
         conversationId,
         role: "user",
         content,
+        metadata,
         createdAt: new Date().toISOString(),
       };
 
@@ -2477,6 +2543,7 @@ export function useSendMessage() {
         conversationId,
         role: "assistant",
         content: responseText,
+        metadata: res.metadata || metadata,
         createdAt: new Date().toISOString(),
       };
 

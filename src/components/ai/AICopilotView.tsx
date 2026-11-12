@@ -46,8 +46,18 @@ import {
   Globe,
   X,
   MessageSquare,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Camera,
+  Paperclip,
+  Check,
+  UserPlus,
 } from "lucide-react";
 import { useApp } from "../../lib/context/AppContext";
+import { useCreateEmployee } from "../../lib/domains/employees";
+import { performEmployeeOCR, type ExtractedEmployeeDraft } from "../../lib/ai/ocr-employee-extractor";
 import {
   useAIConversations,
   useCreateAIConversation,
@@ -81,19 +91,45 @@ type ActiveTab = "chat" | "reports_analyzer" | "insights" | "governance";
 function ChatMessageRenderer({
   content,
   isUser,
+  messageId,
+  onConfirmEmployee,
+  isEmployeeConfirmed,
+  isCreatingEmployee,
+  onNavigateToEmployees,
 }: {
   content: string;
   isUser: boolean;
+  messageId?: string;
+  onConfirmEmployee?: (draft: ExtractedEmployeeDraft, msgId: string) => void;
+  isEmployeeConfirmed?: boolean;
+  isCreatingEmployee?: boolean;
+  onNavigateToEmployees?: () => void;
 }) {
   if (isUser) {
     return <div className="text-sm leading-relaxed whitespace-pre-wrap">{content}</div>;
   }
 
+  // Check if content contains employee card block :::employee_card ... :::
+  const cardMatch = content.match(/:::employee_card\s*([\s\S]*?)\s*:::/);
+  let employeeDraft: ExtractedEmployeeDraft | null = null;
+  if (cardMatch && cardMatch[1]) {
+    try {
+      employeeDraft = JSON.parse(cardMatch[1].trim());
+    } catch {
+      employeeDraft = null;
+    }
+  }
+
+  // Clean raw content by stripping the employee card block so it doesn't duplicate JSON
+  const cleanedContent = cardMatch
+    ? (content.slice(0, cardMatch.index).trim() + "\n\n" + content.slice(cardMatch.index! + cardMatch[0].length).trim()).trim()
+    : content;
+
   // Check if content contains official document block :::document ... :::
-  const docMatch = content.match(/:::document\s*([\s\S]*?)\s*:::/);
+  const docMatch = cleanedContent.match(/:::document\s*([\s\S]*?)\s*:::/);
   const docBody = docMatch ? docMatch[1].trim() : null;
-  const beforeDoc = docMatch ? content.slice(0, docMatch.index).trim() : null;
-  const afterDoc = docMatch ? content.slice(docMatch.index! + docMatch[0].length).trim() : null;
+  const beforeDoc = docMatch ? cleanedContent.slice(0, docMatch.index).trim() : null;
+  const afterDoc = docMatch ? cleanedContent.slice(docMatch.index! + docMatch[0].length).trim() : null;
 
   const handlePrintDoc = (docText: string) => {
     const printWindow = window.open("", "_blank");
@@ -301,8 +337,141 @@ function ChatMessageRenderer({
         </div>
       )}
 
+      {/* Interactive Employee Creation Confirmation Card */}
+      {employeeDraft && (
+        <div className="my-3.5 rounded-2xl border-2 border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 shadow-md overflow-hidden animate-in fade-in duration-200">
+          <div className="bg-gradient-to-r from-emerald-600/15 via-teal-600/10 to-indigo-600/10 dark:bg-emerald-950/70 border-b border-emerald-200 dark:border-emerald-800 p-3 px-4 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                <UserPlus className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200 block">
+                  بطاقة تعيين واعتماد موظف جديد
+                </span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                  تم الاستخراج والتدقيق الذكي بنسبة ثقة {Math.round((employeeDraft.confidenceScore || 0.85) * 100)}%
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold">
+                {employeeDraft.nationality}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-4 space-y-3.5">
+            {/* Top employee badge */}
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-indigo-700 to-indigo-500 text-white font-bold flex items-center justify-center text-sm shadow-xs shrink-0">
+                {employeeDraft.firstNameAr?.[0] || "م"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                    {employeeDraft.firstNameAr} {employeeDraft.lastNameAr}
+                  </h4>
+                  <span className="text-xs text-slate-400">
+                    ({employeeDraft.firstNameEn} {employeeDraft.lastNameEn})
+                  </span>
+                </div>
+                <p className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold mt-0.5">
+                  {employeeDraft.jobTitleAr} • {employeeDraft.departmentName}
+                </p>
+              </div>
+              <div className="text-left shrink-0">
+                <span className="text-[10px] text-slate-400 block">الرقم المقترح</span>
+                <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {employeeDraft.employeeNo}
+                </span>
+              </div>
+            </div>
+
+            {/* Structured Financial and Legal Metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] text-slate-400 block">الهوية / الإقامة</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{employeeDraft.nationalIdOrIqama}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] text-slate-400 block">الراتب الأساسي</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">{Number(employeeDraft.basicSalary || 0).toLocaleString()} ر.س</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] text-slate-400 block">بدل السكن والنقل</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">{(Number(employeeDraft.housingAllowance || 0) + Number(employeeDraft.transportAllowance || 0)).toLocaleString()} ر.س</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60">
+                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 block">إجمالي الراتب</span>
+                <span className="font-bold text-emerald-800 dark:text-emerald-300 font-mono">
+                  {(Number(employeeDraft.basicSalary || 0) + Number(employeeDraft.housingAllowance || 0) + Number(employeeDraft.transportAllowance || 0) + Number(employeeDraft.otherAllowances || 0)).toLocaleString()} ر.س
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+              <div>📞 الجوال: <span className="font-medium text-slate-800 dark:text-slate-200">{employeeDraft.phone}</span></div>
+              <div>📧 الإيميل: <span className="font-medium text-slate-800 dark:text-slate-200 truncate">{employeeDraft.email}</span></div>
+              <div>📅 المباشرة: <span className="font-medium text-slate-800 dark:text-slate-200">{employeeDraft.hireDate}</span></div>
+            </div>
+
+            {/* Direct Confirmation Action */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
+              {isEmployeeConfirmed ? (
+                <div className="w-full p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 flex items-center justify-between text-xs text-emerald-700 dark:text-emerald-300 font-bold">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    تم اعتماد وإضافة الموظف بنجاح في قاعدة البيانات وسجلاته نشطة!
+                  </span>
+                  {onNavigateToEmployees && (
+                    <button
+                      type="button"
+                      onClick={onNavigateToEmployees}
+                      className="text-xs text-emerald-800 dark:text-emerald-200 underline hover:opacity-80"
+                    >
+                      عرض في دليل الموظفين
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={isCreatingEmployee}
+                    onClick={() => onConfirmEmployee && onConfirmEmployee(employeeDraft!, messageId || "")}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm"
+                  >
+                    {isCreatingEmployee ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        جاري الإضافة للنظام...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        اعتماد وإضافة الموظف للنظام الآن
+                      </>
+                    )}
+                  </button>
+                  {onNavigateToEmployees && (
+                    <button
+                      type="button"
+                      onClick={onNavigateToEmployees}
+                      className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition"
+                    >
+                      معاينة دليل الموظفين
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {afterDoc && renderMarkdownSection(afterDoc)}
-      {!docBody && !beforeDoc && renderMarkdownSection(content)}
+      {!docBody && !beforeDoc && renderMarkdownSection(cleanedContent)}
     </div>
   );
 }
@@ -320,6 +489,22 @@ export function AICopilotView() {
   const [confirmedActionIds, setConfirmedActionIds] = useState<string[]>([]);
   const [selectedReportDomain, setSelectedReportDomain] =
     useState<SmartReportDomainId>("executive_all");
+
+  // Voice Input (STT), Speech Output (TTS) & OCR Document Scanner State
+  const [isListening, setIsListening] = useState<boolean>(false);
+  const recognitionRef = useRef<any>(null);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isScanningOcr, setIsScanningOcr] = useState<boolean>(false);
+  const [ocrProgress, setOcrProgress] = useState<{ pct: number; text: string }>({
+    pct: 0,
+    text: "",
+  });
+
+  // Direct Employee Creation confirmation
+  const { createEmployeeWithResult } = useCreateEmployee();
+  const [isCreatingEmployee, setIsCreatingEmployee] = useState<boolean>(false);
+  const [confirmedEmployeeDrafts, setConfirmedEmployeeDrafts] = useState<Record<string, boolean>>({});
 
   // AI Provider Configuration (Built-in, OpenAI, Gemini, OpenRouter)
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
@@ -365,11 +550,15 @@ export function AICopilotView() {
     ],
     law: [
       { title: "حساب نهاية الخدمة (استقالة 6 سنين)", description: "حسبة تفاعلية بالأرقام لراتب 12,000 ريال", prompt: "احسب لي مكافأة نهاية الخدمة لموظف راتبه 12000 ريال وخدم 6 سنوات وقدم استقالته", badge: "حاسبة" },
-      { title: "حساب نهاية الخدمة (إنهاء 4 سنين)", description: "حسبة تفاعلية لإنهاء العقد من طرف المنشأة", prompt: "احسب لي مكافأة نهاية الخدمة لموظف راتبه 9500 ريال وخدم 4 سنوات تم إنهاء عقده", badge: "حاسبة" },
-      { title: "أحكام فترة التجربة (المادة 53)", description: "ضوابط الـ 90 يوماً وإمكانية التمديد لـ 180", prompt: "ما هي أحكام وضوابط فترة التجربة في نظام العمل السعودي وإمكانية تمديدها؟", badge: "المادة 53" },
+      { title: "أحكام وضوابط التجربة (المادة 53)", description: "ضوابط الـ 90 يوماً وإمكانية التمديد لـ 180", prompt: "ما هي أحكام وضوابط فترة التجربة في نظام العمل السعودي وإمكانية تمديدها؟", badge: "المادة 53" },
       { title: "ساعات العمل والعمل الإضافي", description: "معايير ساعات الدوام والراحة وأجر الأوفرتايم", prompt: "كيف يتم احتساب ساعات العمل الإضافي في نظام العمل وأجر الساعة الإضافية وأيام الراحة الأسبوعية؟", badge: "المادة 107" },
       { title: "نسب التأمينات الاجتماعية GOSI", description: "نسب الاشتراك للسعودي وغير السعودي وساند", prompt: "ما هي نسب التأمينات الاجتماعية المعتمدة للموظف السعودي وغير السعودي وحدود الراتب الخاضع؟", badge: "GOSI" },
-      { title: "الإجازات السنوية والرسمية", description: "رصيد الـ 21 والـ 30 يوماً وإجازات المناسبات", prompt: "ما هي أحكام الإجازات السنوية والمناسبات الرسمية وإجازات الوفاة والزواج وفق نظام العمل؟", badge: "المادة 109" },
+      { title: "قانون العمل في مصر (الحد الأدنى 6000)", description: "قانون 12 لسنة 2003 والتأمينات 148 لسنة 2019", prompt: "ما هي أحكام قانون العمل في مصر وتفاصيل الحد الأدنى للأجور 6000 جنيه وأجر الاشتراك التأميني؟", badge: "مصر 🇪🇬" },
+      { title: "قانون العمل الإماراتي ونظام نافس", description: "مرسوم 33 لسنة 2021 وصناديق الادخار", prompt: "ما هي أحكام قانون العمل الإماراتي مرسوم 33 لسنة 2021 ومستهدفات برنامج نافس وصناديق الادخار؟", badge: "الإمارات 🇦🇪" },
+      { title: "قانون العمل في عمان (40 ساعة)", description: "مرسوم 52/2023 ومنظومة SPF", prompt: "ما هي أحكام قانون العمل العماني الجديد بالمرسوم 52 لسنة 2023 وساعات العمل الأسبوعية ومنظومة SPF؟", badge: "عمان 🇴🇲" },
+      { title: "قانون العمل الكويتي والتكويت", description: "قانون 6 لسنة 2010 ونهاية الخدمة", prompt: "ما هي أحكام قانون العمل في الكويت رقم 6 لسنة 2010 ومكافأة نهاية الخدمة ونسب العمالة الوطنية؟", badge: "الكويت 🇰🇼" },
+      { title: "قانون العمل بقطر والبحرين", description: "أنظمة العمل ومكافأة نهاية الخدمة", prompt: "اشرح لي نظام العمل ومكافأة نهاية الخدمة وحماية الأجور في دولة قطر ومملكة البحرين", badge: "قطر والبحرين" },
+      { title: "أحدث أخبار الموارد البشرية 2026", description: "تحديثات مكاتب العمل والذكاء الاصطناعي", prompt: "ما هي أحدث أخبار وتحديثات الموارد البشرية وأنظمة العمل لعام 2026؟", badge: "أخبار 2026" },
     ],
     system: [
       { title: "أعلى 5 موظفين راتباً بالمنشأة", description: "كشف مباشر لأعلى الرواتب المسجلة بالنظام", prompt: "من هم أعلى 5 موظفين من حيث إجمالي الراتب في المنشأة؟", badge: "رواتب" },
@@ -495,6 +684,231 @@ export function AICopilotView() {
   const handleConfirmAction = (msgId: string) => {
     setConfirmedActionIds((prev) => [...prev, msgId]);
     toast.success("تم اعتماد وتنفيذ الإجراء وتوثيقه في سجل التدقيق (Audit Log)");
+  };
+
+  // --------------------------------------------------------------------------
+  // Voice Input (STT) Recognition
+  // --------------------------------------------------------------------------
+  const toggleVoiceRecognition = () => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      toast.error(
+        "ميزة الإدخال الصوتي المباشر غير مدعومة في متصفحك الحالي. يرجى تجربة Google Chrome أو Microsoft Edge."
+      );
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = "ar-SA";
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        toast.info("🎙️ جاري الاستماع إلى صوتك باللغة العربية... تحدث ببيانات الموظف أو طلبك الآن");
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results?.[0]?.[0]?.transcript;
+        if (transcript) {
+          setInputText((prev) => (prev ? `${prev} ${transcript}` : transcript));
+          toast.success("تم تحويل نبرة الصوت إلى نص بنجاح!");
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Speech recognition error:", event.error);
+        setIsListening(false);
+        if (event.error !== "no-speech") {
+          toast.error(`تعذر التقاط الصوت: ${event.error}`);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err: any) {
+      console.error("Failed to start speech recognition:", err);
+      setIsListening(false);
+      toast.error("تعذر تفعيل الميكروفون");
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // Voice Output (TTS) Speech Synthesis
+  // --------------------------------------------------------------------------
+  const toggleSpeakMessage = (msgId: string, rawContent: string) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      toast.error("ميزة النطق الصوتي غير مدعومة في بيئة المتصفح الحالية");
+      return;
+    }
+
+    if (speakingMessageId === msgId) {
+      window.speechSynthesis.cancel();
+      setSpeakingMessageId(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    // Clean markdown, symbols, and JSON card markers for fluid speech
+    const clean = rawContent
+      .replace(/:::document[\s\S]*?:::/g, "مستند رسمي إداري جاهز للاعتماد.")
+      .replace(/:::employee_card[\s\S]*?:::/g, "بطاقة الموظف الجديد جاهزة للاعتماد.")
+      .replace(/[#*`_~>•-]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.lang = "ar-SA";
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    const voices = window.speechSynthesis.getVoices();
+    const arVoice = voices.find((v) => v.lang.startsWith("ar"));
+    if (arVoice) utterance.voice = arVoice;
+
+    utterance.onend = () => setSpeakingMessageId(null);
+    utterance.onerror = () => setSpeakingMessageId(null);
+
+    window.speechSynthesis.speak(utterance);
+    setSpeakingMessageId(msgId);
+  };
+
+  // --------------------------------------------------------------------------
+  // OCR Document & Image Employee Extractor
+  // --------------------------------------------------------------------------
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    setIsScanningOcr(true);
+    setOcrProgress({ pct: 15, text: "جاري قراءة ملف الصورة واستخراج النصوص ضوئياً..." });
+
+    try {
+      const res = await performEmployeeOCR(file, (pct, text) => {
+        setOcrProgress({ pct, text });
+      });
+
+      const draft = res.extractedDraft;
+      const promptContent = `📷 [مسح ضوئي ذكي لمستند: ${file.name}]
+أضف موظف جديد مستخرج من الصورة:
+الاسم: ${draft.firstNameAr} ${draft.lastNameAr}
+المسمى: ${draft.jobTitleAr}
+الهوية: ${draft.nationalIdOrIqama}
+القسم: ${draft.departmentName}
+الراتب الأساسي: ${draft.basicSalary}
+بدل السكن: ${draft.housingAllowance}
+بدل النقل: ${draft.transportAllowance}
+الجنسية: ${draft.nationality}
+الجوال: ${draft.phone}`;
+
+      sendMessageMutation.mutate({
+        conversationId: selectedConversationId,
+        content: promptContent,
+        userRole: currentRole,
+        metadata: {
+          actionType: "create_employee_confirmation",
+          employeeDraft: draft,
+          ocrFilename: file.name,
+        },
+      });
+
+      toast.success("تم مسح المستند ضوئياً واستخراج بيانات الموظف بنجاح!");
+    } catch (err: any) {
+      console.error("OCR extraction failed:", err);
+      toast.error("تعذر إتمام المسح الضوئي، يمكنك كتابة بيانات الموظف نصياً وسيقوم المساعد بهيكلتها.");
+    } finally {
+      setIsScanningOcr(false);
+      setOcrProgress({ pct: 0, text: "" });
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // Direct Employee Creation Confirmation Action
+  // --------------------------------------------------------------------------
+  const handleConfirmCreateEmployee = async (
+    draft: ExtractedEmployeeDraft,
+    messageId: string
+  ) => {
+    setIsCreatingEmployee(true);
+    try {
+      const deptId =
+        (app.orgUnits ?? []).find(
+          (d) => d.id === draft.departmentId || d.nameAr === draft.departmentName
+        )?.id ||
+        app.orgUnits?.[0]?.id ||
+        "dept-hr";
+
+      const subsidiaryId = app.subsidiaries?.[0]?.id || "sub-main";
+      const workLocId = app.workLocations?.[0]?.id || "loc-hq";
+
+      const employeePayload = {
+        employeeNo: draft.employeeNo,
+        firstNameAr: draft.firstNameAr,
+        lastNameAr: draft.lastNameAr,
+        firstNameEn: draft.firstNameEn,
+        lastNameEn: draft.lastNameEn,
+        email: draft.email,
+        phone: draft.phone,
+        nationalIdOrIqama: draft.nationalIdOrIqama,
+        nationality: draft.nationality,
+        gender: draft.gender,
+        birthDate: draft.birthDate,
+        maritalStatus: draft.maritalStatus,
+        subsidiaryId,
+        departmentId: deptId,
+        jobTitleAr: draft.jobTitleAr,
+        jobTitleEn: draft.jobTitleEn,
+        workLocationId: workLocId,
+        hireDate: draft.hireDate,
+        contractType: draft.contractType,
+        status: draft.status,
+        basicSalary: draft.basicSalary,
+        housingAllowance: draft.housingAllowance,
+        transportAllowance: draft.transportAllowance,
+        otherAllowances: draft.otherAllowances,
+        totalSalary:
+          draft.basicSalary +
+          draft.housingAllowance +
+          draft.transportAllowance +
+          (draft.otherAllowances || 0),
+        bankName: "مصرف الراجحي",
+        iban: `SA${Math.floor(1000000000000000000000 + Math.random() * 9000000000000000000000)}`,
+      };
+
+      const created = await createEmployeeWithResult(employeePayload);
+      if (created) {
+        setConfirmedEmployeeDrafts((prev) => ({
+          ...prev,
+          [messageId]: true,
+          [draft.employeeNo]: true,
+        }));
+        toast.success(
+          `🎉 تم اعتماد وإضافة الموظف ${draft.firstNameAr} ${draft.lastNameAr} إلى قاعدة بيانات المنظومة بنجاح!`
+        );
+      }
+    } catch (err: any) {
+      console.error("Failed to create employee from chat:", err);
+      toast.error(err?.message || "تعذر إضافة الموظف للنظام");
+    } finally {
+      setIsCreatingEmployee(false);
+    }
   };
 
   const handleDismissInsight = (id: string, actionLabel: string) => {
@@ -1064,7 +1478,15 @@ export function AICopilotView() {
                         }`}
                       >
                         {/* Rich Formatted Message Content */}
-                        <ChatMessageRenderer content={msg.content} isUser={isUser} />
+                        <ChatMessageRenderer
+                          content={msg.content}
+                          isUser={isUser}
+                          messageId={msg.id}
+                          onConfirmEmployee={handleConfirmCreateEmployee}
+                          isEmployeeConfirmed={Boolean(confirmedEmployeeDrafts[msg.id])}
+                          isCreatingEmployee={isCreatingEmployee}
+                          onNavigateToEmployees={() => navigate({ to: "/employees" as any })}
+                        />
 
                         {/* Human-in-the-loop Confirmation Card */}
                         {isActionProposal && (
@@ -1110,11 +1532,38 @@ export function AICopilotView() {
                           <span>{new Date(msg.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}</span>
                           {!isUser && (
                             <div className="flex items-center gap-3">
+                              {/* Voice Readout (TTS) */}
+                              <button
+                                type="button"
+                                onClick={() => toggleSpeakMessage(msg.id, msg.content)}
+                                className={`transition flex items-center gap-1 font-medium ${
+                                  speakingMessageId === msg.id
+                                    ? "text-indigo-600 dark:text-indigo-400 font-bold animate-pulse"
+                                    : "hover:text-indigo-600"
+                                }`}
+                                title={speakingMessageId === msg.id ? "إيقاف الصوت" : "استماع للرد صوتياً"}
+                              >
+                                {speakingMessageId === msg.id ? (
+                                  <>
+                                    <VolumeX className="w-3.5 h-3.5 text-rose-500" />
+                                    <span className="text-rose-600 dark:text-rose-400">إيقاف</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Volume2 className="w-3.5 h-3.5" />
+                                    <span>صوت</span>
+                                  </>
+                                )}
+                              </button>
+
                               <button
                                 type="button"
                                 onClick={() => {
                                   // Clean document markers if copying raw message
-                                  const clean = msg.content.replace(/:::document/g, "").replace(/:::/g, "");
+                                  const clean = msg.content
+                                    .replace(/:::document/g, "")
+                                    .replace(/:::employee_card[\s\S]*?:::/g, "")
+                                    .replace(/:::/g, "");
                                   navigator.clipboard.writeText(clean);
                                   toast.success("تم نسخ التحليل بالكامل");
                                 }}
@@ -1158,11 +1607,38 @@ export function AICopilotView() {
                 اقتراحات سريعة:
               </span>
               {[
-                { label: "صيغ عرض وظيفي", prompt: "صيغ لي نموذج عرض وظيفي رسمي متكامل يوضح الراتب والبدلات وفترة التجربة" },
-                { label: "حساب نهاية الخدمة (15 ألف)", prompt: "احسب لي نهاية الخدمة لموظف راتبه 15000 ريال وخدم 7 سنوات واستقال" },
-                { label: "أعلى 5 رواتب", prompt: "من هم أعلى 5 موظفين من حيث إجمالي الراتب في المنشأة؟" },
-                { label: "خطاب ترقية", prompt: "صيغ لي خطاب ترقية وزيادة راتب رسمي لموظف متميز" },
-                { label: "OKRs vs KPIs", prompt: "ما هو الفرق بين OKRs و KPIs في إدارة الموارد البشرية؟" },
+                {
+                  label: "🎙️ أضف موظف بالصوت",
+                  prompt: "أضف موظف اسمه فهد القحطاني مهندس برمجيات في قسم تقنية المعلومات براتب أساسي 12000 ريال وبدل سكن 3000 ريال وبدل نقل 1000 ريال ورقم الهوية 1088776655 وجنسيته سعودي",
+                },
+                {
+                  label: "📰 أخبار الموارد البشرية 2026",
+                  prompt: "ما هي أحدث أخبار وتحديثات مكاتب العمل وأنظمة الموارد البشرية والتوظيف لعام 2026؟",
+                },
+                {
+                  label: "🇸🇦 نظام العمل السعودي",
+                  prompt: "اشرح لي نظام العمل السعودي ولوائح منصة قوى وحساب مكافأة نهاية الخدمة والتأمينات الاجتماعية GOSI",
+                },
+                {
+                  label: "🇪🇬 قانون العمل المصري (6000)",
+                  prompt: "ما هي أحكام قانون العمل في مصر وتفاصيل الحد الأدنى للأجور 6000 جنيه وأجر الاشتراك التأميني الجديد؟",
+                },
+                {
+                  label: "🇦🇪 العمل بالإمارات ونافس",
+                  prompt: "ما هي أحكام قانون العمل الإماراتي مرسوم 33 لسنة 2021 وصناديق الادخار البديلة ومستهدفات برنامج نافس؟",
+                },
+                {
+                  label: "🇴🇲 قانون العمل العماني (40س)",
+                  prompt: "ما هي أحكام قانون العمل العماني الجديد بالمرسوم 52 لسنة 2023 وساعات العمل الأسبوعية ومنظومة SPF؟",
+                },
+                {
+                  label: "🇰🇼 قانون العمل الكويتي",
+                  prompt: "ما هي أحكام قانون العمل في الكويت رقم 6 لسنة 2010 ومكافأة نهاية الخدمة ونسب التكويت؟",
+                },
+                {
+                  label: "📊 التقرير التنفيذي الشامل 360°",
+                  prompt: "حلل لي التقرير التنفيذي الشامل لكل النظام 360 مع أهم المؤشرات والتوصيات",
+                },
               ].map((sug, sIdx) => (
                 <button
                   key={sIdx}
@@ -1176,11 +1652,91 @@ export function AICopilotView() {
               ))}
             </div>
 
-            {/* Multi-Line Input Dock */}
+            {/* Live Audio Listening Banner */}
+            {isListening && (
+              <div className="px-4 py-2 bg-rose-50 dark:bg-rose-950/70 border-t border-rose-200 dark:border-rose-900 flex items-center justify-between text-xs text-rose-700 dark:text-rose-300 font-bold animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                  <span>🎙️ جاري الاستماع إلى صوتك باللغة العربية... تحدث ببيانات الموظف أو استفسارك الآن</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleVoiceRecognition}
+                  className="text-[11px] bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-0.5 rounded-md font-bold transition"
+                >
+                  إيقاف التسجيل
+                </button>
+              </div>
+            )}
+
+            {/* Live OCR Progress Bar */}
+            {isScanningOcr && (
+              <div className="px-4 py-2.5 bg-indigo-50 dark:bg-indigo-950/70 border-t border-indigo-200 dark:border-indigo-900 text-xs text-indigo-700 dark:text-indigo-300 font-bold animate-in fade-in space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                    {ocrProgress.text || "جاري مسح المستند ضوئياً بالذكاء الاصطناعي..."}
+                  </span>
+                  <span>{ocrProgress.pct}%</span>
+                </div>
+                <div className="w-full bg-indigo-200 dark:bg-indigo-900 h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-indigo-600 h-full transition-all duration-300"
+                    style={{ width: `${ocrProgress.pct}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Hidden OCR File Input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+
+            {/* Multi-Line Input Dock with Voice and OCR Attachments */}
             <form
               onSubmit={handleSendMessage}
-              className="p-3 sm:p-4 border-t border-slate-200 dark:border-slate-800 flex items-end gap-2.5 bg-white dark:bg-slate-900"
+              className="p-3 sm:p-4 border-t border-slate-200 dark:border-slate-800 flex items-end gap-2 bg-white dark:bg-slate-900"
             >
+              {/* Attachment / Camera OCR Button */}
+              <button
+                type="button"
+                disabled={isScanningOcr || sendMessageMutation.isPending}
+                onClick={() => fileInputRef.current?.click()}
+                className="p-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl transition flex items-center justify-center shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs disabled:opacity-50"
+                title="مسح ضوئي لبطاقة هوية، مستند ورقي، أو صورة/Screenshot لإضافة الموظف تلقائياً (OCR)"
+              >
+                {isScanningOcr ? (
+                  <RefreshCw className="w-5 h-5 animate-spin text-indigo-600" />
+                ) : (
+                  <Camera className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                )}
+              </button>
+
+              {/* Voice Microphone (STT) Button */}
+              <button
+                type="button"
+                disabled={sendMessageMutation.isPending}
+                onClick={toggleVoiceRecognition}
+                className={`p-3 rounded-2xl transition flex items-center justify-center shrink-0 border shadow-xs ${
+                  isListening
+                    ? "bg-rose-500 hover:bg-rose-600 text-white border-rose-600 animate-pulse ring-4 ring-rose-500/30"
+                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700"
+                }`}
+                title={isListening ? "إيقاف التسجيل الصوتي" : "تحدث بالصوت لإضافة موظف أو طرح أي استفسار"}
+              >
+                {isListening ? (
+                  <MicOff className="w-5 h-5" />
+                ) : (
+                  <Mic className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                )}
+              </button>
+
+              {/* Text Area */}
               <div className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-2.5 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition">
                 <textarea
                   rows={2}
@@ -1192,18 +1748,19 @@ export function AICopilotView() {
                       handleSendMessage(e);
                     }
                   }}
-                  placeholder="اسألني أي شيء في النظام أو خارجه (صياغة خطابات، حساب نهاية الخدمة، أنظمة العمل، تحليل كادر قسم، أو استشارات إدارية)..."
+                  placeholder="اسألني أي شيء (قوانين عمل 7 دول، أخبار 2026، حساب نهاية الخدمة، أو قل 'أضف موظف' بالصوت أو الصورة)..."
                   className="w-full bg-transparent border-0 resize-none text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-0 leading-relaxed"
                 />
                 <div className="flex items-center justify-between pt-1 border-t border-slate-200/50 dark:border-slate-700/50 text-[10px] text-slate-400">
                   <span className="flex items-center gap-1">
                     <Lock className="w-3 h-3 text-emerald-500" />
-                    بياناتك محمية محلياً 100% ولا تغادر نظامك
+                    بياناتك محمية محلياً 100% • إدخال صوتي • مسح ضوئي OCR
                   </span>
                   <span>اضغط Enter للإرسال • Shift+Enter لسطر جديد</span>
                 </div>
               </div>
 
+              {/* Send Submit Button */}
               <button
                 type="submit"
                 disabled={!inputText.trim() || sendMessageMutation.isPending}

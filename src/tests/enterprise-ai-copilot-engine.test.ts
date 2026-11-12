@@ -42,6 +42,8 @@ import {
   buildSmartReportAnalysis,
   generateSmartAssistantResponse,
 } from "../lib/data/ai-repository";
+import { searchCountryLaborRegulations, COUNTRY_LABOR_REGULATIONS, LATEST_HR_NEWS_2026 } from "../lib/ai/labor-news-and-country-regulations";
+import { parseEmployeeDetailsFromText } from "../lib/ai/ocr-employee-extractor";
 
 describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
   describe("1. Prompt Injection & Adversarial Security", () => {
@@ -580,6 +582,73 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       expect(empRes.intent).toBe("employee_search");
       expect(empRes.responseText).toContain("فهد العتيبي");
       expect(empRes.responseText).toContain("EMP-1001");
+    });
+  });
+
+  describe("11. Multi-Country Labor Law, News 2026, Voice & OCR Employee Extraction Engine", () => {
+    it("covers statutory regulations across all 7 supported countries", () => {
+      expect(Object.keys(COUNTRY_LABOR_REGULATIONS)).toEqual(["SA", "EG", "AE", "QA", "KW", "BH", "OM"]);
+      expect(LATEST_HR_NEWS_2026.length).toBeGreaterThanOrEqual(5);
+
+      // Saudi Arabia
+      const saAnswer = searchCountryLaborRegulations("ما هي ساعات العمل في السعودية ونظام قوى؟");
+      expect(saAnswer).not.toBeNull();
+      expect(saAnswer).toContain("المملكة العربية السعودية");
+      expect(saAnswer).toContain("8 ساعات");
+
+      // Egypt
+      const egAnswer = searchCountryLaborRegulations("ما هو الحد الأدنى للأجور وقانون العمل في مصر؟");
+      expect(egAnswer).not.toBeNull();
+      expect(egAnswer).toContain("جمهورية مصر العربية");
+
+      // UAE
+      const uaeAnswer = searchCountryLaborRegulations("ما هي تفاصيل قانون العمل في الإمارات وبرنامج نافس؟");
+      expect(uaeAnswer).not.toBeNull();
+      expect(uaeAnswer).toContain("دولة الإمارات العربية المتحدة");
+      expect(uaeAnswer).toContain("33 لسنة 2021");
+
+      // Oman
+      const omAnswer = searchCountryLaborRegulations("كم ساعات العمل في سلطنة عمان؟");
+      expect(omAnswer).not.toBeNull();
+      expect(omAnswer).toContain("سلطنة عمان");
+      expect(omAnswer).toContain("40 ساعة");
+
+      // 2026 HR News
+      const newsAnswer = searchCountryLaborRegulations("ما هي أحدث أخبار الموارد البشرية لعام 2026؟");
+      expect(newsAnswer).not.toBeNull();
+      expect(newsAnswer).toContain("2026");
+    });
+
+    it("extracts structured employee data from natural text and voice transcriptions", () => {
+      const speechPrompt = "أضف موظف جديد اسمه طارق المنشاوي مهندس برمجيات في قسم تقنية المعلومات براتب 14000 ريال وبدل سكن 3500 ورقم الهوية 1099887766 وجنسيته مصري ورقم جواله 0551234567";
+      const draft = parseEmployeeDetailsFromText(speechPrompt);
+
+      expect(draft.firstNameAr).toBe("طارق");
+      expect(draft.lastNameAr).toContain("المنشاوي");
+      expect(draft.jobTitleAr).toContain("مهندس برمجيات");
+      expect(draft.basicSalary).toBe(14000);
+      expect(draft.housingAllowance).toBe(3500);
+      expect(draft.nationalIdOrIqama).toBe("1099887766");
+      expect(draft.nationality).toBe("مصري");
+      expect(draft.phone).toBe("0551234567");
+      expect(draft.totalSalary).toBe(14000 + 3500 + draft.transportAllowance);
+    });
+
+    it("routes voice/text employee creation intent to employee_create_draft with metadata confirmation", () => {
+      const mockApp = {
+        employees: [],
+        orgUnits: [{ id: "dept-it", nameAr: "تقنية المعلومات", nameEn: "IT" }],
+      } as any;
+
+      const prompt = "أضف موظف اسمه عادل الشمري محاسب عام براتب 8500 ريال هوية 1022334455";
+      const res = generateSmartAssistantResponse(prompt, mockApp, "hr_manager");
+
+      expect(res.intent).toBe("employee_create_draft");
+      expect(res.metadata).toBeDefined();
+      expect(res.metadata?.actionType).toBe("create_employee_confirmation");
+      expect(res.responseText).toContain("عادل الشمري");
+      expect(res.responseText).toContain("1022334455");
+      expect(res.responseText).toContain(":::employee_card");
     });
   });
 });

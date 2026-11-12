@@ -651,6 +651,256 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       expect(res.responseText).toContain(":::employee_card");
     });
   });
+
+  describe("12. Dedicated Internal HR Operations Agent (Autonomous Live System Awareness)", () => {
+    const liveSystemApp = {
+      employees: [
+        {
+          id: "emp-active-1",
+          employeeNo: "EMP-1001",
+          firstNameAr: "سالم",
+          lastNameAr: "العتيبي",
+          jobTitleAr: "مدير مشاريع",
+          departmentId: "dept-pm",
+          status: "active" as const,
+          nationality: "سعودي",
+          nationalIdOrIqama: "1011111111",
+          hireDate: "2023-01-10",
+          basicSalary: 18000,
+          housingAllowance: 4500,
+          transportAllowance: 1500,
+          iban: "SA0380000000608010167519",
+        },
+        {
+          id: "emp-probation-1",
+          employeeNo: "EMP-1002",
+          firstNameAr: "ماجد",
+          lastNameAr: "الغامدي",
+          jobTitleAr: "أخصائي توظيف",
+          departmentId: "dept-hr",
+          status: "probation" as const,
+          nationality: "سعودي",
+          nationalIdOrIqama: "1022222222",
+          hireDate: "2026-09-01",
+          basicSalary: 9000,
+          housingAllowance: 2250,
+          transportAllowance: 1000,
+          iban: "SA0380000000608010167520",
+        },
+        {
+          id: "emp-leave-1",
+          employeeNo: "EMP-1003",
+          firstNameAr: "كريم",
+          lastNameAr: "مصطفى",
+          jobTitleAr: "مطور برمجيات",
+          departmentId: "dept-it",
+          status: "on_leave" as const,
+          nationality: "مصري",
+          nationalIdOrIqama: "2033333333",
+          hireDate: "2024-03-15",
+          basicSalary: 12000,
+          housingAllowance: 3000,
+          transportAllowance: 1000,
+          iban: "SA0380000000608010167521",
+        },
+        {
+          id: "emp-noiban-1",
+          employeeNo: "EMP-1004",
+          firstNameAr: "عمر",
+          lastNameAr: "فاروق",
+          jobTitleAr: "فني شبكات",
+          departmentId: "dept-it",
+          status: "active" as const,
+          nationality: "أردني",
+          nationalIdOrIqama: "2044444444",
+          hireDate: "2025-05-01",
+          basicSalary: 7000,
+          housingAllowance: 1750,
+          transportAllowance: 800,
+          iban: "", // Missing IBAN for anomaly detection
+        },
+      ],
+      orgUnits: [
+        { id: "dept-pm", nameAr: "إدارة المشاريع", code: "PM" },
+        { id: "dept-hr", nameAr: "الموارد البشرية", code: "HR" },
+        { id: "dept-it", nameAr: "تقنية المعلومات", code: "IT" },
+      ],
+      attendanceRecords: [
+        {
+          id: "att-1",
+          employeeId: "emp-active-1",
+          employeeNo: "EMP-1001",
+          employeeName: "سالم العتيبي",
+          departmentName: "إدارة المشاريع",
+          workDate: "2026-11-12",
+          status: "present" as const,
+          lateMinutes: 0,
+        },
+        {
+          id: "att-2",
+          employeeId: "emp-probation-1",
+          employeeNo: "EMP-1002",
+          employeeName: "ماجد الغامدي",
+          departmentName: "الموارد البشرية",
+          workDate: "2026-11-12",
+          actualIn: "08:45",
+          status: "late" as const,
+          lateMinutes: 45,
+        },
+        {
+          id: "att-3",
+          employeeId: "emp-noiban-1",
+          employeeNo: "EMP-1004",
+          employeeName: "عمر فاروق",
+          departmentName: "تقنية المعلومات",
+          workDate: "2026-11-12",
+          status: "absent" as const,
+          lateMinutes: 0,
+        },
+      ],
+      requests: [
+        {
+          id: "req-1",
+          referenceNo: "REQ-2026-0091",
+          type: "leave",
+          requesterId: "emp-probation-1",
+          requesterName: "ماجد الغامدي",
+          departmentName: "الموارد البشرية",
+          status: "pending" as const,
+          currentStepIndex: 0,
+          totalSteps: 2,
+          currentApproverRole: "مدير الموارد البشرية",
+        },
+      ],
+      employeeDocs: [
+        {
+          id: "doc-1",
+          employeeId: "emp-noiban-1",
+          type: "iqama",
+          titleAr: "إقامة نظامية",
+          documentNumber: "2044444444",
+          expiryDate: "2026-11-20",
+          status: "expiring_soon" as const,
+          fileUrl: "/docs/iqama-1.pdf",
+        },
+      ],
+      loans: [
+        {
+          id: "loan-1",
+          employeeId: "emp-active-1",
+          employeeName: "سالم العتيبي",
+          loanType: "personal_advance" as const,
+          principalAmount: 20000,
+          remainingBalance: 12000,
+          monthlyInstallment: 2000,
+          totalInstallments: 10,
+          paidInstallments: 4,
+          startDate: "2026-01-01",
+          status: "active" as const,
+        },
+      ],
+      assets: [
+        {
+          id: "ast-1",
+          assetTag: "AST-NB-101",
+          nameAr: "حاسب محمول MacBook Pro",
+          assignedToEmployeeId: "emp-active-1",
+          status: "assigned",
+        },
+      ],
+      jobOpenings: [
+        {
+          id: "job-1",
+          titleAr: "أخصائي علاقات موظفين",
+          departmentId: "dept-hr",
+          departmentName: "الموارد البشرية",
+          publishedStatus: "published" as const,
+        },
+      ],
+      candidates: [
+        {
+          id: "cand-1",
+          jobId: "job-1",
+          fullName: "رنا الدوسري",
+          stage: "interview",
+        },
+      ],
+    } as any;
+
+    it("accurately returns probation employees list with countdown and Article 53 guidelines", () => {
+      const res = generateSmartAssistantResponse("مين في فترة التجربة؟", liveSystemApp, "hr_manager");
+      expect(res.intent).toBe("probation_inquiry");
+      expect(res.responseText).toContain("ماجد الغامدي");
+      expect(res.responseText).toContain("EMP-1002");
+      expect(res.responseText).toContain("المادة 53 من نظام العمل");
+      expect(res.responseText).toContain("التثبيت الدائم");
+    });
+
+    it("answers attendance operational query with exact absents and late minutes", () => {
+      const res = generateSmartAssistantResponse("مين غايب النهاردة ومين متأخر؟", liveSystemApp, "hr_manager");
+      expect(res.intent).toBe("attendance_operational");
+      expect(res.responseText).toContain("عمر فاروق"); // Absent
+      expect(res.responseText).toContain("ماجد الغامدي"); // Late
+      expect(res.responseText).toContain("45 دقيقة");
+    });
+
+    it("lists pending approval workflow requests with requester details and direct review guidance", () => {
+      const res = generateSmartAssistantResponse("إيه الطلبات المعلقة؟", liveSystemApp, "hr_manager");
+      expect(res.intent).toBe("workflow_operational");
+      expect(res.responseText).toContain("REQ-2026-0091");
+      expect(res.responseText).toContain("ماجد الغامدي");
+      expect(res.responseText).toContain("/workflow");
+    });
+
+    it("identifies employees currently on leave", () => {
+      const res = generateSmartAssistantResponse("مين واخد إجازة دلوقتي؟", liveSystemApp, "hr_manager");
+      expect(res.intent).toBe("leaves_operational");
+      expect(res.responseText).toContain("كريم مصطفى");
+      expect(res.responseText).toContain("EMP-1003");
+    });
+
+    it("identifies expiring documents and provides statutory renewal guidance", () => {
+      const res = generateSmartAssistantResponse("مين إقامته قربت تنتهي؟", liveSystemApp, "hr_manager");
+      expect(res.intent).toBe("documents_operational");
+      expect(res.responseText).toContain("عمر فاروق");
+      expect(res.responseText).toContain("2044444444");
+      expect(res.responseText).toContain("مقيم");
+    });
+
+    it("reports direct headcount and Saudization stats crisply", () => {
+      const res = generateSmartAssistantResponse("كام موظف عندنا في الشركة؟", liveSystemApp, "hr_manager");
+      expect(res.intent).toBe("headcount_operational");
+      expect(res.responseText).toContain("4 موظفاً");
+      expect(res.responseText).toContain("سعودي");
+      expect(res.responseText).toContain("نطاق");
+    });
+
+    it("lists company org units with assigned employee distribution", () => {
+      const res = generateSmartAssistantResponse("إيه الأقسام الموجودة في الشركة؟", liveSystemApp, "hr_manager");
+      expect(res.intent).toBe("org_structure_operational");
+      expect(res.responseText).toContain("إدارة المشاريع");
+      expect(res.responseText).toContain("الموارد البشرية");
+      expect(res.responseText).toContain("تقنية المعلومات");
+    });
+
+    it("performs live system diagnostic and flags missing IBAN and pending tasks", () => {
+      const res = generateSmartAssistantResponse("إيه المشاكل اللي محتاجة تدخل في النظام؟", liveSystemApp, "hr_manager");
+      expect(res.intent).toBe("system_diagnostic_operational");
+      expect(res.responseText).toContain("نقص بيانات الآيبان البنكي");
+      expect(res.responseText).toContain("معاملات معلقة");
+      expect(res.responseText).toContain("وثائق وإقامات منتهية");
+    });
+
+    it("provides consultative HR operations advice without disclaimers or mentions of external API keys", () => {
+      const res = generateSmartAssistantResponse("كيف أتعامل مع انخفاض إنتاجية الموظفين؟", liveSystemApp, "hr_manager");
+      expect(res.intent).toBe("general_chat");
+      expect(res.responseText).not.toContain("OpenAI");
+      expect(res.responseText).not.toContain("Gemini");
+      expect(res.responseText).not.toContain("أدخل مفتاح");
+      expect(res.responseText).not.toContain("لم أجد في بيانات نظامك ما يرتبط");
+      expect(res.responseText).toContain("وكيل الموارد البشرية والعمليات المتخصص");
+    });
+  });
 });
 
 

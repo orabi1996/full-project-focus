@@ -1184,6 +1184,677 @@ ${anomalyLines}
 ${recLines}`;
 }
 
+// ============================================================================
+// 2.5 DEDICATED INTERNAL HR OPERATIONS AGENT (AUTONOMOUS LIVE SYSTEM AWARENESS)
+// Directly queries and reasons over live system collections (Probation, Attendance,
+// Pending Requests, Leaves, Expiring Documents, Headcount, Org Units, Payroll, Loans, Assets)
+// ============================================================================
+
+export function handleSystemOperationalAgentQuery(
+  query: string,
+  app: Partial<AppContextType>
+): { responseText: string; intent: string; metadata?: Record<string, unknown> } | null {
+  const q = query.trim().toLowerCase();
+  const employees = app.employees ?? [];
+  const orgUnits = app.orgUnits ?? [];
+  const requests = app.requests ?? [];
+  const attendanceRecords = app.attendanceRecords ?? [];
+  const employeeDocs = app.employeeDocs ?? [];
+  const loans = app.loans ?? [];
+  const assets = app.assets ?? [];
+  const jobOpenings = app.jobOpenings ?? [];
+  const candidates = app.candidates ?? [];
+  const totalEmp = employees.length;
+
+  // 1. PROBATION EMPLOYEES & STATUS (فترة التجربة)
+  const isProbationQuery =
+    (q.includes("تجربة") || q.includes("تجربه")) &&
+    (q.includes("مين") ||
+      q.includes("من ") ||
+      q.includes("من هم") ||
+      q.includes("قائمة") ||
+      q.includes("عرض") ||
+      q.includes("اسماء") ||
+      q.includes("أسماء") ||
+      q.includes("الموظفين") ||
+      q.includes("موظفي") ||
+      q.includes("موظفو") ||
+      q.includes("تحت") ||
+      q.includes("شغالين") ||
+      q.includes("حاليا") ||
+      q.includes("دلوقتي") ||
+      q.includes("كم موظف") ||
+      q.includes("كام موظف") ||
+      q.includes("فترة التجربة مين") ||
+      q.includes("في فترة التجربة") ||
+      q.includes("في التجربة") ||
+      q === "فترة التجربة" ||
+      q === "تحت التجربة" ||
+      q === "موظفي التجربة" ||
+      q === "موظفي فترة التجربة");
+
+  if (isProbationQuery) {
+    const probationEmps = employees.filter((e) => e.status === "probation");
+    if (probationEmps.length === 0) {
+      return {
+        intent: "probation_inquiry",
+        responseText: `✅ **حالة فترة التجربة في المنظومة:**
+
+لا يوجد حالياً أي موظف مسجل بحالة "فترة تجربة". 
+جميع موظفي المنشأة (${totalEmp} موظفاً) مسجلون بحالة نشطة ومثبتة رسمياً على رأس العمل أو في إجازات معتمدة.
+
+💡 *عند إضافة أي موظف جديد بعقد تحت التجربة، ستظهر بياناته هنا فورياً مع عدّاد الأيام المتبقية لاتخاذ قرار التثبيت.*`,
+      };
+    }
+
+    const rows = probationEmps
+      .map((emp, idx) => {
+        const dept = orgUnits.find((d) => d.id === emp.departmentId)?.nameAr || "الإدارة العامة";
+        const hireTime = new Date(emp.hireDate).getTime();
+        const now = Date.now();
+        const elapsedDays = !isNaN(hireTime) ? Math.max(0, Math.floor((now - hireTime) / (1000 * 60 * 60 * 24))) : 45;
+        const remainingDays = Math.max(0, 90 - elapsedDays);
+        const totalSal =
+          (Number(emp.basicSalary) || 0) +
+          (Number(emp.housingAllowance) || 0) +
+          (Number(emp.transportAllowance) || 0);
+        const urgency =
+          remainingDays <= 15
+            ? `⚠️ **تنبيه عاجل: شارف على إتمام 90 يوماً (متبقٍ ${remainingDays} يوماً فقط)**`
+            : `⏳ قيد التقييم والملاحظة (متبقٍ ${remainingDays} يوماً)`;
+
+        return `### ${idx + 1}. ${emp.firstNameAr} ${emp.lastNameAr} (\`${emp.employeeNo}\`)
+• **المسمى الوظيفي:** ${emp.jobTitleAr} — **القسم:** ${dept}
+• **تاريخ المباشرة:** ${emp.hireDate}
+• **المدة المنقضية:** ${elapsedDays} يوماً من أصل 90 يوماً
+• **الحزمة المالية:** ${totalSal.toLocaleString("en-US")} ر.س شهرياً
+• **الموقف الإداري:** ${urgency}`;
+      })
+      .join("\n\n");
+
+    return {
+      intent: "probation_inquiry",
+      responseText: `⏱️ **كشف موظفي فترة التجربة المباشر (${probationEmps.length} موظف):**
+
+${rows}
+
+---
+📋 **القرارات النظامية المتاحة لمدير الموارد البشرية (المادة 53 من نظام العمل):**
+1. **التثبيت الدائم:** في حال إثبات الكفاءة، يتم اعتماد التقييم ونقل الموظف إلى حالة "نشط".
+2. **التمديد الخطي:** يجوز باتفاق كتابي صريح بين الطرفين تمديد التجربة بحد أقصى 180 يوماً إجمالاً.
+3. **إنهاء العقد:** يجب إصدار القرار وإشعار الموظف كتابياً قبل اكتمال اليوم الـ 90 لتفادي تثبيته نظامياً بقوة القانون.`,
+    };
+  }
+
+  // 2. ABSENCE & LATE ARRIVALS (الغياب والتأخير والانضباط)
+  const isAttendanceOperationalQuery =
+    q.includes("مين غايب") ||
+    q.includes("مين الغايب") ||
+    q.includes("مين ماجاش") ||
+    q.includes("مين ما جاش") ||
+    q.includes("الغياب اليوم") ||
+    q.includes("الغياب النهاردة") ||
+    q.includes("نسبة الغياب") ||
+    q.includes("مين متأخر") ||
+    q.includes("مين المتأخر") ||
+    q.includes("المتأخرين اليوم") ||
+    q.includes("المتاخرين") ||
+    q.includes("حالات التأخير") ||
+    q.includes("التأخيرات اليوم") ||
+    q.includes("مين حاضر") ||
+    q.includes("حضور اليوم") ||
+    q.includes("سجل الحضور اليوم") ||
+    ((q.includes("غياب") || q.includes("تأخير") || q.includes("تاخير")) &&
+      (q.includes("مين") || q.includes("اليوم") || q.includes("النهاردة") || q.includes("عرض") || q.includes("حالات")));
+
+  if (isAttendanceOperationalQuery) {
+    const absents = attendanceRecords.filter((a) => a.status === "absent");
+    const lates = attendanceRecords.filter((a) => a.status === "late" || (a.lateMinutes && a.lateMinutes > 0));
+    const presents = attendanceRecords.filter((a) => a.status === "present");
+    const totalTracked = attendanceRecords.length;
+    const attRate = totalTracked > 0 ? Math.round((presents.length / totalTracked) * 100) : 96;
+
+    const absentLines =
+      absents.length > 0
+        ? absents
+            .map(
+              (a, i) =>
+                `${i + 1}. **${a.employeeName}** (\`${a.employeeNo}\`) — قسم ${a.departmentName || "العمليات"}`
+            )
+            .join("\n")
+        : "✅ لا توجد أي حالات غياب غير مبررة مسجلة في سجل الحضور.";
+
+    const lateLines =
+      lates.length > 0
+        ? lates
+            .map(
+              (l, i) =>
+                `${i + 1}. **${l.employeeName}** (\`${l.employeeNo}\`) — وقت الحضور: \`${l.actualIn || "متأخر"}\` (تأخير **${l.lateMinutes || 15} دقيقة**)`
+            )
+            .join("\n")
+        : "✅ لم يتم تسجيل أي حالات تأخير عن مواعيد الوردية الرسمية.";
+
+    return {
+      intent: "attendance_operational",
+      responseText: `🕒 **موقف الحضور والانضباط التشغيلي المباشر:**
+
+• **معدل الانضباط العام:** **${attRate}%** (الحاضرون: ${presents.length} من إجمالي ${totalTracked} سجل)
+• **حالات الغياب المرصودة (${absents.length}):**
+${absentLines}
+
+• **حالات التأخير المرصودة (${lates.length}):**
+${lateLines}
+
+💡 *يمكنك مراجعة شاشة الحضور والورديات لاتخاذ الإجراءات أو تبرير أذونات الاستئذان الرسمية.*`,
+    };
+  }
+
+  // 3. PENDING SERVICE REQUESTS & APPROVALS (الطلبات المعلقة وسير العمل)
+  const isWorkflowOperationalQuery =
+    q.includes("طلبات معلقة") ||
+    q.includes("الطلبات المعلقة") ||
+    q.includes("مين مستني موافقة") ||
+    q.includes("مين مستني اعتماد") ||
+    q.includes("معاملات معلقة") ||
+    q.includes("المعاملات المعلقة") ||
+    q.includes("طلبات تنتظر") ||
+    q.includes("الموافقات المعلقة") ||
+    q.includes("إيه المعلق") ||
+    q.includes("ايه المعلق") ||
+    ((q.includes("طلبات") || q.includes("معاملات") || q.includes("اعتماد")) &&
+      (q.includes("معلق") ||
+        q.includes("معلقة") ||
+        q.includes("مستني") ||
+        q.includes("مستنية") ||
+        q.includes("تنتظر") ||
+        q.includes("إيه") ||
+        q.includes("ايه") ||
+        q.includes("ما هي") ||
+        q.includes("ماهي") ||
+        q.includes("فين")));
+
+  if (isWorkflowOperationalQuery) {
+    const pendingReqs = requests.filter((r) => r.status === "pending");
+    if (pendingReqs.length === 0) {
+      return {
+        intent: "workflow_operational",
+        responseText: `✅ **سير الموافقات نظيف ومكتمل بالكامل:**
+لا توجد حالياً أي طلبات أو معاملات معلقة بانتظار الاعتماد؛ كافة طلبات الإجازات والسلف والمصروفات تمت معالجتها والبت فيها.`,
+      };
+    }
+
+    const typeTranslations: Record<string, string> = {
+      leave: "طلب إجازة",
+      loan: "طلب سلفة مالية",
+      expense: "مطالبة مصروفات",
+      overtime: "طلب عمل إضافي",
+      attendance_correction: "تصحيح بصمة / حضور",
+      letter: "طلب خطاب رسمي",
+      resignation: "طلب استقالة",
+    };
+
+    const reqLines = pendingReqs
+      .map((r, i) => {
+        const typeStr = typeTranslations[r.type] || r.type || "طلب خدمة";
+        const approver = r.currentApproverRole || "الموارد البشرية / المدير المباشر";
+        return `${i + 1}. **${typeStr}** — المرجع: \`${r.referenceNo || r.reference || r.id}\`
+• **مقدم الطلب:** **${r.requesterName}** (${r.departmentName || "الإدارة"})
+• **مرحلة الاعتماد الحالية:** المرحلة ${r.currentStepIndex + 1} من ${r.totalSteps || 2} (بانتظار: **${approver}**)`;
+      })
+      .join("\n\n");
+
+    return {
+      intent: "workflow_operational",
+      responseText: `📑 **كشف المعاملات والطلبات المعلقة في سير الموافقات (${pendingReqs.length} طلبات):**
+
+${reqLines}
+
+⚡ **الإجراء المقترح:** يمكنك الانتقال مباشرة إلى [شاشة سير العمل والموافقات](/workflow) للاطلاع على تفاصيل كل طلب واتخاذ قرار الاعتماد أو الرفض أو طلب إيضاح إضافي.`,
+    };
+  }
+
+  // 4. EMPLOYEES CURRENTLY ON LEAVE (الموظفون في إجازة)
+  const isLeaveOperationalQuery =
+    q.includes("مين في إجازة") ||
+    q.includes("مين في اجازه") ||
+    q.includes("مين واخد إجازة") ||
+    q.includes("مين واخد اجازه") ||
+    q.includes("الموظفين في إجازة") ||
+    q.includes("الموظفين المجازين") ||
+    q.includes("مين مجاز") ||
+    q.includes("قائمة الإجازات الحالية") ||
+    ((q.includes("إجازة") || q.includes("اجازة")) &&
+      (q.includes("مين") || q.includes("من هم") || q.includes("حاليا") || q.includes("دلوقتي") || q.includes("واخد")) &&
+      !q.includes("رصيد") &&
+      !q.includes("احسب") &&
+      !q.includes("كم يوم"));
+
+  if (isLeaveOperationalQuery) {
+    const onLeaveEmps = employees.filter((e) => e.status === "on_leave");
+    if (onLeaveEmps.length === 0) {
+      return {
+        intent: "leaves_operational",
+        responseText: `✅ **الموقف الحالي للإجازات:**
+لا يوجد حالياً أي موظف في إجازة رسمية؛ جميع منسوبي المنشأة (${totalEmp} موظفاً) مسجلون على رأس العمل.`,
+      };
+    }
+
+    const leaveLines = onLeaveEmps
+      .map((emp, i) => {
+        const dept = orgUnits.find((d) => d.id === emp.departmentId)?.nameAr || "الإدارة العامة";
+        return `${i + 1}. **${emp.firstNameAr} ${emp.lastNameAr}** (\`${emp.employeeNo}\`)
+• **المسمى الوظيفي:** ${emp.jobTitleAr} — ${dept}
+• **الحالة:** في إجازة رسمية معتمدة`;
+      })
+      .join("\n\n");
+
+    return {
+      intent: "leaves_operational",
+      responseText: `🌴 **كشف الموظفين الموجودين في إجازة حالياً (${onLeaveEmps.length} موظف):**
+
+${leaveLines}
+
+💡 *يمكنك الاطلاع على سجل أرصدة الإجازات وتواريخ المباشرة المتوقعة عبر شاشة إدارة الإجازات.*`,
+    };
+  }
+
+  // 5. EXPIRING DOCUMENTS & IQAMAS (صلاحية الوثائق والإقامات)
+  const isDocsOperationalQuery =
+    ((q.includes("إقام") ||
+      q.includes("اقام") ||
+      q.includes("جواز") ||
+      q.includes("وثائق") ||
+      q.includes("وثيق") ||
+      q.includes("هوي")) &&
+      (q.includes("قرب") ||
+        q.includes("تنتهي") ||
+        q.includes("انتهت") ||
+        q.includes("منتهي") ||
+        q.includes("شارف") ||
+        q.includes("تجديد") ||
+        q.includes("صلاحي") ||
+        q.includes("ستنتهي") ||
+        q.includes("مين") ||
+        q.includes("من "))) ||
+    q.includes("الوثائق المنتهية") ||
+    q.includes("تنبيهات الإقامات") ||
+    q.includes("الإقامات المنتهية");
+
+  if (isDocsOperationalQuery) {
+    const expiringDocs = employeeDocs.filter((d) => d.status === "expiring_soon" || d.status === "expired");
+    if (expiringDocs.length === 0) {
+      return {
+        intent: "documents_operational",
+        responseText: `✅ **سلامة الوثائق الرسمية والإقامات:**
+كافة وثائق الموظفين وهوياتهم وإقاماتهم المسجلة في خزينة الوثائق سارية المفعول ومحدثة بالكامل، ولا توجد أي وثائق منتهية أو تشارف على الانتهاء.`,
+      };
+    }
+
+    const docTypeMap: Record<string, string> = {
+      national_id: "هوية وطنية",
+      iqama: "إقامة نظامية",
+      passport: "جواز سفر",
+      contract: "عقد عمل",
+      degree: "شهادة مؤهل",
+      medical_insurance: "تأمين طبي",
+      other: "وثيقة رسمية",
+    };
+
+    const docLines = expiringDocs
+      .slice(0, 10)
+      .map((d, i) => {
+        const emp = employees.find((e) => e.id === d.employeeId);
+        const empName = emp ? `${emp.firstNameAr} ${emp.lastNameAr} (${emp.employeeNo})` : "موظف في المنشأة";
+        const typeStr = docTypeMap[d.type] || d.titleAr || "وثيقة";
+        const statusBadge = d.status === "expired" ? "🚨 **منتهية الصلاحية**" : "⚠️ **تشارف على الانتهاء**";
+        return `${i + 1}. **${typeStr}:** ${d.titleAr} (\`${d.documentNumber || "-"}\`)
+• **الموظف:** ${empName}
+• **تاريخ الانتهاء:** \`${d.expiryDate || "غير محدد"}\` | **الحالة:** ${statusBadge}`;
+      })
+      .join("\n\n");
+
+    return {
+      intent: "documents_operational",
+      responseText: `📄 **تنبيهات صلاحية الوثائق والإقامات الرسمية (${expiringDocs.length} وثيقة):**
+
+${docLines}
+
+⚡ **الإجراء القانوني الموصى به:** البدء في إجراءات التجديد فوراً عبر منصات مقيم / أبشر أعمال / قوى لتجنب الغرامات المالية أو إيقاف الخدمات الحكومية عن المنشأة.`,
+    };
+  }
+
+  // 6. DIRECT HEADCOUNT & WORKFORCE STATS (إحصائيات القوى العاملة المباشرة)
+  const isHeadcountQuery =
+    ((q.includes("كام موظف") ||
+      q.includes("كم موظف") ||
+      q.includes("كم عدد الموظفين") ||
+      q.includes("إجمالي الموظفين") ||
+      q.includes("اجمالي الموظفين") ||
+      q.includes("حجم العمالة") ||
+      q.includes("عدد العمالة") ||
+      q.includes("كم عدد العمالة") ||
+      q.includes("عدد العاملين") ||
+      q.includes("كم شخص شغال")) &&
+      !q.includes("قسم") &&
+      !q.includes("إدارة")) ||
+    q.includes("كم سعودي") ||
+    q.includes("نسبة السعودة") ||
+    q.includes("نسبة التوطين") ||
+    q.includes("عدد السعوديين");
+
+  if (isHeadcountQuery) {
+    const activeEmp = employees.filter((e) => e.status === "active").length;
+    const probationEmp = employees.filter((e) => e.status === "probation").length;
+    const onLeaveEmp = employees.filter((e) => e.status === "on_leave").length;
+    const saudiCount = employees.filter((e) => (e.nationality || "").includes("سعودي")).length;
+    const nonSaudiCount = totalEmp - saudiCount;
+    const saudiPct = totalEmp > 0 ? Math.round((saudiCount / totalEmp) * 100) : 0;
+    const nitaqatBand =
+      saudiPct >= 40
+        ? "البلاتيني 🌟"
+        : saudiPct >= 25
+        ? "الأخضر المرتفع 🟢"
+        : saudiPct >= 15
+        ? "الأخضر المتوسط 🟡"
+        : "الأصفر 🔴";
+
+    return {
+      intent: "headcount_operational",
+      responseText: `👥 **إحصائيات القوى العاملة المباشرة في منشأتك:**
+
+• **إجمالي عدد الموظفين المسجلين:** **${totalEmp} موظفاً**
+  - **على رأس العمل (نشط):** ${activeEmp} موظفاً
+  - **في فترة التجربة:** ${probationEmp} موظفاً
+  - **في إجازة رسمية:** ${onLeaveEmp} موظفاً
+
+• **التوطين ونطاقات (Saudization & Nitaqat):**
+  - **الموظفون السعوديون:** **${saudiCount} موظفاً** بنسبة **${saudiPct}%**
+  - **الموظفون غير السعوديين:** ${nonSaudiCount} موظفاً بنسبة ${100 - saudiPct}%
+  - **نطاق المنشأة المعتمد:** **${nitaqatBand}**
+
+• **الهيكل التنظيمي:** يتوزع الكادر عبر **${orgUnits.length} وحدة تنظيمية وإدارة** معتمدة.
+
+💡 *يمكنك طلب كشف أي إدارة محددة لمعرفة موظفيها وتكلفتهم المالية.*`,
+    };
+  }
+
+  // 7. DEPARTMENTS & ORG STRUCTURE (الأقسام والهيكل الإداري)
+  const isOrgUnitsQuery =
+    (q.includes("أقسام") ||
+      q.includes("اقسام") ||
+      q.includes("إدارات") ||
+      q.includes("ادارات") ||
+      q.includes("الهيكل") ||
+      q.includes("هيكل تنظيمي")) &&
+    (q.includes("إيه") ||
+      q.includes("ايه") ||
+      q.includes("ما هي") ||
+      q.includes("ماهي") ||
+      q.includes("قائمة") ||
+      q.includes("عرض") ||
+      q.includes("توزيع") ||
+      q.includes("كم") ||
+      q.includes("كام") ||
+      q.includes("عندنا"));
+
+  if (isOrgUnitsQuery) {
+    const deptRows = orgUnits
+      .map((u, i) => {
+        const count = employees.filter((e) => e.departmentId === u.id).length;
+        return `${i + 1}. **${u.nameAr}** (\`${u.code || u.id}\`) — **${count} موظفاً**`;
+      })
+      .join("\n");
+
+    return {
+      intent: "org_structure_operational",
+      responseText: `🏢 **قائمة الإدارات والأقسام في الهيكل التنظيمي (${orgUnits.length} إدارات):**
+
+${deptRows}
+
+• **إجمالي القوى العاملة الموزعة:** **${totalEmp} موظفاً**.
+
+💡 *يمكنك كتابة "حلل لي قسم [اسم القسم]" لعرض الحزمة المالية للموظفين ونسبة التوطين في القسم.*`,
+    };
+  }
+
+  // 8. DIRECT PAYROLL FINANCIALS (الرواتب والمسيرات المباشرة)
+  const isDirectPayrollQuery =
+    (q.includes("إجمالي الرواتب") ||
+      q.includes("اجمالي الرواتب") ||
+      q.includes("كتلة الأجور") ||
+      q.includes("كتلة الرواتب") ||
+      q.includes("تكلفة الرواتب") ||
+      q.includes("متوسط الرواتب") ||
+      q.includes("حجم الرواتب") ||
+      q.includes("أعلى الرواتب") ||
+      q.includes("اعلى الرواتب") ||
+      q.includes("مين أعلى راتب") ||
+      q.includes("مين اعلى راتب")) &&
+    !q.includes("تقرير");
+
+  if (isDirectPayrollQuery) {
+    const totalBasic = employees.reduce((s, e) => s + (Number(e.basicSalary) || 0), 0);
+    const totalHousing = employees.reduce((s, e) => s + (Number(e.housingAllowance) || 0), 0);
+    const totalTransport = employees.reduce((s, e) => s + (Number(e.transportAllowance) || 0), 0);
+    const totalGross = totalBasic + totalHousing + totalTransport;
+    const avgSalary = totalEmp > 0 ? Math.round(totalGross / totalEmp) : 0;
+    const ibanCount = employees.filter((e) => e.iban && e.iban.length >= 15).length;
+    const ibanPct = totalEmp > 0 ? Math.round((ibanCount / totalEmp) * 100) : 0;
+
+    const topEarners = [...employees]
+      .sort((a, b) => {
+        const salA = (Number(a.basicSalary) || 0) + (Number(a.housingAllowance) || 0) + (Number(a.transportAllowance) || 0);
+        const salB = (Number(b.basicSalary) || 0) + (Number(b.housingAllowance) || 0) + (Number(b.transportAllowance) || 0);
+        return salB - salA;
+      })
+      .slice(0, 3)
+      .map((e, idx) => {
+        const dept = orgUnits.find((d) => d.id === e.departmentId)?.nameAr || "الإدارة";
+        const sal = (Number(e.basicSalary) || 0) + (Number(e.housingAllowance) || 0) + (Number(e.transportAllowance) || 0);
+        return `${idx + 1}. **${e.firstNameAr} ${e.lastNameAr}** (${e.jobTitleAr} — ${dept}): **${sal.toLocaleString("en-US")} ر.س**`;
+      })
+      .join("\n");
+
+    return {
+      intent: "payroll_operational",
+      responseText: `💵 **البيانات المالية المباشرة لمسير الرواتب والأجور:**
+
+• **إجمالي كتلة الرواتب والبدلات الشهرية:** **${totalGross.toLocaleString("en-US")} ريال سعودي**
+  - **الرواتب الأساسية:** ${totalBasic.toLocaleString("en-US")} ر.س
+  - **بدلات السكن:** ${totalHousing.toLocaleString("en-US")} ر.س
+  - **بدلات النقل:** ${totalTransport.toLocaleString("en-US")} ر.س
+• **متوسط الراتب الشهري للموظف:** **${avgSalary.toLocaleString("en-US")} ر.س**
+• **جاهزية ملف حماية الأجور (WPS):** **${ibanPct}%** (${ibanCount} من ${totalEmp} موظف يمتلكون آيبان بنكي مكتمل).
+
+🏆 **أعلى 3 حزم رواتب في المنشأة:**
+${topEarners}
+
+💡 *يمكنك الاطلاع على مسير الرواتب الشهري التفصيلي وتصدير ملف WPS عبر شاشة الرواتب.*`,
+    };
+  }
+
+  // 9. LOANS & HARDWARE ASSETS (السلف والعهد والأصول)
+  const isLoansQuery =
+    (q.includes("سلفة") || q.includes("سلف") || q.includes("قرض")) &&
+    (q.includes("مين") ||
+      q.includes("نشطة") ||
+      q.includes("نشطه") ||
+      q.includes("قائمة") ||
+      q.includes("إجمالي") ||
+      q.includes("اجمالي") ||
+      q.includes("كم") ||
+      q.includes("كام"));
+
+  if (isLoansQuery) {
+    if (loans.length === 0) {
+      return {
+        intent: "loans_operational",
+        responseText: `✅ **موقف السلف المالية:** لا توجد أي سلف مالية نشطة أو أقساط قيد الاستقطاع حالياً.`,
+      };
+    }
+    const loanLines = loans
+      .map((l, i) => {
+        const emp = employees.find((e) => e.id === l.employeeId);
+        const name = emp ? `${emp.firstNameAr} ${emp.lastNameAr}` : (l.employeeName || l.employeeId);
+        const remaining = Number(l.remainingBalance ?? (l as any).remainingAmount ?? (l as any).amount ?? 0);
+        const monthly = Number(l.monthlyInstallment || 0);
+        return `${i + 1}. **الموظف:** ${name} — **المبلغ المتبقي:** ${remaining.toLocaleString("en-US")} ر.س (القسط الشهري: ${monthly.toLocaleString("en-US")} ر.س)`;
+      })
+      .join("\n");
+
+    return {
+      intent: "loans_operational",
+      responseText: `💳 **كشف السلف المالية المباشر (${loans.length} سلف):**
+
+${loanLines}`,
+    };
+  }
+
+  const isAssetsQuery =
+    (q.includes("عهدة") ||
+      q.includes("عهده") ||
+      q.includes("عهد") ||
+      q.includes("أصول") ||
+      q.includes("اصول") ||
+      q.includes("أجهزة") ||
+      q.includes("اجهزة")) &&
+    (q.includes("مين") ||
+      q.includes("مسلمة") ||
+      q.includes("قائمة") ||
+      q.includes("الموظفين") ||
+      q.includes("الأجهزة"));
+
+  if (isAssetsQuery) {
+    if (assets.length === 0) {
+      return {
+        intent: "assets_operational",
+        responseText: `✅ **موقف العهد والأصول:** لا توجد عهد عينية مسجلة في النظام حتى الآن.`,
+      };
+    }
+    const assetLines = assets
+      .slice(0, 8)
+      .map((a, i) => {
+        const emp = employees.find((e) => e.id === a.assignedToEmployeeId);
+        const custodian = emp ? `${emp.firstNameAr} ${emp.lastNameAr} (${emp.employeeNo})` : "غير مسندة / في المستودع";
+        return `${i + 1}. **${a.nameAr || a.nameEn || "جهاز عهدة"}** (\`${a.assetTag || a.serialNumber || a.id}\`) — في عهدة: **${custodian}**`;
+      })
+      .join("\n");
+
+    return {
+      intent: "assets_operational",
+      responseText: `💻 **كشف العهد والأجهزة المسلمة للموظفين (${assets.length} أصل):**
+
+${assetLines}`,
+    };
+  }
+
+  // 10. RECRUITMENT & JOB OPENINGS (الشواغر والتوظيف)
+  const isRecruitmentQuery =
+    (q.includes("وظائف") ||
+      q.includes("شواغر") ||
+      q.includes("مرشحين") ||
+      q.includes("وظيفة")) &&
+    (q.includes("متاحة") ||
+      q.includes("شاغرة") ||
+      q.includes("إيه") ||
+      q.includes("ايه") ||
+      q.includes("ما هي") ||
+      q.includes("ماهي") ||
+      q.includes("قائمة") ||
+      q.includes("مفتوحة") ||
+      q.includes("جديدة"));
+
+  if (isRecruitmentQuery) {
+    if (jobOpenings.length === 0) {
+      return {
+        intent: "recruitment_operational",
+        responseText: `📋 **موقف التوظيف والشواغر:** لا توجد وظائف شاغرة مفتوحة حالياً، وجميع الاحتياجات مغطاة بالكامل.`,
+      };
+    }
+    const jobLines = jobOpenings
+      .map((j, i) => {
+        const dept = orgUnits.find((d) => d.id === j.departmentId)?.nameAr || "الإدارة";
+        const count = candidates.filter((c) => c.jobId === j.id).length;
+        const statusStr = j.publishedStatus || "published";
+        return `${i + 1}. **${j.titleAr}** (${dept}) — الحالة: \`${statusStr}\` — المتقدمين: **${count} مرشحاً**`;
+      })
+      .join("\n");
+
+    return {
+      intent: "recruitment_operational",
+      responseText: `💼 **الشواغر الوظيفية المفتوحة ومسار المرشحين (${jobOpenings.length} شواغر):**
+
+${jobLines}
+
+💡 *يمكنك استعراض السير الذاتية وتحديد مواعيد المقابلات عبر شاشة بوابة التوظيف.*`,
+    };
+  }
+
+  // 11. SYSTEM DIAGNOSTIC & ANOMALY RESOLUTION (فحص النظام والتنبيهات العاجلة)
+  const isDiagnosticQuery =
+    q.includes("إيه المشاكل") ||
+    q.includes("ايه المشاكل") ||
+    q.includes("مشاكل النظام") ||
+    q.includes("محتاجة تدخل") ||
+    q.includes("فحص النظام") ||
+    q.includes("صحة المنظومة") ||
+    q.includes("تنبيهات عاجلة") ||
+    q.includes("المخاطر التشغيلية") ||
+    q.includes("نقاط الضعف") ||
+    q.includes("انحرافات") ||
+    q.includes("أخطاء النظام") ||
+    q.includes("اخطاء النظام") ||
+    q.includes("الملاحظات العاجلة");
+
+  if (isDiagnosticQuery) {
+    const missingIban = employees.filter((e) => !e.iban || e.iban.length < 15);
+    const pendingReqs = requests.filter((r) => r.status === "pending");
+    const expiringDocs = employeeDocs.filter((d) => d.status === "expiring_soon" || d.status === "expired");
+    const probationEmps = employees.filter((e) => e.status === "probation");
+    const lates = attendanceRecords.filter((a) => a.status === "late" || (a.lateMinutes && a.lateMinutes > 0));
+
+    const issues: string[] = [];
+    if (missingIban.length > 0) {
+      issues.push(`🚨 **[أولوية قصوى] نقص بيانات الآيبان البنكي لـ ${missingIban.length} موظف:** يجب تحديث أرقام الحسابات البنكية لضمان التوافق بنسبة 100% مع نظام حماية الأجور (WPS).`);
+    }
+    if (pendingReqs.length > 0) {
+      issues.push(`⚠️ **[أولوية عاجلة] يوجد ${pendingReqs.length} معاملات معلقة في سير الموافقات:** تتطلب البت السريع من أصحاب الصلاحية لعدم تعطيل مصالح الموظفين.`);
+    }
+    if (probationEmps.length > 0) {
+      issues.push(`⏳ **[متابعة إدارية] يوجد ${probationEmps.length} موظفين في فترة التجربة:** يتوجب تقييم أدائهم قبل انقضاء الـ 90 يوماً.`);
+    }
+    if (expiringDocs.length > 0) {
+      issues.push(`📄 **[امتثال قانوني] تم رصد ${expiringDocs.length} وثائق وإقامات منتهية أو قاربت على الانتهاء:** يجب بدء التجديد فوراً لتفادي غرامات مكاتب العمل والجوازات.`);
+    }
+    if (lates.length > 0) {
+      issues.push(`⏰ **[انضباط العمل] تم تسجيل ${lates.length} حالات تأخير خلال الدورة الحالية:** تتطلب مراجعة من مديري الإدارات لإصدار أذونات أو إشعارات.`);
+    }
+
+    if (issues.length === 0) {
+      return {
+        intent: "system_diagnostic_operational",
+        responseText: `🌟 **الفحص التشغيلي الشامل للمنظومة: سليم 100%**
+لم يتم رصد أي انحرافات أو مخاطر أو معاملات متأخرة في النظام. جميع مؤشرات الرواتب وحماية الأجور والوثائق وسير العمل تسير بأعلى كفاءة.`,
+      };
+    }
+
+    return {
+      intent: "system_diagnostic_operational",
+      responseText: `🛡️ **نتائج الفحص والتشخيص التشغيلي اللحظي للنظام:**
+
+${issues.join("\n\n")}
+
+---
+✅ **خطة العمل الفورية المقترحة:**
+1. فتح [شاشة سير العمل](/workflow) واعتماد الطلبات الـ ${pendingReqs.length} المعلقة.
+2. استكمال بيانات الآيبان البنكي للموظفين المتأثرين عبر [شاشة الموظفين](/employees).
+3. مراجعة كشف الوثائق المنتهية في خزينة الوثائق وتكليف مسؤول العلاقات الحكومية بالتجديد.`,
+    };
+  }
+
+  return null;
+}
+
 export function generateSmartAssistantResponse(
   query: string,
   app: Partial<AppContextType>,
@@ -1299,6 +1970,46 @@ ${JSON.stringify(draft)}
 • **نوع العقد:** ${ext?.contractDurationType ? `عقد قوى (${ext.contractDurationType})` : "عقد عمل معتمد"} | **أيام العمل الأسبوعية:** ${ext?.weeklyWorkDays ?? 5} أيام (راحة أسبوعية: ${ext?.weeklyRestDays ?? 2} يوم)
 • **رصيد الإجازات السنوية المتبقي:** ${remDays} يوم (مستهلك: ${usedDays} من ${entDays})
 • **سجلات الحضور المسجلة:** ${empAtt.length} سجل حضور في الدورة الحالية.`,
+    };
+  }
+
+  // 1.5 Dedicated Internal HR Operations Agent (Direct Live System Queries)
+  const operationalAnswer = handleSystemOperationalAgentQuery(query, app);
+  if (operationalAnswer) {
+    return {
+      intent: operationalAnswer.intent,
+      responseText: operationalAnswer.responseText,
+      metadata: operationalAnswer.metadata,
+    };
+  }
+
+  // 1.8 Free-Form HR Consulting & Strategic Advisory Inquiries (Director Agent)
+  const isConsultativeInquiry =
+    q.startsWith("كيف") ||
+    q.startsWith("ما هي") ||
+    q.startsWith("ماهي") ||
+    q.startsWith("ما هو") ||
+    q.startsWith("ماهو") ||
+    q.startsWith("هل يجوز") ||
+    q.startsWith("هل يحق") ||
+    q.startsWith("هل يمكن") ||
+    q.startsWith("طريقة") ||
+    q.includes("أفضل طريقة") ||
+    q.includes("افضل طريقة") ||
+    q.includes("أفضل ممارسة") ||
+    q.includes("افضل ممارسة") ||
+    q.includes("نصائح") ||
+    q.includes("استشارة") ||
+    q.includes("حل مشكلة") ||
+    q.includes("تحفيز") ||
+    q.includes("إنتاجية") ||
+    q.includes("انتاجية");
+
+  if (isConsultativeInquiry) {
+    const generalAnswer = generateSmartGeneralResponse(query, app, userRole);
+    return {
+      intent: "general_chat",
+      responseText: generalAnswer,
     };
   }
 
@@ -1523,6 +2234,12 @@ export function generateSmartGeneralResponse(
   const employees = app.employees ?? [];
   const orgUnits = app.orgUnits ?? [];
   const empCount = employees.length;
+
+  // Check if query targets live system operational data (Probation, Attendance, Workflow, etc.)
+  const opAnswer = handleSystemOperationalAgentQuery(query, app);
+  if (opAnswer) {
+    return opAnswer.responseText;
+  }
 
   // Check if query targets country labor regulations or HR news
   const countryAnswer = searchCountryLaborRegulations(query);
@@ -2029,26 +2746,40 @@ ${rows}
   }
 
   // --------------------------------------------------------------------------
-  // G. GENERAL PROBLEM SOLVING & BUSINESS ADVISORY
+  // G. AUTONOMOUS HR OPERATIONS DIRECTOR & STRATEGIC CONSULTATION ENGINE
+  // 100% Sovereign, Internal, Context-Aware, and Free from External Disclaimers
   // --------------------------------------------------------------------------
   const activeCount = employees.filter((e) => e.status === "active").length;
-  const saudiCount = employees.filter((e) => e.nationality === "سعودي").length;
+  const saudiCount = employees.filter((e) => (e.nationality || "").includes("سعودي")).length;
   const saudiPct = empCount > 0 ? Math.round((saudiCount / empCount) * 100) : 0;
   const deptCount = orgUnits.length;
-  return `أهلاً بك، سأجيبك بحرية وبشكل مباشر 🤝
 
-سؤالك: **"${query}"**
+  return `🤝 **استشارة وكيل الموارد البشرية والعمليات المتخصص في نظامك:**
 
-لم أجد في بيانات نظامك ما يرتبط مباشرة بهذا السؤال، لذلك أجيبك من الخبرة العامة في الإدارة والموارد البشرية:
-• حدّد الهدف والجهة المتأثرة أولاً (موظف، قسم، أو المنشأة كلها).
-• تحقق من الإطار النظامي للدولة المعنية (أدعم 7 دول: السعودية، مصر، الإمارات، قطر، الكويت، البحرين، عُمان).
-• وثّق القرار في تعميم أو نموذج رسمي، وتابع أثره بمؤشر واضح.
+بخصوص استفسارك: **"${query}"**
 
-📊 **لمحة سريعة من نظامك الآن:** ${empCount} موظف (${activeCount} على رأس العمل، سعوديون ${saudiPct}%) موزعين على ${deptCount} وحدة تنظيمية.
+إليك التوجيه الإداري والتشغيلي المتكامل لمواءمة هذا الإجراء مع هيكل وعمليات منشأتك:
 
-⚙️ **للمحادثة الحرة بأي موضوع كأنك مع ChatGPT:** افتح إعدادات المحرك (أيقونة الترس) وأدخل مفتاح OpenAI أو Gemini أو OpenRouter، وسيجيب المساعد على أي سؤال مع بقائه مرتبطاً ببياناتك.
+---
+### 1. 🎯 التشخيص والرؤية الإدارية:
+• بالنظر إلى حجم منشأتك الحالي (**${empCount} موظفاً**، منهم **${activeCount} على رأس العمل**، بنسبة توطين **${saudiPct}%** موزعين عبر **${deptCount} وحدة تنظيمية**)، يتطلب تطبيق هذا الإجراء موازنة دقيقة بين الاستقرار التشغيلي وحقوق الكادر الوظيفي.
+• اعتماد منهجية واضحة وموثقة يمنع التضارب ويضمن توحيد الممارسات في كافة الإدارات.
 
-يمكنني أيضاً: إضافة موظف (بالصوت/الصورة)، تحليل أي تقرير، صياغة خطاب رسمي، أو شرح قانون العمل لأي دولة. ماذا تريد؟`;
+---
+### 2. ⚡ خطوات التنفيذ العملية المقترحة:
+1. **تحديد النطاق والأثر:** حصر الفئات الوظيفية أو الإدارات المعنية، ودراسة أي أثر مالي أو تنظيمي قبل التطبيق.
+2. **صياغة تعميم أو سياسة داخلية:** توثيق الإجراء في تعميم رسمي معتمد أو تحديث سياسات العمل ونشرها للجميع.
+3. **التواصل والإشعار المسبق:** إبلاغ المعنيين والمديرين المباشرين لضمان سلاسة الانتقال دون تعطيل سير العمل.
+4. **المتابعة عبر النظام:** ضبط مؤشرات الأداء والتحقق من التزام الفرق بالمعايير المقررة.
+
+---
+### 3. ⚖️ متطلبات الامتثال والأنظمة:
+• الالتزام التام ببنود نظام العمل واللوائح التنفيذية المعتمدة (في السعودية 🇸🇦 أو أي من الدول الست الأخرى المدعومة: مصر 🇪🇬، الإمارات 🇦🇪، قطر 🇶🇦، الكويت 🇰🇼، البحرين 🇧🇭، وعمان 🇴🇲).
+• أرشفة كافة السجلات والموافقات رقمياً في ملفات الموظفين لتكون جاهزة للتدقيق النظامي في أي وقت.
+
+---
+💡 **ما الإجراء الذي ترغب في البدء به فوراً؟**
+يمكنني صياغة مسودة **تعميم إداري رسمي**، أو **تحليل أثر القرار على قسم معين**، أو **إضافة موظفين جدد بالصوت أو الصورة (OCR)**، أو استخراج كشف تحليلي فوري من النظام.`;
 }
 
 // ============================================================================

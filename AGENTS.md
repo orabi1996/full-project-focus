@@ -12,3 +12,4 @@
 - Keep shared GSAP motion in `src/lib/theme/AppMotion.tsx`, loaded only after hydration and mounted once in the root; this covers routes, tabs, and dialogs without changing business logic.
 - Respect reduced-motion preferences and revert animations on navigation; operational screens must remain usable without animation.
 - Load external font and icon stylesheets through root head links, never CSS URL imports; the CSS compiler resolves imports locally.
+- Reference-data read policies must use protected roles, company membership, or row ownership rather than sign-in alone; signup-created employee rows without a company do not establish organization membership.

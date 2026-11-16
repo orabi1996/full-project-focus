@@ -518,13 +518,30 @@ export function usePayrollRunEmployees(runId?: string | null) {
     queryKey: queryKeys.payroll.employees(runId || "", { all: true }),
     queryFn: async (): Promise<PayrollRunEmployee[]> => {
       if (!isLive || !runId) return [];
-      const { data, error } = await (supabase as any)
-        .from("payroll_run_employees")
-        .select("*")
-        .eq("payroll_run_id", runId)
-        .order("employee_no", { ascending: true });
-
-      if (error) throw new Error(error.message);
+      const legacy = await (supabase as any).from("payroll_details")
+        .select("*, employees(employee_no,full_name,nationality,bank_name,iban)")
+        .eq("payroll_run_id", runId).order("id");
+      if (legacy.error) throw new Error(legacy.error.message);
+      let data = (legacy.data || []).map((row: any) => ({ ...row,
+        employee_no: row.employees?.employee_no, employee_name: row.employees?.full_name,
+        nationality: row.employees?.nationality,
+        is_saudi: ["SA", "SAU", "SAUDI", "SAUDI ARABIA", "السعودية", "سعودي", "سعودية"]
+          .includes(String(row.employees?.nationality ?? "").trim().toUpperCase()), bank_name: row.employees?.bank_name,
+        iban: row.employees?.iban, eligible_days: Number(row.working_days) + Number(row.absent_days),
+        absence_days: row.absent_days, absence_deduction: row.absence_late_deduction,
+        loan_installment: row.loan_deduction ?? row.loan_deductions,
+        statutory_employee: row.gosi_employee_deduction ?? row.gosi_employee,
+        statutory_employer: row.gosi_employer,
+      }));
+      // Retain read access to historical runs produced by the enterprise engine.
+      if (!data.length) {
+        const enterprise = await (supabase as any).from("payroll_run_employees").select("*")
+          .eq("payroll_run_id", runId).order("employee_no", { ascending: true });
+        if (enterprise.error && !["42P01", "PGRST205"].includes(enterprise.error.code)) {
+          throw new Error(enterprise.error.message);
+        }
+        data = enterprise.data || [];
+      }
       return (data || []).map((pre: any) => ({
         id: pre.id,
         payrollRunId: pre.payroll_run_id,

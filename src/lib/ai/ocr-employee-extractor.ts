@@ -75,8 +75,8 @@ export function parseEmployeeDetailsFromText(
   // 1. Extract Full Name
   let firstNameAr = "";
   let lastNameAr = "";
-  let firstNameEn = "";
-  let lastNameEn = "";
+  const firstNameEn = "";
+  const lastNameEn = "";
 
   // Pattern: الاسم / اسم الموظف / اسمه : ...
   const nameMatch = rawText.match(

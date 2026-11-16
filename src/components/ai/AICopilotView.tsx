@@ -171,7 +171,7 @@ function ChatMessageRenderer({
   };
 
   const renderInlineStyles = (raw: string) => {
-    const parts = raw.split(/(\*\*.*?\*\*|\`.*?\`)/g);
+    const parts = raw.split(/(\*\*.*?\*\*|`.*?`)/g);
     return parts.map((part, pIdx) => {
       if (part.startsWith("**") && part.endsWith("**")) {
         return (

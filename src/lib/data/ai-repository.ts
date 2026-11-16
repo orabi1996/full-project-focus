@@ -2162,7 +2162,7 @@ function parseAndCalculateEOSB(query: string): EOSBCalculationResult | null {
   const q = query.toLowerCase();
   // Extract salary
   const salaryMatch =
-    q.match(/راتب(?:ه|ها|ي)?\s*[:=]?\s*([0-9][0-9,\.]*)/) ||
+    q.match(/راتب(?:ه|ها|ي)?\s*[:=]?\s*([0-9][0-9,.]*)/) ||
     q.match(/([0-9]{4,6})\s*(?:ريال|ر\.س|رس)/) ||
     q.match(/(\d{4,6})/);
 

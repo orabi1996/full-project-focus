@@ -68,9 +68,9 @@ describe("Prompt 09 Final Narrow Employee Production Hotfix Contract Tests", () 
 
     it("hrms-repository exports fetchEmployeeDirectoryRecord with enhanced filter mapping", () => {
       expect(repoSource).toContain("export async function fetchEmployeeDirectoryRecord");
-      expect(repoSource).toContain("p_contract_type: filters.contractType || null");
-      expect(repoSource).toContain("p_nationality: filters.nationality || null");
-      expect(repoSource).toContain("p_quick_preset: filters.quickPreset || null");
+      expect(repoSource).toContain("p_contract_type: filters.contractType || undefined");
+      expect(repoSource).toContain("p_nationality: filters.nationality || undefined");
+      expect(repoSource).toContain("p_quick_preset: filters.quickPreset || undefined");
       expect(repoSource).toContain("p_min_salary: filters.minSalary !== undefined");
       expect(repoSource).toContain("p_max_salary: filters.maxSalary !== undefined");
     });

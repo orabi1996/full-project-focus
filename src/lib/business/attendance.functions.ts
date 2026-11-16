@@ -999,10 +999,10 @@ export const settleAttendancePeriodServer = createServerFn({ method: "POST" })
     }
 
     const payroll = await computePayrollRun(supabase, { year: data.year, month: data.month });
-    await supabase
-      .from("payroll_runs")
-      .update({ status: "locked", locked_at: new Date().toISOString() })
-      .eq("id", payroll.runId);
+    const { error: lockError } = await supabase.rpc("set_payroll_run_status_atomic", {
+      p_run_id: payroll.runId, p_status: "locked",
+    });
+    if (lockError) throw new Error(`تعذر إقفال المسير: ${lockError.message}`);
 
     return {
       approvedPunches: pending?.length ?? 0,

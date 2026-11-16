@@ -748,7 +748,7 @@ export async function fetchEmployeeDirectoryRecord(
   });
 
   if (error) {
-    if (isOfflineBrowserFetchError(error)) {
+    if (error.code === "PGRST202" || error.code === "42883") {
       return await fetchDirectoryWhenRpcUnavailable(filters);
     }
     throw new Error(error.message);

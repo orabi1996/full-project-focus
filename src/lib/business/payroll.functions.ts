@@ -5,7 +5,7 @@ import { assertRole, round2 as roundMoney } from "./guards";
 import { readPayrollRows, readPayrollEmployeeRows } from "./payroll-data";
 import { allocatePayrollLoans } from "./payroll-loans";
 import { payrollPeriod, employeePeriodSalary } from "./payroll-period";
-import { payrollCountry, isNationalOf, resolveCountryPayrollPolicy, countryPayrollCharges, COUNTRY_PACK_CATALOG } from "./payroll-country";
+import { payrollCountry, isNationalOf, requiresGccRegime, resolveCountryPayrollPolicy, countryPayrollCharges, COUNTRY_PACK_CATALOG } from "./payroll-country";
 import type { PayrollCalculationBasis } from "../../types";
 
 export interface RunPayrollInput {
@@ -174,6 +174,7 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput, pr
       const nationality = String(employee.nationality ?? "").trim().toUpperCase();
       if (!nationality) throw new Error("جنسية الموظف مطلوبة لتحديد استقطاع التأمينات");
       const isSaudi = isNationalOf(nationality, "SA");
+      if (!policy && requiresGccRegime(nationality, country)) throw new Error("يلزم اعتماد سياسة مد الحماية التأمينية للموظف الخليجي قبل الاحتساب");
       const scheme = data.schemeOverrides?.[employee.id] || employee.metadata?.gosi_scheme || "legacy";
       if (!policy && !["legacy", "new_1445"].includes(scheme)) throw new Error("نظام التأمينات المسجل للموظف غير صالح");
       const loanInstallment = round2(allocations.filter(item => item.employee_id === employee.id)

@@ -1618,7 +1618,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
       {companyCountry && <Dialog open={countryPolicyOpen} onOpenChange={setCountryPolicyOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>سياسة الرواتب — {countryPack?.nameAr}</DialogTitle><DialogDescription>إصدارات مؤرخة لقواعد الاشتراك والضريبة. تبقى نسخة القواعد محفوظة مع كل مسير.</DialogDescription></DialogHeader>
-          <CountryPayrollPolicyPanel key={`${company.id}-${companyCountry}`} companyId={company.id} country={companyCountry}
+          <CountryPayrollPolicyPanel key={`${company.id}-${companyCountry}`} companyId={company.id} country={companyCountry} initialEffectiveFrom={`${runYear}-${String(runMonth).padStart(2, "0")}-01`}
             onSaved={() => { void countryPolicies.refetch(); setRunPreview(null); toast.success("تم حفظ إصدار السياسة"); }} />
         </DialogContent>
       </Dialog>}

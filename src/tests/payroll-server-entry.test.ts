@@ -66,6 +66,11 @@ describe("payroll normal server entry", () => {
     await expect(computePayrollRun(db, { year: 2026, month: 4 }, true)).rejects.toThrow("مقفل");
     expect(db.rpc).not.toHaveBeenCalled();
   });
+  it("requires an explicit company policy for GCC workers instead of using the Saudi foreign-worker default", async () => {
+    const db = database(false, { employees: [{ id: employeeId, company_id: companyId, hire_date: "2026-04-16", basic_salary: 3000, nationality: "QA", status: "active" }] });
+    await expect(computePayrollRun(db, { year: 2026, month: 4 }, true)).rejects.toThrow("مد الحماية");
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
   it("rejects invalid periods before querying or writing", async () => {
     const db = database();
     await expect(computePayrollRun(db, { year: 2026, month: 4, periodCalculationMode: "custom_days", customDaysCount: 31 })).rejects.toThrow();

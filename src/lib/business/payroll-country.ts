@@ -69,6 +69,15 @@ export function isNationalOf(nationality: string, country: CountryCode) {
   try { return payrollCountry(nationality) === country; } catch { return false; }
 }
 
+export function requiresGccRegime(nationality: string, workCountry: CountryCode) {
+  const gcc: CountryCode[] = ["SA", "AE", "QA", "OM", "BH", "KW"];
+  if (!gcc.includes(workCountry)) return false;
+  try {
+    const citizenship = payrollCountry(nationality);
+    return citizenship !== workCountry && gcc.includes(citizenship);
+  } catch { return false; }
+}
+
 const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 const finiteRange = (value: number, min: number, max = Number.MAX_SAFE_INTEGER) =>
@@ -133,16 +142,13 @@ export function countryPayrollCharges(policy: CountryPayrollPolicy, country: Cou
   nationality: string; schemeCode?: string; nominal: number[]; taxableGross: number; registeredWage?: number;
 }) {
   const national = isNationalOf(input.nationality, country);
-  let citizenshipCountry: CountryCode | null = null;
-  try { citizenshipCountry = payrollCountry(input.nationality); } catch { /* Other nationalities remain non-national. */ }
-  if (!input.schemeCode && citizenshipCountry && citizenshipCountry !== country && citizenshipCountry !== "EG" && country !== "EG") {
-    throw new Error("موظف خليجي يعمل بدولة أخرى؛ حدد نظام مد الحماية التأمينية للموظف صراحة");
-  }
+  const crossBorder = requiresGccRegime(input.nationality, country);
+  if (crossBorder && !input.schemeCode) throw new Error("موظف خليجي يعمل بدولة أخرى؛ حدد نظام مد الحماية التأمينية للموظف صراحة");
   const schemes = policy.schemes.filter(scheme => input.schemeCode ? scheme.code === input.schemeCode :
     scheme.citizenship === (national ? "national" : "non_national"));
   if (schemes.length !== 1) throw new Error("حدد نظام الاشتراك المناسب للموظف؛ توجد أنظمة متعددة أو بيانات ناقصة");
   const scheme = schemes[0];
-  if (citizenshipCountry && citizenshipCountry !== country && citizenshipCountry !== "EG" && country !== "EG" && scheme.citizenship !== "explicit") {
+  if (crossBorder && scheme.citizenship !== "explicit") {
     throw new Error("اختر نظام مد الحماية التأمينية المعرّف صراحة للموظف الخليجي");
   }
   if (scheme.citizenship === "national" && !national || scheme.citizenship === "non_national" && national) {

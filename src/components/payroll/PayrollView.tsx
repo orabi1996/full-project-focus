@@ -174,7 +174,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
   const today = new Date();
   const [isRunModalOpen, setIsRunModalOpen] = useState(false);
-  const [runGroupId, setRunGroupId] = useState(payrollGroups[0]?.id || "");
+  const [runGroupId, setRunGroupId] = useState(payrollGroups[0]?.id || "all");
+  const [runBasis, setRunBasis] = useState<"fixed_30_days" | "calendar_days">("fixed_30_days");
   const [runYear, setRunYear] = useState(today.getFullYear());
   const [runMonth, setRunMonth] = useState(today.getMonth() + 1);
   const [runBranchId, setRunBranchId] = useState<string>("all");
@@ -185,10 +186,11 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   const [runCategoryFilter, setRunCategoryFilter] = useState<string>("all");
   const [runEmpSearch, setRunEmpSearch] = useState<string>("");
   const [selectedRunEmpIds, setSelectedRunEmpIds] = useState<string[]>([]);
+  const [replaceRunDraft, setReplaceRunDraft] = useState(false);
   const [runNotes, setRunNotes] = useState<string>("");
 
-  const previewKey = JSON.stringify([runGroupId, runYear, runMonth, runBranchId, runDeptFilter,
-    runCategoryFilter, runPeriodMode, runCustomEndDate, runCustomDays, selectedRunEmpIds, schemeOverrides, registeredWages,
+  const previewKey = JSON.stringify([runGroupId, runBasis, runYear, runMonth, runBranchId, runDeptFilter,
+    runCategoryFilter, runPeriodMode, runCustomEndDate, runCustomDays, selectedRunEmpIds, schemeOverrides, registeredWages, replaceRunDraft,
     company.id, companyCountry, countryPolicies.data]);
   const latestPreviewKey = useRef(previewKey);
   latestPreviewKey.current = previewKey;
@@ -388,10 +390,10 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     return employees.filter((emp) => {
       // 1. Status: active or on_leave
       const status = emp.status || "active";
-      if (status !== "active" && status !== "on_leave") return false;
+      if (status !== "active" && status !== "on_leave" && status !== "terminated") return false;
 
       // 2. Payroll group (if defined on employee)
-      if (emp.payrollGroupId && runGroupId && emp.payrollGroupId !== runGroupId) {
+      if (emp.payrollGroupId && runGroupId && runGroupId !== "all" && emp.payrollGroupId !== runGroupId) {
         return false;
       }
 
@@ -490,7 +492,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     const requestedKey = latestPreviewKey.current;
     setPreviewPending(true); setPreviewError(""); setRunPreview(null);
     try {
-      const result = await previewPayrollServer({ data: { companyId: company.id, payrollGroupId: runGroupId || payrollGroups[0]?.id,
+      const result = await previewPayrollServer({ data: { companyId: company.id, payrollGroupId: runGroupId || "all", replaceAll: replaceRunDraft, calculationBasis: runGroupId === "all" ? runBasis : undefined,
         year: runYear, month: runMonth, branchId: runBranchId !== "all" ? runBranchId : undefined,
         departmentId: runDeptFilter !== "all" ? runDeptFilter : undefined,
         jobCategory: runCategoryFilter !== "all" ? runCategoryFilter : undefined,
@@ -502,13 +504,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   };
 
   const handleRunNewPayroll = async () => {
-    const groupId = payrollGroups.some((group) => group.id === runGroupId)
-      ? runGroupId
-      : payrollGroups[0]?.id;
-    if (!groupId) {
-      toast.error("يجب إنشاء مجموعة رواتب أولاً قبل تشغيل المسير");
-      return;
-    }
+    const groupId = runGroupId === "all" || payrollGroups.length === 0 ? "all" :
+      payrollGroups.some(group => group.id === runGroupId) ? runGroupId : payrollGroups[0].id;
 
     if (selectedRunEmpIds.length === 0) {
       toast.error("يرجى اختيار موظف واحد على الأقل لتشغيل المسير");
@@ -529,7 +526,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     setIsRunningPayroll(true);
     try {
       const ok = await processPayrollRun(groupId, runYear, runMonth, {
-        companyId: company.id, schemeOverrides, registeredWages,
+        companyId: company.id, schemeOverrides, registeredWages, replaceAll: replaceRunDraft, calculationBasis: groupId === "all" ? runBasis : undefined,
         branchId: runBranchId !== "all" ? runBranchId : undefined,
         departmentId: runDeptFilter !== "all" ? runDeptFilter : undefined,
         jobCategory: runCategoryFilter !== "all" ? runCategoryFilter : undefined,
@@ -807,7 +804,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
           {section === "payroll" && canManagePayroll && (
             <Button
               onClick={() => {
-                setRunGroupId(payrollGroups[0]?.id || "");
+                setRunGroupId(payrollGroups[0]?.id || "all");
                 setIsRunModalOpen(true);
               }}
               size="sm"
@@ -1259,7 +1256,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               {canManagePayroll && (
                 <Button
                   onClick={() => {
-                    setRunGroupId(payrollGroups[0]?.id || "");
+                    setRunGroupId(payrollGroups[0]?.id || "all");
                     setIsRunModalOpen(true);
                   }}
                   className="classera-btn-primary rounded-full font-bold text-xs h-11 px-8 gap-2 shadow-sm cursor-pointer mt-2"
@@ -1671,12 +1668,18 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   onChange={(event) => setRunGroupId(event.target.value)}
                   className="h-10 w-full rounded-xl border border-border/80 bg-card px-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
                 >
+                  <option value="all">جميع موظفي المنشأة</option>
                   {payrollGroups.map((group) => (
                     <option key={group.id} value={group.id}>
                       {group.nameAr}
                     </option>
                   ))}
                 </select>
+                {runGroupId === "all" && <label className="block space-y-1.5">أساس الحساب
+                  <select aria-label="أساس حساب مسير المنشأة" className="h-10 w-full rounded-xl border bg-card px-3" value={runBasis} onChange={event => setRunBasis(event.target.value as typeof runBasis)}>
+                    <option value="fixed_30_days">ثابت 30 يومًا</option><option value="calendar_days">الأيام الفعلية للشهر</option>
+                  </select>
+                </label>}
               </div>
 
               <div className="space-y-1.5">
@@ -2143,6 +2146,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
           </div>
 
           <div className="rounded-xl border p-4 space-y-3">
+            <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={replaceRunDraft} onChange={event => setReplaceRunDraft(event.target.checked)} />إعادة بناء مسودة المسير بالاختيارات الحالية. يستبدل الموظفون والتفاصيل السابقة في المسودة بنتيجة هذه الاختيارات.</label>
             <Button type="button" variant="outline" onClick={previewNewPayroll} disabled={!isLive || previewPending || selectedRunStats.count === 0}>{previewPending ? "جارٍ فحص الجاهزية والاحتساب..." : "مراجعة المسير قبل الإنشاء"}</Button>
             {previewError && <p role="alert" className="text-sm text-destructive">{previewError}</p>}
             {runPreview && <div role="status" className="text-sm space-y-1">
@@ -2169,7 +2173,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
             <Button
               size="sm"
               onClick={handleRunNewPayroll}
-              disabled={payrollGroups.length === 0 || isRunningPayroll || selectedRunStats.count === 0 || !runPreview || previewPending}
+              disabled={isRunningPayroll || selectedRunStats.count === 0 || !runPreview || previewPending}
               className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground px-7 h-10 shadow-md cursor-pointer w-full sm:w-auto"
             >
               {isRunningPayroll ? (

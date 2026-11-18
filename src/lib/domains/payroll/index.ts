@@ -98,6 +98,8 @@ export function usePayrollMutations() {
       month: number,
       options?: {
         companyId?: string;
+        replaceAll?: boolean;
+        calculationBasis?: "fixed_30_days" | "calendar_days";
         schemeOverrides?: Record<string, string>;
         registeredWages?: Record<string, number>;
         branchId?: string | null;
@@ -119,7 +121,7 @@ export function usePayrollMutations() {
         operation: async () => {
           const runRes = await runPayrollServer({
             data: {
-              companyId: options?.companyId, schemeOverrides: options?.schemeOverrides, registeredWages: options?.registeredWages,
+              companyId: options?.companyId, replaceAll: options?.replaceAll, calculationBasis: options?.calculationBasis, schemeOverrides: options?.schemeOverrides, registeredWages: options?.registeredWages,
               payrollGroupId: groupId,
               year,
               month,

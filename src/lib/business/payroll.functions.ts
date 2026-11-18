@@ -10,6 +10,8 @@ import type { PayrollCalculationBasis } from "../../types";
 
 export interface RunPayrollInput {
   companyId?: string;
+  replaceAll?: boolean;
+  calculationBasis?: PayrollCalculationBasis;
   schemeOverrides?: Record<string, string>;
   registeredWages?: Record<string, number>;
   year: number;
@@ -70,13 +72,15 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput, pr
   }
   for (const value of Object.values(data.registeredWages ?? {})) if (typeof value !== "number" || !Number.isFinite(value) || value < 0) throw new Error("أجر اشتراك غير صالح");
   for (const value of Object.values(data.schemeOverrides ?? {})) if (typeof value !== "string" || value.length > 50) throw new Error("رمز اشتراك غير صالح");
+  if (data.replaceAll !== undefined && typeof data.replaceAll !== "boolean") throw new Error("طريقة حفظ المسير غير صالحة");
   const groupId = data.payrollGroupId && data.payrollGroupId !== "all" ? data.payrollGroupId : null;
   let groupCurrency: string | undefined;
-  let basis: PayrollCalculationBasis = "fixed_30_days";
+  let basis: PayrollCalculationBasis = data.calculationBasis ?? "fixed_30_days";
   if (groupId) {
     const { data: group, error } = await supabase.from("payroll_groups")
       .select("calculation_basis,currency").eq("id", groupId).single();
     if (error || !group) throw new Error(`تعذر قراءة مجموعة الرواتب: ${error?.message ?? "المجموعة غير موجودة"}`);
+    if (data.calculationBasis && data.calculationBasis !== group.calculation_basis) throw new Error("أساس الحساب لا يطابق مجموعة الرواتب");
     basis = group.calculation_basis;
     groupCurrency = group.currency;
   }
@@ -123,6 +127,22 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput, pr
   const policyRecord = resolveCountryPayrollPolicy(policies ?? [], country, period.start, period.end);
   const policy = policyRecord?.policy;
   const round2 = (value: number) => roundMoney(value, pack.decimalPrecision);
+  const replaceAll = data.replaceAll ?? (!data.selectedEmployeeIds && (!data.branchId || data.branchId === "all") &&
+    (!data.departmentId || data.departmentId === "all") && (!data.jobCategory || data.jobCategory === "all"));
+  let existingQuery = supabase.from("payroll_runs")
+    .select("id,status,period_end,calculation_basis,currency,country_policy_id")
+    .eq("company_id", companyId).eq("period_year", year).eq("period_month", month);
+  existingQuery = groupId ? existingQuery.eq("payroll_group_id", groupId) : existingQuery.is("payroll_group_id", null);
+  const { data: existing, error: existingError } = await existingQuery.maybeSingle();
+  if (existingError) throw new Error(`تعذر التحقق من المسير السابق: ${existingError.message}`);
+  if (existing?.id) {
+    if (existing.status !== "draft") throw new Error("المسير مقفل أو معتمد؛ لا يمكن إعادة احتسابه");
+    if (!replaceAll && (existing.period_end !== period.end || existing.calculation_basis !== basis ||
+        (existing.currency && existing.currency !== pack.currencyCode) ||
+        (existing.country_policy_id ?? null) !== (policyRecord?.id ?? null))) {
+      throw new Error("اختر إعادة بناء مسودة المسير عند تغيير الفترة أو سياسة الحساب");
+    }
+  }
   const employeeIds = employees.map((employee: any) => employee.id);
   const [salaryRows, attendanceRows, loanRows] = await Promise.all([
     readPayrollEmployeeRows<any>(employeeIds, ids => supabase.from("salary_profiles").select("*").in("employee_id", ids)
@@ -224,8 +244,7 @@ export async function computePayrollRun(supabase: any, data: RunPayrollInput, pr
       throw new Error(`الموظف ${employee.employee_no || employee.id} — ${cause instanceof Error ? cause.message : "تعذر الاحتساب"}`);
     }
   }
-  const replaceAll = !data.selectedEmployeeIds && (!data.branchId || data.branchId === "all") &&
-    (!data.departmentId || data.departmentId === "all") && (!data.jobCategory || data.jobCategory === "all");
+
   const summary = { excludedEmployees: Math.max(0, (data.selectedEmployeeIds?.length ?? rows.length) - details.length), country, currency: pack.currencyCode, policyVersion: policy?.name ?? "السعودية — الإعداد الحالي",
     employees: details.length,
     totalNet: round2(details.reduce((sum, row) => sum + Number(row.net_salary), 0)),

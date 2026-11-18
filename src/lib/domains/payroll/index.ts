@@ -97,6 +97,9 @@ export function usePayrollMutations() {
       year: number,
       month: number,
       options?: {
+        companyId?: string;
+        schemeOverrides?: Record<string, string>;
+        registeredWages?: Record<string, number>;
         branchId?: string | null;
         branchName?: string | null;
         departmentId?: string | null;
@@ -116,6 +119,7 @@ export function usePayrollMutations() {
         operation: async () => {
           const runRes = await runPayrollServer({
             data: {
+              companyId: options?.companyId, schemeOverrides: options?.schemeOverrides, registeredWages: options?.registeredWages,
               payrollGroupId: groupId,
               year,
               month,

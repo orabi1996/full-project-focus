@@ -11,6 +11,7 @@ const companyId = "10000000-0000-0000-0000-000000000001";
 function database(employeeError = false) {
   const snapshots: any[] = [];
   const tables: Record<string, unknown> = {
+    companies: { country: "SA", currency: "SAR" }, payroll_country_policies: [],
     employees: [{ id: employeeId, company_id: companyId, hire_date: "2026-04-16", basic_salary: 3000, nationality: "EG", status: "active" }],
     salary_profiles: [{ employee_id: employeeId, effective_from: "2026-04-16", basic_salary: 3000 }],
     attendance_records: [], loans: [],
@@ -19,7 +20,7 @@ function database(employeeError = false) {
   const from = vi.fn((table: string) => {
     const response = { data: tables[table], error: employeeError && table === "employees" ? { message: "read failed" } : null };
     const query: any = { then: (resolve: any) => Promise.resolve(response).then(resolve) };
-    for (const method of ["select", "in", "lte", "gte", "eq", "or", "order", "single"]) query[method] = () => query;
+    for (const method of ["select", "in", "lte", "gte", "eq", "or", "order", "range", "single"]) query[method] = () => query;
     return query;
   });
   const rpc = vi.fn(async (name: string, args: any) => {
@@ -45,6 +46,13 @@ describe("payroll normal server entry", () => {
     expect(detail(full).basic_salary).toBe(1500);
     expect(full.snapshots[0].p_run.replace_all).toBe(true);
     expect(filtered.snapshots[0].p_run.replace_all).toBe(false);
+  });
+  it("previews the authoritative calculation without persisting a payroll run", async () => {
+    const db = database();
+    const result = await computePayrollRun(db, { year: 2026, month: 4 }, true);
+    expect(result.totalNet).toBe(1500);
+    expect(result.currency).toBe("SAR");
+    expect(db.rpc).not.toHaveBeenCalled();
   });
   it("rejects invalid periods before querying or writing", async () => {
     const db = database();

@@ -78,6 +78,7 @@ export function employeePeriodSalary(
   employee: { hire_date: string; exit_date?: string | null; basic_salary: number | string },
   versions: SalaryVersion[],
   basis: PayrollCalculationBasis,
+  precision = 2,
 ) {
   const start = employee.hire_date > period.start ? employee.hire_date : period.start;
   const end = employee.exit_date && employee.exit_date < period.end ? employee.exit_date : period.end;
@@ -100,5 +101,5 @@ export function employeePeriodSalary(
     daily.set(date, amounts);
   }
   const nominal = daily.get(end)!;
-  return { earned: earned.map(round2), nominal, daily, weight, eligibleDays: daily.size };
+  return { earned: earned.map(value => round2(value, precision)), nominal, daily, weight, eligibleDays: daily.size };
 }

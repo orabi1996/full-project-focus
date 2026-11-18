@@ -1434,6 +1434,8 @@ export interface StatutoryRuleVersion {
 }
 
 export interface PayrollRun {
+  countryCode?: string;
+  countryPolicyId?: string;
   id: string;
   companyId?: string;
   payrollGroupId?: string;
@@ -1477,6 +1479,7 @@ export interface PayrollRun {
 }
 
 export interface PayrollRunEmployee {
+  incomeTax?: number;
   id: string;
   payrollRunId: string;
   employeeId: string;
@@ -1572,6 +1575,7 @@ export interface PayrollKpis {
 }
 
 export interface EmployeePayrollDetail {
+  incomeTax?: number;
   id: string;
   payrollRunId: string;
   employeeId: string;

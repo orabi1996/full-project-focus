@@ -278,6 +278,7 @@ export function usePayrollRuns(filters?: Record<string, unknown>) {
       return (data || []).map((r: any) => ({
         id: r.id,
         companyId: r.company_id,
+        countryCode: r.country_code, countryPolicyId: r.country_policy_id,
         payrollGroupId: r.payroll_group_id,
         payrollGroupName: r.payroll_groups?.name_ar || "المجموعة الرئيسية",
         periodYear: r.period_year,
@@ -570,6 +571,7 @@ export function usePayrollRunEmployees(runId?: string | null) {
         gosiEmployee: Number(pre.statutory_employee || 0),
         gosiEmployer: Number(pre.statutory_employer || 0),
         otherDeductions: Number(pre.other_deductions || 0),
+        incomeTax: Number(pre.income_tax || 0),
         grossSalary: Number(pre.gross_salary || 0),
         totalDeductions: Number(pre.total_deductions || 0),
         netSalary: Number(pre.net_salary || 0),

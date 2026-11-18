@@ -34,6 +34,8 @@ export function daysInMonth(year: number, month: number) {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
-export function round2(value: number) {
-  return Number(value.toFixed(2));
+export function round2(value: number, precision = 2) {
+  const factor = 10 ** precision;
+  const correction = Math.sign(value) * Number.EPSILON * Math.max(1, Math.abs(value));
+  return Math.round((value + correction) * factor) / factor;
 }

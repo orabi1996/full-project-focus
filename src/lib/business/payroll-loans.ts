@@ -1,3 +1,5 @@
+import { round2 } from "./guards";
+
 export interface PayrollLoan {
   id: string;
   employee_id: string;
@@ -6,7 +8,7 @@ export interface PayrollLoan {
 }
 
 /** Each loan contributes its own installment, capped at its remaining balance. */
-export function allocatePayrollLoans(loans: PayrollLoan[]) {
+export function allocatePayrollLoans(loans: PayrollLoan[], precision = 2) {
   const seen = new Set<string>();
   return loans.flatMap((loan) => {
     if (seen.has(loan.id)) throw new Error("تكرار السلفة في بيانات المسيّر");
@@ -16,7 +18,7 @@ export function allocatePayrollLoans(loans: PayrollLoan[]) {
     if (![installment, remaining].every((n) => Number.isFinite(n) && n >= 0)) {
       throw new Error("بيانات قسط السلفة أو رصيدها غير صالحة");
     }
-    const amount = Math.round(Math.min(installment, remaining) * 100) / 100;
+    const amount = round2(Math.min(installment, remaining), precision);
     return amount > 0 ? [{ loan_id: loan.id, employee_id: loan.employee_id, amount }] : [];
   });
 }

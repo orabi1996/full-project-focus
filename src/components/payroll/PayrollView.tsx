@@ -1,4 +1,9 @@
-import React, { useEffect, useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "../../integrations/supabase/client";
+import { previewPayrollServer } from "../../lib/business/payroll.functions";
+import { CountryPayrollPolicyPanel } from "./CountryPayrollPolicyPanel";
+import { COUNTRY_PACK_CATALOG, payrollCountry, isNationalOf, formatPayrollMoney, resolveCountryPayrollPolicy, type CountryPolicyRecord } from "../../lib/business/payroll-country";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useApp } from "../../lib/context/AppContext";
 import { exportToCSV, generateWPSSIFFile } from "../../lib/utils/export-helpers";
 import type { EmployeePayrollDetail, FinalSettlementRecord } from "../../types";
@@ -124,6 +129,24 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     t,
   } = useApp();
 
+  const companyCountry = useMemo(() => {
+    try { return payrollCountry(company.country); } catch { return null; }
+  }, [company.country]);
+  const countryPack = companyCountry ? COUNTRY_PACK_CATALOG[companyCountry] : null;
+  const [countryPolicyOpen, setCountryPolicyOpen] = useState(false);
+  const [schemeOverrides, setSchemeOverrides] = useState<Record<string, string>>({});
+  const [registeredWages, setRegisteredWages] = useState<Record<string, number>>({});
+  const [runPreview, setRunPreview] = useState<Awaited<ReturnType<typeof previewPayrollServer>> | null>(null);
+  const [previewPending, setPreviewPending] = useState(false);
+  const [previewError, setPreviewError] = useState("");
+  const countryPolicies = useQuery({ queryKey: ["payroll-country-policies", company.id, companyCountry],
+    enabled: Boolean(isLive && company.id && companyCountry), queryFn: async () => {
+      const { data, error } = await (supabase as any).from("payroll_country_policies").select("*")
+        .eq("company_id", company.id).eq("country_code", companyCountry);
+      if (error) throw new Error(error.message);
+      return data as CountryPolicyRecord[];
+    } });
+
   const payrollMutations = usePayrollMutations();
   const {
     processPayrollRun,
@@ -151,7 +174,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
   const today = new Date();
   const [isRunModalOpen, setIsRunModalOpen] = useState(false);
-  const [runGroupId, setRunGroupId] = useState(payrollGroups[0]?.id || "");
+  const [runGroupId, setRunGroupId] = useState(payrollGroups[0]?.id || "all");
+  const [runBasis, setRunBasis] = useState<"fixed_30_days" | "calendar_days">("fixed_30_days");
   const [runYear, setRunYear] = useState(today.getFullYear());
   const [runMonth, setRunMonth] = useState(today.getMonth() + 1);
   const [runBranchId, setRunBranchId] = useState<string>("all");
@@ -162,7 +186,22 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   const [runCategoryFilter, setRunCategoryFilter] = useState<string>("all");
   const [runEmpSearch, setRunEmpSearch] = useState<string>("");
   const [selectedRunEmpIds, setSelectedRunEmpIds] = useState<string[]>([]);
+  const [replaceRunDraft, setReplaceRunDraft] = useState(false);
   const [runNotes, setRunNotes] = useState<string>("");
+
+  const previewKey = JSON.stringify([runGroupId, runBasis, runYear, runMonth, runBranchId, runDeptFilter,
+    runCategoryFilter, runPeriodMode, runCustomEndDate, runCustomDays, selectedRunEmpIds, schemeOverrides, registeredWages, replaceRunDraft,
+    company.id, companyCountry, countryPolicies.data]);
+  const latestPreviewKey = useRef(previewKey);
+  latestPreviewKey.current = previewKey;
+  useEffect(() => { setRunPreview(null); setPreviewError(""); }, [previewKey]);
+  const activeCountryPolicy = useMemo(() => {
+    if (!companyCountry) return null;
+    const start = `${runYear}-${String(runMonth).padStart(2, "0")}-01`;
+    const end = new Date(Date.UTC(runYear, runMonth, 0)).toISOString().slice(0, 10);
+    try { return resolveCountryPayrollPolicy(countryPolicies.data ?? [], companyCountry, start, end); } catch { return null; }
+  }, [companyCountry, countryPolicies.data, runYear, runMonth]);
+  const companyMoney = (amount: number) => formatPayrollMoney(amount, countryPack?.currencyCode || company.currency || "SAR");
 
   // Loan Modal State
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
@@ -203,6 +242,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   const [settlementCalcError, setSettlementCalcError] = useState<string | null>(null);
 
   const selectedRun = payrollRuns.find((r) => r.id === selectedRunId) || payrollRuns[0];
+  const money = (amount: number) => formatPayrollMoney(amount, selectedRun?.currency || company.currency || countryPack?.currencyCode || "SAR");
   const runEmployeesQuery = usePayrollRunEmployees(selectedRun?.id);
   const exceptionsQuery = usePayrollExceptions(selectedRun?.id);
   const exceptions = exceptionsQuery.data || [];
@@ -236,7 +276,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
         loanInstallmentDeduction: re.loanDeduction,
         gosiEmployeeDeduction: re.gosiEmployee,
         gosiEmployerContribution: re.gosiEmployer,
-        otherDeductions: re.otherDeductions,
+        otherDeductions: re.otherDeductions - (re.incomeTax || 0),
+        incomeTax: re.incomeTax,
         totalDeductions: re.totalDeductions,
         netSalary: re.netSalary,
         unpaidLeaveDays: re.unpaidLeaveDays,
@@ -302,7 +343,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     return Array.from(depts);
   }, [selectedRunDetails]);
 
-  const canManagePayroll = ["super_admin", "hr_manager", "payroll_officer"].includes(currentRole);
+  const canManagePayroll = ["super_admin", "org_admin", "hr_manager", "payroll_officer", "finance_officer"].includes(currentRole);
   const canManageSettlements = [
     "super_admin",
     "hr_manager",
@@ -349,10 +390,10 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     return employees.filter((emp) => {
       // 1. Status: active or on_leave
       const status = emp.status || "active";
-      if (status !== "active" && status !== "on_leave") return false;
+      if (status !== "active" && status !== "on_leave" && status !== "terminated") return false;
 
       // 2. Payroll group (if defined on employee)
-      if (emp.payrollGroupId && runGroupId && emp.payrollGroupId !== runGroupId) {
+      if (emp.payrollGroupId && runGroupId && runGroupId !== "all" && emp.payrollGroupId !== runGroupId) {
         return false;
       }
 
@@ -418,14 +459,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
   const handleSelectOnlySaudis = () => {
     const saudiIds = eligibleRunEmployees
-      .filter((e) => e.nationality === "SA" || e.nationality === "سعودي")
+      .filter((e) => Boolean(e.nationality && companyCountry && isNationalOf(e.nationality, companyCountry)))
       .map((e) => e.id);
     setSelectedRunEmpIds(saudiIds);
   };
 
   const handleSelectOnlyExpats = () => {
     const expatIds = eligibleRunEmployees
-      .filter((e) => e.nationality !== "SA" && e.nationality !== "سعودي")
+      .filter((e) => !(e.nationality && companyCountry && isNationalOf(e.nationality, companyCountry)))
       .map((e) => e.id);
     setSelectedRunEmpIds(expatIds);
   };
@@ -435,7 +476,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     const selectedEmps = employees.filter((e) => selectedRunEmpIds.includes(e.id));
     const totalBasic = selectedEmps.reduce((sum, e) => sum + (e.basicSalary || 0), 0);
     const totalGross = selectedEmps.reduce((sum, e) => sum + (e.totalSalary || (e.basicSalary || 0)), 0);
-    const saudiCount = selectedEmps.filter((e) => e.nationality === "SA" || e.nationality === "سعودي").length;
+    const saudiCount = selectedEmps.filter((e) => Boolean(e.nationality && companyCountry && isNationalOf(e.nationality, companyCountry))).length;
     const expatCount = selectedEmps.length - saudiCount;
 
     return {
@@ -445,16 +486,26 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
       saudiCount,
       expatCount,
     };
-  }, [employees, selectedRunEmpIds]);
+  }, [employees, selectedRunEmpIds, companyCountry]);
+
+  const previewNewPayroll = async () => {
+    const requestedKey = latestPreviewKey.current;
+    setPreviewPending(true); setPreviewError(""); setRunPreview(null);
+    try {
+      const result = await previewPayrollServer({ data: { companyId: company.id, payrollGroupId: runGroupId || "all", replaceAll: replaceRunDraft, calculationBasis: runGroupId === "all" ? runBasis : undefined,
+        year: runYear, month: runMonth, branchId: runBranchId !== "all" ? runBranchId : undefined,
+        departmentId: runDeptFilter !== "all" ? runDeptFilter : undefined,
+        jobCategory: runCategoryFilter !== "all" ? runCategoryFilter : undefined,
+        periodCalculationMode: runPeriodMode, periodEndDate: runCustomEndDate, customDaysCount: runCustomDays,
+        selectedEmployeeIds: selectedRunEmpIds, schemeOverrides, registeredWages } });
+      if (requestedKey === latestPreviewKey.current) setRunPreview(result);
+    } catch (cause) { if (requestedKey === latestPreviewKey.current) setPreviewError(cause instanceof Error ? cause.message : "تعذر فحص المسير"); }
+    finally { setPreviewPending(false); }
+  };
 
   const handleRunNewPayroll = async () => {
-    const groupId = payrollGroups.some((group) => group.id === runGroupId)
-      ? runGroupId
-      : payrollGroups[0]?.id;
-    if (!groupId) {
-      toast.error("يجب إنشاء مجموعة رواتب أولاً قبل تشغيل المسير");
-      return;
-    }
+    const groupId = runGroupId === "all" || payrollGroups.length === 0 ? "all" :
+      payrollGroups.some(group => group.id === runGroupId) ? runGroupId : payrollGroups[0].id;
 
     if (selectedRunEmpIds.length === 0) {
       toast.error("يرجى اختيار موظف واحد على الأقل لتشغيل المسير");
@@ -471,10 +522,11 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
       return;
     }
 
-    const targetRunId = `pr-${groupId}-${runYear}-${String(runMonth).padStart(2, "0")}`;
+    if (!runPreview) { toast.error("راجع نتيجة فحص المسير قبل التشغيل"); return; }
     setIsRunningPayroll(true);
     try {
       const ok = await processPayrollRun(groupId, runYear, runMonth, {
+        companyId: company.id, schemeOverrides, registeredWages, replaceAll: replaceRunDraft, calculationBasis: groupId === "all" ? runBasis : undefined,
         branchId: runBranchId !== "all" ? runBranchId : undefined,
         departmentId: runDeptFilter !== "all" ? runDeptFilter : undefined,
         jobCategory: runCategoryFilter !== "all" ? runCategoryFilter : undefined,
@@ -485,7 +537,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
         runNotes: runNotes.trim() || undefined,
       });
       if (ok) {
-        setSelectedRunId(targetRunId);
+        setSelectedRunId("");
         setActiveTab("runs");
         setIsRunModalOpen(false);
       }
@@ -495,6 +547,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   };
 
   const handleExportWPS = () => {
+    if ((selectedRun?.countryCode || companyCountry) !== "SA") {
+      toast.error("ملف التحويل لهذه الدولة يحتاج قالب البنك المعتمد من شاشة حزم الدول"); return;
+    }
     if (!selectedRun) {
       toast.error("يرجى اختيار مسير رواتب أولاً");
       return;
@@ -602,7 +657,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
       "بدل السكن": d.housingAllowance,
       "بدل النقل": d.transportAllowance,
       "أجر العمل الإضافي": d.overtimeAmount,
-      "التأمينات الاجتماعية (GOSI)": d.gosiEmployeeDeduction,
+      "الاشتراكات التأمينية": d.gosiEmployeeDeduction,
+      "ضريبة الدخل": d.incomeTax || 0,
       "استقطاع السلف": d.loanInstallmentDeduction,
       "خصومات الغياب والتأخير": d.absenceLateDeduction,
       "إجمالي الاستقطاعات": d.totalDeductions,
@@ -718,19 +774,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-black text-foreground">
                   {section === "payroll"
-                    ? "مسيرات الرواتب وملفات حماية الأجور (WPS)"
+                    ? "مسيرات الرواتب"
                     : "إدارة السلف ومكافأة نهاية الخدمة والمخالصات"}
                 </h1>
-                <Badge className="text-[11px] font-bold border-emerald-500/30 text-emerald-600 bg-emerald-500/10 rounded-full px-2.5 py-0.5">
-                  شاشة العمليات والتشغيل المالي الشهري
-                </Badge>
-                <Badge variant="outline" className="text-[11px] font-bold border-primary/30 text-primary bg-primary/5 rounded-full px-2.5 py-0.5">
-                  {section === "payroll" ? "موثق مع حماية الأجور WPS" : "متوافق مع قوى ونظام العمل"}
-                </Badge>
+
               </div>
               <p className="text-xs text-muted-foreground font-medium mt-0.5">
                 {section === "payroll"
-                  ? "محرك احتساب الرواتب الآلي، خصومات التأمينات (GOSI)، حماية الأجور (WPS SIF)، وقسائم الرواتب المعتمدة"
+                  ? "احتساب الرواتب وفق دولة المنشأة وسياسة الاشتراك والضريبة، مع مراجعة النتيجة قبل إنشاء المسير"
                   : "إدارة السلف الشهرية، وجدولة الأقساط، ومخالصات نهاية الخدمة (EOSB) المتوافقة مع قوى ونظام العمل"}
               </p>
             </div>
@@ -738,6 +789,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {section === "payroll" && canManagePayroll && countryPack && <Button variant="outline" size="sm" disabled={!isLive} onClick={() => setCountryPolicyOpen(true)}>سياسة رواتب الدولة</Button>}
           {section === "payroll" && canManagePayroll && (
             <Button
               variant="outline"
@@ -752,7 +804,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
           {section === "payroll" && canManagePayroll && (
             <Button
               onClick={() => {
-                setRunGroupId(payrollGroups[0]?.id || "");
+                setRunGroupId(payrollGroups[0]?.id || "all");
                 setIsRunModalOpen(true);
               }}
               size="sm"
@@ -1026,25 +1078,25 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                 <div className="classera-kpi-card p-4">
                   <span className="text-muted-foreground font-bold text-xs">إجمالي الراتب الأساسي</span>
                   <p className="text-lg font-black text-foreground mt-1 font-mono font-tabular-nums">
-                    {selectedRun.totalBasicSalary.toLocaleString()} ر.س
+                    {money(selectedRun.totalBasicSalary)}
                   </p>
                 </div>
                 <div className="classera-kpi-card p-4">
                   <span className="text-muted-foreground font-bold text-xs">البدلات والعمل الإضافي</span>
                   <p className="text-lg font-black text-emerald-600 mt-1 font-mono font-tabular-nums">
-                    +{(selectedRun.totalAllowances + selectedRun.totalOvertimeAmount).toLocaleString()} ر.س
+                    +{money((selectedRun.totalAllowances + selectedRun.totalOvertimeAmount))}
                   </p>
                 </div>
                 <div className="classera-kpi-card p-4">
                   <span className="text-muted-foreground font-bold text-xs">الاستقطاعات والتأمينات</span>
                   <p className="text-lg font-black text-destructive mt-1 font-mono font-tabular-nums">
-                    -{selectedRun.totalDeductions.toLocaleString()} ر.س
+                    -{money(selectedRun.totalDeductions)}
                   </p>
                 </div>
                 <div className="classera-kpi-card p-4">
                   <span className="text-primary font-bold text-xs">صافي المسير النهائي</span>
                   <p className="text-xl font-black text-primary mt-1 font-mono font-tabular-nums">
-                    {selectedRun.totalNetSalary.toLocaleString()} ر.س
+                    {money(selectedRun.totalNetSalary)}
                   </p>
                 </div>
               </div>
@@ -1084,7 +1136,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                       <th className="py-3 px-3 text-start">الراتب الأساسي</th>
                       <th className="py-3 px-3 text-start">بدل السكن والنقل</th>
                       <th className="py-3 px-3 text-start">عمل إضافي (م107)</th>
-                      <th className="py-3 px-3 text-start">التأمينات (GOSI)</th>
+                      <th className="py-3 px-3 text-start">الاشتراكات التأمينية</th>
                       <th className="py-3 px-3 text-start">سلف وخصومات شاملة</th>
                       <th className="py-3 px-3 text-start font-bold text-foreground">الصافي المحول</th>
                       <th className="py-3 px-3 text-center">القسيمة</th>
@@ -1110,28 +1162,28 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                             </span>
                           </td>
                           <td className="py-3 px-3 font-mono">
-                            {item.basicSalary.toLocaleString()} ر.س
+                            {money(item.basicSalary)}
                           </td>
                           <td className="py-3 px-3 font-mono text-emerald-600 font-bold">
-                            +{(item.housingAllowance + item.transportAllowance).toLocaleString()} ر.س
+                            +{money((item.housingAllowance + item.transportAllowance))}
                           </td>
                           <td className="py-3 px-3 font-mono font-bold">
                             {item.overtimeAmount > 0 ? (
                               <span className="text-primary font-bold">
-                                +{item.overtimeAmount.toLocaleString()} ر.س
+                                +{money(item.overtimeAmount)}
                               </span>
                             ) : (
                               <span className="text-muted-foreground">0</span>
                             )}
                           </td>
                           <td className="py-3 px-3 font-mono text-destructive">
-                            -{item.gosiEmployeeDeduction.toLocaleString()} ر.س
+                            -{money(item.gosiEmployeeDeduction)}
                           </td>
                           <td className="py-3 px-3 font-mono text-destructive">
                             {nonGosiDeduction > 0 ? (
                               <div>
                                 <span className="font-bold">
-                                  -{nonGosiDeduction.toLocaleString()} ر.س
+                                  -{money(nonGosiDeduction)}
                                 </span>
                                 <div className="text-[9px] text-muted-foreground font-sans font-normal mt-0.5 flex flex-wrap gap-1">
                                   {item.absenceLateDeduction > 0 && (
@@ -1161,7 +1213,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                             )}
                           </td>
                           <td className="py-3 px-3 font-mono font-black text-foreground">
-                            {item.netSalary.toLocaleString()} ر.س
+                            {money(item.netSalary)}
                           </td>
                           <td className="py-3 px-3 text-center">
                             <Button
@@ -1198,14 +1250,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   لم يتم تشغيل أي مسير رواتب بعد
                 </h3>
                 <p className="text-xs text-muted-foreground font-medium leading-relaxed">
-                  يمكنك تشغيل أول مسير رواتب للمنشأة الآن؛ سيقوم النظام تلقائياً بتجميع بيانات البصمة والحضور،
-                  واحتساب دقائق التأخير والانصراف المبكر، والإجازات غير المدفوعة والمرضية (م117)، والجزاءات، وأقساط السلف والتأمينات الاجتماعية.
+                  اختر الفترة والموظفين، ثم راجع الاستحقاقات والخصومات وسياسة دولة المنشأة قبل إنشاء المسير.
                 </p>
               </div>
               {canManagePayroll && (
                 <Button
                   onClick={() => {
-                    setRunGroupId(payrollGroups[0]?.id || "");
+                    setRunGroupId(payrollGroups[0]?.id || "all");
                     setIsRunModalOpen(true);
                   }}
                   className="classera-btn-primary rounded-full font-bold text-xs h-11 px-8 gap-2 shadow-sm cursor-pointer mt-2"
@@ -1307,13 +1358,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                     <div>
                       مبلغ السلفة الإجمالي:{" "}
                       <span className="font-bold text-foreground font-mono">
-                        {l.principalAmount.toLocaleString()} ر.س
+                        {money(l.principalAmount)}
                       </span>
                     </div>
                     <div>
                       القسط الشهري:{" "}
                       <span className="font-bold text-foreground font-mono">
-                        {l.monthlyInstallment.toLocaleString()} ر.س
+                        {money(l.monthlyInstallment)}
                       </span>
                     </div>
                     <div>
@@ -1325,7 +1376,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                     <div>
                       الرصيد المتبقي:{" "}
                       <span className="font-bold text-destructive font-mono">
-                        {l.remainingBalance.toLocaleString()} ر.س
+                        {money(l.remainingBalance)}
                       </span>
                     </div>
                   </div>
@@ -1531,18 +1582,18 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   <div className="flex justify-between">
                     <span>مكافأة نهاية الخدمة (EOSB):</span>
                     <span className="font-bold text-emerald-600 font-mono">
-                      {s.eosbAmount.toLocaleString()} ر.س
+                      {money(s.eosbAmount)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span>تصفية رصيد الإجازات:</span>
                     <span className="font-bold text-foreground font-mono">
-                      {s.leaveBalancePayoutAmount.toLocaleString()} ر.س ({s.leaveBalancePayoutDays} يوم)
+                      {money(s.leaveBalancePayoutAmount)} ({s.leaveBalancePayoutDays} يوم)
                     </span>
                   </div>
                   <div className="flex justify-between font-black text-primary border-t border-border/60 pt-2 text-sm">
                     <span>صافي الشيك النهائي:</span>
-                    <span className="font-mono">{s.netSettlementAmount.toLocaleString()} ر.س</span>
+                    <span className="font-mono">{money(s.netSettlementAmount)}</span>
                   </div>
                 </div>
 
@@ -1564,6 +1615,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
       </Tabs>
 
       {/* MODAL 1: Run Payroll Setup */}
+      {companyCountry && <Dialog open={countryPolicyOpen} onOpenChange={setCountryPolicyOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>سياسة الرواتب — {countryPack?.nameAr}</DialogTitle><DialogDescription>إصدارات مؤرخة لقواعد الاشتراك والضريبة. تبقى نسخة القواعد محفوظة مع كل مسير.</DialogDescription></DialogHeader>
+          <CountryPayrollPolicyPanel key={`${company.id}-${companyCountry}`} companyId={company.id} country={companyCountry}
+            onSaved={() => { void countryPolicies.refetch(); setRunPreview(null); toast.success("تم حفظ إصدار السياسة"); }} />
+        </DialogContent>
+      </Dialog>}
+
       <Dialog open={isRunModalOpen} onOpenChange={setIsRunModalOpen}>
         <DialogContent className="max-w-4xl rounded-3xl p-6 md:p-8 overflow-y-auto max-h-[92vh] border border-border/80 shadow-2xl space-y-5">
           <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
@@ -1592,6 +1651,12 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               <span>1. محددات الدورة ومقر العمل (الفرع)</span>
             </div>
 
+            <div className="rounded-xl border bg-card p-3 text-sm space-y-2">
+              <div className="flex flex-wrap justify-between gap-2"><span>دولة المنشأة — {countryPack?.nameAr || "تحتاج تهيئة"}</span><span>العملة — {countryPack?.currencyCode || company.currency}</span></div>
+              <p className="text-xs text-muted-foreground">{activeCountryPolicy?.policy.name || (companyCountry === "SA" ? "السعودية — الإعداد الحالي للتأمينات" : "يلزم اعتماد سياسة رواتب لهذه الدولة")}</p>
+              <Button type="button" variant="outline" size="sm" onClick={() => setCountryPolicyOpen(true)}>إعداد سياسة الدولة</Button>
+              {countryPolicies.isError && <p role="alert" className="text-destructive">تعذر قراءة سياسة الدولة</p>}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
               <div className="space-y-1.5">
                 <label className="font-bold text-foreground" htmlFor="payroll-group">
@@ -1603,12 +1668,18 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   onChange={(event) => setRunGroupId(event.target.value)}
                   className="h-10 w-full rounded-xl border border-border/80 bg-card px-3 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
                 >
+                  <option value="all">جميع موظفي المنشأة</option>
                   {payrollGroups.map((group) => (
                     <option key={group.id} value={group.id}>
                       {group.nameAr}
                     </option>
                   ))}
                 </select>
+                {runGroupId === "all" && <label className="block space-y-1.5">أساس الحساب
+                  <select aria-label="أساس حساب مسير المنشأة" className="h-10 w-full rounded-xl border bg-card px-3" value={runBasis} onChange={event => setRunBasis(event.target.value as typeof runBasis)}>
+                    <option value="fixed_30_days">ثابت 30 يومًا</option><option value="calendar_days">الأيام الفعلية للشهر</option>
+                  </select>
+                </label>}
               </div>
 
               <div className="space-y-1.5">
@@ -1712,7 +1783,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  30 يوماً كاملة (المعيار النظامي الثابت لحساب الأجور الشهرية)
+                  شهر كامل وفق أساس الحساب المحدد في مجموعة الرواتب
                 </p>
               </button>
 
@@ -1801,7 +1872,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   <span className="text-xs font-bold text-foreground">يوماً</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  سيتم احتساب الأجر بنسبة ({runCustomDays} / 30) من الراتب الشهري التعاقدي.
+                  سيتم احتساب الفترة من أول الشهر إلى اليوم {runCustomDays} وفق سياسة المجموعة وتواريخ استحقاق كل موظف.
                 </p>
               </div>
             )}
@@ -1924,7 +1995,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                   onClick={handleSelectOnlySaudis}
                   className="h-7 text-[11px] font-bold rounded-lg px-2 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
                 >
-                  🇸🇦 سعوديون فقط
+                  مواطنو دولة المنشأة
                 </Button>
                 <Button
                   type="button"
@@ -1957,21 +2028,21 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                     <th className="p-2.5">الموظف</th>
                     <th className="p-2.5">الإدارة / الوظيفة</th>
                     <th className="p-2.5">الفرع / الموقع</th>
-                    <th className="p-2.5 text-left font-mono">الأساسي (ر.س)</th>
-                    <th className="p-2.5 text-left font-mono">الإجمالي (ر.س)</th>
+                    <th className="p-2.5">نظام الاشتراك / الأجر المسجل</th><th className="p-2.5 text-left font-mono">الأساسي ({countryPack?.currencyCode})</th>
+                    <th className="p-2.5 text-left font-mono">الإجمالي ({countryPack?.currencyCode})</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {eligibleRunEmployees.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-8 text-muted-foreground text-xs font-medium">
+                      <td colSpan={7} className="text-center py-8 text-muted-foreground text-xs font-medium">
                         لا يوجد موظفون مطابقون للفلاتر المحددة حالياً. جرّب تغيير الفرع أو القسم أو مسح حقل البحث.
                       </td>
                     </tr>
                   ) : (
                     eligibleRunEmployees.map((emp) => {
                       const isSelected = selectedRunEmpIds.includes(emp.id);
-                      const isSaudi = emp.nationality === "SA" || emp.nationality === "سعودي";
+                      const isSaudi = Boolean(emp.nationality && companyCountry && isNationalOf(emp.nationality, companyCountry));
                       const branch = workLocations.find((l) => l.id === emp.workLocationId || l.id === (emp as any).locationId);
                       const dept = orgUnits.find((u) => u.id === emp.departmentId);
 
@@ -1997,7 +2068,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                             <div className="font-bold text-foreground flex items-center gap-1.5">
                               <span>{emp.fullName || `${emp.firstNameAr || ""} ${emp.lastNameAr || ""}`}</span>
                               <Badge variant="outline" className={`text-[10px] px-1 py-0 font-bold ${isSaudi ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-blue-500/10 text-blue-600 border-blue-500/20"}`}>
-                                {isSaudi ? "سعودي" : "مقيم"}
+                                {isSaudi ? "مواطن" : "غير مواطن"}
                               </Badge>
                             </div>
                             <span className="text-[10px] font-mono text-muted-foreground">
@@ -2012,6 +2083,18 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                             <span className="text-[11px] font-medium text-foreground">
                               {branch ? branch.nameAr : "المقر الرئيسي"}
                             </span>
+                          </td>
+                          <td className="p-2.5 space-y-1" onClick={event => event.stopPropagation()}>
+                            <select aria-label={`نظام الاشتراك ${emp.employeeNo}`} className="w-full rounded-lg border bg-card p-2 text-xs"
+                              value={schemeOverrides[emp.id] ?? ""} onChange={event => setSchemeOverrides(current => ({ ...current, [emp.id]: event.target.value }))}>
+                              <option value="">من ملف الموظف أو حسب الفئة</option>
+                              {activeCountryPolicy ? activeCountryPolicy.policy.schemes.map(scheme => <option key={scheme.code} value={scheme.code}>{scheme.name}</option>) :
+                                companyCountry === "SA" && <><option value="legacy">التأمينات — النظام القديم</option><option value="new_1445">التأمينات — نظام 1445هـ</option></>}
+                            </select>
+                            {activeCountryPolicy?.policy.schemes.some(scheme => scheme.contributions.some(component => component.basis === "registered")) &&
+                              <input aria-label={`أجر الاشتراك ${emp.employeeNo}`} type="number" min="0" step="0.001" placeholder="أجر الاشتراك المسجل"
+                                className="w-full rounded-lg border bg-card p-2 text-xs" value={registeredWages[emp.id] ?? ""}
+                                onChange={event => setRegisteredWages(current => { const next = { ...current }; if (event.target.value === "") delete next[emp.id]; else next[emp.id] = Number(event.target.value); return next; })} />}
                           </td>
                           <td className="p-2.5 text-left font-mono font-bold text-foreground">
                             {(emp.basicSalary || 0).toLocaleString()}
@@ -2050,18 +2133,31 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               <div className="flex items-center justify-between mt-1 text-xs">
                 <span className="font-bold text-foreground">إجمالي الرواتب:</span>
                 <span className="font-mono font-black text-primary">
-                  {selectedRunStats.totalGross.toLocaleString()} ر.س
+                  {companyMoney(selectedRunStats.totalGross)}
                 </span>
               </div>
               <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-0.5">
                 <span>الموظفون المشمولون:</span>
                 <span className="font-bold text-foreground">
-                  {selectedRunStats.count} موظف ({selectedRunStats.saudiCount}س / {selectedRunStats.expatCount}م)
+                  {selectedRunStats.count} موظف ({selectedRunStats.saudiCount} مواطن / {selectedRunStats.expatCount} غير مواطن)
                 </span>
               </div>
             </div>
           </div>
 
+          <div className="rounded-xl border p-4 space-y-3">
+            <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={replaceRunDraft} onChange={event => setReplaceRunDraft(event.target.checked)} />إعادة بناء مسودة المسير بالاختيارات الحالية. يستبدل الموظفون والتفاصيل السابقة في المسودة بنتيجة هذه الاختيارات.</label>
+            <Button type="button" variant="outline" onClick={previewNewPayroll} disabled={!isLive || previewPending || selectedRunStats.count === 0}>{previewPending ? "جارٍ فحص الجاهزية والاحتساب..." : "مراجعة المسير قبل الإنشاء"}</Button>
+            {previewError && <p role="alert" className="text-sm text-destructive">{previewError}</p>}
+            {runPreview && <div role="status" className="text-sm space-y-1">
+              <p>{runPreview.policyVersion} — {runPreview.employees} موظف</p>
+              {runPreview.excludedEmployees > 0 && <p>المستبعدون وفق الأهلية والفترة — {runPreview.excludedEmployees}</p>}
+              <p>صافي المسير {formatPayrollMoney(runPreview.totalNet, runPreview.currency)}</p>
+              <p>الاستقطاعات {formatPayrollMoney(runPreview.totalDeductions, runPreview.currency)}، منها ضريبة الدخل {formatPayrollMoney(runPreview.totalTax, runPreview.currency)}</p>
+              <p>اشتراكات المنشأة {formatPayrollMoney(runPreview.totalEmployerGosi, runPreview.currency)}</p>
+              <p className="text-xs text-muted-foreground">معاينة للفترة والموظفين المختارين. يعاد التحقق والاحتساب عند الحفظ.</p>
+            </div>}
+          </div>
           <DialogFooter className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border/60">
             <Button
               type="button"
@@ -2077,7 +2173,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
             <Button
               size="sm"
               onClick={handleRunNewPayroll}
-              disabled={payrollGroups.length === 0 || isRunningPayroll || selectedRunStats.count === 0}
+              disabled={isRunningPayroll || selectedRunStats.count === 0 || !runPreview || previewPending}
               className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground px-7 h-10 shadow-md cursor-pointer w-full sm:w-auto"
             >
               {isRunningPayroll ? (
@@ -2138,60 +2234,61 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-2 font-mono">
                 <div className="flex justify-between">
                   <span>الراتب الأساسي:</span>
-                  <span>{selectedPayslipEmployee.basicSalary.toLocaleString()} ر.س</span>
+                  <span>{money(selectedPayslipEmployee.basicSalary)}</span>
                 </div>
                 <div className="flex justify-between text-emerald-600 font-bold">
                   <span>بدل السكن:</span>
-                  <span>+{selectedPayslipEmployee.housingAllowance.toLocaleString()} ر.س</span>
+                  <span>+{money(selectedPayslipEmployee.housingAllowance)}</span>
                 </div>
                 <div className="flex justify-between text-emerald-600 font-bold">
                   <span>بدل النقل:</span>
-                  <span>+{selectedPayslipEmployee.transportAllowance.toLocaleString()} ر.س</span>
+                  <span>+{money(selectedPayslipEmployee.transportAllowance)}</span>
                 </div>
 
                 {selectedPayslipEmployee.overtimeAmount > 0 && (
                   <div className="flex justify-between text-primary font-bold">
                     <span>بدل ساعات عمل إضافي (المادة 107 - نظام العمل):</span>
-                    <span>+{selectedPayslipEmployee.overtimeAmount.toLocaleString()} ر.س</span>
+                    <span>+{money(selectedPayslipEmployee.overtimeAmount)}</span>
                   </div>
                 )}
 
                 <div className="flex justify-between text-destructive font-bold">
-                  <span>التأمينات الاجتماعية (GOSI):</span>
-                  <span>-{selectedPayslipEmployee.gosiEmployeeDeduction.toLocaleString()} ر.س</span>
+                  <span>الاشتراكات التأمينية:</span>
+                  <span>-{money(selectedPayslipEmployee.gosiEmployeeDeduction)}</span>
                 </div>
 
                 {selectedPayslipEmployee.loanInstallmentDeduction > 0 && (
                   <div className="flex justify-between text-destructive font-bold">
                     <span>استقطاع السلفة الشهرية:</span>
-                    <span>-{selectedPayslipEmployee.loanInstallmentDeduction.toLocaleString()} ر.س</span>
+                    <span>-{money(selectedPayslipEmployee.loanInstallmentDeduction)}</span>
                   </div>
                 )}
 
                 {selectedPayslipEmployee.absenceLateDeduction > 0 && (
                   <div className="flex justify-between text-destructive font-bold">
                     <span>استقطاع التأخير والانصراف المبكر والغياب:</span>
-                    <span>-{selectedPayslipEmployee.absenceLateDeduction.toLocaleString()} ر.س</span>
+                    <span>-{money(selectedPayslipEmployee.absenceLateDeduction)}</span>
                   </div>
                 )}
 
                 {selectedPayslipEmployee.unpaidLeaveDeduction > 0 && (
                   <div className="flex justify-between text-destructive font-bold">
                     <span>استقطاع الإجازات غير مدفوعة الأجر والمرضية (م117):</span>
-                    <span>-{selectedPayslipEmployee.unpaidLeaveDeduction.toLocaleString()} ر.س</span>
+                    <span>-{money(selectedPayslipEmployee.unpaidLeaveDeduction)}</span>
                   </div>
                 )}
 
-                {selectedPayslipEmployee.otherDeductions > 0 && (
+                {Boolean(selectedPayslipEmployee.incomeTax) && <div className="flex justify-between text-rose-600"><span>ضريبة الدخل</span><span>{money(selectedPayslipEmployee.incomeTax || 0)}</span></div>}
+              {selectedPayslipEmployee.otherDeductions > 0 && (
                   <div className="flex justify-between text-destructive font-bold">
                     <span>الجزاءات والمخالفات الإدارية المعتمدة:</span>
-                    <span>-{selectedPayslipEmployee.otherDeductions.toLocaleString()} ر.س</span>
+                    <span>-{money(selectedPayslipEmployee.otherDeductions)}</span>
                   </div>
                 )}
 
                 <div className="border-t border-border/60 pt-2.5 flex justify-between font-black text-sm text-primary">
                   <span>صافي الراتب المحول للحساب:</span>
-                  <span>{selectedPayslipEmployee.netSalary.toLocaleString()} ر.س</span>
+                  <span>{money(selectedPayslipEmployee.netSalary)}</span>
                 </div>
               </div>
 

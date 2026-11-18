@@ -15,7 +15,7 @@ const authorities: Record<CountryCode, string> = {
   QA: "https://www.grsia.gov.qa", OM: "https://www.spf.gov.om", BH: "https://www.sio.gov.bh", KW: "https://www.pifss.gov.kw",
 };
 
-export function CountryPayrollPolicyPanel({ companyId, country, onSaved }: { companyId: string; country: CountryCode; onSaved: () => void }) {
+export function CountryPayrollPolicyPanel({ companyId, country, initialEffectiveFrom, onSaved }: { companyId: string; country: CountryCode; initialEffectiveFrom: string; onSaved: () => void }) {
   const queryClient = useQueryClient();
   const pack = COUNTRY_PACK_CATALOG[country];
   const records = useQuery({ queryKey: ["payroll-country-policies", companyId, country], enabled: Boolean(companyId), queryFn: async () => {
@@ -24,7 +24,7 @@ export function CountryPayrollPolicyPanel({ companyId, country, onSaved }: { com
     if (error) throw new Error(error.message);
     return data as CountryPolicyRecord[];
   }});
-  const [policy, setPolicy] = useState<CountryPayrollPolicy>({ name: "", effectiveFrom: new Date().toISOString().slice(0, 10),
+  const [policy, setPolicy] = useState<CountryPayrollPolicy>({ name: "", effectiveFrom: initialEffectiveFrom,
     effectiveTo: null, sourceUrl: authorities[country], monthlyHours: 240, overtimeWageMultiplier: 1,
     overtimeBasicPremium: 0, schemes: [newScheme("national", "national"), newScheme("non_national", "non_national")],
     tax: { enabled: country === "EG", annualExemption: 0, brackets: [{ upper: null, rate: 0, availableUpToAnnual: null }] },
@@ -49,7 +49,7 @@ export function CountryPayrollPolicyPanel({ companyId, country, onSaved }: { com
     {records.data?.length ? <div className="rounded-xl border p-3 space-y-2">
       {records.data.map(record => <div key={record.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span>{record.policy.name} — {record.status === "active" ? "معتمدة" : "مسودة"} — {record.policy.effectiveFrom} حتى {record.policy.effectiveTo || "مفتوح"}</span>
-        <Button type="button" variant="outline" size="sm" onClick={() => { setPolicy({ ...record.policy, name: `${record.policy.name} — إصدار جديد`, effectiveFrom: new Date().toISOString().slice(0, 10), effectiveTo: null }); setActivate(false); }}>نسخ لإصدار جديد</Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => { setPolicy({ ...record.policy, name: `${record.policy.name} — إصدار جديد`, effectiveFrom: initialEffectiveFrom, effectiveTo: null }); setActivate(false); }}>نسخ لإصدار جديد</Button>
       </div>)}
     </div> : null}
     <div className="grid gap-3 sm:grid-cols-2">

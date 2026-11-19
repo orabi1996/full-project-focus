@@ -5,7 +5,7 @@ import { CountryPayrollPolicyPanel } from "./CountryPayrollPolicyPanel";
 import { COUNTRY_PACK_CATALOG, payrollCountry, isNationalOf, formatPayrollMoney, resolveCountryPayrollPolicy, type CountryPolicyRecord } from "../../lib/business/payroll-country";
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useApp } from "../../lib/context/AppContext";
-import { exportToCSV, generateWPSSIFFile } from "../../lib/utils/export-helpers";
+import { generateWPSSIFFile } from "../../lib/utils/export-helpers";
 import type { EmployeePayrollDetail, FinalSettlementRecord } from "../../types";
 import type { SeparationType, SettlementCalculationPreview } from "../../lib/business/settlement.functions";
 import { useAuth } from "../../lib/auth/AuthContext";
@@ -18,15 +18,11 @@ import {
   useCompanyBankAccounts,
 } from "../../lib/data/payroll-repository";
 import { IconSymbol } from "../ui/IconSymbol";
-import { PayrollDistributionPanel } from "./PayrollDistributionPanel";
 import { SalaryFilesPanel } from "./SalaryFilesPanel";
+import { AppLogo } from "../common/AppLogo";
 import { PayrollPaymentsPanel } from "./PayrollPaymentsPanel";
-import { PayrollReconciliationPanel } from "./PayrollReconciliationPanel";
 import { LoansTreasuryPanel } from "./LoansTreasuryPanel";
 import { BankTransferPanel } from "./BankTransferPanel";
-import { SettlementNotificationsPanel } from "./SettlementNotificationsPanel";
-import { MonthlyReportsPanel } from "./MonthlyReportsPanel";
-import { AppLogo } from "../common/AppLogo";
 import {
   Wallet,
   DollarSign,
@@ -34,18 +30,17 @@ import {
   Lock,
   CheckCircle2,
   FileSpreadsheet,
-  FileText,
   AlertCircle,
   Eye,
   Plus,
   ArrowDownRight,
   TrendingUp,
   Receipt,
-  Printer,
-  ShieldCheck,
   Building,
   CreditCard,
   FileCheck,
+  Printer,
+  ShieldCheck,
   Search,
   Filter,
   Info,
@@ -124,7 +119,6 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     workLocations,
     company,
     currentRole,
-    openEmployeeProfile,
     language,
     t,
   } = useApp();
@@ -163,14 +157,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   const [selectedRunId, setSelectedRunId] = useState(
     initialRunId || payrollRuns[0]?.id || "",
   );
-  const [selectedPayslipEmployee, setSelectedPayslipEmployee] =
-    useState<EmployeePayrollDetail | null>(null);
   const [selectedSettlementForClearance, setSelectedSettlementForClearance] =
     useState<FinalSettlementRecord | null>(null);
-
-  // Search & Filter in Payroll Details Table
-  const [detailSearch, setDetailSearch] = useState("");
-  const [detailDeptFilter, setDetailDeptFilter] = useState("all");
 
   const today = new Date();
   const [isRunModalOpen, setIsRunModalOpen] = useState(false);
@@ -201,7 +189,6 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     const end = new Date(Date.UTC(runYear, runMonth, 0)).toISOString().slice(0, 10);
     try { return resolveCountryPayrollPolicy(countryPolicies.data ?? [], companyCountry, start, end); } catch { return null; }
   }, [companyCountry, countryPolicies.data, runYear, runMonth]);
-  const companyMoney = (amount: number) => formatPayrollMoney(amount, countryPack?.currencyCode || company.currency || "SAR");
 
   // Loan Modal State
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
@@ -323,25 +310,6 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
       isCancelled = true;
     };
   }, [isSettlementModalOpen, settlementEmpId, terminationDate, separationType, calculateSettlement]);
-
-  const filteredRunDetails = useMemo(() => {
-    return selectedRunDetails.filter((item) => {
-      const matchesSearch =
-        item.employeeName.toLowerCase().includes(detailSearch.toLowerCase()) ||
-        item.employeeNo.toLowerCase().includes(detailSearch.toLowerCase());
-      const matchesDept =
-        detailDeptFilter === "all" || item.departmentName === detailDeptFilter;
-      return matchesSearch && matchesDept;
-    });
-  }, [selectedRunDetails, detailSearch, detailDeptFilter]);
-
-  const uniqueDepartments = useMemo(() => {
-    const depts = new Set<string>();
-    selectedRunDetails.forEach((d) => {
-      if (d.departmentName) depts.add(d.departmentName);
-    });
-    return Array.from(depts);
-  }, [selectedRunDetails]);
 
   const canManagePayroll = ["super_admin", "org_admin", "hr_manager", "payroll_officer", "finance_officer"].includes(currentRole);
   const canManageSettlements = [
@@ -471,21 +439,11 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     setSelectedRunEmpIds(expatIds);
   };
 
-  // Real-time calculation stats for selected employees
+  // Count-only summary keeps employee salary details in the Reports module.
   const selectedRunStats = useMemo(() => {
     const selectedEmps = employees.filter((e) => selectedRunEmpIds.includes(e.id));
-    const totalBasic = selectedEmps.reduce((sum, e) => sum + (e.basicSalary || 0), 0);
-    const totalGross = selectedEmps.reduce((sum, e) => sum + (e.totalSalary || (e.basicSalary || 0)), 0);
     const saudiCount = selectedEmps.filter((e) => Boolean(e.nationality && companyCountry && isNationalOf(e.nationality, companyCountry))).length;
-    const expatCount = selectedEmps.length - saudiCount;
-
-    return {
-      count: selectedEmps.length,
-      totalBasic,
-      totalGross,
-      saudiCount,
-      expatCount,
-    };
+    return { count: selectedEmps.length, saudiCount, expatCount: selectedEmps.length - saudiCount };
   }, [employees, selectedRunEmpIds, companyCountry]);
 
   const previewNewPayroll = async () => {
@@ -644,29 +602,6 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     toast.success(
       "تم تصدير ملف حماية الأجور (WPS SIF) المعتمد بنجاح. حالة الملف: تم التوليد وبانتظار الإرسال والاعتماد البنكي (awaiting_submission)."
     );
-  };
-
-  const handleExportPayrollCSV = () => {
-    if (!selectedRun || selectedRunDetails.length === 0) return;
-    const data = selectedRunDetails.map((d) => ({
-      "الرقم الوظيفي": d.employeeNo,
-      "اسم الموظف": d.employeeName,
-      "المسمى الوظيفي": d.jobTitle,
-      "القسم / الإدارة": d.departmentName,
-      "الراتب الأساسي": d.basicSalary,
-      "بدل السكن": d.housingAllowance,
-      "بدل النقل": d.transportAllowance,
-      "أجر العمل الإضافي": d.overtimeAmount,
-      "الاشتراكات التأمينية": d.gosiEmployeeDeduction,
-      "ضريبة الدخل": d.incomeTax || 0,
-      "استقطاع السلف": d.loanInstallmentDeduction,
-      "خصومات الغياب والتأخير": d.absenceLateDeduction,
-      "إجمالي الاستقطاعات": d.totalDeductions,
-      "صافي الراتب": d.netSalary,
-      "اسم البنك": d.bankName,
-      الآيبان: d.iban,
-    }));
-    exportToCSV(`Payroll_Run_${selectedRun.periodMonth}_${selectedRun.periodYear}`, data);
   };
 
   const handleCreateLoan = async () => {
@@ -858,9 +793,6 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               <TabsTrigger value="runs" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
                 مسيرات الرواتب الشهرية ({payrollRuns.length})
               </TabsTrigger>
-              <TabsTrigger value="distribution" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
-                توزيع الرواتب حسب الإدارة
-              </TabsTrigger>
               <TabsTrigger value="salaryFiles" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
                 ملفات الرواتب
               </TabsTrigger>
@@ -869,12 +801,6 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               </TabsTrigger>
               <TabsTrigger value="bank" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
                 التحويل البنكي
-              </TabsTrigger>
-              <TabsTrigger value="reports" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
-                التقارير الشهرية
-              </TabsTrigger>
-              <TabsTrigger value="reconciliation" className="rounded-xl text-xs font-bold py-2 whitespace-nowrap px-3.5">
-                تسويات الرواتب
               </TabsTrigger>
             </>
           ) : (
@@ -950,15 +876,6 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                       ))}
                     </select>
                   )}
-                  <Button
-                    onClick={handleExportPayrollCSV}
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full text-xs font-bold gap-1.5 h-9 border-border/80 hover:bg-secondary cursor-pointer"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    تصدير كشف الرواتب
-                  </Button>
                   <Button
                     onClick={handleExportWPS}
                     variant="outline"
@@ -1073,171 +990,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                 </div>
               )}
 
-              {/* Totals Summary Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-                <div className="classera-kpi-card p-4">
-                  <span className="text-muted-foreground font-bold text-xs">إجمالي الراتب الأساسي</span>
-                  <p className="text-lg font-black text-foreground mt-1 font-mono font-tabular-nums">
-                    {money(selectedRun.totalBasicSalary)}
-                  </p>
-                </div>
-                <div className="classera-kpi-card p-4">
-                  <span className="text-muted-foreground font-bold text-xs">البدلات والعمل الإضافي</span>
-                  <p className="text-lg font-black text-emerald-600 mt-1 font-mono font-tabular-nums">
-                    +{money((selectedRun.totalAllowances + selectedRun.totalOvertimeAmount))}
-                  </p>
-                </div>
-                <div className="classera-kpi-card p-4">
-                  <span className="text-muted-foreground font-bold text-xs">الاستقطاعات والتأمينات</span>
-                  <p className="text-lg font-black text-destructive mt-1 font-mono font-tabular-nums">
-                    -{money(selectedRun.totalDeductions)}
-                  </p>
-                </div>
-                <div className="classera-kpi-card p-4">
-                  <span className="text-primary font-bold text-xs">صافي المسير النهائي</span>
-                  <p className="text-xl font-black text-primary mt-1 font-mono font-tabular-nums">
-                    {money(selectedRun.totalNetSalary)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Filter Bar */}
-              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/60">
-                <div className="relative flex-1 min-w-[200px] max-w-sm">
-                  <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={detailSearch}
-                    onChange={(e) => setDetailSearch(e.target.value)}
-                    placeholder="بحث باسم الموظف أو الرقم الوظيفي..."
-                    className="w-full h-9 rounded-full border border-border/80 bg-muted/40 pr-9 pl-4 text-xs focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                </div>
-                <select
-                  value={detailDeptFilter}
-                  onChange={(e) => setDetailDeptFilter(e.target.value)}
-                  className="h-9 rounded-full border border-border/80 bg-muted/40 px-3 text-xs font-medium focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40"
-                >
-                  <option value="all">جميع الإدارات والأقسام</option>
-                  {uniqueDepartments.map((dept) => (
-                    <option key={dept} value={dept}>
-                      {dept}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Employee Breakdown Table */}
-              <div className="overflow-x-auto rounded-2xl border border-border/60">
-                <table className="w-full text-xs">
-                  <thead className="classera-table-head">
-                    <tr>
-                      <th className="py-3 px-3 text-start">الموظف</th>
-                      <th className="py-3 px-3 text-start">الراتب الأساسي</th>
-                      <th className="py-3 px-3 text-start">بدل السكن والنقل</th>
-                      <th className="py-3 px-3 text-start">عمل إضافي (م107)</th>
-                      <th className="py-3 px-3 text-start">الاشتراكات التأمينية</th>
-                      <th className="py-3 px-3 text-start">سلف وخصومات شاملة</th>
-                      <th className="py-3 px-3 text-start font-bold text-foreground">الصافي المحول</th>
-                      <th className="py-3 px-3 text-center">القسيمة</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/60">
-                    {filteredRunDetails.map((item) => {
-                      const nonGosiDeduction = Number(
-                        (item.totalDeductions - item.gosiEmployeeDeduction).toFixed(2),
-                      );
-                      return (
-                        <tr key={item.id} className="classera-table-row group">
-                          <td className="py-3 px-3">
-                            <button
-                              type="button"
-                              onClick={() => openEmployeeProfile(item.employeeId)}
-                              className="text-start font-bold text-foreground block group-hover:text-primary group-hover:underline cursor-pointer"
-                            >
-                              {item.employeeName}
-                            </button>
-                            <span className="block text-[10px] font-normal text-muted-foreground font-mono">
-                              {item.employeeNo} • {item.departmentName}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 font-mono">
-                            {money(item.basicSalary)}
-                          </td>
-                          <td className="py-3 px-3 font-mono text-emerald-600 font-bold">
-                            +{money((item.housingAllowance + item.transportAllowance))}
-                          </td>
-                          <td className="py-3 px-3 font-mono font-bold">
-                            {item.overtimeAmount > 0 ? (
-                              <span className="text-primary font-bold">
-                                +{money(item.overtimeAmount)}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">0</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 font-mono text-destructive">
-                            -{money(item.gosiEmployeeDeduction)}
-                          </td>
-                          <td className="py-3 px-3 font-mono text-destructive">
-                            {nonGosiDeduction > 0 ? (
-                              <div>
-                                <span className="font-bold">
-                                  -{money(nonGosiDeduction)}
-                                </span>
-                                <div className="text-[9px] text-muted-foreground font-sans font-normal mt-0.5 flex flex-wrap gap-1">
-                                  {item.absenceLateDeduction > 0 && (
-                                    <span className="bg-destructive/10 text-destructive px-1.5 py-0.2 rounded-full">
-                                      بصمة/غياب: -{item.absenceLateDeduction}
-                                    </span>
-                                  )}
-                                  {item.unpaidLeaveDeduction > 0 && (
-                                    <span className="bg-amber-500/10 text-amber-700 px-1.5 py-0.2 rounded-full">
-                                      إجازات: -{item.unpaidLeaveDeduction}
-                                    </span>
-                                  )}
-                                  {item.loanInstallmentDeduction > 0 && (
-                                    <span className="bg-purple-500/10 text-purple-700 px-1.5 py-0.2 rounded-full">
-                                      سلفة: -{item.loanInstallmentDeduction}
-                                    </span>
-                                  )}
-                                  {item.otherDeductions > 0 && (
-                                    <span className="bg-rose-500/10 text-rose-700 px-1.5 py-0.2 rounded-full">
-                                      جزاءات: -{item.otherDeductions}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">0</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 font-mono font-black text-foreground">
-                            {money(item.netSalary)}
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setSelectedPayslipEmployee(item)}
-                              className="h-7 text-xs text-primary gap-1 font-bold rounded-full hover:bg-secondary px-3 cursor-pointer"
-                            >
-                              <FileText className="h-3.5 w-3.5" />
-                              القسيمة
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {filteredRunDetails.length === 0 && (
-                      <tr>
-                        <td colSpan={8} className="text-center py-8 text-muted-foreground">
-                          لا توجد بيانات موظفين تطابق البحث المحدد
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+              <div className="rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-4 text-sm">
+                <p className="font-bold text-foreground">اكتمل تجهيز شاشة المسير وإجراءاته.</p>
+                <p className="mt-1 text-xs text-muted-foreground">تفاصيل الموظفين والرواتب والقسائم والتوزيع الإداري متاحة في قسم التقارير.</p>
               </div>
             </div>
           ) : (
@@ -1269,36 +1024,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
           )}
         </TabsContent>
 
-        {/* Tab: Payroll distribution by organizational unit */}
-        <TabsContent value="distribution" className="space-y-4 pt-4">
-          <PayrollDistributionPanel
-            orgUnits={orgUnits}
-            employees={employees}
-            details={selectedRunDetails}
-            periodLabel={
-              selectedRun ? `${selectedRun.periodMonth}-${selectedRun.periodYear}` : "تقديري"
-            }
-            isEstimate={selectedRunDetails.length === 0}
-          />
-        </TabsContent>
-
         {/* Tab: Real salary files per employee */}
         <TabsContent value="salaryFiles" className="space-y-4 pt-4">
           <SalaryFilesPanel />
         </TabsContent>
 
-        {/* Tab: Monthly reconciliation & per-employee points report */}
-        <TabsContent value="reconciliation" className="space-y-4 pt-4">
-          <PayrollReconciliationPanel />
-          <SettlementNotificationsPanel />
-        </TabsContent>
-
         <TabsContent value="bank" className="space-y-4 pt-4">
           <BankTransferPanel />
-        </TabsContent>
-
-        <TabsContent value="reports" className="space-y-4 pt-4">
-          <MonthlyReportsPanel />
         </TabsContent>
 
         {/* Tab: Monthly salary disbursement */}
@@ -1640,7 +1372,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               </Badge>
             </div>
             <DialogDescription className="text-xs font-medium text-muted-foreground mt-1">
-              حدد دورة الرواتب، الفرع، فترة الاحتساب، وفلاتر الموظفين مع إمكانية التحديد المتعدد (Multi-select)
+              اختر دورة الرواتب والموظفين المطلوبين، ثم راجع المعاينة قبل الإنشاء. خيارات الفترة والفلاتر المتقدمة اختيارية.
             </DialogDescription>
           </DialogHeader>
 
@@ -1754,8 +1486,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
             </div>
           </div>
 
-          {/* Section 2: فترة الاحتساب والتخصيص */}
-          <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-3">
+          <details className="rounded-2xl border border-border/80 bg-muted/20 p-4">
+            <summary className="cursor-pointer text-xs font-black text-foreground">خيارات متقدمة: تخصيص فترة الاحتساب</summary>
+            <div className="mt-3 space-y-3">
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 font-black text-foreground">
                 <Calendar className="h-4 w-4 text-primary" />
@@ -1876,10 +1609,12 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                 </p>
               </div>
             )}
-          </div>
+            </div>
+          </details>
 
-          {/* Section 3: فلاتر تصفية الموظفين */}
-          <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-3">
+          <details className="rounded-2xl border border-border/80 bg-muted/20 p-4">
+            <summary className="cursor-pointer text-xs font-black text-foreground">خيارات متقدمة: فرز الموظفين حسب الإدارة والفئة والبحث</summary>
+            <div className="mt-3 space-y-3">
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 font-black text-foreground">
                 <SlidersHorizontal className="h-4 w-4 text-primary" />
@@ -1952,7 +1687,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                 </div>
               </div>
             </div>
-          </div>
+            </div>
+          </details>
 
           {/* Section 4: جدول الموظفين المشمولين وتحديد المالت سلكت */}
           <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-3">
@@ -2028,14 +1764,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                     <th className="p-2.5">الموظف</th>
                     <th className="p-2.5">الإدارة / الوظيفة</th>
                     <th className="p-2.5">الفرع / الموقع</th>
-                    <th className="p-2.5">نظام الاشتراك / الأجر المسجل</th><th className="p-2.5 text-left font-mono">الأساسي ({countryPack?.currencyCode})</th>
-                    <th className="p-2.5 text-left font-mono">الإجمالي ({countryPack?.currencyCode})</th>
+                    <th className="p-2.5">نظام الاشتراك</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {eligibleRunEmployees.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-8 text-muted-foreground text-xs font-medium">
+                      <td colSpan={5} className="text-center py-8 text-muted-foreground text-xs font-medium">
                         لا يوجد موظفون مطابقون للفلاتر المحددة حالياً. جرّب تغيير الفرع أو القسم أو مسح حقل البحث.
                       </td>
                     </tr>
@@ -2096,12 +1831,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                                 className="w-full rounded-lg border bg-card p-2 text-xs" value={registeredWages[emp.id] ?? ""}
                                 onChange={event => setRegisteredWages(current => { const next = { ...current }; if (event.target.value === "") delete next[emp.id]; else next[emp.id] = Number(event.target.value); return next; })} />}
                           </td>
-                          <td className="p-2.5 text-left font-mono font-bold text-foreground">
-                            {(emp.basicSalary || 0).toLocaleString()}
-                          </td>
-                          <td className="p-2.5 text-left font-mono font-bold text-primary">
-                            {(emp.totalSalary || emp.basicSalary || 0).toLocaleString()}
-                          </td>
+
                         </tr>
                       );
                     })
@@ -2127,21 +1857,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               />
             </div>
 
-            {/* Instant mini statistics */}
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 flex flex-col justify-between">
-              <div className="text-[11px] text-muted-foreground font-bold">تقديرات المسير المحدد:</div>
-              <div className="flex items-center justify-between mt-1 text-xs">
-                <span className="font-bold text-foreground">إجمالي الرواتب:</span>
-                <span className="font-mono font-black text-primary">
-                  {companyMoney(selectedRunStats.totalGross)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-0.5">
-                <span>الموظفون المشمولون:</span>
-                <span className="font-bold text-foreground">
-                  {selectedRunStats.count} موظف ({selectedRunStats.saudiCount} مواطن / {selectedRunStats.expatCount} غير مواطن)
-                </span>
-              </div>
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs">
+              <span className="font-bold text-foreground">الموظفون المحددون:</span>{" "}
+              <span className="text-muted-foreground">{selectedRunStats.count} موظف ({selectedRunStats.saudiCount} مواطن / {selectedRunStats.expatCount} غير مواطن)</span>
             </div>
           </div>
 
@@ -2185,147 +1903,6 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* MODAL 2: Digital Payslip Modal */}
-      {selectedPayslipEmployee && (
-        <Dialog
-          open={!!selectedPayslipEmployee}
-          onOpenChange={() => setSelectedPayslipEmployee(null)}
-        >
-          <DialogContent className="max-w-lg rounded-3xl p-6 overflow-y-auto max-h-[90vh] border border-border/80 shadow-2xl">
-            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-[#00B5FF] to-emerald-400" />
-            <div className="border-b border-border/60 pb-4 text-center space-y-2 pt-1">
-              <div className="flex justify-center mb-1">
-                <AppLogo height={38} />
-              </div>
-              <h2 className="text-base font-black text-foreground">
-                قسيمة الراتب الإلكترونية المعتمدة
-              </h2>
-              <p className="text-xs text-muted-foreground font-medium">
-                شهر {selectedRun?.periodMonth ?? "—"} / {selectedRun?.periodYear ?? "—"} •{" "}
-                {company.legalNameAr}
-              </p>
-              <span className="text-[10px] text-muted-foreground font-mono">
-                سجل تجاري: {company.crNumber || "—"} | الرقم الضريبي: {company.taxNumber || "—"}
-              </span>
-            </div>
-
-            <div className="space-y-3 text-xs py-2">
-              <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-muted/30 border border-border/60 font-medium">
-                <div>
-                  <span className="text-muted-foreground block text-[10px]">اسم الموظف:</span>
-                  <span className="font-bold text-foreground">{selectedPayslipEmployee.employeeName}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-[10px]">الرقم الوظيفي:</span>
-                  <span className="font-mono font-bold">{selectedPayslipEmployee.employeeNo}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-[10px]">الإدارة / القسم:</span>
-                  <span className="font-bold">{selectedPayslipEmployee.departmentName}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-[10px]">البنك والآيبان:</span>
-                  <span className="font-mono font-bold text-primary">{selectedPayslipEmployee.bankName}</span>
-                </div>
-              </div>
-
-              {/* Earnings & Deductions Breakdown */}
-              <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-2 font-mono">
-                <div className="flex justify-between">
-                  <span>الراتب الأساسي:</span>
-                  <span>{money(selectedPayslipEmployee.basicSalary)}</span>
-                </div>
-                <div className="flex justify-between text-emerald-600 font-bold">
-                  <span>بدل السكن:</span>
-                  <span>+{money(selectedPayslipEmployee.housingAllowance)}</span>
-                </div>
-                <div className="flex justify-between text-emerald-600 font-bold">
-                  <span>بدل النقل:</span>
-                  <span>+{money(selectedPayslipEmployee.transportAllowance)}</span>
-                </div>
-
-                {selectedPayslipEmployee.overtimeAmount > 0 && (
-                  <div className="flex justify-between text-primary font-bold">
-                    <span>بدل ساعات عمل إضافي (المادة 107 - نظام العمل):</span>
-                    <span>+{money(selectedPayslipEmployee.overtimeAmount)}</span>
-                  </div>
-                )}
-
-                <div className="flex justify-between text-destructive font-bold">
-                  <span>الاشتراكات التأمينية:</span>
-                  <span>-{money(selectedPayslipEmployee.gosiEmployeeDeduction)}</span>
-                </div>
-
-                {selectedPayslipEmployee.loanInstallmentDeduction > 0 && (
-                  <div className="flex justify-between text-destructive font-bold">
-                    <span>استقطاع السلفة الشهرية:</span>
-                    <span>-{money(selectedPayslipEmployee.loanInstallmentDeduction)}</span>
-                  </div>
-                )}
-
-                {selectedPayslipEmployee.absenceLateDeduction > 0 && (
-                  <div className="flex justify-between text-destructive font-bold">
-                    <span>استقطاع التأخير والانصراف المبكر والغياب:</span>
-                    <span>-{money(selectedPayslipEmployee.absenceLateDeduction)}</span>
-                  </div>
-                )}
-
-                {selectedPayslipEmployee.unpaidLeaveDeduction > 0 && (
-                  <div className="flex justify-between text-destructive font-bold">
-                    <span>استقطاع الإجازات غير مدفوعة الأجر والمرضية (م117):</span>
-                    <span>-{money(selectedPayslipEmployee.unpaidLeaveDeduction)}</span>
-                  </div>
-                )}
-
-                {Boolean(selectedPayslipEmployee.incomeTax) && <div className="flex justify-between text-rose-600"><span>ضريبة الدخل</span><span>{money(selectedPayslipEmployee.incomeTax || 0)}</span></div>}
-              {selectedPayslipEmployee.otherDeductions > 0 && (
-                  <div className="flex justify-between text-destructive font-bold">
-                    <span>الجزاءات والمخالفات الإدارية المعتمدة:</span>
-                    <span>-{money(selectedPayslipEmployee.otherDeductions)}</span>
-                  </div>
-                )}
-
-                <div className="border-t border-border/60 pt-2.5 flex justify-between font-black text-sm text-primary">
-                  <span>صافي الراتب المحول للحساب:</span>
-                  <span>{money(selectedPayslipEmployee.netSalary)}</span>
-                </div>
-              </div>
-
-              {/* Security Seal */}
-              <div className="p-2.5 rounded-2xl bg-secondary/50 border border-primary/20 flex items-center justify-between text-[10px]">
-                <div className="flex items-center gap-2 text-foreground">
-                  <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>معتمد ومصادق إلكترونياً • متوافق مع نظام حماية الأجور (WPS)</span>
-                </div>
-                <Badge variant="outline" className="font-mono text-[9px] border-emerald-300 text-emerald-700 bg-emerald-500/10 font-bold">
-                  VERIFIED
-                </Badge>
-              </div>
-            </div>
-
-            <DialogFooter className="flex gap-2 mt-2">
-              <Button
-                size="sm"
-                onClick={() => window.print()}
-                variant="outline"
-                className="flex-1 text-xs font-bold gap-1.5 rounded-full h-10 border-border/80 hover:bg-secondary cursor-pointer"
-              >
-                <Printer className="h-4 w-4" />
-                طباعة القسيمة
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => window.print()}
-                className="flex-1 text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-10 shadow-xs cursor-pointer"
-              >
-                <Download className="h-4 w-4" />
-                حفظ كـ PDF
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
 
       {/* MODAL 3: Loan Request Modal */}
       <Dialog open={isLoanModalOpen} onOpenChange={setIsLoanModalOpen}>

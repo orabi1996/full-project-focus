@@ -45,10 +45,9 @@ interface Props {
   details: EmployeePayrollDetail[];
   periodLabel: string;
   isEstimate: boolean;
+  currencyCode?: string;
 }
 
-const money = (value: number) =>
-  `${Math.round(value).toLocaleString("ar-EG")} ر.س`;
 
 export const PayrollDistributionPanel: React.FC<Props> = ({
   orgUnits,
@@ -56,7 +55,9 @@ export const PayrollDistributionPanel: React.FC<Props> = ({
   details,
   periodLabel,
   isEstimate,
+  currencyCode = "SAR",
 }) => {
+  const money = (value: number) => new Intl.NumberFormat("ar", { style: "currency", currency: currencyCode, maximumFractionDigits: 2 }).format(value);
   const [rollUp, setRollUp] = useState(true);
 
   const rows = useMemo<UnitPayrollRow[]>(() => {

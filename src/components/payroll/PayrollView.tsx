@@ -184,12 +184,31 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   const latestPreviewKey = useRef(previewKey);
   latestPreviewKey.current = previewKey;
   useEffect(() => { setRunPreview(null); setPreviewError(""); }, [previewKey]);
-  const activeCountryPolicy = useMemo(() => {
-    if (!companyCountry) return null;
+  const countryPolicyState = useMemo(() => {
+    if (!companyCountry) {
+      return { policy: null, error: "دولة المنشأة غير محددة أو غير مدعومة ضمن حزم الرواتب." };
+    }
     const start = `${runYear}-${String(runMonth).padStart(2, "0")}-01`;
     const end = new Date(Date.UTC(runYear, runMonth, 0)).toISOString().slice(0, 10);
-    try { return resolveCountryPayrollPolicy(countryPolicies.data ?? [], companyCountry, start, end); } catch { return null; }
+    try {
+      const policy = resolveCountryPayrollPolicy(countryPolicies.data ?? [], companyCountry, start, end);
+      if (!policy && companyCountry !== "SA") {
+        return { policy: null, error: "لا توجد سياسة رواتب معتمدة تغطي الفترة المختارة لهذه الدولة." };
+      }
+      return { policy, error: null };
+    } catch (cause) {
+      return {
+        policy: null,
+        error: cause instanceof Error ? cause.message : "تعذر التحقق من سياسة رواتب الدولة.",
+      };
+    }
   }, [companyCountry, countryPolicies.data, runYear, runMonth]);
+  const activeCountryPolicy = countryPolicyState.policy;
+  const countryPolicyReady = Boolean(countryPack) &&
+    !countryPolicies.isLoading &&
+    !countryPolicies.isError &&
+    !countryPolicyState.error &&
+    (companyCountry === "SA" || Boolean(activeCountryPolicy));
 
   // Loan Modal State
   const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
@@ -1401,9 +1420,18 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
             <div className="rounded-xl border bg-card p-3 text-sm space-y-2">
               <div className="flex flex-wrap justify-between gap-2"><span>دولة المنشأة — {countryPack?.nameAr || "تحتاج تهيئة"}</span><span>العملة — {countryPack?.currencyCode || company.currency}</span></div>
-              <p className="text-xs text-muted-foreground">{activeCountryPolicy?.policy.name || (companyCountry === "SA" ? "السعودية — الإعداد الحالي للتأمينات" : "يلزم اعتماد سياسة رواتب لهذه الدولة")}</p>
+              {countryPolicies.isLoading ? (
+                <p className="text-xs text-muted-foreground">جارٍ التحقق من سياسة الدولة للفترة المختارة...</p>
+              ) : countryPolicies.isError ? (
+                <p role="alert" className="text-xs text-destructive">تعذر قراءة سياسة الدولة؛ أعد المحاولة قبل متابعة إنشاء المسير.</p>
+              ) : countryPolicyState.error ? (
+                <p role="alert" className="text-xs text-destructive">{countryPolicyState.error}</p>
+              ) : activeCountryPolicy ? (
+                <p role="status" className="text-xs text-emerald-700">السياسة المعتمدة: {activeCountryPolicy.policy.name} — تغطي الفترة المختارة.</p>
+              ) : (
+                <p role="status" className="text-xs text-muted-foreground">السعودية — سيُستخدم إعداد التأمينات الحالي.</p>
+              )}
               <Button type="button" variant="outline" size="sm" onClick={() => setCountryPolicyOpen(true)}>إعداد سياسة الدولة</Button>
-              {countryPolicies.isError && <p role="alert" className="text-destructive">تعذر قراءة سياسة الدولة</p>}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
               <div className="space-y-1.5">
@@ -1915,7 +1943,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               )}
               {runWizardStep < 3 ? (
                 <Button type="button" size="sm" onClick={() => setRunWizardStep(runWizardStep === 1 ? 2 : 3)}
-                  disabled={runWizardStep === 2 && selectedRunStats.count === 0}
+                  disabled={(isLive && runWizardStep === 1 && !countryPolicyReady) ||
+                    (runWizardStep === 2 && selectedRunStats.count === 0)}
                   className="h-10 flex-1 rounded-full bg-primary px-6 text-xs font-bold text-primary-foreground sm:flex-none">
                   {runWizardStep === 1 ? "التالي: اختيار الموظفين" : "التالي: مراجعة المسير"}
                 </Button>

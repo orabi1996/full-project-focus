@@ -260,7 +260,7 @@ export const EmployeesView: React.FC = () => {
     dependentsCount: 0,
     avatarUrl: "",
 
-    // Step 2: Work & Organizational
+    // Step 3: Work & Organizational
     region: "",
     subsidiaryId: "",
     subsidiaryName: "",
@@ -289,7 +289,7 @@ export const EmployeesView: React.FC = () => {
     kingdomEntryDate: "",
     highestQualification: "",
 
-    // Step 3: Contact & Addresses
+    // Step 2: Contact & Addresses
     phone: "",
     secondaryPhone: "",
     workPhone: "",
@@ -312,7 +312,7 @@ export const EmployeesView: React.FC = () => {
     city: "",
     street: "",
 
-    // Step 4: Financial
+    // Step 5: Financial
     basicSalary: 0,
     housingAllowance: 0,
     transportAllowance: 0,
@@ -328,7 +328,7 @@ export const EmployeesView: React.FC = () => {
     customAllowances: [] as { id: string; name: string; amount: number }[],
     customDeductions: [] as { id: string; name: string; amount: number }[],
 
-    // Step 5: Contracts
+    // Step 4: Contracts
     contractType: "" as unknown as ContractType,
     qiwaContractNo: "",
     contractStartDate: "",
@@ -538,13 +538,13 @@ export const EmployeesView: React.FC = () => {
       return;
     }
     if (!newEmp.hireDate) {
-      toast.error("يرجى تحديد تاريخ التعيين في خطوة بيانات العمل");
-      setWizardStep(2);
+      toast.error("يرجى تحديد تاريخ التعيين في خطوة العمل والتعيين");
+      setWizardStep(3);
       return;
     }
     if (!newEmp.email) {
       toast.error("يرجى إدخال البريد الإلكتروني في خطوة بيانات التواصل");
-      setWizardStep(3);
+      setWizardStep(2);
       return;
     }
 
@@ -609,7 +609,7 @@ export const EmployeesView: React.FC = () => {
       dependentsCount: Number(newEmp.dependentsCount) || 0,
       avatarUrl: newEmp.avatarUrl || undefined,
 
-      // Step 2: Work & Organizational
+      // Step 3: Work & Organizational
       region: newEmp.region || undefined,
       subsidiaryId: newEmp.subsidiaryId || "",
       subsidiaryName: sub?.nameAr || newEmp.subsidiaryName || undefined,
@@ -640,7 +640,7 @@ export const EmployeesView: React.FC = () => {
       highestQualification: newEmp.highestQualification || undefined,
       educationDegree: newEmp.highestQualification || undefined,
 
-      // Step 3: Contact & Addresses
+      // Step 2: Contact & Addresses
       email: newEmp.email.trim(),
       personalEmail: newEmp.personalEmail ? newEmp.personalEmail.trim() : undefined,
       phone: newEmp.phone ? newEmp.phone.trim() : "",
@@ -675,7 +675,7 @@ export const EmployeesView: React.FC = () => {
             }
           : undefined,
 
-      // Step 4: Financial
+      // Step 5: Financial
       basicSalary: b,
       housingAllowance: h,
       transportAllowance: tr,
@@ -694,7 +694,7 @@ export const EmployeesView: React.FC = () => {
       customAllowances: newEmp.customAllowances,
       customDeductions: newEmp.customDeductions,
 
-      // Step 5: Contracts
+      // Step 4: Contracts
       contractType: resolvedContractType,
       status: newEmp.status || "active",
       qiwaContractNo: newEmp.qiwaContractNo || undefined,
@@ -1832,10 +1832,10 @@ export const EmployeesView: React.FC = () => {
               <div>
                 <DialogTitle className="text-base md:text-lg font-black flex items-center gap-2">
                   <UserPlus className="h-5 w-5 text-primary" />
-                  معالج تسجيل وتعيين موظف جديد (5 خطوات شاملة)
+                  إضافة موظف جديد (5 خطوات مرتبة)
                 </DialogTitle>
                 <DialogDescription className="text-xs font-medium text-muted-foreground mt-0.5">
-                  استكمال البيانات الشخصية، بيانات العمل والهيكل، التواصل والعناوين، البيانات المالية، والعقود الموثقة
+                  استكمال بيانات الموظف بالترتيب: البيانات الشخصية، التواصل، العمل والتعيين، العقد والدوام، ثم الراتب وبيانات الصرف
                 </DialogDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -1870,10 +1870,10 @@ export const EmployeesView: React.FC = () => {
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-3 pb-3 border-b border-border/60">
               {[
                 { step: 1, title: "البيانات الشخصية", icon: UserCheck, desc: "الهوية والاسم" },
-                { step: 2, title: "بيانات العمل", icon: Briefcase, desc: "القسم والمسمى" },
-                { step: 3, title: "بيانات التواصل", icon: Phone, desc: "الجوال والعنوان" },
-                { step: 4, title: "البيانات المالية", icon: Coins, desc: "الراتب والبدلات" },
-                { step: 5, title: "العقود والإنهاء", icon: FileText, desc: "عقد قوى والدوام" },
+                { step: 2, title: "بيانات التواصل", icon: Phone, desc: "الجوال والبريد" },
+                { step: 3, title: "العمل والتعيين", icon: Briefcase, desc: "القسم والوظيفة" },
+                { step: 4, title: "العقد والدوام", icon: FileText, desc: "العقد وساعات العمل" },
+                { step: 5, title: "الراتب والصرف", icon: Coins, desc: "الأجر وبيانات البنك" },
               ].map((item) => {
                 const IconComponent = item.icon;
                 return (
@@ -2375,9 +2375,9 @@ export const EmployeesView: React.FC = () => {
           )}
 
           {/* ================================================================= */}
-          {/* STEP 2: بيانات العمل (Work & Organizational Data - 4 Subsections) */}
+          {/* STEP 3: العمل والتعيين (Work & Organizational Data) */}
           {/* ================================================================= */}
-          {wizardStep === 2 && (
+          {wizardStep === 3 && (
             <div className="space-y-4 py-3 text-xs">
               {/* Subsection 1: المنطقة والفرع والمسار */}
               <div className="rounded-2xl border border-border/70 bg-card p-4 space-y-3">
@@ -2713,9 +2713,9 @@ export const EmployeesView: React.FC = () => {
           )}
 
           {/* ================================================================= */}
-          {/* STEP 3: بيانات التواصل والعناوين (Contact & Addresses - 5 Sections)*/}
+          {/* STEP 2: بيانات التواصل والعناوين (Contact & Addresses) */}
           {/* ================================================================= */}
-          {wizardStep === 3 && (
+          {wizardStep === 2 && (
             <div className="space-y-4 py-3 text-xs">
               {/* 1. أرقام التواصل والطوارئ */}
               <div className="rounded-2xl border border-border/70 bg-card p-4 space-y-3">
@@ -2978,9 +2978,9 @@ export const EmployeesView: React.FC = () => {
           )}
 
           {/* ================================================================= */}
-          {/* STEP 4: البيانات المالية (Financial Information)                  */}
+          {/* STEP 5: الراتب وبيانات الصرف (Financial Information) */}
           {/* ================================================================= */}
-          {wizardStep === 4 && (
+          {wizardStep === 5 && (
             <div className="space-y-4 py-3 text-xs">
               {/* الراتب الأساسي والفئة الوظيفية واسم الكفيل */}
               <div className="rounded-2xl border border-border/70 bg-card p-4 space-y-3">
@@ -3361,9 +3361,9 @@ export const EmployeesView: React.FC = () => {
           )}
 
           {/* ================================================================= */}
-          {/* STEP 5: العقود والإنهاء (Contracts & Completion)                  */}
+          {/* STEP 4: العقد والدوام (Contracts & Work Schedule) */}
           {/* ================================================================= */}
-          {wizardStep === 5 && (
+          {wizardStep === 4 && (
             <div className="space-y-4 py-3 text-xs">
               {/* أولاً: تفاصيل العقد وربطه بالإجازات وتاريخ النهاية */}
               <div className="rounded-2xl border border-border/70 bg-card p-4 space-y-3">

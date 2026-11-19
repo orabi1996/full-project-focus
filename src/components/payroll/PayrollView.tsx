@@ -162,6 +162,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
   const today = new Date();
   const [isRunModalOpen, setIsRunModalOpen] = useState(false);
+  const [runWizardStep, setRunWizardStep] = useState<1 | 2 | 3>(1);
   const [runGroupId, setRunGroupId] = useState(payrollGroups[0]?.id || "all");
   const [runBasis, setRunBasis] = useState<"fixed_30_days" | "calendar_days">("fixed_30_days");
   const [runYear, setRunYear] = useState(today.getFullYear());
@@ -1012,6 +1013,8 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                 <Button
                   onClick={() => {
                     setRunGroupId(payrollGroups[0]?.id || "all");
+                    setRunWizardStep(1);
+                    setRunPreview(null);
                     setIsRunModalOpen(true);
                   }}
                   className="classera-btn-primary rounded-full font-bold text-xs h-11 px-8 gap-2 shadow-sm cursor-pointer mt-2"
@@ -1374,8 +1377,21 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
             <DialogDescription className="text-xs font-medium text-muted-foreground mt-1">
               اختر دورة الرواتب والموظفين المطلوبين، ثم راجع المعاينة قبل الإنشاء. خيارات الفترة والفلاتر المتقدمة اختيارية.
             </DialogDescription>
+            <div className="grid grid-cols-3 gap-2 pt-2" aria-label="خطوات إنشاء المسير">
+              {[
+                { step: 1, label: "دورة الرواتب" },
+                { step: 2, label: "اختيار الموظفين" },
+                { step: 3, label: "المراجعة والإنشاء" },
+              ].map(({ step, label }) => (
+                <div key={step} className={`rounded-xl border px-3 py-2 text-center text-[11px] ${runWizardStep === step ? "border-primary bg-primary/10 text-primary font-bold" : "border-border/60 text-muted-foreground"}`}>
+                  <span className="me-1">{step}.</span>{label}
+                </div>
+              ))}
+            </div>
           </DialogHeader>
 
+          {runWizardStep === 1 && (
+            <div className="space-y-4">
           {/* Section 1: الدورة والفرع */}
           <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-3">
             <div className="flex items-center gap-2 text-xs font-black text-foreground">
@@ -1492,7 +1508,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 font-black text-foreground">
                 <Calendar className="h-4 w-4 text-primary" />
-                <span>2. فترة ونطاق الاحتساب (مرونة التاريخ والأيام)</span>
+                <span>فترة احتساب مخصصة (اختياري)</span>
               </div>
               <span className="text-[11px] text-muted-foreground font-medium">
                 احتساب تناسبي تلقائي وفق نظام العمل
@@ -1612,13 +1628,18 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
             </div>
           </details>
 
+            </div>
+          )}
+
+          {runWizardStep === 2 && (
+            <div className="space-y-4">
           <details className="rounded-2xl border border-border/80 bg-muted/20 p-4">
             <summary className="cursor-pointer text-xs font-black text-foreground">خيارات متقدمة: فرز الموظفين حسب الإدارة والفئة والبحث</summary>
             <div className="mt-3 space-y-3">
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 font-black text-foreground">
                 <SlidersHorizontal className="h-4 w-4 text-primary" />
-                <span>3. فلاتر التصفية والبحث السريع للموظفين</span>
+                <span>فلاتر اختيارية لتحديد الموظفين</span>
               </div>
             </div>
 
@@ -1696,7 +1717,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-primary" />
                 <span className="text-xs font-black text-foreground">
-                  4. اختيار الموظفين المشمولين في المسير (Multi-Select)
+                  اختيار الموظفين المشمولين في المسير
                 </span>
                 <Badge variant="secondary" className="text-[11px] font-bold px-2 py-0.5">
                   تم تحديد {selectedRunStats.count} من أصل {eligibleRunEmployees.length}
@@ -1841,7 +1862,12 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
             </div>
           </div>
 
-          {/* Section 5: ملاحظات المسير وموجز الإحصاءات */}
+            </div>
+          )}
+
+          {runWizardStep === 3 && (
+            <div className="space-y-4">
+          {/* ملاحظات المسير وموجز الإحصاءات */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="md:col-span-2 space-y-1.5">
               <label className="text-xs font-bold text-foreground" htmlFor="run-notes-field">
@@ -1876,30 +1902,31 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               <p className="text-xs text-muted-foreground">معاينة للفترة والموظفين المختارين. يعاد التحقق والاحتساب عند الحفظ.</p>
             </div>}
           </div>
-          <DialogFooter className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border/60">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setIsRunModalOpen(false)}
-              disabled={isRunningPayroll}
-              className="rounded-full text-xs font-bold px-5 h-10 border-border/80 cursor-pointer w-full sm:w-auto"
-            >
-              إلغاء
-            </Button>
+              </div>
+          )}
 
-            <Button
-              size="sm"
-              onClick={handleRunNewPayroll}
-              disabled={isRunningPayroll || selectedRunStats.count === 0 || !runPreview || previewPending}
-              className="rounded-full text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground px-7 h-10 shadow-md cursor-pointer w-full sm:w-auto"
-            >
-              {isRunningPayroll ? (
-                "جاري المعالجة والاحتساب..."
-              ) : (
-                `بدء تشغيل المسير المالي (${selectedRunStats.count} موظف)`
+          <DialogFooter className="mt-4 flex flex-col-reverse sm:flex-row items-center justify-between gap-2 border-t border-border/60 pt-4">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsRunModalOpen(false)} disabled={isRunningPayroll}
+              className="h-10 w-full rounded-full text-xs font-bold sm:w-auto">إلغاء</Button>
+            <div className="flex w-full gap-2 sm:w-auto">
+              {runWizardStep > 1 && (
+                <Button type="button" variant="outline" size="sm" onClick={() => setRunWizardStep(runWizardStep === 3 ? 2 : 1)} disabled={isRunningPayroll}
+                  className="h-10 flex-1 rounded-full text-xs font-bold sm:flex-none">السابق</Button>
               )}
-            </Button>
+              {runWizardStep < 3 ? (
+                <Button type="button" size="sm" onClick={() => setRunWizardStep(runWizardStep === 1 ? 2 : 3)}
+                  disabled={runWizardStep === 2 && selectedRunStats.count === 0}
+                  className="h-10 flex-1 rounded-full bg-primary px-6 text-xs font-bold text-primary-foreground sm:flex-none">
+                  {runWizardStep === 1 ? "التالي: اختيار الموظفين" : "التالي: مراجعة المسير"}
+                </Button>
+              ) : (
+                <Button type="button" size="sm" onClick={handleRunNewPayroll}
+                  disabled={isRunningPayroll || selectedRunStats.count === 0 || !runPreview || previewPending}
+                  className="h-10 flex-1 rounded-full bg-primary px-6 text-xs font-bold text-primary-foreground sm:flex-none">
+                  {isRunningPayroll ? "جارٍ إنشاء المسير..." : `إنشاء المسير — ${selectedRunStats.count} موظف`}
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

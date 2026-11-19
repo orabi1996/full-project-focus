@@ -95,6 +95,7 @@ import {
   exportReportDataToExcel,
   exportReportDataToArabicPdf,
 } from "../../lib/domains/reports";
+import { PayrollReportsPanel } from "./PayrollReportsPanel";
 
 export const ReportsView: React.FC = () => {
   const navigate = useNavigate();
@@ -105,7 +106,7 @@ export const ReportsView: React.FC = () => {
   const reportMutations = useReportMutations();
 
   // Active Main Tab
-  const [activeTab, setActiveTab] = useState<"overview" | "catalog" | "viewer" | "builder" | "metrics">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "catalog" | "viewer" | "payroll" | "builder" | "metrics">("overview");
 
   // Executive Date Preset State
   const [datePreset, setDatePreset] = useState<
@@ -475,7 +476,7 @@ export const ReportsView: React.FC = () => {
         className="w-full space-y-6"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <TabsList className="bg-muted/50 p-1 rounded-2xl h-11 border">
+          <TabsList className="bg-muted/50 p-1 rounded-2xl h-auto flex flex-wrap border">
             <TabsTrigger value="overview" className="rounded-xl text-xs font-bold px-4 gap-1.5">
               <TrendingUp className="h-4 w-4 text-[#0066FF]" />
               لوحة القيادة التنفيذية
@@ -487,6 +488,10 @@ export const ReportsView: React.FC = () => {
             <TabsTrigger value="viewer" className="rounded-xl text-xs font-bold px-4 gap-1.5">
               <TableIcon className="h-4 w-4 text-[#059669]" />
               معاينة واستخراج التقرير
+            </TabsTrigger>
+            <TabsTrigger value="payroll" className="rounded-xl text-xs font-bold px-4 gap-1.5">
+              <Wallet className="h-4 w-4 text-[#059669]" />
+              تقارير الرواتب
             </TabsTrigger>
             <TabsTrigger value="builder" className="rounded-xl text-xs font-bold px-4 gap-1.5">
               <Sparkles className="h-4 w-4 text-[#7C3AED]" />
@@ -1257,6 +1262,10 @@ export const ReportsView: React.FC = () => {
               </>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="payroll" className="space-y-4 pt-2">
+          <PayrollReportsPanel />
         </TabsContent>
 
         {/* =================================================================== */}

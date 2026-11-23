@@ -1207,6 +1207,7 @@ export type Database = {
           department_id: string | null
           email: string | null
           employee_no: string
+          exit_date: string | null
           first_name_ar: string | null
           first_name_en: string | null
           full_name: string
@@ -1248,6 +1249,7 @@ export type Database = {
           department_id?: string | null
           email?: string | null
           employee_no: string
+          exit_date?: string | null
           first_name_ar?: string | null
           first_name_en?: string | null
           full_name: string
@@ -1289,6 +1291,7 @@ export type Database = {
           department_id?: string | null
           email?: string | null
           employee_no?: string
+          exit_date?: string | null
           first_name_ar?: string | null
           first_name_en?: string | null
           full_name?: string
@@ -2364,6 +2367,53 @@ export type Database = {
           },
         ]
       }
+      payroll_country_policies: {
+        Row: {
+          approved_by: string | null
+          company_id: string
+          country_code: string
+          created_at: string
+          created_by: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          policy: Json
+          status: string
+        }
+        Insert: {
+          approved_by?: string | null
+          company_id: string
+          country_code: string
+          created_at?: string
+          created_by: string
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          policy: Json
+          status: string
+        }
+        Update: {
+          approved_by?: string | null
+          company_id?: string
+          country_code?: string
+          created_at?: string
+          created_by?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          policy?: Json
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_country_policies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_details: {
         Row: {
           absence_deductions: number
@@ -2379,6 +2429,7 @@ export type Database = {
           gross_salary: number
           housing_allowance: number
           id: string
+          income_tax: number
           loan_deduction: number
           loan_deductions: number
           net_salary: number
@@ -2407,6 +2458,7 @@ export type Database = {
           gross_salary?: number
           housing_allowance?: number
           id?: string
+          income_tax?: number
           loan_deduction?: number
           loan_deductions?: number
           net_salary?: number
@@ -2435,6 +2487,7 @@ export type Database = {
           gross_salary?: number
           housing_allowance?: number
           id?: string
+          income_tax?: number
           loan_deduction?: number
           loan_deductions?: number
           net_salary?: number
@@ -2498,6 +2551,52 @@ export type Database = {
           payday?: number
         }
         Relationships: []
+      }
+      payroll_loan_allocations: {
+        Row: {
+          amount: number
+          employee_id: string
+          loan_id: string
+          payroll_run_id: string
+          recovered_at: string | null
+        }
+        Insert: {
+          amount: number
+          employee_id: string
+          loan_id: string
+          payroll_run_id: string
+          recovered_at?: string | null
+        }
+        Update: {
+          amount?: number
+          employee_id?: string
+          loan_id?: string
+          payroll_run_id?: string
+          recovered_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_loan_allocations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_loan_allocations_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "loans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_loan_allocations_payroll_run_id_fkey"
+            columns: ["payroll_run_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payroll_payments: {
         Row: {
@@ -2577,11 +2676,18 @@ export type Database = {
       }
       payroll_runs: {
         Row: {
+          calculation_basis: string | null
+          company_id: string | null
+          country_code: string | null
+          country_policy_id: string | null
+          country_policy_snapshot: Json | null
           created_at: string
+          currency: string | null
           id: string
           locked_at: string | null
           paid_at: string | null
           payroll_group_id: string | null
+          period_end: string | null
           period_month: number
           period_year: number
           status: string
@@ -2594,11 +2700,18 @@ export type Database = {
           total_overtime_amount: number
         }
         Insert: {
+          calculation_basis?: string | null
+          company_id?: string | null
+          country_code?: string | null
+          country_policy_id?: string | null
+          country_policy_snapshot?: Json | null
           created_at?: string
+          currency?: string | null
           id?: string
           locked_at?: string | null
           paid_at?: string | null
           payroll_group_id?: string | null
+          period_end?: string | null
           period_month: number
           period_year: number
           status?: string
@@ -2611,11 +2724,18 @@ export type Database = {
           total_overtime_amount?: number
         }
         Update: {
+          calculation_basis?: string | null
+          company_id?: string | null
+          country_code?: string | null
+          country_policy_id?: string | null
+          country_policy_snapshot?: Json | null
           created_at?: string
+          currency?: string | null
           id?: string
           locked_at?: string | null
           paid_at?: string | null
           payroll_group_id?: string | null
+          period_end?: string | null
           period_month?: number
           period_year?: number
           status?: string
@@ -2628,6 +2748,20 @@ export type Database = {
           total_overtime_amount?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "payroll_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_country_policy_id_fkey"
+            columns: ["country_policy_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_country_policies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payroll_runs_payroll_group_id_fkey"
             columns: ["payroll_group_id"]
@@ -4237,6 +4371,23 @@ export type Database = {
           p_year?: number
         }
         Returns: Json
+      }
+      save_country_payroll_policy: {
+        Args: {
+          p_activate: boolean
+          p_company: string
+          p_country: string
+          p_policy: Json
+        }
+        Returns: string
+      }
+      save_payroll_run_atomic: {
+        Args: { p_allocations: Json; p_details: Json; p_run: Json }
+        Returns: string
+      }
+      set_payroll_run_status_atomic: {
+        Args: { p_run_id: string; p_status: string }
+        Returns: undefined
       }
       submit_performance_goal_atomic: {
         Args: {

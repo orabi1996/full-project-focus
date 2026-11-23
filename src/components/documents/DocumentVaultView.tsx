@@ -153,10 +153,29 @@ export interface CompanyPolicy {
 type MainTab = "vault" | "letters" | "audit_pipeline" | "compliance_radar" | "company_policies";
 type ViewMode = "grid" | "table";
 
+function escapeHtmlText(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeStringFields<T extends object>(obj: T): T {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    out[k] = typeof v === "string" ? escapeHtmlText(v) : v;
+  }
+  return out as T;
+}
+
 function generateDocumentHtml(
-  doc: StoredDocument,
-  company: { legalNameAr?: string; crNumber?: string; taxNumber?: string },
+  rawDoc: StoredDocument,
+  rawCompany: { legalNameAr?: string; crNumber?: string; taxNumber?: string },
 ): string {
+  const doc = escapeStringFields(rawDoc);
+  const company = escapeStringFields(rawCompany);
   const currentDate = new Date().toLocaleDateString("ar-SA", {
     year: "numeric",
     month: "long",

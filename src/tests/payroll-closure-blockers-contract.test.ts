@@ -10,6 +10,10 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
   describe("Static Source Code Contract Tests (PayrollView.tsx & Production Data Layer)", () => {
     const payrollViewPath = path.resolve(__dirname, "../components/payroll/PayrollView.tsx");
     const payrollViewSource = fs.readFileSync(payrollViewPath, "utf-8");
+    const payrollFunctionsSource = fs.readFileSync(
+      path.resolve(__dirname, "../lib/business/payroll.functions.ts"),
+      "utf-8",
+    );
 
     it("1.1 MUST NOT contain fake Bank Code 'NCBKSA' in PayrollView.tsx", () => {
       expect(payrollViewSource).not.toContain("NCBKSA");
@@ -63,6 +67,17 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
       expect(payrollViewSource).toContain("settlementPreview");
       expect(payrollViewSource).toContain("handleSaveSettlement");
       expect(payrollViewSource).not.toContain("handleCalculateAndSaveSettlement");
+    });
+
+    it("1.11 Payroll transitions use guarded atomic RPCs and bank confirmation stays in the payments flow", () => {
+      expect(payrollFunctionsSource).toContain('"approve_payroll_run_atomic"');
+      expect(payrollFunctionsSource).toContain('"lock_payroll_run_atomic"');
+      expect(payrollFunctionsSource).toContain('"reopen_payroll_run_atomic"');
+      expect(payrollViewSource).toContain('["calculated", "under_review"].includes(selectedRun.status)');
+      expect(payrollViewSource).toContain('selectedRun.status === "approved"');
+      expect(payrollViewSource).toContain('const canApprovePayroll = ["super_admin", "org_admin", "hr_manager", "finance_officer"]');
+      expect(payrollViewSource).toContain('onClick={() => setActiveTab("payments")}');
+      expect(payrollViewSource).not.toContain("markPayrollAsPaid(selectedRun.id)");
     });
   });
 

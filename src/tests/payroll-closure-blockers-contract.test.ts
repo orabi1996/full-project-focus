@@ -75,6 +75,7 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
       expect(payrollFunctionsSource).toContain('"reopen_payroll_run_atomic"');
       expect(payrollViewSource).toContain('["calculated", "under_review"].includes(selectedRun.status)');
       expect(payrollViewSource).toContain('selectedRun.status === "approved"');
+      expect(payrollViewSource).toContain('const canApprovePayroll = ["super_admin", "org_admin", "hr_manager", "finance_officer"]');
       expect(payrollViewSource).toContain('onClick={() => setActiveTab("payments")}');
       expect(payrollViewSource).not.toContain("markPayrollAsPaid(selectedRun.id)");
     });

@@ -331,6 +331,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   }, [isSettlementModalOpen, settlementEmpId, terminationDate, separationType, calculateSettlement]);
 
   const canManagePayroll = ["super_admin", "org_admin", "hr_manager", "payroll_officer", "finance_officer"].includes(currentRole);
+  const canApprovePayroll = ["super_admin", "org_admin", "hr_manager", "finance_officer"].includes(currentRole);
   const canManageSettlements = [
     "super_admin",
     "hr_manager",
@@ -903,7 +904,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                     <Download className="h-3.5 w-3.5" />
                     تحميل ملف حماية الأجور (SIF)
                   </Button>
-                  {canManagePayroll && ["calculated", "under_review"].includes(selectedRun.status) && (
+                  {canApprovePayroll && ["calculated", "under_review"].includes(selectedRun.status) && (
                     <Button
                       onClick={async () => {
                         if (blockingExceptions.length > 0) {
@@ -925,7 +926,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                       {isApprovingRun ? "جاري الاعتماد..." : "اعتماد المسير"}
                     </Button>
                   )}
-                  {canManagePayroll && selectedRun.status === "approved" && (
+                  {canApprovePayroll && selectedRun.status === "approved" && (
                     <Button
                       onClick={async () => {
                         if (blockingExceptions.length > 0) {
@@ -947,7 +948,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                       {isLockingRun ? "جاري القفل..." : "قفل المسير وتثبيت السلف"}
                     </Button>
                   )}
-                  {canManagePayroll && ["locked", "confirmed_locked"].includes(selectedRun.status) && (
+                  {canApprovePayroll && ["locked", "confirmed_locked"].includes(selectedRun.status) && (
                     <Button
                       onClick={() => {
                         setReopenReason("");

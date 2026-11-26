@@ -99,6 +99,13 @@
       "when": 1795464984732,
       "tag": "0013_harden_log_file_download_access",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795690284792,
+      "tag": "0014_block_direct_file_access_audit_inserts",
+      "breakpoints": true
     }
   ]
 }

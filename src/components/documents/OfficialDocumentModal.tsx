@@ -19,6 +19,15 @@ import { Badge } from "../ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { toast } from "sonner";
 import { AppLogo } from "../common/AppLogo";
+import { buildPrintTitle, buildStandaloneHtml, renderPrintDocument } from "@/lib/utils/print-window";
+
+const PRINT_CSS = `@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+body { font-family: 'Cairo', system-ui, sans-serif; margin: 0; padding: 32px; background: #fff; color: #0f172a; direction: rtl; }
+* { box-sizing: border-box; }
+table { width: 100%; border-collapse: collapse; }
+th, td { border: 1px solid #cbd5e1; padding: 8px; font-size: 12px; }
+@media print { body { padding: 8px; } }`;
+const DOWNLOAD_CSS = `@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap'); body { font-family: 'Cairo', system-ui, sans-serif; padding: 40px; background: #fff; direction: rtl; } table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #cbd5e1; padding: 8px; }`;
 
 export type DocType =
   | "salary_certificate"
@@ -74,26 +83,11 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
       toast.error("يرجى السماح بالنوافذ المنبثقة لإتمام الطباعة المباشرة");
       return;
     }
-    printWindow.document.open();
-    printWindow.document.write(`<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <title>${getDocTitle(currentDocType)} - ${employee.firstNameAr} ${employee.lastNameAr}</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
-    body { font-family: 'Cairo', system-ui, sans-serif; margin: 0; padding: 32px; background: #fff; color: #0f172a; direction: rtl; }
-    * { box-sizing: border-box; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid #cbd5e1; padding: 8px; font-size: 12px; }
-    @media print { body { padding: 8px; } }
-  </style>
-</head>
-<body>
-  ${sheet.outerHTML}
-</body>
-</html>`);
-    printWindow.document.close();
+    renderPrintDocument(printWindow.document, {
+      title: buildPrintTitle(getDocTitle(currentDocType), `${employee.firstNameAr ?? ""} ${employee.lastNameAr ?? ""}`),
+      css: PRINT_CSS,
+      body: sheet,
+    });
     printWindow.focus();
     setTimeout(() => {
       printWindow.print();
@@ -103,7 +97,7 @@ export const OfficialDocumentModal: React.FC<OfficialDocumentModalProps> = ({
   const handleDownload = () => {
     const sheet = document.getElementById("printable-official-letter-sheet");
     if (!sheet) return;
-    const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>${getDocTitle(currentDocType)}</title><style>@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap'); body { font-family: 'Cairo', system-ui, sans-serif; padding: 40px; background: #fff; direction: rtl; } table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #cbd5e1; padding: 8px; }</style></head><body>${sheet.outerHTML}</body></html>`;
+    const html = buildStandaloneHtml(getDocTitle(currentDocType), DOWNLOAD_CSS, sheet.outerHTML);
     const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

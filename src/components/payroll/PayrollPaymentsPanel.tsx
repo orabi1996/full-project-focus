@@ -36,9 +36,9 @@ interface AccountRow {
 
 const money = (value: number) => `${Math.round(value).toLocaleString("ar-EG")} ر.س`;
 
-export const PayrollPaymentsPanel: React.FC = () => {
+export const PayrollPaymentsPanel: React.FC<{ initialRunId?: string }> = ({ initialRunId }) => {
   const [runs, setRuns] = useState<{ runId: string; label: string; status: string }[]>([]);
-  const [runId, setRunId] = useState<string | undefined>(undefined);
+  const [runId, setRunId] = useState<string | undefined>(initialRunId);
   const period = runs.find((run) => run.runId === runId)?.label;
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
@@ -48,6 +48,9 @@ export const PayrollPaymentsPanel: React.FC = () => {
   const [bankReference, setBankReference] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   useEffect(() => { setBankReference(""); setConfirmed(false); }, [runId, accountId]);
+  useEffect(() => {
+    if (initialRunId) setRunId(initialRunId);
+  }, [initialRunId]);
 
   // Real payroll runs from the database (never local mock ids).
   useEffect(() => {

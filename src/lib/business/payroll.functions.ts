@@ -312,13 +312,17 @@ export const updatePayrollRunStatusServer = createServerFn({ method: "POST" })
       throw new Error("سجّل تأكيد التحويل ومرجع البنك من شاشة دفعات الرواتب");
     }
 
-    if (data.status === "draft") {
-      throw new Error("إعادة فتح المسير تتطلب إجراء مراجعة موثق؛ لا يمكن تجاوز الإقفال");
-    }
-    const { error } = await supabase.rpc("set_payroll_run_status_atomic", {
-      p_run_id: data.runId,
-      p_status: data.status,
-    });
+    const rpcName = data.status === "draft"
+      ? "reopen_payroll_run_atomic"
+      : data.status === "approved"
+        ? "approve_payroll_run_atomic"
+        : "lock_payroll_run_atomic";
+    const rpcArgs = data.status === "draft"
+      ? { p_payroll_run_id: data.runId, p_reason: data.reason?.trim() || "إعادة فتح مسير الرواتب للمراجعة" }
+      : data.status === "approved"
+        ? { p_payroll_run_id: data.runId, p_note: data.note?.trim() || "اعتماد مسير الرواتب" }
+        : { p_payroll_run_id: data.runId };
+    const { error } = await supabase.rpc(rpcName, rpcArgs);
     if (error) throw new Error(`تعذر تحديث حالة المسيّر: ${error.message}`);
     return { ok: true };
   });

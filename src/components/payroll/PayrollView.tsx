@@ -147,7 +147,6 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
     approvePayrollRun,
     lockAndConfirmPayrollRun,
     reopenPayrollRun,
-    markPayrollAsPaid,
     createLoan,
     calculateSettlement,
     createSettlement,
@@ -352,7 +351,6 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
   const [isCreatingLoan, setIsCreatingLoan] = useState(false);
   const [isSavingSettlement, setIsSavingSettlement] = useState(false);
   const [isLockingRun, setIsLockingRun] = useState(false);
-  const [isPayingRun, setIsPayingRun] = useState(false);
   const [isApprovingRun, setIsApprovingRun] = useState(false);
   const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
   const [reopenReason, setReopenReason] = useState("");
@@ -905,7 +903,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                     <Download className="h-3.5 w-3.5" />
                     تحميل ملف حماية الأجور (SIF)
                   </Button>
-                  {canManagePayroll && ["draft", "calculated", "ready_for_review", "under_review"].includes(selectedRun.status) && (
+                  {canManagePayroll && ["calculated", "under_review"].includes(selectedRun.status) && (
                     <Button
                       onClick={async () => {
                         if (blockingExceptions.length > 0) {
@@ -927,7 +925,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                       {isApprovingRun ? "جاري الاعتماد..." : "اعتماد المسير"}
                     </Button>
                   )}
-                  {canManagePayroll && ["approved", "draft", "ready_for_review"].includes(selectedRun.status) && (
+                  {canManagePayroll && selectedRun.status === "approved" && (
                     <Button
                       onClick={async () => {
                         if (blockingExceptions.length > 0) {
@@ -949,7 +947,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                       {isLockingRun ? "جاري القفل..." : "قفل المسير وتثبيت السلف"}
                     </Button>
                   )}
-                  {canManagePayroll && ["locked", "confirmed_locked", "approved"].includes(selectedRun.status) && (
+                  {canManagePayroll && ["locked", "confirmed_locked"].includes(selectedRun.status) && (
                     <Button
                       onClick={() => {
                         setReopenReason("");
@@ -963,22 +961,14 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                       إعادة فتح المسير
                     </Button>
                   )}
-                  {canManagePayroll && ["locked", "confirmed_locked", "approved"].includes(selectedRun.status) && (
+                  {canManagePayroll && ["locked", "confirmed_locked"].includes(selectedRun.status) && (
                     <Button
-                      onClick={async () => {
-                        setIsPayingRun(true);
-                        try {
-                          await markPayrollAsPaid(selectedRun.id);
-                        } finally {
-                          setIsPayingRun(false);
-                        }
-                      }}
-                      disabled={isPayingRun}
+                      onClick={() => setActiveTab("payments")}
                       size="sm"
                       className="rounded-full text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white gap-1.5 h-9 px-4 cursor-pointer"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      {isPayingRun ? "جاري التأكيد..." : "تأكيد الصرف البنكي"}
+                      الانتقال إلى دفع الرواتب
                     </Button>
                   )}
                 </div>
@@ -1058,7 +1048,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
         {/* Tab: Monthly salary disbursement */}
         <TabsContent value="payments" className="space-y-4 pt-4">
-          <PayrollPaymentsPanel />
+          <PayrollPaymentsPanel initialRunId={selectedRun?.id} />
         </TabsContent>
 
 

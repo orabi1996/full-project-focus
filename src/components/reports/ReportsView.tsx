@@ -106,7 +106,11 @@ export const ReportsView: React.FC = () => {
   const reportMutations = useReportMutations();
 
   // Active Main Tab
-  const [activeTab, setActiveTab] = useState<"overview" | "catalog" | "viewer" | "payroll" | "builder" | "metrics">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "catalog" | "viewer" | "payroll" | "builder" | "metrics">(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "payroll"
+      ? "payroll"
+      : "overview",
+  );
 
   // Executive Date Preset State
   const [datePreset, setDatePreset] = useState<

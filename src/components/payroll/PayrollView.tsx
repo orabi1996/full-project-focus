@@ -877,7 +877,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground font-medium mt-1">
-                    طريقة الاحتساب: ثابت 30 يوم • التغطية: {selectedRun.totalEmployees} موظف مسجل
+                    طريقة الاحتساب: {selectedRun.calculationBasis === "calendar_days" ? "أيام الشهر الفعلية" : selectedRun.calculationBasis === "working_days" ? "أيام العمل" : selectedRun.calculationBasis === "fixed_30_days" ? "ثابت 30 يوم" : "غير محدد"} • التغطية: {selectedRun.totalEmployees} موظف مسجل
                   </p>
                 </div>
 
@@ -1013,6 +1013,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
               <div className="rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-4 text-sm">
                 <p className="font-bold text-foreground">اكتمل تجهيز شاشة المسير وإجراءاته.</p>
                 <p className="mt-1 text-xs text-muted-foreground">تفاصيل الموظفين والرواتب والقسائم والتوزيع الإداري متاحة في قسم التقارير.</p>
+                <a href="/reports?tab=payroll" className="mt-3 inline-flex items-center rounded-lg border border-border px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">فتح تقارير الرواتب</a>
               </div>
             </div>
           ) : (

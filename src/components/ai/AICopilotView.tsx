@@ -656,7 +656,7 @@ export function AICopilotView() {
     const rep = activeReportAnalysis;
     const rows: string[][] = [
       ["التقرير", rep.titleAr],
-      ["مؤشر الصحة التشغيلية", `${rep.healthScorePct}%`],
+      ["مؤشر الصحة التشغيلية", rep.healthScorePct === null ? "غير متاح لعدم كفاية البيانات" : `${rep.healthScorePct}%`],
       ["تاريخ التوليد", new Date(rep.generatedAt).toLocaleString("ar-SA")],
       [],
       ["المؤشر", "القيمة", "التفاصيل"],
@@ -1879,10 +1879,10 @@ export function AICopilotView() {
                 <div>
                   <p className="text-[11px] text-slate-500 font-medium">مؤشر الصحة والامتثال</p>
                   <p className="text-2xl font-black text-emerald-600">
-                    {activeReportAnalysis.healthScorePct}%
+                    {activeReportAnalysis.healthScorePct === null ? "غير متاح" : `${activeReportAnalysis.healthScorePct}%`}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600">
+                <div className={`w-12 h-12 rounded-xl border flex items-center justify-center ${activeReportAnalysis.healthScorePct === null ? "bg-slate-500/10 border-slate-500/20 text-slate-500" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-600"}`}>
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
               </div>

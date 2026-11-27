@@ -698,7 +698,7 @@ export const listPunchesServer = createServerFn({ method: "POST" })
 
 /** Rebuilds one employee's attendance record for a single day from approved punches. */
 export async function recomputeDay(supabase: any, employeeId: string, day: string) {
-  const { data: punches } = await supabase
+  const { data: punches, error: punchesError } = await supabase
     .from("punches")
     .select("punch_time, punch_type")
     .eq("employee_id", employeeId)
@@ -706,16 +706,18 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
     .gte("punch_time", `${day}T00:00:00Z`)
     .lte("punch_time", `${day}T23:59:59Z`)
     .order("punch_time");
+  if (punchesError) throw new Error(`تعذر استرجاع بصمات اليوم: ${punchesError.message}`);
 
   const list = punches ?? [];
   const firstIn = list.find((p: any) => p.punch_type === "in");
   if (!firstIn) {
-    await supabase
+    const { error: deleteError } = await supabase
       .from("attendance_records")
       .delete()
       .eq("employee_id", employeeId)
       .eq("work_date", day)
       .eq("is_manual", false);
+    if (deleteError) throw new Error(`تعذر حذف سجل الحضور الآلي: ${deleteError.message}`);
     return;
   }
   const lastOut = [...list].reverse().find((p: any) => p.punch_type === "out");
@@ -737,7 +739,7 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
 
   // Cardinality Guard: if more than 1 authoritative schedule exists, record integrity error
   if (scheduleList && scheduleList.length > 1) {
-    await supabase.from("attendance_records").upsert(
+    const { error: upsertError } = await supabase.from("attendance_records").upsert(
       {
         employee_id: employeeId,
         work_date: day,
@@ -759,6 +761,7 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
       },
       { onConflict: "employee_id,work_date" },
     );
+    if (upsertError) throw new Error(`تعذر حفظ استثناء جدول العمل المتعارض: ${upsertError.message}`);
 
     try {
       await supabase.from("attendance_exceptions").insert({
@@ -784,11 +787,12 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
     if (schedule.start_time && schedule.end_time) {
       shift = schedule;
     } else {
-      const { data } = await supabase
+      const { data, error: shiftError } = await supabase
         .from("shifts")
         .select("start_time, end_time, grace_minutes_arrival, overtime_eligible, break_minutes, is_overnight")
         .eq("id", schedule.shift_id)
         .maybeSingle();
+      if (shiftError) throw new Error(`تعذر استرجاع بيانات الوردية: ${shiftError.message}`);
       shift = data;
     }
   }
@@ -798,7 +802,7 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
   // TRUTHFULNESS: If no valid published schedule/shift is resolved:
   // do NOT assume eight hours. Return truthful schedule_not_configured exception and do not calculate late or overtime.
   if (!schedule || (!shift && !isRest)) {
-    await supabase.from("attendance_records").upsert(
+    const { error: upsertError } = await supabase.from("attendance_records").upsert(
       {
         employee_id: employeeId,
         work_date: day,
@@ -820,12 +824,13 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
       },
       { onConflict: "employee_id,work_date" },
     );
+    if (upsertError) throw new Error(`تعذر حفظ حالة غياب جدول العمل: ${upsertError.message}`);
     return;
   }
 
   // VERSION CONTRACT (Prompt 13.5): Fail-closed on missing required versions (no fabrication)
   if (!isRest && (!schedule.shift_version || !schedule.roster_version || !schedule.roster_period_id)) {
-    await supabase.from("attendance_records").upsert(
+    const { error: upsertError } = await supabase.from("attendance_records").upsert(
       {
         employee_id: employeeId,
         work_date: day,
@@ -847,11 +852,12 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
       },
       { onConflict: "employee_id,work_date" },
     );
+    if (upsertError) throw new Error(`تعذر حفظ مخالفة سلامة جدول العمل: ${upsertError.message}`);
     return;
   }
 
   if (isRest && (!schedule.roster_version || !schedule.roster_period_id)) {
-    await supabase.from("attendance_records").upsert(
+    const { error: upsertError } = await supabase.from("attendance_records").upsert(
       {
         employee_id: employeeId,
         work_date: day,
@@ -873,6 +879,7 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
       },
       { onConflict: "employee_id,work_date" },
     );
+    if (upsertError) throw new Error(`تعذر حفظ مخالفة إصدار يوم الراحة: ${upsertError.message}`);
     return;
   }
 
@@ -907,7 +914,7 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
     }
   }
 
-  await supabase.from("attendance_records").upsert(
+  const { error: upsertError } = await supabase.from("attendance_records").upsert(
     {
       employee_id: employeeId,
       work_date: day,
@@ -929,6 +936,7 @@ export async function recomputeDay(supabase: any, employeeId: string, day: strin
     },
     { onConflict: "employee_id,work_date" },
   );
+  if (upsertError) throw new Error(`تعذر تحديث سجل الحضور اليومي: ${upsertError.message}`);
 }
 
 /** Approves or rejects a punch, then rebuilds the affected attendance day. */

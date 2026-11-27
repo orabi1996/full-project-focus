@@ -541,6 +541,7 @@ export const LATEST_HR_NEWS_2026: HRNewsBulletin[] = [
  */
 export function searchCountryLaborRegulations(query: string): string | null {
   const q = query.trim().toLowerCase();
+  const sourceNotice = (country: CountryLaborRegulation) => `\n\n⚠️ **حالة المصدر والحداثة:** هذه بيانات مرجعية ثابتة داخل النظام وليست اتصالاً مباشراً. السنة المسجلة في قاعدة المعرفة هي ${country.lastUpdated}، لكن لا يتوفر تاريخ تحقق محدد أو توثيق للمادة داخل النظام. راجع الجهة الرسمية قبل اتخاذ إجراء: ${country.officialPortal}.`;
 
   // 1. Check for News / Trends inquiries
   if (
@@ -551,22 +552,12 @@ export function searchCountryLaborRegulations(query: string): string | null {
     q.includes("مستجدات") ||
     q.includes("تريند") ||
     q.includes("توجهات التوظيف") ||
-    q.includes("أحدث القرارات") ||
-    q.includes("2026")
+    q.includes("أحدث القرارات")
   ) {
-    const newsList = LATEST_HR_NEWS_2026.map(
-      (n, idx) => `### ${idx + 1}. ${n.titleAr}
-• **المصدر الرسمي والتاريخ:** ${n.source} (${n.date})
-• **التفاصيل:** ${n.summaryAr}
-• **الأثر على المنشأة:** ${n.impactOnHR}
-• **الإجراء المقترح في النظام:** ${n.actionRequired}`
-    ).join("\n\n");
-
-    return `📰 **أحدث أخبار الموارد البشرية وتحديثات أنظمة العمل ومكاتب العمل (دورة 2026):**
-
-${newsList}
-
-💡 **ملاحظة تشغيلية:** نظام مدار إكس الذكي يقوم بالربط المباشر مع الحزم التشريعية لكافة الدول المدرجة بالنظام لتطبيق أي قرارات فور صدورها تلقائياً.`;
+    const portals = Object.values(COUNTRY_LABOR_REGULATIONS)
+      .map((country) => `• ${country.countryNameAr}: ${country.officialPortal}`)
+      .join("\n");
+    return `لا أستطيع تأكيد أحدث أخبار أو قرارات الموارد البشرية من البيانات المحلية؛ موجز الأخبار المخزن لا يحتوي على روابط تحقق رسمية مستقلة ولا يجري تحديثه مباشرة. لا تعتمد على عناوينه كقرارات نافذة.\n\nتحقق من البوابات الرسمية للدول المدعومة:\n${portals}`;
   }
 
   // 2. Identify Target Country
@@ -599,7 +590,7 @@ ${newsList}
 • **ساعات العمل في شهر رمضان المبارك:** تخفض إلى ${matchedCountry.workingHours.ramadanDailyMuslims} ساعات يومياً للعمال المسلمين.
 • **أيام الراحة الأسبوعية:** ${matchedCountry.workingHours.weeklyRestDays} يوم راحة مدفوع الأجر أسبوعياً على الأقل.
 • **احتساب العمل الإضافي النهاري:** ${matchedCountry.workingHours.overtimeRateDay}.
-• **احتساب العمل الإضافي الليلي والعطل:** ${matchedCountry.workingHours.overtimeRateNightWeekend}.`;
+• **احتساب العمل الإضافي الليلي والعطل:** ${matchedCountry.workingHours.overtimeRateNightWeekend}.${sourceNotice(matchedCountry)}`;
     }
 
     // B. Probation Period
@@ -609,7 +600,7 @@ ${newsList}
 • **المرجع النظامي:** ${matchedCountry.governingLaw}
 • **المدة القياسية:** ${matchedCountry.probation.standardDays} يوماً.
 • **الحد الأقصى الجائز نظاماً:** ${matchedCountry.probation.maxDays} يوماً.
-• **الضوابط والشروط:** ${matchedCountry.probation.rules}`;
+• **الضوابط والشروط:** ${matchedCountry.probation.rules}${sourceNotice(matchedCountry)}`;
     }
 
     // C. Annual & Other Leaves
@@ -619,7 +610,7 @@ ${newsList}
 • **المرجع النظامي:** ${matchedCountry.governingLaw}
 • **رصيد الإجازة السنوية الأساسي:** ${matchedCountry.annualLeave.baseDays} يوماً سنوياً.
 • **زيادة الرصيد بعد الخدمة:** تزيد إلى ${matchedCountry.annualLeave.incrementedDays} يوماً بعد إتمام ${matchedCountry.annualLeave.incrementAfterYears} سنوات متصلة.
-• **التعويض النقدي عند انتهاء العقد:** ${matchedCountry.annualLeave.cashOutPolicy}`;
+• **التعويض النقدي عند انتهاء العقد:** ${matchedCountry.annualLeave.cashOutPolicy}${sourceNotice(matchedCountry)}`;
     }
 
     // D. End of Service Gratuity
@@ -629,7 +620,7 @@ ${newsList}
 • **المرجع النظامي:** ${matchedCountry.governingLaw}
 • **معادلة الحساب الأساسية:** ${matchedCountry.endOfServiceGratuity.formulaDescription}
 • **حالة الاستقالة وإنهاء الموظف للعقد:** ${matchedCountry.endOfServiceGratuity.resignationScale}
-• **الحدود القصوى والاستثناءات:** ${matchedCountry.endOfServiceGratuity.exemptionsAndCaps}`;
+• **الحدود القصوى والاستثناءات:** ${matchedCountry.endOfServiceGratuity.exemptionsAndCaps}${sourceNotice(matchedCountry)}`;
     }
 
     // E. Social Insurance & GOSI
@@ -641,7 +632,7 @@ ${newsList}
 • **نسبة مساهمة صاحب العمل (المنشأة) للمواطن:** ${matchedCountry.socialInsurance.citizenEmployerPct}%
 • **نسبة غير المواطن (الوافد):** الموظف: ${matchedCountry.socialInsurance.expatEmployeePct}% | المنشأة: ${matchedCountry.socialInsurance.expatEmployerPct}%
 • **الحد الأقصى للأجر الخاضع للاشتراك:** ${matchedCountry.socialInsurance.statutoryMaxWage}
-• **التفاصيل:** ${matchedCountry.socialInsurance.detailsAr}`;
+• **التفاصيل:** ${matchedCountry.socialInsurance.detailsAr}${sourceNotice(matchedCountry)}`;
     }
 
     // F. Wage Protection (WPS)
@@ -650,7 +641,7 @@ ${newsList}
 
 • **المنظومة المعتمدة:** ${matchedCountry.wpsAndPayroll.systemName}
 • **الضوابط ونسب الالتزام:** ${matchedCountry.wpsAndPayroll.rules}
-• **إجراءات المنازعات العمالية:** ${matchedCountry.wpsAndPayroll.disputeDeadline}`;
+• **إجراءات المنازعات العمالية:** ${matchedCountry.wpsAndPayroll.disputeDeadline}${sourceNotice(matchedCountry)}`;
     }
 
     // Default: Comprehensive Country Profile
@@ -669,7 +660,7 @@ ${newsList}
 📌 **أبرز التحديثات النظامية لعام 2026:**
 ${updatesList}
 
-يمكنك سؤالي عن أي مادة قانونية، أو طريقة حساب نهاية الخدمة، أو نسبة التأمينات بالتفصيل!`;
+يمكنك سؤالي عن موضوع محدد، لكن يلزم مراجعة المصدر الرسمي قبل اعتماد أي حكم.${sourceNotice(matchedCountry)}`;
   }
 
   // 3. General Cross-Country Inquiries
@@ -687,13 +678,18 @@ ${updatesList}
       )
       .join("\n");
 
-    return `🌍 **تغطية أنظمة العمل ومكاتب العمل في نظام مدار إكس:**
+    const portals = Object.values(COUNTRY_LABOR_REGULATIONS)
+      .map((country) => `• **${country.countryNameAr}:** ${country.officialPortal}`)
+      .join("\n");
+    return `🌍 **نطاق الحزم المرجعية لأنظمة العمل في النظام:**
 
-يدعم النظام الحزم التشريعية المتوافقة مع مكاتب العمل في **7 دول عربية** متصلة لحظياً:
+توجد حزم مرجعية محلية لسبع دول. هذه القائمة لا تعني وجود ربط مباشر أو تحديث فوري للقرارات:
 
 ${list}
 
-يمكنك الاستفسار عن أي دولة بالتحديد (مثلاً: *"ما هي ساعات العمل في الإمارات؟"* أو *"احسب مكافأة نهاية الخدمة في مصر"* أو *"نسب التأمينات في الكويت"*).`;
+تحقق من الجهة الرسمية قبل تطبيق أي حكم:\n${portals}
+
+يمكنك الاستفسار عن موضوع أو دولة، وسأوضح لك أن المعلومة مرجعية غير متحققة بتاريخ محدد.`;
   }
 
   return null;

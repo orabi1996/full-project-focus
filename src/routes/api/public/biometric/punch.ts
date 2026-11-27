@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { recomputeDay } from "@/lib/business/attendance.functions";
+import {
+  createBiometricPunchIdempotencyKey,
+  recomputeBiometricAttendanceDay,
+} from "@/lib/business/biometric-punch-idempotency";
 
 /**
  * Endpoint for physical fingerprint terminals.
@@ -76,13 +80,22 @@ export const Route = createFileRoute("/api/public/biometric/punch")({
           .select("id, company_id")
           .eq("id", device.work_location_id)
           .maybeSingle();
-        if (!location || location.company_id !== employee.company_id) {
+        if (!location || !employee.company_id || location.company_id !== employee.company_id) {
           return json({ error: "device and employee company do not match" }, 403);
         }
 
+        const idempotencyKey = await createBiometricPunchIdempotencyKey({
+          companyId: employee.company_id,
+          deviceId,
+          employeeId: employee.id,
+          punchTime,
+          punchType,
+        });
+
         const { data: duplicate } = await supabaseAdmin
           .from("punches")
-          .select("id")
+          .select("id, approval_status")
+          .eq("company_id", employee.company_id)
           .eq("employee_id", employee.id)
           .eq("device_id", deviceId)
           .eq("punch_time", punchTime)
@@ -90,10 +103,19 @@ export const Route = createFileRoute("/api/public/biometric/punch")({
           .limit(1)
           .maybeSingle();
         if (duplicate) {
-          return json({ ok: true, duplicate: true, status: device.auto_approve ? "approved" : "pending" });
+          const status = duplicate.approval_status;
+          if (
+            status === "approved" &&
+            !(await recomputeBiometricAttendanceDay(() =>
+              recomputeDay(supabaseAdmin as any, employee.id, punchTime.slice(0, 10)),
+            ))
+          ) {
+            return json({ error: "punch recorded; attendance recalculation will retry", retryable: true }, 503);
+          }
+          return json({ ok: true, duplicate: true, status });
         }
 
-        const { error } = await supabaseAdmin.from("punches").insert({
+        const { data: insertedPunch, error } = await supabaseAdmin.from("punches").insert({
           employee_id: employee.id,
           company_id: employee.company_id,
           location_id: employee.work_location_id,
@@ -104,8 +126,32 @@ export const Route = createFileRoute("/api/public/biometric/punch")({
           latitude: payload?.latitude ?? null,
           longitude: payload?.longitude ?? null,
           approval_status: device.auto_approve ? "approved" : "pending",
-        } as any);
-        if (error) return json({ error: error.message }, 500);
+          idempotency_key: idempotencyKey,
+        } as any).select("id, approval_status").single();
+        if (error) {
+          // Another identical request may have inserted between the read and
+          // write. Resolve the unique-key conflict as a retry, not as a failure.
+          if (error.code === "23505") {
+            const { data: concurrentDuplicate } = await supabaseAdmin
+              .from("punches")
+              .select("id, approval_status")
+              .eq("company_id", employee.company_id)
+              .eq("idempotency_key", idempotencyKey)
+              .maybeSingle();
+            if (concurrentDuplicate) {
+              if (
+                concurrentDuplicate.approval_status === "approved" &&
+                !(await recomputeBiometricAttendanceDay(() =>
+                  recomputeDay(supabaseAdmin as any, employee.id, punchTime.slice(0, 10)),
+                ))
+              ) {
+                return json({ error: "punch recorded; attendance recalculation will retry", retryable: true }, 503);
+              }
+              return json({ ok: true, duplicate: true, status: concurrentDuplicate.approval_status });
+            }
+          }
+          return json({ error: error.message }, 500);
+        }
 
         await supabaseAdmin
           .from("biometric_devices")
@@ -115,14 +161,22 @@ export const Route = createFileRoute("/api/public/biometric/punch")({
           })
           .eq("device_id", deviceId);
 
-        if (device.auto_approve) {
-          await recomputeDay(supabaseAdmin as any, employee.id, punchTime.slice(0, 10));
+        if (insertedPunch.approval_status === "approved") {
+          if (
+            !(await recomputeBiometricAttendanceDay(() =>
+              recomputeDay(supabaseAdmin as any, employee.id, punchTime.slice(0, 10)),
+            ))
+          ) {
+            // The event is durable. Returning retryable 503 is safe because a
+            // device retry will reach the duplicate branch and rebuild the day.
+            return json({ error: "punch recorded; attendance recalculation will retry", retryable: true }, 503);
+          }
         }
 
         return json({
           ok: true,
           punch_type: punchType,
-          status: device.auto_approve ? "approved" : "pending",
+          status: insertedPunch.approval_status,
         });
       },
     },

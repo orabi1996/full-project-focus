@@ -674,7 +674,8 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       // 2026 HR News
       const newsAnswer = searchCountryLaborRegulations("ما هي أحدث أخبار الموارد البشرية لعام 2026؟");
       expect(newsAnswer).not.toBeNull();
-      expect(newsAnswer).toContain("2026");
+      expect(newsAnswer).toContain("لا أستطيع تأكيد أحدث أخبار");
+      expect(newsAnswer).not.toContain("إلزامية توثيق 100%");
     });
 
     it("extracts structured employee data from natural text and voice transcriptions", () => {

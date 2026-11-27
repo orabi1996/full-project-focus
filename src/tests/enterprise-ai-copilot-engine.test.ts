@@ -3,7 +3,8 @@
  * Prompt 35: Comprehensive verification of AI Safety, RBAC, RAG, Intent Routing, and Grounding
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+vi.mock("tesseract.js", () => ({ createWorker: vi.fn() }));
 import {
   detectAndSanitizePrompt,
   detectIntent,
@@ -574,7 +575,7 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       for (const domain of SMART_REPORT_DOMAINS) {
         const analysis = buildSmartReportAnalysis(domain.id, mockApp);
         expect(analysis.domainId).toBe(domain.id);
-        expect(analysis.healthScorePct).toBeGreaterThan(0);
+        if (analysis.healthScorePct !== null) expect(analysis.healthScorePct).toBeGreaterThan(0);
         expect(analysis.kpis.length).toBe(4);
         expect(analysis.breakdownRows.length).toBeGreaterThan(0);
         expect(analysis.recommendations.length).toBeGreaterThan(0);
@@ -584,6 +585,62 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       expect(empRes.intent).toBe("employee_search");
       expect(empRes.responseText).toContain("فهد العتيبي");
       expect(empRes.responseText).toContain("EMP-1001");
+    });
+
+    it("marks attendance and leave metrics unavailable when live records are missing or incomplete", () => {
+      const noRecords = { employees: [], attendanceRecords: [], leaveBalances: [] } as any;
+      const attendance = buildSmartReportAnalysis("attendance_shifts", noRecords);
+      expect(attendance.healthScorePct).toBeNull();
+      expect(attendance.kpis[0].value).toBe("غير متاح");
+      expect(attendance.kpis[0].subtext).toContain("لا توجد سجلات حضور");
+      expect(attendance.executiveSummary).toContain("غير متاح لعدم وجود سجلات حضور");
+      expect(attendance.executiveSummary).not.toContain("94.8%");
+
+      const liveAttendanceAnswer = generateSmartAssistantResponse(
+        "مين متأخر النهاردة؟",
+        { employees: [], attendanceRecords: [] } as any,
+        "hr_manager"
+      );
+      expect(liveAttendanceAnswer.responseText).toContain("غير متاح");
+      expect(liveAttendanceAnswer.responseText).toContain("لا توجد سجلات حضور متاحة");
+      expect(liveAttendanceAnswer.responseText).not.toContain("96%");
+
+      const leaveWithoutRecords = buildSmartReportAnalysis("leaves_workflow", noRecords);
+      expect(leaveWithoutRecords.kpis[0].value).toBe("غير متاح");
+      expect(leaveWithoutRecords.kpis[1].value).toBe("غير متاح");
+      expect(leaveWithoutRecords.executiveSummary).toContain("الاستحقاق السنوي غير متاح");
+      expect(leaveWithoutRecords.executiveSummary).not.toContain("42%");
+
+      const incompleteLeave = buildSmartReportAnalysis("leaves_workflow", {
+        ...noRecords,
+        leaveBalances: [{ employeeId: "emp-1", usedDays: 3, remainingDays: 8 }],
+      } as any);
+      expect(incompleteLeave.kpis[0].value).toBe("8 يوم");
+      expect(incompleteLeave.kpis[1].value).toBe("غير متاح");
+    });
+
+    it("does not invent leave entitlement or work schedule in employee profile answers", () => {
+      const employee = {
+        id: "emp-grounding-1",
+        employeeNo: "EMP-GROUND-1",
+        firstNameAr: "ليلى",
+        lastNameAr: "الاختبار",
+        status: "active",
+        hireDate: "2024-01-01",
+        nationality: "سعودية",
+        jobTitleAr: "محللة",
+      };
+      const result = generateSmartAssistantResponse(
+        "اعرض ملف ليلى الاختبار",
+        { currentUser: { id: "hr-1" }, employees: [employee], orgUnits: [], leaveBalances: [] } as any,
+        "hr_manager"
+      );
+
+      expect(result.responseText).toContain("غير مسجلة");
+      expect(result.responseText).toContain("لا يوجد رصيد مسجل");
+      expect(result.responseText).toContain("مستهلك: غير متاح من غير متاح");
+      expect(result.responseText).not.toContain("أيام (راحة أسبوعية: 2 يوم)");
+      expect(result.responseText).not.toContain("رصيد الإجازات السنوية المتبقي: 21 يوم");
     });
   });
 

@@ -135,7 +135,7 @@ export function searchKnowledgeBase(query: string, role: UserRole): RAGSearchRes
 /** Current seeded labor/legal content has no verified provenance, so high-stakes answers fail closed. */
 export function isHighStakesLegalQuery(query: string): boolean {
   const q = query.toLocaleLowerCase();
-  return /نظام العمل|قانون العمل|قانون|لائحة|سياسة|استحقاق|نهاية الخدمة|مكافأة|استقالة|إنهاء العقد|فسخ العقد|عقد العمل|إجازة سنوية|الاجازة السنوية|annual leave|leave entitlement|المدة النظامية.{0,20}التجربة|مدة.{0,20}التجربة.{0,20}(?:نظام|قانون)|ساعات العمل|الإضافي|العمل الإضافي|الحد الأدنى للأجور|حماية الأجور|\bwps\b|التوطين|نطاقات|التأمينات الاجتماعية|استقطاع نظامي|خصم من الراتب|تعويض|مادة\s*\(?\d+|المادة\s*\(?\d+|labor law|employment law|overtime|end of service|severance|statutory|legal entitlement|minimum wage/i.test(q);
+  return /نظام العمل|قانون العمل|قوانين العمل|قانون|لائحة|سياسة|استحقاق|نهاية الخدمة|مكافأة|استقالة|إنهاء العقد|فسخ العقد|عقد العمل|إجازة سنوية|الاجازة السنوية|annual leave|leave entitlement|المدة النظامية.{0,20}التجربة|مدة.{0,20}التجربة.{0,20}(?:نظام|قانون)|ساعات العمل|أحكام العمل|الإضافي|العمل الإضافي|الحد الأدنى للأجور|حماية الأجور|\bwps\b|التوطين|نطاقات|التأمينات الاجتماعية|استقطاع نظامي|خصم من الراتب|تعويض|مادة\s*\(?\d+|المادة\s*\(?\d+|labor law|employment law|overtime|end of service|severance|statutory|legal entitlement|minimum wage/i.test(q);
 }
 
 export function getLegalVerificationBoundary(): string {

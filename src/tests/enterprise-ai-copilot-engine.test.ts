@@ -40,6 +40,8 @@ import { METRIC_CATALOG } from "../lib/data/reports-repository";
 import {
   SMART_REPORT_DOMAINS,
   buildSmartReportAnalysis,
+  buildSystemPromptForLLM,
+  containsEmployeeSensitiveContent,
   generateSmartAssistantResponse,
 } from "../lib/data/ai-repository";
 import { searchCountryLaborRegulations, COUNTRY_LABOR_REGULATIONS, LATEST_HR_NEWS_2026 } from "../lib/ai/labor-news-and-country-regulations";
@@ -582,6 +584,62 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       expect(empRes.intent).toBe("employee_search");
       expect(empRes.responseText).toContain("فهد العتيبي");
       expect(empRes.responseText).toContain("EMP-1001");
+    });
+  });
+
+  describe("10.1 AI Employee Privacy & External Context Boundary", () => {
+    const employee = {
+      id: "emp-privacy-1",
+      employeeNo: "EMP-PRIV-001",
+      firstNameAr: "سارة",
+      lastNameAr: "الخصوصية",
+      firstNameEn: "Sara",
+      lastNameEn: "Privacy",
+      email: "sara.privacy@example.test",
+      nationalIdOrIqama: "1029384756",
+      iban: "SA0380000000608010167519",
+      managerId: "mgr-1",
+      status: "active" as const,
+      nationality: "سعودية",
+      hireDate: "2024-01-01",
+      jobTitleAr: "محللة",
+      basicSalary: 12000,
+      housingAllowance: 3000,
+      transportAllowance: 500,
+      otherAllowances: 0,
+    };
+
+    it("detects employee identifiers and direct PII before external provider calls", () => {
+      expect(containsEmployeeSensitiveContent("ما وضع EMP-PRIV-001؟", [employee as any])).toBe(true);
+      expect(containsEmployeeSensitiveContent("تواصل مع sara.privacy@example.test", [employee as any])).toBe(true);
+      expect(containsEmployeeSensitiveContent("كيف أكتب خطابًا رسميًا؟", [employee as any])).toBe(false);
+    });
+
+    it("does not put live personnel, bank, or payroll data into the external system prompt", () => {
+      const prompt = buildSystemPromptForLLM({ employees: [employee as any] });
+      expect(prompt).not.toContain(employee.firstNameAr);
+      expect(prompt).not.toContain(employee.iban);
+      expect(prompt).not.toContain("15000");
+    });
+
+    it("blocks employee cross-profile lookup and hides bank data from HR role", () => {
+      const app = {
+        currentUser: { id: "emp-other" },
+        employees: [employee],
+        orgUnits: [],
+        leaveBalances: [],
+        attendanceRecords: [],
+      } as any;
+      const employeeResult = generateSmartAssistantResponse("اعرض ملف سارة الخصوصية", app, "employee");
+      expect(employeeResult.responseText).toContain("لا تملك صلاحية");
+      const payrollResult = generateSmartAssistantResponse("اعرض إجمالي الرواتب", app, "employee");
+      expect(payrollResult.responseText).toContain("ليس لديك صلاحية");
+      const attendanceResult = generateSmartAssistantResponse("مين متأخر النهاردة؟", app, "employee");
+      expect(attendanceResult.responseText).toContain("لا تملك صلاحية");
+
+      const hrResult = generateSmartAssistantResponse("اعرض ملف سارة الخصوصية", app, "hr_manager");
+      expect(hrResult.responseText).not.toContain(employee.iban);
+      expect(hrResult.responseText).toContain("البيانات البنكية مخفية");
     });
   });
 

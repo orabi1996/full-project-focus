@@ -610,7 +610,6 @@ export function AICopilotView() {
       {
         conversationId: selectedConversationId,
         content: trimmed,
-        userRole: currentRole,
       },
       {
         onError: (err: any) => {
@@ -821,7 +820,6 @@ export function AICopilotView() {
       sendMessageMutation.mutate({
         conversationId: selectedConversationId,
         content: promptContent,
-        userRole: currentRole,
         metadata: {
           actionType: "create_employee_confirmation",
           employeeDraft: draft,

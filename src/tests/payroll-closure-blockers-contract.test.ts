@@ -102,6 +102,7 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
     const empIdHrB = "e0000000-0000-0000-0000-000000000010";
 
     const payrollRunA = "c0000000-0000-0000-0000-000000000001";
+    const payrollRunLoanMismatch = "c0000000-0000-0000-0000-000000000009";
 
     async function asUser(userId: string | null, role: string = "authenticated") {
       await db.exec(`
@@ -230,13 +231,16 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
 
         CREATE TABLE IF NOT EXISTS public.loans (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          company_id uuid REFERENCES public.companies(id),
           employee_id uuid REFERENCES public.employees(id) ON DELETE CASCADE,
           loan_type text NOT NULL DEFAULT 'personal_advance',
           principal_amount numeric(12,2) NOT NULL,
           monthly_installment numeric(12,2) NOT NULL,
           total_installments integer NOT NULL,
           paid_installments integer NOT NULL DEFAULT 0,
+          installments_paid integer NOT NULL DEFAULT 0,
           remaining_balance numeric(12,2) NOT NULL,
+          outstanding_amount numeric(12,2) NOT NULL DEFAULT 0,
           status text NOT NULL DEFAULT 'active',
           created_at timestamptz NOT NULL DEFAULT now()
         );
@@ -253,6 +257,14 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
           currency text NOT NULL DEFAULT 'SAR',
           total_employees integer NOT NULL DEFAULT 0,
           total_net_salary numeric(14,2) NOT NULL DEFAULT 0,
+          locked_by uuid,
+          locked_at timestamptz,
+          reopened_by uuid,
+          reopened_at timestamptz,
+          reopen_reason text,
+          approved_by uuid,
+          approved_at timestamptz,
+          updated_at timestamptz NOT NULL DEFAULT now(),
           created_at timestamptz NOT NULL DEFAULT now()
         );
 
@@ -263,9 +275,55 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
           employee_id uuid REFERENCES public.employees(id) ON DELETE CASCADE,
           employee_no text NOT NULL,
           employee_name_ar text NOT NULL,
+          loan_installment numeric(12,2) NOT NULL DEFAULT 0,
           net_salary numeric(12,2) NOT NULL DEFAULT 0,
           iban text,
-          status text NOT NULL DEFAULT 'calculated'
+          status text NOT NULL DEFAULT 'calculated',
+          updated_at timestamptz NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS public.loan_installments (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          loan_id uuid NOT NULL REFERENCES public.loans(id),
+          employee_id uuid NOT NULL REFERENCES public.employees(id),
+          principal_amount numeric(12,2) NOT NULL,
+          due_payroll_period text NOT NULL,
+          status text NOT NULL DEFAULT 'pending',
+          deducted_amount numeric(12,2),
+          remaining_balance numeric(12,2) NOT NULL DEFAULT 0,
+          payroll_run_id uuid,
+          recovered_at timestamptz,
+          updated_at timestamptz NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS public.payroll_loan_allocations (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          payroll_run_id uuid NOT NULL,
+          loan_id uuid NOT NULL,
+          employee_id uuid NOT NULL,
+          amount numeric(12,2) NOT NULL,
+          recovered_at timestamptz NOT NULL DEFAULT now(),
+          UNIQUE (payroll_run_id, loan_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS public.employee_separations (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          employee_id uuid NOT NULL REFERENCES public.employees(id),
+          status text NOT NULL DEFAULT 'pending',
+          created_at timestamptz NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS public.hardware_assets (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          assigned_to_employee_id uuid REFERENCES public.employees(id),
+          status text NOT NULL DEFAULT 'available'
+        );
+
+        CREATE TABLE IF NOT EXISTS public.reimbursement_batches (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          company_id uuid REFERENCES public.companies(id),
+          bank_account_id uuid REFERENCES public.company_bank_accounts(id),
+          payment_status text NOT NULL DEFAULT 'prepared'
         );
 
         CREATE TABLE IF NOT EXISTS public.settlements (
@@ -284,6 +342,7 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
         CREATE TABLE IF NOT EXISTS public.payroll_audit_logs (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
           company_id uuid REFERENCES public.companies(id) ON DELETE CASCADE,
+          payroll_run_id uuid,
           action text NOT NULL,
           actor_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
           details jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -292,6 +351,14 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
 
         CREATE OR REPLACE FUNCTION public.current_company_id() RETURNS uuid LANGUAGE sql STABLE AS $$
           SELECT company_id FROM public.employees WHERE user_id = auth.uid() LIMIT 1;
+        $$;
+
+        CREATE OR REPLACE FUNCTION public.has_role(p_user_id uuid, p_role text) RETURNS boolean LANGUAGE sql STABLE AS $$
+          SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = p_user_id AND role = p_role);
+        $$;
+
+        CREATE OR REPLACE FUNCTION public.can_access_core_company(p_company_id uuid) RETURNS boolean LANGUAGE sql STABLE AS $$
+          SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND company_id = p_company_id);
         $$;
 
         CREATE OR REPLACE FUNCTION public.current_user_has_any_role(p_roles text[]) RETURNS boolean LANGUAGE plpgsql STABLE AS $$
@@ -310,6 +377,19 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
         "utf-8"
       );
       await db.exec(migrationSql);
+
+      for (const migrationName of [
+        "20261127010000_readiness_integrity_guards.sql",
+        "20261127050000_payroll_loan_ledger_integrity.sql",
+        "20261127060000_prevent_negative_final_settlement.sql",
+        "20261127070000_persist_settlement_unpaid_leave_days.sql",
+      ]) {
+        const readinessMigration = fs.readFileSync(
+          path.resolve(__dirname, `../../supabase/migrations/${migrationName}`),
+          "utf-8",
+        );
+        await db.exec(readinessMigration);
+      }
 
       // 3. Seed Companies, Users, Bank Accounts, Configurations
       await db.exec(`
@@ -334,6 +414,7 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
         INSERT INTO public.user_roles (user_id, role, company_id) VALUES
           ('${userHrAdminA}', 'hr_manager', '${companyA}'),
           ('${userPayrollOfficerA}', 'payroll_officer', '${companyA}'),
+          ('${userPayrollOfficerA}', 'finance_officer', '${companyA}'),
           ('${userEmpSaudiA}', 'employee', '${companyA}'),
           ('${userHrB}', 'hr_manager', '${companyB}');
 
@@ -357,14 +438,18 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
           ('${empIdSaudiA}', '${companyA}', 1, '2022-09-01', 10000, 2500, 1000, 'approved'),
           ('${empIdLoanA}', '${companyA}', 1, '2021-01-01', 8000, 2000, 800, 'approved');
 
+        -- A future-approved compensation record must not be used for an earlier termination date.
+        INSERT INTO public.employee_compensation_versions (employee_id, company_id, version, effective_from, basic_salary, housing_allowance, transport_allowance, status) VALUES
+          ('${empIdSaudiA}', '${companyA}', 2, '2030-01-01', 20000, 5000, 2000, 'approved');
+
         -- Leave Balances: 15 unconsumed days for empIdSaudiA
         INSERT INTO public.leave_balances (employee_id, accrued_days, carried_over_days, used_days, reserved_days) VALUES
           ('${empIdSaudiA}', 30, 0, 15, 0), -- 15 days net
           ('${empIdLoanA}', 25, 0, 5, 0);   -- 20 days net
 
         -- Loan for empIdLoanA: 5000 remaining
-        INSERT INTO public.loans (employee_id, loan_type, principal_amount, monthly_installment, total_installments, remaining_balance, status) VALUES
-          ('${empIdLoanA}', 'personal_advance', 10000, 2000, 5, 5000, 'active');
+        INSERT INTO public.loans (company_id, employee_id, loan_type, principal_amount, monthly_installment, total_installments, remaining_balance, outstanding_amount, status) VALUES
+          ('${companyA}', '${empIdLoanA}', 'personal_advance', 10000, 2000, 5, 5000, 5000, 'active');
       `);
     });
 
@@ -397,6 +482,12 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
       expect(data.leave_balance_payout_days).toBe(15);
       expect(data.leave_payout_amount).toBe(6750);
       expect(data.net_settlement_amount).toBe(33770.25);
+      expect(data.employee_name).toBe("سالم الشمري");
+      expect(data.hire_date).toBe("2022-09-01");
+      expect(data.separation_type).toBe("contract_expiration");
+      expect(data.service_years).toBe(4);
+      expect(data.service_months).toBe(0);
+      expect(data.service_days).toBe(1);
       expect(data.calculation_snapshot).toBeDefined();
       expect(data.calculation_snapshot.statutory_policy).toBe("SA_LABOR_LAW_ARTICLES_84_85");
     });
@@ -504,6 +595,9 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
       expect(Number(row.eosb_amount)).toBe(27020.25);
       expect(Number(row.leave_payout_amount)).toBe(6750);
       expect(Number(row.net_settlement_amount)).toBe(33770.25);
+      expect(row.service_years).toBe(4);
+      expect(row.service_months).toBe(0);
+      expect(row.service_days).toBe(1);
       expect(row.calculation_snapshot).toBeDefined();
       expect(row.calculation_snapshot.employee_no).toBe("EMP-002");
 
@@ -512,6 +606,90 @@ describe.sequential("Prompt 15 Final Closure: 3 Verified Production Blockers Con
         SELECT * FROM public.payroll_audit_logs WHERE action = 'settlement_created';
       `);
       expect(audit.rows.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("2.6a persists unpaid leave days and uses compensation effective on the termination date", async () => {
+      await asUser(userHrAdminA);
+
+      const preview = await db.query<any>(`
+        SELECT public.calculate_final_settlement_atomic(
+          '${empIdSaudiA}'::uuid,
+          '2026-08-31'::date,
+          'contract_expiration',
+          10
+        ) AS result;
+      `);
+      const previewData = preview.rows[0].result;
+      expect(previewData.total_monthly_wage).toBe(13500);
+      expect(previewData.calculation_snapshot.service_days).toBe(1451);
+      expect(previewData.service_years).toBe(3);
+      expect(previewData.service_months).toBe(11);
+      expect(previewData.service_days).toBe(26);
+
+      const created = await db.query<any>(`
+        SELECT public.create_final_settlement_atomic(
+          jsonb_build_object(
+            'employee_id', '${empIdSaudiA}',
+            'termination_date', '2026-08-31',
+            'separation_type', 'contract_expiration',
+            'unpaid_leave_days', 10
+          )
+        ) AS result;
+      `);
+      const settlementId = created.rows[0].result.settlement_id;
+      const persisted = await db.query<any>(`
+        SELECT service_years, service_months, service_days, total_service_years_decimal, calculation_snapshot
+        FROM public.settlements WHERE id = '${settlementId}'::uuid;
+      `);
+      expect(persisted.rows[0].service_years).toBe(3);
+      expect(persisted.rows[0].service_months).toBe(11);
+      expect(persisted.rows[0].service_days).toBe(26);
+      expect(persisted.rows[0].calculation_snapshot.service_days).toBe(1451);
+    });
+
+    it("2.6b refuses to lock a payroll run when a due loan installment is missing from its deduction", async () => {
+      await asUser(userHrAdminA);
+      await db.exec(`
+        INSERT INTO public.payroll_runs (id, company_id, period_year, period_month, status)
+        VALUES ('${payrollRunLoanMismatch}', '${companyA}', 2026, 8, 'approved');
+        INSERT INTO public.payroll_run_employees (
+          payroll_run_id, company_id, employee_id, employee_no, employee_name_ar, loan_installment
+        ) VALUES (
+          '${payrollRunLoanMismatch}', '${companyA}', '${empIdLoanA}', 'EMP-003', 'خالد العتيبي', 0
+        );
+        INSERT INTO public.loan_installments (loan_id, employee_id, principal_amount, due_payroll_period)
+        SELECT id, '${empIdLoanA}', 2000, '2026-08'
+        FROM public.loans WHERE employee_id = '${empIdLoanA}';
+      `);
+
+      await expect(db.query(`SELECT public.lock_payroll_run_atomic('${payrollRunLoanMismatch}');`))
+        .rejects.toThrow(/لا تتطابق استقطاعات السلف/);
+
+      const state = await db.query<any>(`
+        SELECT pr.status, li.status AS installment_status
+        FROM public.payroll_runs pr
+        JOIN public.loan_installments li ON li.due_payroll_period = '2026-08'
+        WHERE pr.id = '${payrollRunLoanMismatch}';
+      `);
+      expect(state.rows[0].status).toBe("approved");
+      expect(state.rows[0].installment_status).toBe("pending");
+    });
+
+    it("2.6c allows reimbursement confirmation from the submitted stage after finance approval", async () => {
+      await asUser(userPayrollOfficerA);
+      await db.exec(`
+        INSERT INTO public.reimbursement_batches (id, company_id, payment_status)
+        VALUES ('d0000000-0000-0000-0000-000000000001', '${companyA}', 'submitted');
+        UPDATE public.reimbursement_batches
+        SET payment_status = 'confirmed_paid'
+        WHERE id = 'd0000000-0000-0000-0000-000000000001';
+      `);
+
+      const result = await db.query<any>(`
+        SELECT payment_status FROM public.reimbursement_batches
+        WHERE id = 'd0000000-0000-0000-0000-000000000001';
+      `);
+      expect(result.rows[0].payment_status).toBe("confirmed_paid");
     });
 
     it("2.7 Direct INSERT into public.settlements is denied by RLS policy", async () => {

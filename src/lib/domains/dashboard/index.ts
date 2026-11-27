@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../auth/AuthContext";
+import { useBootstrapData } from "../bootstrap/use-bootstrap";
 import { supabase } from "../../../integrations/supabase/client";
 import { queryKeys } from "../../query/query-keys";
 import type {
@@ -73,12 +74,14 @@ export function useDashboardAnalytics(
   filters: DashboardFilters,
   companyTimezone: string = "Asia/Riyadh",
 ): DashboardAnalyticsState {
-  const { session } = useAuth();
+  const { session, role } = useAuth();
+  const bootstrap = useBootstrapData();
   const isLive = Boolean(session);
   const queryClient = useQueryClient();
+  const scope = { companyId: bootstrap.company?.id, userId: session?.user.id, role };
 
   const summaryQuery = useQuery<DashboardAnalytics, Error>({
-    queryKey: queryKeys.dashboard.summary({ start: filters.startDate, end: filters.endDate }),
+    queryKey: queryKeys.dashboard.summary({ start: filters.startDate, end: filters.endDate, ...scope }),
     queryFn: () => fetchDashboardSummary(filters.startDate, filters.endDate),
     enabled: isLive,
     staleTime: 2 * 60 * 1000,
@@ -90,14 +93,14 @@ export function useDashboardAnalytics(
       : 7;
 
   const trendQuery = useQuery<DashboardAttendanceTrend, Error>({
-    queryKey: queryKeys.dashboard.attendance({ anchor: filters.endDate, days: trendDays }),
+    queryKey: queryKeys.dashboard.attendance({ anchor: filters.endDate, days: trendDays, ...scope }),
     queryFn: () => fetchAttendanceTrend(filters.endDate, trendDays),
     enabled: isLive,
     staleTime: 2 * 60 * 1000,
   });
 
   const integrationQuery = useQuery<DashboardIntegrations, Error>({
-    queryKey: queryKeys.dashboard.integrations(),
+    queryKey: queryKeys.dashboard.integrations(scope),
     queryFn: fetchIntegrationHealth,
     enabled: isLive,
     staleTime: 5 * 60 * 1000,
@@ -109,7 +112,7 @@ export function useDashboardAnalytics(
 
   const refetchTrend = () => {
     void queryClient.invalidateQueries({
-      queryKey: queryKeys.dashboard.attendance({ anchor: filters.endDate, days: trendDays }),
+      queryKey: queryKeys.dashboard.attendance({ anchor: filters.endDate, days: trendDays, ...scope }),
     });
   };
 

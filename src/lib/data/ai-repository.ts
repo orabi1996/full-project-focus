@@ -24,6 +24,7 @@ import { getAllExtendedEmployees } from "../domains/employees/extended-employee-
 import { METRIC_CATALOG } from "./reports-repository";
 import { searchCountryLaborRegulations } from "../ai/labor-news-and-country-regulations";
 import { parseEmployeeDetailsFromText } from "../ai/ocr-employee-extractor";
+import type { UserRole } from "../../types";
 
 // ============================================================================
 // 1. SMART REPORT ANALYSIS TYPES, CATALOG & AI PROVIDER CONFIG
@@ -36,21 +37,27 @@ export interface AIProviderConfig {
 }
 
 const AI_CONFIG_KEY = "madarx_ai_provider_config_v2";
+let sessionAIProviderConfig: AIProviderConfig = { provider: "built_in" };
 
 export function loadAIProviderConfig(): AIProviderConfig {
-  if (typeof window === "undefined") return { provider: "built_in" };
+  if (typeof window === "undefined") return sessionAIProviderConfig;
   try {
     const raw = localStorage.getItem(AI_CONFIG_KEY);
-    return raw ? (JSON.parse(raw) as AIProviderConfig) : { provider: "built_in" };
+    // API keys used to be persisted in localStorage. Remove that legacy value: it is
+    // readable by any script running in the origin and must be entered per session.
+    if (raw) localStorage.removeItem(AI_CONFIG_KEY);
+    return sessionAIProviderConfig;
   } catch {
     return { provider: "built_in" };
   }
 }
 
 export function saveAIProviderConfig(config: AIProviderConfig): void {
+  sessionAIProviderConfig = config;
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
+    // Never store provider credentials or provider selection in browser storage.
+    localStorage.removeItem(AI_CONFIG_KEY);
   } catch {
     // ignore quota issues
   }
@@ -65,10 +72,10 @@ export async function callExternalLLM(
     const apiKey = config.apiKey?.trim();
     if (!apiKey) throw new Error("يرجى إدخال مفتاح Google Gemini API أولاً.");
     const model = config.model || "gemini-1.5-flash";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       body: JSON.stringify({
         contents: [
           {
@@ -155,45 +162,39 @@ export async function callExternalLLM(
 }
 
 export function buildSystemPromptForLLM(app: Partial<AppContextType>): string {
-  const employees = app.employees ?? [];
-  const empCount = employees.length;
-  const saudiCount = employees.filter((e) => e.nationality === "سعودي").length;
-  const orgUnits = app.orgUnits ?? [];
-  const deptLines = orgUnits
-    .slice(0, 12)
-    .map((d) => {
-      const n = employees.filter((e) => e.departmentId === d.id).length;
-      return `- ${d.nameAr}: ${n} موظف`;
-    })
-    .join("\n");
-  const totalPayroll = employees.reduce(
-    (s, e) =>
-      s +
-      (Number(e.basicSalary) || 0) +
-      (Number(e.housingAllowance) || 0) +
-      (Number(e.transportAllowance) || 0) +
-      (Number(e.otherAllowances) || 0),
-    0
-  );
-  const sample = employees
-    .slice(0, 25)
-    .map((e) => `${e.employeeNo} | ${e.firstNameAr} ${e.lastNameAr} | ${e.jobTitleAr} | ${e.nationality} | ${e.status}`)
-    .join("\n");
-  return `أنت "مساعد مدار إكس الذكي": مساعد شخصي لمدير الموارد البشرية داخل نظام مدار إكس (MadarX)، ومطلع على بيانات النظام الحية أدناه.
+  void app;
+  return `أنت "مساعد مدار إكس الذكي": مساعد عام داخل نظام الموارد البشرية MadarX.
 تتحدث بحرية وطلاقة مثل ChatGPT: تجيب عن أي سؤال عام أو إداري أو تقني أو كتابي، وتناقش وتقترح وتصيغ وتحلل، وبلهجة ودودة مختصرة وواضحة.
-عندما يتعلق السؤال بالنظام فاعتمد على البيانات التالية فقط ولا تخترع أرقاماً غير موجودة، وإن لم تتوفر البيانات فقل ذلك صراحة.
-الدول المدعومة في النظام: السعودية، مصر، الإمارات، قطر، الكويت، البحرين، عُمان (تعرف أنظمة العمل ومكاتب العمل والتأمينات لكل منها).
-قدرات النظام التي يمكنك توجيه المستخدم إليها: إضافة موظف بالنص أو الصوت أو صورة (OCR) مع بطاقة اعتماد، تقارير 360° (رواتب، حضور، إجازات، عقود، توطين)، صياغة الخطابات الرسمية، حاسبة نهاية الخدمة.
-
-## بيانات النظام الحالية
-- عدد الموظفين: ${empCount} (سعوديون: ${saudiCount})
-- إجمالي الرواتب الشهرية التقريبي: ${totalPayroll.toLocaleString("en-US")}
-- الأقسام:
-${deptLines || "- لا توجد بيانات أقسام"}
-- عينة من الموظفين (رقم | الاسم | الوظيفة | الجنسية | الحالة):
-${sample || "- لا يوجد موظفون"}
-
+لا تملك وصولاً إلى بيانات المنشأة أو الموظفين من خلال هذا المحرك. لا تدّعِ الاطلاع على بيانات النظام، ولا تقدّم رأياً قانونياً نهائياً؛ اطلب الرجوع إلى السياسة المعتمدة أو مختص عند الحاجة.
 استخدم العربية وتنسيق Markdown عند الحاجة، وكن عملياً ومباشراً.`;
+}
+
+/** Prevent accidental employee identifiers from leaving the browser via an optional LLM. */
+export function containsEmployeeSensitiveContent(
+  text: string,
+  employees: AppContextType["employees"] = [],
+): boolean {
+  const normalized = text.toLocaleLowerCase();
+  if (
+    /\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b/i.test(text) ||
+    /\b(?:sa\d{2}[ -]?(?:\d[ -]?){18}|\d{10})\b/i.test(text) ||
+    /\b(?:\+?\d[\d ()-]{7,}\d)\b/.test(text)
+  ) return true;
+
+  return employees.some((employee) => {
+    const identifiers = [
+      employee.employeeNo,
+      employee.nationalIdOrIqama,
+      employee.email,
+      employee.iban,
+      `${employee.firstNameAr} ${employee.lastNameAr}`,
+      `${employee.firstNameEn || ""} ${employee.lastNameEn || ""}`,
+    ];
+    return identifiers.some((value) => {
+      const identifier = String(value ?? "").trim().toLocaleLowerCase();
+      return identifier.length >= 5 && normalized.includes(identifier);
+    });
+  });
 }
 
 export type SmartReportDomainId =
@@ -1192,7 +1193,8 @@ ${recLines}`;
 
 export function handleSystemOperationalAgentQuery(
   query: string,
-  app: Partial<AppContextType>
+  app: Partial<AppContextType>,
+  actorRole: UserRole = app.currentRole ?? "employee"
 ): { responseText: string; intent: string; metadata?: Record<string, unknown> } | null {
   const q = query.trim().toLowerCase();
   const employees = app.employees ?? [];
@@ -1205,6 +1207,11 @@ export function handleSystemOperationalAgentQuery(
   const jobOpenings = app.jobOpenings ?? [];
   const candidates = app.candidates ?? [];
   const totalEmp = employees.length;
+  const isRole = (...roles: UserRole[]) => roles.includes(actorRole);
+  const denied = (intent: string) => ({
+    intent,
+    responseText: "لا تملك صلاحية الاطلاع على هذه البيانات التشغيلية من خلال المساعد الذكي.",
+  });
 
   // 1. PROBATION EMPLOYEES & STATUS (فترة التجربة)
   const isProbationQuery =
@@ -1234,6 +1241,7 @@ export function handleSystemOperationalAgentQuery(
       q === "موظفي فترة التجربة");
 
   if (isProbationQuery) {
+    if (!isRole("super_admin", "hr_manager", "auditor")) return denied("probation_inquiry");
     const probationEmps = employees.filter((e) => e.status === "probation");
     if (probationEmps.length === 0) {
       return {
@@ -1308,6 +1316,7 @@ ${rows}
       (q.includes("مين") || q.includes("اليوم") || q.includes("النهاردة") || q.includes("عرض") || q.includes("حالات")));
 
   if (isAttendanceOperationalQuery) {
+    if (!isRole("super_admin", "hr_manager", "attendance_officer", "auditor")) return denied("attendance_operational");
     const absents = attendanceRecords.filter((a) => a.status === "absent");
     const lates = attendanceRecords.filter((a) => a.status === "late" || (a.lateMinutes && a.lateMinutes > 0));
     const presents = attendanceRecords.filter((a) => a.status === "present");
@@ -1374,6 +1383,7 @@ ${lateLines}
         q.includes("فين")));
 
   if (isWorkflowOperationalQuery) {
+    if (!isRole("super_admin", "hr_manager", "auditor")) return denied("workflow_operational");
     const pendingReqs = requests.filter((r) => r.status === "pending");
     if (pendingReqs.length === 0) {
       return {
@@ -1430,6 +1440,7 @@ ${reqLines}
       !q.includes("كم يوم"));
 
   if (isLeaveOperationalQuery) {
+    if (!isRole("super_admin", "hr_manager", "auditor")) return denied("leaves_operational");
     const onLeaveEmps = employees.filter((e) => e.status === "on_leave");
     if (onLeaveEmps.length === 0) {
       return {
@@ -1481,6 +1492,7 @@ ${leaveLines}
     q.includes("الإقامات المنتهية");
 
   if (isDocsOperationalQuery) {
+    if (!isRole("super_admin", "hr_manager", "auditor")) return denied("documents_operational");
     const expiringDocs = employeeDocs.filter((d) => d.status === "expiring_soon" || d.status === "expired");
     if (expiringDocs.length === 0) {
       return {
@@ -1633,6 +1645,7 @@ ${deptRows}
     !q.includes("تقرير");
 
   if (isDirectPayrollQuery) {
+    if (!isRole("super_admin", "hr_manager", "payroll_officer", "finance_officer", "auditor")) return denied("payroll_operational");
     const totalBasic = employees.reduce((s, e) => s + (Number(e.basicSalary) || 0), 0);
     const totalHousing = employees.reduce((s, e) => s + (Number(e.housingAllowance) || 0), 0);
     const totalTransport = employees.reduce((s, e) => s + (Number(e.transportAllowance) || 0), 0);
@@ -1686,6 +1699,7 @@ ${topEarners}
       q.includes("كام"));
 
   if (isLoansQuery) {
+    if (!isRole("super_admin", "hr_manager", "payroll_officer", "finance_officer", "auditor")) return denied("loans_operational");
     if (loans.length === 0) {
       return {
         intent: "loans_operational",
@@ -1725,6 +1739,7 @@ ${loanLines}`,
       q.includes("الأجهزة"));
 
   if (isAssetsQuery) {
+    if (!isRole("super_admin", "hr_manager", "auditor")) return denied("assets_operational");
     if (assets.length === 0) {
       return {
         intent: "assets_operational",
@@ -1765,6 +1780,7 @@ ${assetLines}`,
       q.includes("جديدة"));
 
   if (isRecruitmentQuery) {
+    if (!isRole("super_admin", "hr_manager", "recruiter", "auditor")) return denied("recruitment_operational");
     if (jobOpenings.length === 0) {
       return {
         intent: "recruitment_operational",
@@ -1807,6 +1823,7 @@ ${jobLines}
     q.includes("الملاحظات العاجلة");
 
   if (isDiagnosticQuery) {
+    if (!isRole("super_admin", "hr_manager", "auditor")) return denied("system_diagnostic_operational");
     const missingIban = employees.filter((e) => !e.iban || e.iban.length < 15);
     const pendingReqs = requests.filter((r) => r.status === "pending");
     const expiringDocs = employeeDocs.filter((d) => d.status === "expiring_soon" || d.status === "expired");
@@ -1858,7 +1875,7 @@ ${issues.join("\n\n")}
 export function generateSmartAssistantResponse(
   query: string,
   app: Partial<AppContextType>,
-  userRole: string = "hr_manager"
+  userRole: string = "employee"
 ): {
   responseText: string;
   intent: string;
@@ -1869,6 +1886,18 @@ export function generateSmartAssistantResponse(
   const intent = detectIntent(query);
   const employees = app.employees ?? [];
   const extendedRecords = getAllExtendedEmployees();
+  const actorId = app.currentUser?.id;
+  const role = userRole as UserRole;
+
+  if (
+    intent === "payroll_summary" &&
+    !["super_admin", "hr_manager", "payroll_officer", "finance_officer", "auditor"].includes(role)
+  ) {
+    return {
+      intent,
+      responseText: "ليس لديك صلاحية الاطلاع على ملخصات الرواتب من خلال المساعد الذكي.",
+    };
+  }
 
   // 0. A: Natural Language & Voice-Driven Employee Creation Intent
   const isEmployeeCreateIntent =
@@ -1887,6 +1916,12 @@ export function generateSmartAssistantResponse(
       (q.includes("راتب") || q.includes("راتبه") || q.includes("هوية") || q.includes("قسم")));
 
   if (isEmployeeCreateIntent) {
+    if (!["super_admin", "hr_manager"].includes(role)) {
+      return {
+        intent: "employee_create_draft",
+        responseText: "لا تملك صلاحية إعداد مسودة إضافة موظف من خلال المساعد الذكي.",
+      };
+    }
     const draft = parseEmployeeDetailsFromText(query, app.orgUnits ?? []);
     const totalPkg = draft.basicSalary + draft.housingAllowance + draft.transportAllowance + draft.otherAllowances;
     return {
@@ -1936,6 +1971,20 @@ ${JSON.stringify(draft)}
   });
 
   if (matchedEmployee) {
+    const canSearchEmployees = ["super_admin", "hr_manager", "line_manager", "auditor"].includes(role);
+    const isSelf = Boolean(actorId && actorId === matchedEmployee.id);
+    const isDirectReport = Boolean(actorId && matchedEmployee.managerId === actorId);
+    if (
+      (!canSearchEmployees && !(role === "employee" && isSelf)) ||
+      (role === "employee" && !isSelf) ||
+      (role === "line_manager" && !isDirectReport)
+    ) {
+      return {
+        intent: "employee_search",
+        responseText: "لا تملك صلاحية الاطلاع على ملف هذا الموظف عبر المساعد الذكي.",
+      };
+    }
+
     const ext = extendedRecords[matchedEmployee.id];
     const dept = (app.orgUnits ?? []).find((d) => d.id === matchedEmployee.departmentId);
     const leaveBal = (app.leaveBalances ?? []).find((b) => b.employeeId === matchedEmployee.id) as any;
@@ -1948,6 +1997,16 @@ ${JSON.stringify(draft)}
     const remDays = leaveBal ? (leaveBal.remainingDays ?? leaveBal.annualRemaining ?? 21) : (ext?.contractAnnualLeaveDays ?? 21);
     const usedDays = leaveBal ? (leaveBal.usedDays ?? leaveBal.annualUsed ?? 0) : 0;
     const entDays = leaveBal ? (leaveBal.entitledDays ?? leaveBal.annualEntitlement ?? 21) : (ext?.contractAnnualLeaveDays ?? 21);
+    const canViewSalary = ["super_admin", "hr_manager", "payroll_officer", "finance_officer", "auditor"].includes(role);
+    const canViewBankDetails = ["super_admin", "payroll_officer", "finance_officer"].includes(role);
+    const salarySection = canViewSalary
+      ? `• **الراتب الأساسي:** ${(Number(matchedEmployee.basicSalary) || 0).toLocaleString("en-US")} ر.س
+• **بدل السكن:** ${(Number(matchedEmployee.housingAllowance) || 0).toLocaleString("en-US")} ر.س | **بدل النقل:** ${(Number(matchedEmployee.transportAllowance) || 0).toLocaleString("en-US")} ر.س
+• **إجمالي الراتب الشهري:** ${totalSalary.toLocaleString("en-US")} ر.س`
+      : "• البيانات المالية مخفية حسب صلاحيات الدور.";
+    const bankSection = canViewBankDetails
+      ? `• **البنك والآيبان:** ${matchedEmployee.bankName || "غير محدد"} — \`${matchedEmployee.iban || "غير مسجل"}\` ${ext?.lockBankData ? "(تعديل الحساب مقفل 🔒)" : ""}`
+      : "• البيانات البنكية مخفية حسب صلاحيات الدور.";
 
     return {
       intent: "employee_search",
@@ -1961,10 +2020,8 @@ ${JSON.stringify(draft)}
 • **تاريخ المباشرة:** ${matchedEmployee.hireDate} | **الجنسية:** ${matchedEmployee.nationality}
 
 **2. الحزمة المالية والبيانات البنكية:**
-• **الراتب الأساسي:** ${(Number(matchedEmployee.basicSalary) || 0).toLocaleString("en-US")} ر.س
-• **بدل السكن:** ${(Number(matchedEmployee.housingAllowance) || 0).toLocaleString("en-US")} ر.س | **بدل النقل:** ${(Number(matchedEmployee.transportAllowance) || 0).toLocaleString("en-US")} ر.س
-• **إجمالي الراتب الشهري:** ${totalSalary.toLocaleString("en-US")} ر.س
-• **البنك والآيبان:** ${matchedEmployee.bankName || "غير محدد"} — \`${matchedEmployee.iban || "غير مسجل"}\` ${ext?.lockBankData ? "(تعديل الحساب مقفل 🔒)" : ""}
+${salarySection}
+${bankSection}
 
 **3. العقد والإجازات والحضور:**
 • **نوع العقد:** ${ext?.contractDurationType ? `عقد قوى (${ext.contractDurationType})` : "عقد عمل معتمد"} | **أيام العمل الأسبوعية:** ${ext?.weeklyWorkDays ?? 5} أيام (راحة أسبوعية: ${ext?.weeklyRestDays ?? 2} يوم)
@@ -1974,7 +2031,7 @@ ${JSON.stringify(draft)}
   }
 
   // 1.5 Dedicated Internal HR Operations Agent (Direct Live System Queries)
-  const operationalAnswer = handleSystemOperationalAgentQuery(query, app);
+  const operationalAnswer = handleSystemOperationalAgentQuery(query, app, role);
   if (operationalAnswer) {
     return {
       intent: operationalAnswer.intent,
@@ -2228,7 +2285,7 @@ function parseAndCalculateEOSB(query: string): EOSBCalculationResult | null {
 export function generateSmartGeneralResponse(
   query: string,
   app: Partial<AppContextType>,
-  userRole: string = "hr_manager"
+  userRole: string = "employee"
 ): string {
   const q = query.trim().toLowerCase();
   const employees = app.employees ?? [];
@@ -2236,7 +2293,7 @@ export function generateSmartGeneralResponse(
   const empCount = employees.length;
 
   // Check if query targets live system operational data (Probation, Attendance, Workflow, etc.)
-  const opAnswer = handleSystemOperationalAgentQuery(query, app);
+  const opAnswer = handleSystemOperationalAgentQuery(query, app, userRole as UserRole);
   if (opAnswer) {
     return opAnswer.responseText;
   }
@@ -3244,12 +3301,10 @@ export function useSendMessage() {
     mutationFn: async ({
       conversationId,
       content,
-      userRole = "hr_manager",
       metadata,
     }: {
       conversationId: string;
       content: string;
-      userRole?: string;
       metadata?: Record<string, unknown>;
     }) => {
       const startTime = Date.now();
@@ -3283,7 +3338,7 @@ export function useSendMessage() {
       const res = generateSmartAssistantResponse(
         sanitization.sanitizedPrompt,
         app,
-        userRole
+        app.currentRole
       );
       responseText = res.responseText;
       intent = res.intent;
@@ -3294,15 +3349,18 @@ export function useSendMessage() {
         const cfg = loadAIProviderConfig();
         if (cfg.provider !== "built_in" && cfg.apiKey?.trim()) {
           try {
-            const history = (loadStoredMessages()[conversationId] || [])
-              .slice(-8)
-              .map((m) => `${m.role === "user" ? "المستخدم" : "المساعد"}: ${m.content.slice(0, 600)}`)
-              .join("\n");
-            const llmPrompt = history
-              ? `سياق المحادثة السابقة:\n${history}\n\nالرسالة الجديدة من المستخدم:\n${sanitization.sanitizedPrompt}`
-              : sanitization.sanitizedPrompt;
-            responseText = await callExternalLLM(llmPrompt, buildSystemPromptForLLM(app), cfg);
-            intent = "general_chat_llm";
+            if (containsEmployeeSensitiveContent(sanitization.sanitizedPrompt, app.employees)) {
+              responseText = `${res.responseText}\n\nلم أرسل هذا الطلب إلى مزود خارجي لأنه يتضمن بيانات قد تعرّف بموظف.`;
+            } else {
+              // External providers receive only the current general question and a static
+              // prompt; no system records, payroll aggregates, or stored conversation history.
+              responseText = await callExternalLLM(
+                sanitization.sanitizedPrompt,
+                buildSystemPromptForLLM({}),
+                cfg
+              );
+              intent = "general_chat_llm";
+            }
           } catch (err: any) {
             responseText = `${res.responseText}\n\n⚠️ تعذر الاتصال بالمحرك الخارجي (${err?.message || "خطأ غير معروف"}) فتم الرد بالمحرك المدمج.`;
           }

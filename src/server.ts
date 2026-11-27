@@ -137,13 +137,8 @@ export default {
       await processQueuedBackgroundJobs(supabaseAdmin, { batchSize: 20 });
       await executeAutomatedDailyAttendanceRollup(supabaseAdmin);
 
-      const now = new Date(event?.scheduledTime || Date.now());
-      if (now.getUTCDate() === 1) {
-        await executeAutomatedMonthlyLeaveAccrual(supabaseAdmin, {
-          year: now.getUTCFullYear(),
-          month: now.getUTCMonth() + 1,
-        });
-      }
+      // Check daily, but only accrue on each tenant's local first day of month.
+      await executeAutomatedMonthlyLeaveAccrual(supabaseAdmin, { onlyOnLocalMonthStart: true });
     } catch (cronErr) {
       console.error("[CloudflareScheduled] Cron handler error:", cronErr);
     }

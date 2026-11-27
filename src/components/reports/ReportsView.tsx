@@ -51,8 +51,6 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  AreaChart,
-  Area,
 } from "recharts";
 import { IconSymbol } from "../ui/IconSymbol";
 import { Button } from "../ui/button";
@@ -390,27 +388,10 @@ export const ReportsView: React.FC = () => {
     exportReportDataToCsv(`تقرير_مخصص_${builderDomainKey}`, filteredRows, labels);
   };
 
-  // Trend Charts Mock Data Grounded in Real Kpis
+  // Show only the current snapshot; historical points must come from dated records.
   const headcountTrendData = useMemo(() => {
-    const total = kpis?.totalHeadcount || 10;
-    const saudi = kpis?.saudiCount || 4;
-    const expat = kpis?.expatCount || 6;
-    return [
-      { month: "يناير", saudi: Math.max(1, saudi - 2), expat: Math.max(1, expat - 1) },
-      { month: "فبراير", saudi: Math.max(1, saudi - 1), expat: expat },
-      { month: "مارس", saudi, expat },
-    ];
-  }, [kpis]);
-
-  const attendanceTrendData = useMemo(() => {
-    const attRate = kpis?.attendanceRate || 98;
-    return [
-      { day: "الأحد", rate: Math.min(100, attRate - 1) },
-      { day: "الإثنين", rate: Math.min(100, attRate) },
-      { day: "الثلاثاء", rate: Math.min(100, attRate + 0.5) },
-      { day: "الأربعاء", rate: Math.min(100, attRate - 0.5) },
-      { day: "الخميس", rate: attRate },
-    ];
+    if (!kpis) return [];
+    return [{ period: "الحالي", saudi: kpis.saudiCount, expat: kpis.expatCount }];
   }, [kpis]);
 
   return (
@@ -590,7 +571,7 @@ export const ReportsView: React.FC = () => {
               </div>
               <div className="mt-2">
                 <h4 className="text-xl font-black text-foreground font-mono font-tabular-nums">
-                  {isKpisLoading ? "—" : `${kpis?.attendanceRate || 0}%`}
+                  {isKpisLoading ? "—" : kpis?.attendanceRate == null ? "—" : `${kpis.attendanceRate}%`}
                 </h4>
                 <div className="flex items-center justify-between mt-1 text-[10px]">
                   <span className="text-amber-600 font-bold">{kpis?.latenessCount || 0} تأخير</span>
@@ -753,18 +734,18 @@ export const ReportsView: React.FC = () => {
             <div className="rounded-3xl border bg-card p-5 shadow-xs">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="font-black text-sm text-foreground">توزيع القوى العاملة (سعودي / مقيم)</h3>
-                  <p className="text-[11px] text-muted-foreground">تطور التوطين والكوادر عبر الأشهر</p>
+                  <h3 className="font-black text-sm text-foreground">التركيبة الحالية للقوى العاملة</h3>
+                  <p className="text-[11px] text-muted-foreground">أعداد الموظفين حسب الجنسية في الفترة الحالية</p>
                 </div>
                 <Badge variant="outline" className="text-[10px] font-bold">
-                  تحديث فوري
+                  لقطة حالية
                 </Badge>
               </div>
               <div className="h-60 w-full" dir="ltr">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={headcountTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
-                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                    <XAxis dataKey="period" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip contentStyle={{ fontSize: 12, borderRadius: 12, direction: "rtl" }} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
@@ -779,29 +760,24 @@ export const ReportsView: React.FC = () => {
             <div className="rounded-3xl border bg-card p-5 shadow-xs">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="font-black text-sm text-foreground">معدل الانضباط الأسبوعي (%)</h3>
-                  <p className="text-[11px] text-muted-foreground">نسبة الالتزام بالبصمة وحضور الورديات</p>
+                  <h3 className="font-black text-sm text-foreground">معدل الحضور للفترة المحددة</h3>
+                  <p className="text-[11px] text-muted-foreground">ملخص للفترة، دون عرض اتجاه يومي غير متاح</p>
                 </div>
                 <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 bg-emerald-50">
-                  {kpis?.attendanceRate || 98}% متوسط
+                  {kpis?.attendanceRate == null ? "لا تتوفر بيانات" : `${kpis.attendanceRate}%`}
                 </Badge>
               </div>
               <div className="h-60 w-full" dir="ltr">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={attendanceTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="attGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#00A3FF" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#00A3FF" stopOpacity={0.0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
-                    <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                    <YAxis domain={[90, 100]} tick={{ fontSize: 11 }} />
-                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 12, direction: "rtl" }} />
-                    <Area type="monotone" dataKey="rate" name="نسبة الحضور" stroke="#0066FF" strokeWidth={2.5} fill="url(#attGrad)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div className="flex h-full min-h-40 items-center justify-center text-center">
+                  <div>
+                    <div className="text-3xl font-black tabular-nums">
+                      {kpis?.attendanceRate == null ? "—" : `${kpis.attendanceRate}%`}
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {kpis?.attendanceRate == null ? "لا توجد سجلات حضور كافية لهذه الفترة" : "المتوسط المحسوب من سجلات الحضور"}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

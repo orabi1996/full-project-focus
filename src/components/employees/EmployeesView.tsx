@@ -352,15 +352,16 @@ export const EmployeesView: React.FC = () => {
 
   const [newEmp, setNewEmp] = useState(createEmptyNewEmp());
 
-  // Real-time Live Profile Completion Score for the Onboarding Wizard (UX Gamification)
+  // Readiness score mirrors the fields enforced by onboarding validation.
   const wizardLiveScore = useMemo(() => {
     let score = 0;
     if (newEmp.firstNameAr?.trim() && newEmp.lastNameAr?.trim()) score += 20;
-    if (newEmp.nationalIdOrIqama?.trim()) score += 20;
-    if (newEmp.hireDate && (newEmp.departmentId || newEmp.mainDepartment)) score += 20;
-    if (newEmp.phone?.trim() || newEmp.email?.trim()) score += 15;
-    if (Number(newEmp.basicSalary || 0) > 0) score += 15;
-    if (newEmp.contractDurationType) score += 10;
+    if (newEmp.nationality?.trim() && newEmp.nationalIdOrIqama?.trim()) score += 20;
+    if (newEmp.hireDate) score += 15;
+    if (newEmp.jobTitleAr?.trim()) score += 15;
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmp.email?.trim() || "")) score += 10;
+    if (Number.isFinite(Number(newEmp.basicSalary)) && Number(newEmp.basicSalary) > 0) score += 10;
+    if (["fixed_term", "indefinite", "ajeer", "part_time", "seasonal"].includes(newEmp.contractDurationType)) score += 10;
     return Math.min(100, score);
   }, [newEmp]);
 
@@ -525,27 +526,49 @@ export const EmployeesView: React.FC = () => {
   };
 
   // Add Employee Submission (5-Step Enterprise Onboarding Wizard)
+  const validateWizardStep = (step: number) => {
+    if (step === 1) {
+      if (!newEmp.firstNameAr.trim() || !newEmp.lastNameAr.trim()) {
+        toast.error("أدخل الاسم الأول واسم العائلة باللغة العربية");
+        return false;
+      }
+      if (!newEmp.nationality.trim() || !newEmp.nationalIdOrIqama.trim()) {
+        toast.error("أدخل الجنسية ورقم الهوية أو الإقامة");
+        return false;
+      }
+    }
+    if (step === 2 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmp.email.trim())) {
+      toast.error("أدخل بريدًا إلكترونيًا صحيحًا لتسجيل دخول الموظف");
+      return false;
+    }
+    if (step === 3) {
+      if (!newEmp.hireDate) {
+        toast.error("حدد تاريخ التعيين");
+        return false;
+      }
+      if (!newEmp.jobTitleAr.trim()) {
+        toast.error("أدخل المسمى الوظيفي المعتمد في العقد");
+        return false;
+      }
+    }
+    if (step === 4 && !["fixed_term", "indefinite", "ajeer", "part_time", "seasonal"].includes(newEmp.contractDurationType)) {
+      toast.error("حدد نوع العقد");
+      return false;
+    }
+    if (step === 5 && (!Number.isFinite(Number(newEmp.basicSalary)) || Number(newEmp.basicSalary) <= 0)) {
+      toast.error("أدخل راتبًا أساسيًا أكبر من صفر");
+      return false;
+    }
+    return true;
+  };
+
   const handleCreateEmployee = async () => {
     if (isSaving) return;
-    if (!newEmp.firstNameAr || !newEmp.lastNameAr) {
-      toast.error("يرجى إدخال الاسم الأول واسم العائلة باللغة العربية");
-      setWizardStep(1);
-      return;
-    }
-    if (!newEmp.nationality.trim()) {
-      toast.error("يرجى تحديد الجنسية");
-      setWizardStep(1);
-      return;
-    }
-    if (!newEmp.hireDate) {
-      toast.error("يرجى تحديد تاريخ التعيين في خطوة العمل والتعيين");
-      setWizardStep(3);
-      return;
-    }
-    if (!newEmp.email) {
-      toast.error("يرجى إدخال البريد الإلكتروني في خطوة بيانات التواصل");
-      setWizardStep(2);
-      return;
+    for (const step of [1, 2, 3, 4, 5]) {
+      if (!validateWizardStep(step)) {
+        setWizardStep(step);
+        return;
+      }
     }
 
     const resolvedContractType: ContractType =
@@ -1880,7 +1903,11 @@ export const EmployeesView: React.FC = () => {
                   <button
                     key={item.step}
                     type="button"
-                    onClick={() => setWizardStep(item.step)}
+                    onClick={() => {
+                      if (item.step <= wizardStep) setWizardStep(item.step);
+                      else if (item.step === wizardStep + 1 && validateWizardStep(wizardStep)) setWizardStep(item.step);
+                    }}
+                    aria-current={wizardStep === item.step ? "step" : undefined}
                     className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer text-start ${
                       wizardStep === item.step
                         ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30 scale-[1.02]"
@@ -3746,7 +3773,7 @@ export const EmployeesView: React.FC = () => {
                 size="sm"
                 onClick={() => {
                   saveEmployeeExtendedFields(newEmp.employeeNo || `draft-${Date.now()}`, newEmp);
-                  toast.success("تم حفظ مسودة بيانات الموظف بنجاح في النظام!");
+                  toast.success("حُفظت المسودة على هذا الجهاز فقط");
                 }}
                 className="rounded-full text-xs font-bold gap-1.5 border-primary/30 text-primary hover:bg-primary/10 h-10 px-4 cursor-pointer"
               >
@@ -3767,7 +3794,9 @@ export const EmployeesView: React.FC = () => {
               {wizardStep < 5 ? (
                 <Button
                   size="sm"
-                  onClick={() => setWizardStep((prev) => prev + 1)}
+                  onClick={() => {
+                    if (validateWizardStep(wizardStep)) setWizardStep((prev) => prev + 1);
+                  }}
                   className="rounded-full text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 h-10 shadow-sm cursor-pointer gap-1.5"
                 >
                   <span>التالي (الخطوة {wizardStep + 1})</span>

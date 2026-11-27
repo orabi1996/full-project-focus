@@ -137,8 +137,9 @@ export default {
       await processQueuedBackgroundJobs(supabaseAdmin, { batchSize: 20 });
       await executeAutomatedDailyAttendanceRollup(supabaseAdmin);
 
-      // Check daily, but only accrue on each tenant's local first day of month.
-      await executeAutomatedMonthlyLeaveAccrual(supabaseAdmin, { onlyOnLocalMonthStart: true });
+      // Run the idempotent current-period RPC on every daily tick. This catches up
+      // periods missed during an outage; leave_accrual_runs prevents double credits.
+      await executeAutomatedMonthlyLeaveAccrual(supabaseAdmin);
     } catch (cronErr) {
       console.error("[CloudflareScheduled] Cron handler error:", cronErr);
     }

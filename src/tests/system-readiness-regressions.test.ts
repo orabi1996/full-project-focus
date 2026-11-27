@@ -53,4 +53,14 @@ describe("System readiness regressions", () => {
     expect(employees).toContain("حُفظت المسودة على هذا الجهاز فقط");
     expect(repository).toContain("الجنسية ورقم الهوية أو الإقامة إلزاميان");
   });
+
+  it("runs monthly leave accrual daily so an outage on month start is caught up idempotently", () => {
+    const server = read("../server.ts");
+    const cron = read("../lib/business/cron.functions.ts");
+    const accrual = read("../../supabase/migrations/20261127030000_enable_scoped_leave_accrual_cron.sql");
+    expect(server).toContain("await executeAutomatedMonthlyLeaveAccrual(supabaseAdmin);");
+    expect(server).not.toContain("onlyOnLocalMonthStart: true");
+    expect(accrual).toContain("FROM public.leave_accrual_runs");
+    expect(cron).toContain("p_period_month: options?.month ?? null");
+  });
 });

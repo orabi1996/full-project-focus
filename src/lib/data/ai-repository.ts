@@ -226,7 +226,7 @@ export interface SmartReportAnalysis {
   domainId: SmartReportDomainId;
   titleAr: string;
   subtitleAr: string;
-  healthScorePct: number;
+  healthScorePct: number | null;
   generatedAt: string;
   executiveSummary: string;
   kpis: SmartReportKpiCard[];
@@ -370,7 +370,8 @@ export function buildSmartReportAnalysis(
   const presentAtt = attendanceRecords.filter((a) => a.status === "present" || a.status === "late").length;
   const lateAtt = attendanceRecords.filter((a) => a.status === "late" || (a.lateMinutes ?? 0) > 0).length;
   const absentAtt = attendanceRecords.filter((a) => a.status === "absent").length;
-  const attendanceRatePct = totalAtt > 0 ? Math.round((presentAtt / totalAtt) * 1000) / 10 : 94.8;
+  const attendanceRatePct = totalAtt > 0 ? Math.round((presentAtt / totalAtt) * 1000) / 10 : null;
+  const attendanceRateLabel = attendanceRatePct === null ? "غير متاح" : `${attendanceRatePct}%`;
   const totalLateMinutes = attendanceRecords.reduce((sum, a) => sum + (Number(a.lateMinutes) || 0), 0);
   const totalOvertimeHours = overtimeRecords.reduce((sum, o) => sum + (Number(o.hours) || 0), 0);
   const pendingCorrections = attendanceCorrections.filter((c) => c.status === "pending").length;
@@ -380,20 +381,31 @@ export function buildSmartReportAnalysis(
     (r) => r.status === "submitted" || r.status === "pending_approval"
   );
   const approvedRequests = requests.filter((r) => r.status === "approved" || r.status === "completed");
-  const totalAnnualEntitlement = leaveBalances.reduce(
-    (s, b: any) => s + (Number(b.entitledDays ?? b.annualEntitlement) || 21),
-    0
-  );
-  const totalAnnualUsed = leaveBalances.reduce(
-    (s, b: any) => s + (Number(b.usedDays ?? b.annualUsed) || 0),
-    0
-  );
-  const totalAnnualRemaining = leaveBalances.reduce(
-    (s, b: any) => s + (Number(b.remainingDays ?? b.annualRemaining) || 0),
-    0
-  );
+  const sumCompleteLeaveField = (field: "entitledDays" | "annualEntitlement" | "usedDays" | "annualUsed" | "remainingDays" | "annualRemaining") => {
+    if (leaveBalances.length === 0) return null;
+    let total = 0;
+    for (const balance of leaveBalances as any[]) {
+      const rawValue = balance[field] ?? balance[
+        field === "entitledDays" ? "annualEntitlement" :
+          field === "usedDays" ? "annualUsed" : "annualRemaining"
+      ];
+      const value = Number(rawValue);
+      if (rawValue === null || rawValue === undefined || rawValue === "" || !Number.isFinite(value)) return null;
+      total += value;
+    }
+    return total;
+  };
+  const totalAnnualEntitlement = sumCompleteLeaveField("entitledDays");
+  const totalAnnualUsed = sumCompleteLeaveField("usedDays");
+  const totalAnnualRemaining = sumCompleteLeaveField("remainingDays");
   const leaveUtilizationPct =
-    totalAnnualEntitlement > 0 ? Math.round((totalAnnualUsed / totalAnnualEntitlement) * 100) : 42;
+    totalAnnualEntitlement !== null && totalAnnualEntitlement > 0 && totalAnnualUsed !== null
+      ? Math.round((totalAnnualUsed / totalAnnualEntitlement) * 100)
+      : null;
+  const leaveUtilizationLabel = leaveUtilizationPct === null ? "غير متاح" : `${leaveUtilizationPct}%`;
+  const annualEntitlementLabel = totalAnnualEntitlement === null ? "غير متاح" : `${totalAnnualEntitlement} يوم`;
+  const annualUsedLabel = totalAnnualUsed === null ? "غير متاح" : `${totalAnnualUsed} يوم`;
+  const annualRemainingLabel = totalAnnualRemaining === null ? "غير متاح" : `${totalAnnualRemaining} يوم`;
 
   // Documents & Contracts
   const expiringDocs = employeeDocuments.filter(
@@ -624,15 +636,15 @@ export function buildSmartReportAnalysis(
         domainId,
         titleAr: "تقرير تحليل الحضور والانصراف والورديات والعمل الإضافي",
         subtitleAr: "مؤشرات الانضباط اليومي، دقائق التأخير، ساعات العمل الإضافي، وطلبات تصحيح البصمة",
-        healthScorePct: Math.round(attendanceRatePct),
+        healthScorePct: attendanceRatePct === null ? null : Math.round(attendanceRatePct),
         generatedAt: nowIso,
-        executiveSummary: `تبلغ نسبة الانضباط والحضور العام في المنشأة ${attendanceRatePct}% عبر ${totalAtt} سجل حضور مسجل وموزع على ${shifts.length} ورديات عمل معتمدة. تم رصد ${lateAtt} حالة تأخير بإجمالي ${totalLateMinutes} دقيقة تأخير، و${absentAtt} حالة غياب، في حين بلغت ساعات العمل الإضافي المسجلة ${totalOvertimeHours} ساعة. كما يوجد حالياً ${pendingCorrections} طلبات لتصحيح سجلات البصمة بانتظار المراجعة.`,
+        executiveSummary: `معدل الانضباط والحضور العام: ${attendanceRatePct === null ? "غير متاح لعدم وجود سجلات حضور" : `${attendanceRatePct}%`} عبر ${totalAtt} سجل حضور مسجل وموزع على ${shifts.length} ورديات عمل معتمدة. تم رصد ${lateAtt} حالة تأخير بإجمالي ${totalLateMinutes} دقيقة تأخير، و${absentAtt} حالة غياب، في حين بلغت ساعات العمل الإضافي المسجلة ${totalOvertimeHours} ساعة. كما يوجد حالياً ${pendingCorrections} طلبات لتصحيح سجلات البصمة بانتظار المراجعة.`,
         kpis: [
           {
             label: "نسبة الانضباط والحضور",
-            value: `${attendanceRatePct}%`,
-            subtext: `${presentAtt} سجل حضور من أصل ${totalAtt}`,
-            status: attendanceRatePct >= 92 ? "good" : "warning",
+            value: attendanceRateLabel,
+            subtext: totalAtt === 0 ? "لا توجد سجلات حضور للفترة المعروضة" : `${presentAtt} سجل حضور من أصل ${totalAtt}`,
+            status: attendanceRatePct === null ? "info" : attendanceRatePct >= 92 ? "good" : "warning",
           },
           {
             label: "حالات ودقائق التأخير",
@@ -700,19 +712,19 @@ export function buildSmartReportAnalysis(
         subtitleAr: "تحليل شامل لأرصدة الإجازات السنوية، معدلات الاستهلاك، والطلبات العالقة في سلاسل الاعتماد",
         healthScorePct: pendingRequests.length <= 5 ? 92 : 79,
         generatedAt: nowIso,
-        executiveSummary: `تظهر سجلات أرصدة الإجازات في النظام إجمالي استحقاقات سنوية قدرها ${totalAnnualEntitlement} يوماً، تم استهلاك ${totalAnnualUsed} يوماً منها (${leaveUtilizationPct}%)، بينما يبلغ الرصيد المتبقي التراكمي للموظفين ${totalAnnualRemaining} يوماً. وفيما يخص سير العمل والطلبات الذاتية (Workflow)، يوجد إجمالي ${requests.length} طلب في النظام، منها ${pendingRequests.length} طلبات معلقة بانتظار الاعتماد و${approvedRequests.length} طلبات معتمدة.`,
+        executiveSummary: `بيانات الإجازات: إجمالي الاستحقاق السنوي ${annualEntitlementLabel}، والمستهلك ${annualUsedLabel} (${leaveUtilizationLabel})، والمتبقي ${annualRemainingLabel}. وفيما يخص سير العمل والطلبات الذاتية (Workflow)، يوجد إجمالي ${requests.length} طلب في النظام، منها ${pendingRequests.length} طلبات معلقة بانتظار الاعتماد و${approvedRequests.length} طلبات معتمدة.`,
         kpis: [
           {
             label: "إجمالي الرصيد المتبقي",
-            value: `${totalAnnualRemaining} يوم`,
-            subtext: `من أصل ${totalAnnualEntitlement} يوم استحقاق سنوي`,
+            value: annualRemainingLabel,
+            subtext: totalAnnualEntitlement === null ? "بيانات الاستحقاق السنوي غير مكتملة أو غير متاحة" : `من أصل ${totalAnnualEntitlement} يوم استحقاق سنوي`,
             status: "info",
           },
           {
             label: "نسبة استهلاك الإجازات",
-            value: `${leaveUtilizationPct}%`,
-            subtext: `${totalAnnualUsed} يوم مستهلك فعلياً`,
-            status: leaveUtilizationPct <= 75 ? "good" : "warning",
+            value: leaveUtilizationLabel,
+            subtext: totalAnnualUsed === null ? "بيانات الأيام المستهلكة غير مكتملة أو غير متاحة" : `${totalAnnualUsed} يوم مستهلك فعلياً`,
+            status: leaveUtilizationPct === null ? "info" : leaveUtilizationPct <= 75 ? "good" : "warning",
           },
           {
             label: "الطلبات المعلقة للاعتماد",
@@ -1011,17 +1023,19 @@ export function buildSmartReportAnalysis(
 
     case "executive_all":
     default: {
-      const overallHealth = Math.round((saudizationPct >= 30 ? 94 : 84) * 0.35 + attendanceRatePct * 0.35 + ibanReadinessPct * 0.3);
+      const overallHealth = attendanceRatePct === null
+        ? null
+        : Math.round((saudizationPct >= 30 ? 94 : 84) * 0.35 + attendanceRatePct * 0.35 + ibanReadinessPct * 0.3);
       return {
         domainId: "executive_all",
         titleAr: "التقرير التنفيذي الشامل لكل النظام (360° System Intelligence)",
         subtitleAr: "تحليل ذكي موحد يربط القوى العاملة، الرواتب، الحضور، الإجازات، العقود، والأداء في قراءة تنفيذية واحدة",
-        healthScorePct: Math.min(99, Math.max(78, overallHealth)),
+        healthScorePct: overallHealth === null ? null : Math.min(99, Math.max(78, overallHealth)),
         generatedAt: nowIso,
         executiveSummary: `يُقدم هذا التقرير قراءة تنفيذية شاملة ومباشرة لكافة وحدات نظام الموارد البشرية:
 • القوى العاملة والتوطين: إجمالي ${totalEmp} موظفاً (${activeEmp} على رأس العمل، ${probationEmp} تحت التجربة، ${onLeaveEmp} في إجازة) موزعين على ${orgUnits.length} إدارات، بنسبة توطين ${saudizationPct}% (النطاق ${nitaqatBand}).
 • الرواتب والتكاليف المالية: إجمالي الرواتب والبدلات الشهرية ${totalGrossSalary.toLocaleString("en-US")} ر.س، وتبلغ التكلفة الكلية شاملة التأمينات التقديرية ${totalMonthlyLaborCost.toLocaleString("en-US")} ر.س، مع جاهزية حماية أجور (WPS) بنسبة ${ibanReadinessPct}%.
-• الانضباط والإجازات وسير العمل: معدل الحضور العام ${attendanceRatePct}%، إجمالي الساعات الإضافية ${totalOvertimeHours} ساعة، نسبة استهلاك الإجازات ${leaveUtilizationPct}%، ويوجد ${pendingRequests.length} طلبات معلقة في سير الموافقات.`,
+• الانضباط والإجازات وسير العمل: معدل الحضور العام ${attendanceRateLabel}، إجمالي الساعات الإضافية ${totalOvertimeHours} ساعة، نسبة استهلاك الإجازات ${leaveUtilizationLabel}، ويوجد ${pendingRequests.length} طلبات معلقة في سير الموافقات.`,
         kpis: [
           {
             label: "القوى العاملة والتوطين",
@@ -1037,9 +1051,9 @@ export function buildSmartReportAnalysis(
           },
           {
             label: "معدل الانضباط والحضور",
-            value: `${attendanceRatePct}%`,
+            value: attendanceRateLabel,
             subtext: `${lateAtt} تأخير | ${totalOvertimeHours} س إضافي`,
-            status: attendanceRatePct >= 90 ? "good" : "warning",
+            status: attendanceRatePct === null ? "info" : attendanceRatePct >= 90 ? "good" : "warning",
           },
           {
             label: "الطلبات والوثائق النشطة",
@@ -1065,13 +1079,13 @@ export function buildSmartReportAnalysis(
           ],
           [
             "3. الحضور والورديات (Attendance & Shifts)",
-            `نسبة الحضور ${attendanceRatePct}%`,
+            `نسبة الحضور ${attendanceRateLabel}`,
             `${shifts.length} ورديات نشطة`,
             `${lateAtt} حالة تأخير و${pendingCorrections} تصحيح بصمة`,
           ],
           [
             "4. الإجازات وسير العمل (Leaves & Workflow)",
-            `استهلاك ${leaveUtilizationPct}% (${totalAnnualRemaining} يوم متبقٍ)`,
+            `استهلاك ${leaveUtilizationLabel} (${annualRemainingLabel} متبقٍ)`,
             `${pendingRequests.length} طلبات معلقة`,
             "تسريع اعتماد الطلبات المعلقة",
           ],
@@ -1167,7 +1181,8 @@ function formatAnalysisForChat(rep: SmartReportAnalysis): string {
     .map((row) => `• **${row[0]}:** ${row.slice(1).join(" | ")}`)
     .join("\n");
 
-  return `📊 **${rep.titleAr}** (مؤشر الصحة التشغيلية: **${rep.healthScorePct}%**)
+  const healthScoreLabel = rep.healthScorePct === null ? "غير متاح لعدم كفاية البيانات" : `${rep.healthScorePct}%`;
+  return `📊 **${rep.titleAr}** (مؤشر الصحة التشغيلية: **${healthScoreLabel}**)
 
 **1. الملخص التنفيذي:**
 ${rep.executiveSummary}
@@ -1321,10 +1336,13 @@ ${rows}
     const lates = attendanceRecords.filter((a) => a.status === "late" || (a.lateMinutes && a.lateMinutes > 0));
     const presents = attendanceRecords.filter((a) => a.status === "present");
     const totalTracked = attendanceRecords.length;
-    const attRate = totalTracked > 0 ? Math.round((presents.length / totalTracked) * 100) : 96;
+    const attRate = totalTracked > 0 ? Math.round((presents.length / totalTracked) * 100) : null;
+    const attRateLabel = attRate === null ? "غير متاح" : `${attRate}%`;
 
     const absentLines =
-      absents.length > 0
+      totalTracked === 0
+        ? "لا توجد سجلات حضور متاحة للفترة؛ لا يمكن تأكيد حالات الغياب."
+        : absents.length > 0
         ? absents
             .map(
               (a, i) =>
@@ -1334,7 +1352,9 @@ ${rows}
         : "✅ لا توجد أي حالات غياب غير مبررة مسجلة في سجل الحضور.";
 
     const lateLines =
-      lates.length > 0
+      totalTracked === 0
+        ? "لا توجد سجلات حضور متاحة للفترة؛ لا يمكن تأكيد حالات التأخير."
+        : lates.length > 0
         ? lates
             .map(
               (l, i) =>
@@ -1347,7 +1367,7 @@ ${rows}
       intent: "attendance_operational",
       responseText: `🕒 **موقف الحضور والانضباط التشغيلي المباشر:**
 
-• **معدل الانضباط العام:** **${attRate}%** (الحاضرون: ${presents.length} من إجمالي ${totalTracked} سجل)
+• **معدل الانضباط العام:** **${attRateLabel}**${totalTracked > 0 ? ` (الحاضرون: ${presents.length} من إجمالي ${totalTracked} سجل)` : " — لا توجد سجلات حضور متاحة للفترة، لذلك لا يمكن احتساب المعدل."}
 • **حالات الغياب المرصودة (${absents.length}):**
 ${absentLines}
 
@@ -1994,9 +2014,9 @@ ${JSON.stringify(draft)}
       (Number(matchedEmployee.housingAllowance) || 0) +
       (Number(matchedEmployee.transportAllowance) || 0) +
       (Number(matchedEmployee.otherAllowances) || 0);
-    const remDays = leaveBal ? (leaveBal.remainingDays ?? leaveBal.annualRemaining ?? 21) : (ext?.contractAnnualLeaveDays ?? 21);
-    const usedDays = leaveBal ? (leaveBal.usedDays ?? leaveBal.annualUsed ?? 0) : 0;
-    const entDays = leaveBal ? (leaveBal.entitledDays ?? leaveBal.annualEntitlement ?? 21) : (ext?.contractAnnualLeaveDays ?? 21);
+    const remDays = leaveBal?.remainingDays ?? leaveBal?.annualRemaining;
+    const usedDays = leaveBal?.usedDays ?? leaveBal?.annualUsed;
+    const entDays = leaveBal?.entitledDays ?? leaveBal?.annualEntitlement;
     const canViewSalary = ["super_admin", "hr_manager", "payroll_officer", "finance_officer", "auditor"].includes(role);
     const canViewBankDetails = ["super_admin", "payroll_officer", "finance_officer"].includes(role);
     const salarySection = canViewSalary
@@ -2024,8 +2044,8 @@ ${salarySection}
 ${bankSection}
 
 **3. العقد والإجازات والحضور:**
-• **نوع العقد:** ${ext?.contractDurationType ? `عقد قوى (${ext.contractDurationType})` : "عقد عمل معتمد"} | **أيام العمل الأسبوعية:** ${ext?.weeklyWorkDays ?? 5} أيام (راحة أسبوعية: ${ext?.weeklyRestDays ?? 2} يوم)
-• **رصيد الإجازات السنوية المتبقي:** ${remDays} يوم (مستهلك: ${usedDays} من ${entDays})
+• **نوع العقد:** ${ext?.contractDurationType ? `عقد قوى (${ext.contractDurationType})` : "غير مسجل في البيانات المتاحة"} | **أيام العمل الأسبوعية:** ${ext?.weeklyWorkDays != null ? `${ext.weeklyWorkDays} أيام` : "غير مسجلة"} (الراحة الأسبوعية: ${ext?.weeklyRestDays != null ? `${ext.weeklyRestDays} يوم` : "غير مسجلة"})
+• **رصيد الإجازات السنوية المتبقي:** ${remDays != null ? `${remDays} يوم` : "غير متاح؛ لا يوجد رصيد مسجل"} (مستهلك: ${usedDays != null ? usedDays : "غير متاح"} من ${entDays != null ? entDays : "غير متاح"})
 • **سجلات الحضور المسجلة:** ${empAtt.length} سجل حضور في الدورة الحالية.`,
     };
   }

@@ -37,7 +37,7 @@ export interface CronRunReport {
 /** Each company accrual is committed atomically by the database RPC. */
 export async function executeAutomatedMonthlyLeaveAccrual(
   supabase: any,
-  options?: { companyId?: string; year?: number; month?: number; actorUserId?: string | null },
+  options?: { companyId?: string; year?: number; month?: number; actorUserId?: string | null; onlyOnLocalMonthStart?: boolean },
 ): Promise<CronAccrualResult[]> {
   if (options?.year !== undefined && (!Number.isInteger(options.year) || options.year < 1 || options.year > 9999)) {
     throw new Error("سنة غير صالحة");
@@ -45,13 +45,23 @@ export async function executeAutomatedMonthlyLeaveAccrual(
   if (options?.month !== undefined && (!Number.isInteger(options.month) || options.month < 1 || options.month > 12)) {
     throw new Error("شهر غير صالح");
   }
-  let query = supabase.from("companies").select("id");
+  let query = supabase.from("companies").select("id, timezone");
   if (options?.companyId) query = query.eq("id", options.companyId);
   const { data: companies, error } = await query;
   if (error) throw new Error(`تعذر استرجاع المنشآت: ${error.message}`);
   if (options?.companyId && !companies?.length) throw new Error("المنشأة غير موجودة أو غير متاحة");
   const results: CronAccrualResult[] = [];
   for (const company of companies ?? []) {
+    if (options?.onlyOnLocalMonthStart) {
+      if (!company.timezone) throw new Error(`لم يتم ضبط المنطقة الزمنية للمنشأة ${company.id}`);
+      let localDay: string;
+      try {
+        localDay = new Intl.DateTimeFormat("en-CA", { timeZone: company.timezone, day: "2-digit" }).format(new Date());
+      } catch {
+        throw new Error(`المنطقة الزمنية للمنشأة ${company.id} غير صالحة`);
+      }
+      if (localDay !== "01") continue;
+    }
     // Null dates are resolved using the company's configured timezone, never the worker's clock.
     // Attribution comes from auth.uid() inside the RPC, not a caller-provided actor ID.
     const { data, error: rpcError } = await supabase.rpc("run_leave_accrual", {

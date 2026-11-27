@@ -97,7 +97,7 @@ export interface ExecutiveKpis {
   newHires: number;
   turnoverCount: number;
   turnoverRate: number;
-  attendanceRate: number;
+  attendanceRate: number | null;
   absenceCount: number;
   absenceRate: number;
   latenessCount: number;
@@ -1979,7 +1979,7 @@ export async function fetchExecutiveKpisServer(
         newHires: Number(d.new_hires || 0),
         turnoverCount: Number(d.turnover_count || 0),
         turnoverRate: Number(d.turnover_rate || 0),
-        attendanceRate: Number(d.attendance_rate || 100),
+        attendanceRate: d.attendance_rate == null ? null : Number(d.attendance_rate),
         absenceCount: Number(d.absence_count || 0),
         absenceRate: Number(d.absence_rate || 0),
         latenessCount: Number(d.lateness_count || 0),
@@ -2020,7 +2020,7 @@ export async function fetchExecutiveKpisServer(
     newHires: 0,
     turnoverCount: 0,
     turnoverRate: 0,
-    attendanceRate: 100,
+    attendanceRate: null,
     absenceCount: 0,
     absenceRate: 0,
     latenessCount: 0,
@@ -2107,11 +2107,12 @@ export async function fetchReportDataServer(
 // ============================================================================
 
 export function useExecutiveKpis(filters?: { startDate?: string; endDate?: string }) {
+  const { role } = useAuth();
   const bootstrap = useBootstrapData();
   const companyId = bootstrap.company?.id || "00000000-0000-0000-0000-000000000000";
 
   return useQuery<ExecutiveKpis, Error>({
-    queryKey: queryKeys.reports.executiveKpis({ companyId, ...filters }),
+    queryKey: queryKeys.reports.executiveKpis({ companyId, role, ...filters }),
     queryFn: async () => {
       return await fetchExecutiveKpisServer(companyId, filters?.startDate, filters?.endDate);
     },
@@ -2133,7 +2134,7 @@ export function useReportData(
   const canViewSensitive = ["super_admin", "hr_manager", "payroll_officer", "finance_officer"].includes(role);
 
   return useQuery<ReportDataResponse, Error>({
-    queryKey: queryKeys.reports.data(reportCode, filters, pagination, sort),
+    queryKey: queryKeys.reports.data(reportCode, filters, pagination, sort, { companyId, role, canViewSensitive }),
     queryFn: async () => {
       return await fetchReportDataServer(reportCode, companyId, filters, pagination, sort, canViewSensitive);
     },
@@ -2148,7 +2149,7 @@ export function useSavedReportFilters(reportCode?: string) {
   const companyId = bootstrap.company?.id || "00000000-0000-0000-0000-000000000000";
 
   return useQuery<SavedReportFilter[], Error>({
-    queryKey: queryKeys.reports.savedFilters(reportCode),
+    queryKey: queryKeys.reports.savedFilters(reportCode, { companyId, userId: session?.user.id }),
     queryFn: async () => {
       if (!session || isDemo) {
         const demoFilters: SavedReportFilter[] = [

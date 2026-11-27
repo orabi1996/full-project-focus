@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { recomputeDay } from "@/lib/business/attendance.functions";
+import {
+  createBiometricPunchIdempotencyKey,
+  recomputeBiometricAttendanceDay,
+} from "@/lib/business/biometric-punch-idempotency";
 
 /**
  * Endpoint for physical fingerprint terminals.
@@ -8,8 +11,8 @@ import { recomputeDay } from "@/lib/business/attendance.functions";
  *   { device_id, token, employee_no, punch_type: "in" | "out", punch_time? }
  *
  * The token is verified against the registered device row before anything is
- * written, then the punch is stored and the employee's attendance day for that
- * date is rebuilt so payroll picks the change up immediately.
+ * written, then the punch is stored and the company-local attendance day is
+ * rebuilt under a database transaction lock.
  */
 export const Route = createFileRoute("/api/public/biometric/punch")({
   server: {
@@ -25,10 +28,9 @@ export const Route = createFileRoute("/api/public/biometric/punch")({
         const deviceId = String(payload?.device_id ?? "").trim();
         const token = String(payload?.token ?? request.headers.get("x-device-token") ?? "").trim();
         const employeeRef = String(payload?.employee_no ?? payload?.employee_id ?? "").trim();
-        const punchType = payload?.punch_type === "out" ? "out" : "in";
-        const punchTime = payload?.punch_time
-          ? new Date(payload.punch_time).toISOString()
-          : new Date().toISOString();
+        const punchType = payload?.punch_type;
+        const requestedTime = payload?.punch_time == null ? new Date() : new Date(payload.punch_time);
+        const now = new Date();
 
         if (!deviceId || !token || !employeeRef) {
           return json({ error: "device_id, token and employee_no are required" }, 400);
@@ -38,7 +40,7 @@ export const Route = createFileRoute("/api/public/biometric/punch")({
 
         const { data: device } = await supabaseAdmin
           .from("biometric_devices")
-          .select("device_id, device_token, status, auto_approve, total_punches")
+          .select("device_id, device_token, status, auto_approve, total_punches, work_location_id")
           .eq("device_id", deviceId)
           .maybeSingle();
 
@@ -46,16 +48,78 @@ export const Route = createFileRoute("/api/public/biometric/punch")({
           return json({ error: "unauthorized device" }, 401);
         }
 
+        if (punchType !== "in" && punchType !== "out") {
+          return json({ error: "punch_type must be in or out" }, 400);
+        }
+        if (!device.work_location_id) {
+          return json({ error: "device location is not configured" }, 409);
+        }
+        if (Number.isNaN(requestedTime.getTime())) {
+          return json({ error: "punch_time is invalid" }, 400);
+        }
+        const ageMs = now.getTime() - requestedTime.getTime();
+        if (ageMs > 24 * 60 * 60 * 1000 || ageMs < -5 * 60 * 1000) {
+          return json({ error: "punch_time is outside the allowed 24-hour offline window" }, 400);
+        }
+        const punchTime = requestedTime.toISOString();
+
         const isUuid = /^[0-9a-f-]{36}$/i.test(employeeRef);
         const { data: employee } = await supabaseAdmin
           .from("employees")
-          .select("id, full_name, employee_no")
+          .select("id, full_name, employee_no, company_id, work_location_id")
           .eq(isUuid ? "id" : "employee_no", employeeRef)
           .maybeSingle();
         if (!employee) return json({ error: "employee not found" }, 404);
+        if (employee.work_location_id !== device.work_location_id) {
+          return json({ error: "employee is not assigned to this device location" }, 403);
+        }
 
-        const { error } = await supabaseAdmin.from("punches").insert({
+        const { data: location } = await supabaseAdmin
+          .from("work_locations")
+          .select("id, company_id")
+          .eq("id", device.work_location_id)
+          .maybeSingle();
+        if (!location || !employee.company_id || location.company_id !== employee.company_id) {
+          return json({ error: "device and employee company do not match" }, 403);
+        }
+
+        const idempotencyKey = await createBiometricPunchIdempotencyKey({
+          companyId: employee.company_id,
+          deviceId,
+          employeeId: employee.id,
+          punchTime,
+          punchType,
+        });
+
+        const { data: duplicate } = await supabaseAdmin
+          .from("punches")
+          .select("id, approval_status")
+          .eq("company_id", employee.company_id)
+          .eq("employee_id", employee.id)
+          .eq("device_id", deviceId)
+          .eq("punch_time", punchTime)
+          .eq("punch_type", punchType)
+          .limit(1)
+          .maybeSingle();
+        if (duplicate) {
+          const status = duplicate.approval_status;
+          if (
+            status === "approved" &&
+            !(await recomputeBiometricAttendanceDay(supabaseAdmin as any, {
+              employeeId: employee.id,
+              punchTime,
+              punchType,
+            }))
+          ) {
+            return json({ error: "punch recorded; attendance recalculation will retry", retryable: true }, 503);
+          }
+          return json({ ok: true, duplicate: true, status });
+        }
+
+        const { data: insertedPunch, error } = await supabaseAdmin.from("punches").insert({
           employee_id: employee.id,
+          company_id: employee.company_id,
+          location_id: employee.work_location_id,
           punch_time: punchTime,
           punch_type: punchType,
           source: "biometric",
@@ -63,8 +127,34 @@ export const Route = createFileRoute("/api/public/biometric/punch")({
           latitude: payload?.latitude ?? null,
           longitude: payload?.longitude ?? null,
           approval_status: device.auto_approve ? "approved" : "pending",
-        });
-        if (error) return json({ error: error.message }, 500);
+          idempotency_key: idempotencyKey,
+        } as any).select("id, approval_status").single();
+        if (error) {
+          // Another identical request may have inserted between the read and
+          // write. Resolve the unique-key conflict as a retry, not as a failure.
+          if (error.code === "23505") {
+            const { data: concurrentDuplicate } = await supabaseAdmin
+              .from("punches")
+              .select("id, approval_status")
+              .eq("company_id", employee.company_id)
+              .eq("idempotency_key", idempotencyKey)
+              .maybeSingle();
+            if (concurrentDuplicate) {
+              if (
+                concurrentDuplicate.approval_status === "approved" &&
+                !(await recomputeBiometricAttendanceDay(supabaseAdmin as any, {
+                  employeeId: employee.id,
+                  punchTime,
+                  punchType,
+                }))
+              ) {
+                return json({ error: "punch recorded; attendance recalculation will retry", retryable: true }, 503);
+              }
+              return json({ ok: true, duplicate: true, status: concurrentDuplicate.approval_status });
+            }
+          }
+          return json({ error: error.message }, 500);
+        }
 
         await supabaseAdmin
           .from("biometric_devices")
@@ -74,16 +164,24 @@ export const Route = createFileRoute("/api/public/biometric/punch")({
           })
           .eq("device_id", deviceId);
 
-        if (device.auto_approve) {
-          await recomputeDay(supabaseAdmin as any, employee.id, punchTime.slice(0, 10));
+        if (insertedPunch.approval_status === "approved") {
+          if (
+            !(await recomputeBiometricAttendanceDay(supabaseAdmin as any, {
+              employeeId: employee.id,
+              punchTime,
+              punchType,
+            }))
+          ) {
+            // The event is durable. Returning retryable 503 is safe because a
+            // device retry will reach the duplicate branch and rebuild the day.
+            return json({ error: "punch recorded; attendance recalculation will retry", retryable: true }, 503);
+          }
         }
 
         return json({
           ok: true,
-          employee: employee.full_name,
-          employee_no: employee.employee_no,
           punch_type: punchType,
-          status: device.auto_approve ? "approved" : "pending",
+          status: insertedPunch.approval_status,
         });
       },
     },

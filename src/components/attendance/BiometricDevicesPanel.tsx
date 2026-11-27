@@ -3,6 +3,7 @@ import { Cpu, KeyRound, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { useApp } from "../../lib/context/AppContext";
 import {
   deleteBiometricDeviceServer,
   listBiometricDevicesServer,
@@ -14,6 +15,7 @@ interface DeviceRow {
   id: string;
   device_id: string;
   name_ar: string;
+  work_location_id: string | null;
   status: string;
   auto_approve: boolean;
   last_seen_at: string | null;
@@ -21,11 +23,12 @@ interface DeviceRow {
 }
 
 export const BiometricDevicesPanel: React.FC = () => {
+  const { workLocations } = useApp();
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [token, setToken] = useState<{ deviceId: string; value: string } | null>(null);
-  const [form, setForm] = useState({ deviceId: "", nameAr: "", autoApprove: true });
+  const [form, setForm] = useState({ deviceId: "", nameAr: "", workLocationId: "", autoApprove: true });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -51,7 +54,7 @@ export const BiometricDevicesPanel: React.FC = () => {
       };
       setToken({ deviceId: result.deviceId, value: result.token });
       toast.success("تم تسجيل الجهاز — انسخ رمز الاتصال الآن");
-      setForm({ deviceId: "", nameAr: "", autoApprove: true });
+      setForm({ deviceId: "", nameAr: "", workLocationId: "", autoApprove: true });
       await load();
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : "تعذر تسجيل الجهاز");
@@ -109,7 +112,7 @@ export const BiometricDevicesPanel: React.FC = () => {
         </Button>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-border/60 bg-card p-4 sm:grid-cols-4">
+      <div className="grid gap-3 rounded-2xl border border-border/60 bg-card p-4 sm:grid-cols-5">
         <label className="flex flex-col gap-1 text-xs font-bold text-muted-foreground">
           معرّف الجهاز
           <input
@@ -128,6 +131,17 @@ export const BiometricDevicesPanel: React.FC = () => {
             className="rounded-xl border border-border bg-background px-3 py-2 text-sm"
           />
         </label>
+        <label className="flex flex-col gap-1 text-xs font-bold text-muted-foreground">
+          موقع الجهاز
+          <select
+            value={form.workLocationId}
+            onChange={(e) => setForm((f) => ({ ...f, workLocationId: e.target.value }))}
+            className="rounded-xl border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="">اختر موقع العمل</option>
+            {workLocations.map((location) => <option key={location.id} value={location.id}>{location.nameAr}</option>)}
+          </select>
+        </label>
         <label className="flex items-center gap-2 pt-6 text-xs font-bold text-muted-foreground">
           <input
             type="checkbox"
@@ -137,7 +151,7 @@ export const BiometricDevicesPanel: React.FC = () => {
           اعتماد البصمات تلقائيًا
         </label>
         <div className="flex items-end">
-          <Button size="sm" onClick={() => void addDevice()} disabled={busy}>
+          <Button size="sm" onClick={() => void addDevice()} disabled={busy || !form.workLocationId}>
             <Plus className="size-4" /> إضافة جهاز
           </Button>
         </div>
@@ -158,6 +172,7 @@ export const BiometricDevicesPanel: React.FC = () => {
             <tr>
               <th className="px-4 py-3">الجهاز</th>
               <th className="px-4 py-3">الاسم</th>
+              <th className="px-4 py-3">الموقع</th>
               <th className="px-4 py-3">الحالة</th>
               <th className="px-4 py-3">الاعتماد التلقائي</th>
               <th className="px-4 py-3">آخر اتصال</th>
@@ -178,6 +193,9 @@ export const BiometricDevicesPanel: React.FC = () => {
                     }
                     className="w-40 rounded-lg border border-border bg-background px-2 py-1 text-xs"
                   />
+                </td>
+                <td className="px-4 py-3 text-xs">
+                  {workLocations.find((location) => location.id === device.work_location_id)?.nameAr ?? "موقع غير محدد"}
                 </td>
                 <td className="px-4 py-3">
                   <Badge variant={device.status === "active" ? "default" : "outline"}>

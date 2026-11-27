@@ -30,15 +30,15 @@ export function runComprehensiveAIEvaluationAndAdversarialSuite(): Comprehensive
   const baseSuite = runAIEvaluationSuite();
   const extraResults: EvaluationResult[] = [];
 
-  // Section 44.5: Grounded Policy Citation
+  // Section 44.5: Reject policy fixtures without verified source provenance
   const ragRes = searchKnowledgeBase('استحقاق الإجازة السنوية', 'employee');
   extraResults.push({
     testId: 'EVAL-44-05',
     category: 'retrieval',
-    name: 'Grounded policy retrieval cites document title, version, and section',
-    passed: ragRes.hasSufficientContext && ragRes.citations[0]?.version === '3.2',
-    score: ragRes.hasSufficientContext ? 100 : 0,
-    details: ragRes.hasSufficientContext ? `Verified v${ragRes.citations[0]?.version}` : 'Unverified',
+    name: 'Unverified policy fixtures are withheld instead of cited as guidance',
+    passed: !ragRes.hasSufficientContext && ragRes.citations.length === 0 && ragRes.answer.includes('غير موثقة'),
+    score: !ragRes.hasSufficientContext && ragRes.citations.length === 0 ? 100 : 0,
+    details: !ragRes.hasSufficientContext ? 'Correctly withheld: source provenance is missing' : 'Unexpected verified response',
   });
 
   // Section 44.6: Country Pack Accuracy across EG, SA, QA, OM, BH

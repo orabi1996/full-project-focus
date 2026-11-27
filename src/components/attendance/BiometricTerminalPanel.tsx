@@ -10,7 +10,6 @@ import {
   listPunchesServer,
   recordPunchServer,
   registerBiometricDeviceServer,
-  settleAttendancePeriodServer,
 } from "../../lib/business/attendance.functions";
 
 interface PunchRow {
@@ -28,6 +27,7 @@ interface DeviceRow {
   id: string;
   device_id: string;
   name_ar: string;
+  work_location_id: string | null;
   status: string;
   auto_approve: boolean;
   last_seen_at: string | null;
@@ -37,7 +37,7 @@ interface DeviceRow {
 const today = () => new Date().toISOString().slice(0, 10);
 
 export const BiometricTerminalPanel: React.FC = () => {
-  const { employees } = useApp();
+  const { employees, workLocations } = useApp();
 
   const [date, setDate] = useState(today());
   const [punches, setPunches] = useState<PunchRow[]>([]);
@@ -45,9 +45,8 @@ export const BiometricTerminalPanel: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [employeeRef, setEmployeeRef] = useState("");
   const [deviceId, setDeviceId] = useState("FP-TERMINAL-01");
+  const [deviceLocationId, setDeviceLocationId] = useState("");
   const [newToken, setNewToken] = useState<string | null>(null);
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -104,32 +103,18 @@ export const BiometricTerminalPanel: React.FC = () => {
     }
   };
 
-  const handleSettle = async () => {
-    setBusy(true);
-    try {
-      const result = (await settleAttendancePeriodServer({ data: { year, month } })) as {
-        approvedPunches?: number;
-        totalNet?: number;
-      };
-      toast.success(
-        `تمت تسوية ${result.approvedPunches ?? 0} بصمة وإقفال مسيّر ${month}/${year} بصافي ${Math.round(result.totalNet ?? 0).toLocaleString("ar-EG")} ر.س`,
-      );
-      await load();
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "تعذرت التسوية");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const handleRegister = async () => {
     const nameAr = window.prompt("اسم الجهاز", "جهاز البصمة - فرع جديد");
     const id = window.prompt("معرّف الجهاز (Device ID)", "FP-TERMINAL-02");
     if (!nameAr || !id) return;
+    if (!deviceLocationId) {
+      toast.error("حدد موقع العمل الذي يتبعه جهاز البصمة أولاً");
+      return;
+    }
     setBusy(true);
     try {
       const result = (await registerBiometricDeviceServer({
-        data: { deviceId: id, nameAr, autoApprove: false },
+        data: { deviceId: id, nameAr, workLocationId: deviceLocationId, autoApprove: false },
       })) as { token?: string };
       if (result.token) setNewToken(result.token);
       toast.success("تم تسجيل الجهاز، انسخ رمز الاتصال الآن");
@@ -204,6 +189,19 @@ export const BiometricTerminalPanel: React.FC = () => {
               <KeyRound className="h-3.5 w-3.5" /> ربط جهاز
             </Button>
           </div>
+          <label className="block space-y-1">
+            <span className="text-[10px] font-bold text-muted-foreground">موقع جهاز البصمة</span>
+            <select
+              value={deviceLocationId}
+              onChange={(e) => setDeviceLocationId(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs"
+            >
+              <option value="">اختر موقع العمل قبل ربط الجهاز</option>
+              {workLocations.map((location) => (
+                <option key={location.id} value={location.id}>{location.nameAr}</option>
+              ))}
+            </select>
+          </label>
           <div className="space-y-2 max-h-48 overflow-auto">
             {devices.map((device) => (
               <div
@@ -213,7 +211,7 @@ export const BiometricTerminalPanel: React.FC = () => {
                 <div>
                   <p className="text-xs font-bold">{device.name_ar}</p>
                   <p className="text-[10px] text-muted-foreground">
-                    {device.device_id} • {device.total_punches} بصمة
+                    {device.device_id} • {device.total_punches} بصمة • {workLocations.find((location) => location.id === device.work_location_id)?.nameAr ?? "موقع غير معروف"}
                   </p>
                 </div>
                 <Badge variant={device.status === "active" ? "default" : "secondary"} className="text-[10px]">
@@ -239,34 +237,15 @@ export const BiometricTerminalPanel: React.FC = () => {
           </div>
         </div>
 
-        {/* Settlement */}
+        {/* Payroll is handled in its dedicated review and approval workflow. */}
         <div className="rounded-2xl border border-border/60 bg-card p-5 space-y-3">
           <div className="flex items-center gap-2">
             <Lock className="h-5 w-5 text-primary" />
-            <h3 className="font-bold text-sm">تسوية الحضور وإقفال المسيّر</h3>
+            <h3 className="font-bold text-sm">اعتماد الحضور ومسير الرواتب</h3>
           </div>
           <p className="text-xs text-muted-foreground">
-            تعتمد البصمات المعلقة، تعيد بناء سجل الحضور، ثم تحتسب الرواتب وتقفل المسيّر.
+            اعتمد أو ارفض البصمات المعلقة هنا. بعد ذلك أنشئ مسير الرواتب وراجعه واعتمده من قسم مسيرات الرواتب.
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              value={month}
-              min={1}
-              max={12}
-              onChange={(e) => setMonth(Number(e.target.value))}
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm"
-            />
-            <input
-              type="number"
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-              className="rounded-xl border border-border bg-background px-3 py-2 text-sm"
-            />
-          </div>
-          <Button disabled={busy} onClick={handleSettle} className="w-full rounded-xl font-bold">
-            تسوية واحتساب الرواتب
-          </Button>
         </div>
       </div>
 

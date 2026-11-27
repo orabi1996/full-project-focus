@@ -320,11 +320,12 @@ export const queryKeys = {
   integrations: integrationQueryKeys,
   dashboard: {
     all: ["dashboard"] as const,
-    summary: (filters: { start: string; end: string }) =>
-      [...queryKeys.dashboard.all, "summary", filters.start, filters.end] as const,
-    attendance: (filters: { anchor: string; days: number }) =>
-      [...queryKeys.dashboard.all, "attendance-trend", filters.anchor, filters.days] as const,
-    integrations: () => [...queryKeys.dashboard.all, "integration-health"] as const,
+    summary: (filters: { start: string; end: string; companyId?: string; userId?: string; role?: string }) =>
+      [...queryKeys.dashboard.all, "summary", filters.start, filters.end, filters.companyId ?? "current", filters.userId ?? "anonymous", filters.role ?? "unknown"] as const,
+    attendance: (filters: { anchor: string; days: number; companyId?: string; userId?: string; role?: string }) =>
+      [...queryKeys.dashboard.all, "attendance-trend", filters.anchor, filters.days, filters.companyId ?? "current", filters.userId ?? "anonymous", filters.role ?? "unknown"] as const,
+    integrations: (scope?: { companyId?: string; userId?: string; role?: string }) =>
+      [...queryKeys.dashboard.all, "integration-health", scope?.companyId ?? "current", scope?.userId ?? "anonymous", scope?.role ?? "unknown"] as const,
   },
   rbac: {
     all: ["rbac"] as const,

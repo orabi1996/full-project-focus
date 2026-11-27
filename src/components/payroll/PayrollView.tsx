@@ -332,6 +332,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
 
   const canManagePayroll = ["super_admin", "org_admin", "hr_manager", "payroll_officer", "finance_officer"].includes(currentRole);
   const canApprovePayroll = ["super_admin", "org_admin", "hr_manager", "finance_officer"].includes(currentRole);
+  const canReopenPayroll = ["super_admin", "org_admin", "hr_manager"].includes(currentRole);
   const canManageSettlements = [
     "super_admin",
     "hr_manager",
@@ -948,7 +949,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                       {isLockingRun ? "جاري القفل..." : "قفل المسير وتثبيت السلف"}
                     </Button>
                   )}
-                  {canApprovePayroll && ["locked", "confirmed_locked"].includes(selectedRun.status) && (
+                  {canReopenPayroll && ["locked", "confirmed_locked"].includes(selectedRun.status) && (
                     <Button
                       onClick={() => {
                         setReopenReason("");

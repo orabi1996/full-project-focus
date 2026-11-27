@@ -389,6 +389,21 @@ export async function createEmployeeRecord(employee: Employee): Promise<Employee
   if (!firstName || !lastName) {
     throw new Error("الاسم الأول واسم العائلة باللغة العربية إلزاميان للتوثيق المالي والقانوني ولإنشاء الموظف.");
   }
+  if (!employee.nationality?.trim() || !employee.nationalIdOrIqama?.trim()) {
+    throw new Error("الجنسية ورقم الهوية أو الإقامة إلزاميان لإنشاء الموظف.");
+  }
+  if (!employee.hireDate || !employee.contractType || !employee.workType) {
+    throw new Error("تاريخ التعيين ونوع العقد ونمط العمل إلزامية لإنشاء الموظف.");
+  }
+  if (!employee.jobTitleAr?.trim() && !employee.jobTitleEn?.trim()) {
+    throw new Error("المسمى الوظيفي المعتمد إلزامي لإنشاء الموظف.");
+  }
+  if (!Number.isFinite(Number(employee.basicSalary)) || Number(employee.basicSalary) <= 0) {
+    throw new Error("الراتب الأساسي يجب أن يكون أكبر من صفر.");
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(employee.email?.trim() || "")) {
+    throw new Error("أدخل بريدًا إلكترونيًا صحيحًا لتسجيل دخول الموظف.");
+  }
 
   // Authoritative company resolution via trusted RPC (browser metadata eliminated)
   const { data: createdRaw, error } = await enterpriseSupabase.rpc("create_employee", {

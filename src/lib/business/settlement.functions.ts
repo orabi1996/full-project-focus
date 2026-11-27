@@ -268,6 +268,7 @@ export const createSettlementServer = createServerFn({ method: "POST" })
         employee_id: data.employeeId,
         termination_date: data.terminationDate,
         separation_type: data.separationType,
+        unpaid_leave_days: data.unpaidLeaveDays ?? 0,
         notes: data.notes || null,
         notice_period_served: data.noticePeriodServed ?? true,
         asset_clearance_complete: data.assetClearanceComplete ?? false,
@@ -282,40 +283,5 @@ export const createSettlementServer = createServerFn({ method: "POST" })
       };
     }
 
-    // Fallback: Perform server calculation and insert
-    const calc = await (calculateSettlementServer as any)({ data, context });
-
-    const { data: inserted, error: insertError } = await supabase
-      .from("settlements")
-      .insert({
-        employee_id: data.employeeId,
-        termination_date: data.terminationDate,
-        separation_type: data.separationType,
-        service_years: calc.serviceYears,
-        service_months: calc.serviceMonths,
-        eosb_amount: calc.eosbAmount,
-        leave_balance_payout_days: calc.leaveBalancePayoutDays,
-        leave_payout_amount: calc.leavePayoutAmount,
-        loan_deduction_amount: calc.loanDeductionAmount,
-        net_settlement_amount: calc.netSettlementAmount,
-        notice_period_served: data.noticePeriodServed ?? true,
-        asset_clearance_complete: data.assetClearanceComplete ?? false,
-        calculation_snapshot: calc.calculationSnapshot,
-        notes: data.notes || null,
-        status: "draft",
-      })
-      .select("id")
-      .single();
-
-    if (insertError) throw new Error(`تعذر حفظ التسوية: ${insertError.message}`);
-
-    return {
-      settlementId: inserted.id,
-      eosbAmount: calc.eosbAmount,
-      leavePayout: calc.leavePayoutAmount,
-      loanBalance: calc.loanDeductionAmount,
-      netSettlement: calc.netSettlementAmount,
-      serviceYears: calc.serviceYears,
-      serviceMonths: calc.serviceMonths,
-    };
+    throw new Error(`تعذر إنشاء التسوية من محرك قاعدة البيانات: ${rpcRes.error?.message || rpcRes.data?.message || "استجابة غير مكتملة"}`);
   });

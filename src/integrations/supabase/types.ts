@@ -3458,11 +3458,13 @@ export type Database = {
       punches: {
         Row: {
           approval_status: string
+          company_id: string | null
           created_at: string
           device_id: string | null
           employee_id: string | null
           geofence_valid: boolean | null
           id: string
+          idempotency_key: string | null
           latitude: number | null
           longitude: number | null
           punch_time: string
@@ -3472,11 +3474,13 @@ export type Database = {
         }
         Insert: {
           approval_status?: string
+          company_id?: string | null
           created_at?: string
           device_id?: string | null
           employee_id?: string | null
           geofence_valid?: boolean | null
           id?: string
+          idempotency_key?: string | null
           latitude?: number | null
           longitude?: number | null
           punch_time: string
@@ -3486,11 +3490,13 @@ export type Database = {
         }
         Update: {
           approval_status?: string
+          company_id?: string | null
           created_at?: string
           device_id?: string | null
           employee_id?: string | null
           geofence_valid?: boolean | null
           id?: string
+          idempotency_key?: string | null
           latitude?: number | null
           longitude?: number | null
           punch_time?: string
@@ -4234,6 +4240,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      recompute_biometric_attendance_day: {
+        Args: { p_employee_id: string; p_punch_time: string; p_punch_type: string }
+        Returns: Json
+      }
       adjust_calibration_atomic: {
         Args: {
           p_calibrated_rating_label: string

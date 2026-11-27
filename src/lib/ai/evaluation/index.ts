@@ -86,16 +86,17 @@ export function runAIEvaluationSuite(): EvaluationScorecard {
     details: "tasks.create requiresConfirmation is true",
   });
 
-  // 6. Retrieval - RAG policy search returns verified citation
+  // 6. Retrieval - unverified demo policy fixtures are not cited as authoritative
   const ragResult = searchKnowledgeBase("ما هي مدة الإجازة السنوية؟", "employee");
-  const hasCitation = ragResult.citations.length > 0 && ragResult.answer.includes("وفقاً لـ");
+  const correctlyWithheldUnverifiedSource =
+    !ragResult.hasSufficientContext && ragResult.citations.length === 0 && ragResult.answer.includes("غير موثقة");
   results.push({
     testId: "EVAL-06",
     category: "retrieval",
-    name: "Knowledge retrieval generates valid citations",
-    passed: hasCitation,
-    score: hasCitation ? 100 : 0,
-    details: `Generated citations count: ${ragResult.citations.length}`,
+    name: "Do not cite policy fixtures without verified provenance",
+    passed: correctlyWithheldUnverifiedSource,
+    score: correctlyWithheldUnverifiedSource ? 100 : 0,
+    details: `Verified context: ${ragResult.hasSufficientContext}; citations: ${ragResult.citations.length}`,
   });
 
   // 7. Grounding - General employee intent recognition

@@ -19,14 +19,22 @@ describe("Production Dashboard Analytics & Executive Command Center Contracts", 
       expect(queryKeys.dashboard.all).toEqual(["dashboard"]);
       expect(
         queryKeys.dashboard.summary({ start: "2026-09-01", end: "2026-09-14" }),
-      ).toEqual(["dashboard", "summary", "2026-09-01", "2026-09-14"]);
+      ).toEqual(["dashboard", "summary", "2026-09-01", "2026-09-14", "current", "anonymous", "unknown"]);
       expect(
         queryKeys.dashboard.attendance({ anchor: "2026-09-14", days: 7 }),
-      ).toEqual(["dashboard", "attendance-trend", "2026-09-14", 7]);
+      ).toEqual(["dashboard", "attendance-trend", "2026-09-14", 7, "current", "anonymous", "unknown"]);
       expect(queryKeys.dashboard.integrations()).toEqual([
         "dashboard",
         "integration-health",
+        "current",
+        "anonymous",
+        "unknown",
       ]);
+      expect(queryKeys.dashboard.summary({
+        start: "2026-09-01", end: "2026-09-14", companyId: "company-a", userId: "user-a", role: "hr_manager",
+      })).not.toEqual(queryKeys.dashboard.summary({
+        start: "2026-09-01", end: "2026-09-14", companyId: "company-b", userId: "user-a", role: "employee",
+      }));
     });
 
     it("generates valid default filters with last7 preset based on timezone", () => {

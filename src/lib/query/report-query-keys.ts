@@ -10,11 +10,16 @@ export const reportQueryKeys = {
     reportCode: string,
     filters?: Record<string, unknown>,
     pagination?: Record<string, unknown>,
-    sort?: Record<string, unknown>
+    sort?: Record<string, unknown>,
+    scope?: Record<string, unknown>
   ) =>
-    [...reportQueryKeys.all, "data", reportCode, filters ?? {}, pagination ?? {}, sort ?? {}] as const,
-  savedFilters: (reportCode?: string) =>
-    reportCode ? ([...reportQueryKeys.all, "savedFilters", reportCode] as const) : ([...reportQueryKeys.all, "savedFilters"] as const),
+    [...reportQueryKeys.all, "data", reportCode, filters ?? {}, pagination ?? {}, sort ?? {}, scope ?? {}] as const,
+  savedFilters: (reportCode?: string, scope?: Record<string, unknown>) => {
+    if (scope) return [...reportQueryKeys.all, "savedFilters", reportCode ?? "all", scope] as const;
+    return reportCode
+      ? ([...reportQueryKeys.all, "savedFilters", reportCode] as const)
+      : ([...reportQueryKeys.all, "savedFilters"] as const);
+  },
   favorites: (userId?: string) =>
     userId ? ([...reportQueryKeys.all, "favorites", userId] as const) : ([...reportQueryKeys.all, "favorites"] as const),
   recents: (userId?: string) =>

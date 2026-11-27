@@ -3,7 +3,8 @@
  * Prompt 35: Comprehensive verification of AI Safety, RBAC, RAG, Intent Routing, and Grounding
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+vi.mock("tesseract.js", () => ({ createWorker: vi.fn() }));
 import {
   detectAndSanitizePrompt,
   detectIntent,
@@ -40,6 +41,8 @@ import { METRIC_CATALOG } from "../lib/data/reports-repository";
 import {
   SMART_REPORT_DOMAINS,
   buildSmartReportAnalysis,
+  buildSystemPromptForLLM,
+  containsEmployeeSensitiveContent,
   generateSmartAssistantResponse,
 } from "../lib/data/ai-repository";
 import { searchCountryLaborRegulations, COUNTRY_LABOR_REGULATIONS, LATEST_HR_NEWS_2026 } from "../lib/ai/labor-news-and-country-regulations";
@@ -144,13 +147,12 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
   });
 
   describe("4. RAG Knowledge Base & Verifiable Citations", () => {
-    it("returns relevant section and verifiable document citation for annual leave policy", () => {
+    it("does not present unverified demo policy fixtures as current authoritative guidance", () => {
       const result = searchKnowledgeBase("استحقاق الإجازة السنوية", "employee");
-      expect(result.hasSufficientContext).toBe(true);
-      expect(result.citations.length).toBeGreaterThan(0);
-      expect(result.citations[0].documentTitle).toBe("سياسة الإجازات الرسمية والعطلات");
-      expect(result.citations[0].version).toBe("3.2");
-      expect(result.answer).toContain("القسم 4.2");
+      expect(result.hasSufficientContext).toBe(false);
+      expect(result.citations).toHaveLength(0);
+      expect(result.answer).toContain("تجريبية");
+      expect(result.answer).toContain("غير موثقة");
     });
 
     it("blocks general employees from retrieving HR-restricted policies", () => {
@@ -158,8 +160,8 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       expect(employeeResult.hasSufficientContext).toBe(false);
 
       const hrResult = searchKnowledgeBase("التحقيق الإداري والمخالفات التأديبية", "hr_manager");
-      expect(hrResult.hasSufficientContext).toBe(true);
-      expect(hrResult.citations[0].documentTitle).toBe("دليل التحقيق والمخالفات التأديبية");
+      expect(hrResult.hasSufficientContext).toBe(false);
+      expect(hrResult.citations).toHaveLength(0);
     });
   });
 
@@ -177,6 +179,25 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       expect(detectIntent("الشهادات المهنية التي تنتهي قريباً")).toBe("learning_certificates");
       expect(detectIntent("الوظائف الحرجة بدون خطة تعاقب")).toBe("succession_risks");
       expect(detectIntent("ما هي لائحة تنظيم العمل وفترة التجربة؟")).toBe("policy_rag");
+    });
+
+    it("requires a verified source before answering legal questions or calculations", () => {
+      const response = generateSmartAssistantResponse(
+        "احسب مكافأة نهاية الخدمة بعد 6 سنوات في السعودية",
+        {} as any,
+        "hr_manager",
+      );
+      expect(response.intent).toBe("verification_required");
+      expect(response.responseText).toContain("موثق");
+      expect(response.responseText).not.toContain("المبلغ الصافي");
+    });
+
+    it("describes actual assistant boundaries without claiming real-time legal updates or automatic approval", () => {
+      const response = generateSmartAssistantResponse("صباح الخير", {} as any, "employee");
+      expect(response.responseText).toContain("المعلومات القانونية والمحتوى المتغير");
+      expect(response.responseText).not.toContain("تحديثات 2026 لحظية");
+      expect(response.responseText).not.toContain("اعتماده فوراً");
+      expect(response.responseText).not.toContain("الخصائص الخارقة");
     });
   });
 
@@ -572,7 +593,7 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       for (const domain of SMART_REPORT_DOMAINS) {
         const analysis = buildSmartReportAnalysis(domain.id, mockApp);
         expect(analysis.domainId).toBe(domain.id);
-        expect(analysis.healthScorePct).toBeGreaterThan(0);
+        if (analysis.healthScorePct !== null) expect(analysis.healthScorePct).toBeGreaterThan(0);
         expect(analysis.kpis.length).toBe(4);
         expect(analysis.breakdownRows.length).toBeGreaterThan(0);
         expect(analysis.recommendations.length).toBeGreaterThan(0);
@@ -582,6 +603,118 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       expect(empRes.intent).toBe("employee_search");
       expect(empRes.responseText).toContain("فهد العتيبي");
       expect(empRes.responseText).toContain("EMP-1001");
+    });
+
+    it("marks attendance and leave metrics unavailable when live records are missing or incomplete", () => {
+      const noRecords = { employees: [], attendanceRecords: [], leaveBalances: [] } as any;
+      const attendance = buildSmartReportAnalysis("attendance_shifts", noRecords);
+      expect(attendance.healthScorePct).toBeNull();
+      expect(attendance.kpis[0].value).toBe("غير متاح");
+      expect(attendance.kpis[0].subtext).toContain("لا توجد سجلات حضور");
+      expect(attendance.executiveSummary).toContain("غير متاح لعدم وجود سجلات حضور");
+      expect(attendance.executiveSummary).not.toContain("94.8%");
+
+      const liveAttendanceAnswer = generateSmartAssistantResponse(
+        "مين متأخر النهاردة؟",
+        { employees: [], attendanceRecords: [] } as any,
+        "hr_manager"
+      );
+      expect(liveAttendanceAnswer.responseText).toContain("غير متاح");
+      expect(liveAttendanceAnswer.responseText).toContain("لا توجد سجلات حضور متاحة");
+      expect(liveAttendanceAnswer.responseText).not.toContain("96%");
+
+      const leaveWithoutRecords = buildSmartReportAnalysis("leaves_workflow", noRecords);
+      expect(leaveWithoutRecords.kpis[0].value).toBe("غير متاح");
+      expect(leaveWithoutRecords.kpis[1].value).toBe("غير متاح");
+      expect(leaveWithoutRecords.executiveSummary).toContain("الاستحقاق السنوي غير متاح");
+      expect(leaveWithoutRecords.executiveSummary).not.toContain("42%");
+
+      const incompleteLeave = buildSmartReportAnalysis("leaves_workflow", {
+        ...noRecords,
+        leaveBalances: [{ employeeId: "emp-1", usedDays: 3, remainingDays: 8 }],
+      } as any);
+      expect(incompleteLeave.kpis[0].value).toBe("8 يوم");
+      expect(incompleteLeave.kpis[1].value).toBe("غير متاح");
+    });
+
+    it("does not invent leave entitlement or work schedule in employee profile answers", () => {
+      const employee = {
+        id: "emp-grounding-1",
+        employeeNo: "EMP-GROUND-1",
+        firstNameAr: "ليلى",
+        lastNameAr: "الاختبار",
+        status: "active",
+        hireDate: "2024-01-01",
+        nationality: "سعودية",
+        jobTitleAr: "محللة",
+      };
+      const result = generateSmartAssistantResponse(
+        "اعرض ملف ليلى الاختبار",
+        { currentUser: { id: "hr-1" }, employees: [employee], orgUnits: [], leaveBalances: [] } as any,
+        "hr_manager"
+      );
+
+      expect(result.responseText).toContain("غير مسجلة");
+      expect(result.responseText).toContain("لا يوجد رصيد مسجل");
+      expect(result.responseText).toContain("مستهلك: غير متاح من غير متاح");
+      expect(result.responseText).not.toContain("أيام (راحة أسبوعية: 2 يوم)");
+      expect(result.responseText).not.toContain("رصيد الإجازات السنوية المتبقي: 21 يوم");
+    });
+  });
+
+  describe("10.1 AI Employee Privacy & External Context Boundary", () => {
+    const employee = {
+      id: "emp-privacy-1",
+      employeeNo: "EMP-PRIV-001",
+      firstNameAr: "سارة",
+      lastNameAr: "الخصوصية",
+      firstNameEn: "Sara",
+      lastNameEn: "Privacy",
+      email: "sara.privacy@example.test",
+      nationalIdOrIqama: "1029384756",
+      iban: "SA0380000000608010167519",
+      managerId: "mgr-1",
+      status: "active" as const,
+      nationality: "سعودية",
+      hireDate: "2024-01-01",
+      jobTitleAr: "محللة",
+      basicSalary: 12000,
+      housingAllowance: 3000,
+      transportAllowance: 500,
+      otherAllowances: 0,
+    };
+
+    it("detects employee identifiers and direct PII before external provider calls", () => {
+      expect(containsEmployeeSensitiveContent("ما وضع EMP-PRIV-001؟", [employee as any])).toBe(true);
+      expect(containsEmployeeSensitiveContent("تواصل مع sara.privacy@example.test", [employee as any])).toBe(true);
+      expect(containsEmployeeSensitiveContent("كيف أكتب خطابًا رسميًا؟", [employee as any])).toBe(false);
+    });
+
+    it("does not put live personnel, bank, or payroll data into the external system prompt", () => {
+      const prompt = buildSystemPromptForLLM({ employees: [employee as any] });
+      expect(prompt).not.toContain(employee.firstNameAr);
+      expect(prompt).not.toContain(employee.iban);
+      expect(prompt).not.toContain("15000");
+    });
+
+    it("blocks employee cross-profile lookup and hides bank data from HR role", () => {
+      const app = {
+        currentUser: { id: "emp-other" },
+        employees: [employee],
+        orgUnits: [],
+        leaveBalances: [],
+        attendanceRecords: [],
+      } as any;
+      const employeeResult = generateSmartAssistantResponse("اعرض ملف سارة الخصوصية", app, "employee");
+      expect(employeeResult.responseText).toContain("لا تملك صلاحية");
+      const payrollResult = generateSmartAssistantResponse("اعرض إجمالي الرواتب", app, "employee");
+      expect(payrollResult.responseText).toContain("ليس لديك صلاحية");
+      const attendanceResult = generateSmartAssistantResponse("مين متأخر النهاردة؟", app, "employee");
+      expect(attendanceResult.responseText).toContain("لا تملك صلاحية");
+
+      const hrResult = generateSmartAssistantResponse("اعرض ملف سارة الخصوصية", app, "hr_manager");
+      expect(hrResult.responseText).not.toContain(employee.iban);
+      expect(hrResult.responseText).toContain("البيانات البنكية مخفية");
     });
   });
 
@@ -593,30 +726,29 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       // Saudi Arabia
       const saAnswer = searchCountryLaborRegulations("ما هي ساعات العمل في السعودية ونظام قوى؟");
       expect(saAnswer).not.toBeNull();
-      expect(saAnswer).toContain("المملكة العربية السعودية");
-      expect(saAnswer).toContain("8 ساعات");
+      expect(saAnswer).toContain("لا أستطيع تأكيد إجابة قانونية");
+      expect(saAnswer).not.toContain("8 ساعات");
 
       // Egypt
       const egAnswer = searchCountryLaborRegulations("ما هو الحد الأدنى للأجور وقانون العمل في مصر؟");
       expect(egAnswer).not.toBeNull();
-      expect(egAnswer).toContain("جمهورية مصر العربية");
+      expect(egAnswer).toContain("لا أستطيع تأكيد إجابة قانونية");
 
       // UAE
       const uaeAnswer = searchCountryLaborRegulations("ما هي تفاصيل قانون العمل في الإمارات وبرنامج نافس؟");
       expect(uaeAnswer).not.toBeNull();
-      expect(uaeAnswer).toContain("دولة الإمارات العربية المتحدة");
-      expect(uaeAnswer).toContain("33 لسنة 2021");
+      expect(uaeAnswer).toContain("لا أستطيع تأكيد إجابة قانونية");
 
       // Oman
       const omAnswer = searchCountryLaborRegulations("كم ساعات العمل في سلطنة عمان؟");
       expect(omAnswer).not.toBeNull();
-      expect(omAnswer).toContain("سلطنة عمان");
-      expect(omAnswer).toContain("40 ساعة");
+      expect(omAnswer).toContain("لا أستطيع تأكيد إجابة قانونية");
 
       // 2026 HR News
       const newsAnswer = searchCountryLaborRegulations("ما هي أحدث أخبار الموارد البشرية لعام 2026؟");
       expect(newsAnswer).not.toBeNull();
-      expect(newsAnswer).toContain("2026");
+      expect(newsAnswer).toContain("لا أستطيع تأكيد أحدث أخبار");
+      expect(newsAnswer).not.toContain("إلزامية توثيق 100%");
     });
 
     it("extracts structured employee data from natural text and voice transcriptions", () => {

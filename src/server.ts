@@ -137,13 +137,9 @@ export default {
       await processQueuedBackgroundJobs(supabaseAdmin, { batchSize: 20 });
       await executeAutomatedDailyAttendanceRollup(supabaseAdmin);
 
-      const now = new Date(event?.scheduledTime || Date.now());
-      if (now.getUTCDate() === 1) {
-        await executeAutomatedMonthlyLeaveAccrual(supabaseAdmin, {
-          year: now.getUTCFullYear(),
-          month: now.getUTCMonth() + 1,
-        });
-      }
+      // Run the idempotent current-period RPC on every daily tick. This catches up
+      // periods missed during an outage; leave_accrual_runs prevents double credits.
+      await executeAutomatedMonthlyLeaveAccrual(supabaseAdmin);
     } catch (cronErr) {
       console.error("[CloudflareScheduled] Cron handler error:", cronErr);
     }

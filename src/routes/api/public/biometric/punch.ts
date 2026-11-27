@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { recomputeDay } from "@/lib/business/attendance.functions";
 import {
   createBiometricPunchIdempotencyKey,
   recomputeBiometricAttendanceDay,
@@ -12,8 +11,8 @@ import {
  *   { device_id, token, employee_no, punch_type: "in" | "out", punch_time? }
  *
  * The token is verified against the registered device row before anything is
- * written, then the punch is stored and the employee's attendance day for that
- * date is rebuilt so payroll picks the change up immediately.
+ * written, then the punch is stored and the company-local attendance day is
+ * rebuilt under a database transaction lock.
  */
 export const Route = createFileRoute("/api/public/biometric/punch")({
   server: {
@@ -106,9 +105,11 @@ export const Route = createFileRoute("/api/public/biometric/punch")({
           const status = duplicate.approval_status;
           if (
             status === "approved" &&
-            !(await recomputeBiometricAttendanceDay(() =>
-              recomputeDay(supabaseAdmin as any, employee.id, punchTime.slice(0, 10)),
-            ))
+            !(await recomputeBiometricAttendanceDay(supabaseAdmin as any, {
+              employeeId: employee.id,
+              punchTime,
+              punchType,
+            }))
           ) {
             return json({ error: "punch recorded; attendance recalculation will retry", retryable: true }, 503);
           }
@@ -141,9 +142,11 @@ export const Route = createFileRoute("/api/public/biometric/punch")({
             if (concurrentDuplicate) {
               if (
                 concurrentDuplicate.approval_status === "approved" &&
-                !(await recomputeBiometricAttendanceDay(() =>
-                  recomputeDay(supabaseAdmin as any, employee.id, punchTime.slice(0, 10)),
-                ))
+                !(await recomputeBiometricAttendanceDay(supabaseAdmin as any, {
+                  employeeId: employee.id,
+                  punchTime,
+                  punchType,
+                }))
               ) {
                 return json({ error: "punch recorded; attendance recalculation will retry", retryable: true }, 503);
               }
@@ -163,9 +166,11 @@ export const Route = createFileRoute("/api/public/biometric/punch")({
 
         if (insertedPunch.approval_status === "approved") {
           if (
-            !(await recomputeBiometricAttendanceDay(() =>
-              recomputeDay(supabaseAdmin as any, employee.id, punchTime.slice(0, 10)),
-            ))
+            !(await recomputeBiometricAttendanceDay(supabaseAdmin as any, {
+              employeeId: employee.id,
+              punchTime,
+              punchType,
+            }))
           ) {
             // The event is durable. Returning retryable 503 is safe because a
             // device retry will reach the duplicate branch and rebuild the day.

@@ -1,3 +1,5 @@
+import { getLegalVerificationBoundary, isHighStakesLegalQuery, searchKnowledgeBase } from "./retrieval";
+
 /**
  * MadarX Enterprise AI: Multi-Country Labor Law, Labor Office Regulations & HR News Engine
  * Covers all 7 countries supported by the platform:
@@ -64,7 +66,6 @@ export interface CountryLaborRegulation {
   };
   latest2026Updates: string[];
 }
-
 export const COUNTRY_LABOR_REGULATIONS: Record<
   "SA" | "EG" | "AE" | "QA" | "KW" | "BH" | "OM",
   CountryLaborRegulation
@@ -541,6 +542,9 @@ export const LATEST_HR_NEWS_2026: HRNewsBulletin[] = [
  */
 export function searchCountryLaborRegulations(query: string): string | null {
   const q = query.trim().toLowerCase();
+  if (isHighStakesLegalQuery(query) && !searchKnowledgeBase(query, "super_admin").hasSufficientContext) {
+    return getLegalVerificationBoundary();
+  }
   const sourceNotice = (country: CountryLaborRegulation) => `\n\n⚠️ **حالة المصدر والحداثة:** هذه بيانات مرجعية ثابتة داخل النظام وليست اتصالاً مباشراً. السنة المسجلة في قاعدة المعرفة هي ${country.lastUpdated}، لكن لا يتوفر تاريخ تحقق محدد أو توثيق للمادة داخل النظام. راجع الجهة الرسمية قبل اتخاذ إجراء: ${country.officialPortal}.`;
 
   // 1. Check for News / Trends inquiries

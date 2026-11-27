@@ -147,13 +147,12 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
   });
 
   describe("4. RAG Knowledge Base & Verifiable Citations", () => {
-    it("returns relevant section and verifiable document citation for annual leave policy", () => {
+    it("does not present unverified demo policy fixtures as current authoritative guidance", () => {
       const result = searchKnowledgeBase("استحقاق الإجازة السنوية", "employee");
-      expect(result.hasSufficientContext).toBe(true);
-      expect(result.citations.length).toBeGreaterThan(0);
-      expect(result.citations[0].documentTitle).toBe("سياسة الإجازات الرسمية والعطلات");
-      expect(result.citations[0].version).toBe("3.2");
-      expect(result.answer).toContain("القسم 4.2");
+      expect(result.hasSufficientContext).toBe(false);
+      expect(result.citations).toHaveLength(0);
+      expect(result.answer).toContain("تجريبية");
+      expect(result.answer).toContain("غير موثقة");
     });
 
     it("blocks general employees from retrieving HR-restricted policies", () => {
@@ -161,8 +160,8 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       expect(employeeResult.hasSufficientContext).toBe(false);
 
       const hrResult = searchKnowledgeBase("التحقيق الإداري والمخالفات التأديبية", "hr_manager");
-      expect(hrResult.hasSufficientContext).toBe(true);
-      expect(hrResult.citations[0].documentTitle).toBe("دليل التحقيق والمخالفات التأديبية");
+      expect(hrResult.hasSufficientContext).toBe(false);
+      expect(hrResult.citations).toHaveLength(0);
     });
   });
 
@@ -180,6 +179,25 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       expect(detectIntent("الشهادات المهنية التي تنتهي قريباً")).toBe("learning_certificates");
       expect(detectIntent("الوظائف الحرجة بدون خطة تعاقب")).toBe("succession_risks");
       expect(detectIntent("ما هي لائحة تنظيم العمل وفترة التجربة؟")).toBe("policy_rag");
+    });
+
+    it("requires a verified source before answering legal questions or calculations", () => {
+      const response = generateSmartAssistantResponse(
+        "احسب مكافأة نهاية الخدمة بعد 6 سنوات في السعودية",
+        {} as any,
+        "hr_manager",
+      );
+      expect(response.intent).toBe("verification_required");
+      expect(response.responseText).toContain("موثق");
+      expect(response.responseText).not.toContain("المبلغ الصافي");
+    });
+
+    it("describes actual assistant boundaries without claiming real-time legal updates or automatic approval", () => {
+      const response = generateSmartAssistantResponse("صباح الخير", {} as any, "employee");
+      expect(response.responseText).toContain("المعلومات القانونية والمحتوى المتغير");
+      expect(response.responseText).not.toContain("تحديثات 2026 لحظية");
+      expect(response.responseText).not.toContain("اعتماده فوراً");
+      expect(response.responseText).not.toContain("الخصائص الخارقة");
     });
   });
 
@@ -708,25 +726,23 @@ describe("Prompt 35: Enterprise AI Copilot & Hardening Engine", () => {
       // Saudi Arabia
       const saAnswer = searchCountryLaborRegulations("ما هي ساعات العمل في السعودية ونظام قوى؟");
       expect(saAnswer).not.toBeNull();
-      expect(saAnswer).toContain("المملكة العربية السعودية");
-      expect(saAnswer).toContain("8 ساعات");
+      expect(saAnswer).toContain("لا أستطيع تأكيد إجابة قانونية");
+      expect(saAnswer).not.toContain("8 ساعات");
 
       // Egypt
       const egAnswer = searchCountryLaborRegulations("ما هو الحد الأدنى للأجور وقانون العمل في مصر؟");
       expect(egAnswer).not.toBeNull();
-      expect(egAnswer).toContain("جمهورية مصر العربية");
+      expect(egAnswer).toContain("لا أستطيع تأكيد إجابة قانونية");
 
       // UAE
       const uaeAnswer = searchCountryLaborRegulations("ما هي تفاصيل قانون العمل في الإمارات وبرنامج نافس؟");
       expect(uaeAnswer).not.toBeNull();
-      expect(uaeAnswer).toContain("دولة الإمارات العربية المتحدة");
-      expect(uaeAnswer).toContain("33 لسنة 2021");
+      expect(uaeAnswer).toContain("لا أستطيع تأكيد إجابة قانونية");
 
       // Oman
       const omAnswer = searchCountryLaborRegulations("كم ساعات العمل في سلطنة عمان؟");
       expect(omAnswer).not.toBeNull();
-      expect(omAnswer).toContain("سلطنة عمان");
-      expect(omAnswer).toContain("40 ساعة");
+      expect(omAnswer).toContain("لا أستطيع تأكيد إجابة قانونية");
 
       // 2026 HR News
       const newsAnswer = searchCountryLaborRegulations("ما هي أحدث أخبار الموارد البشرية لعام 2026؟");
